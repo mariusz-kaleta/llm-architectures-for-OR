@@ -1,0 +1,279 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- **Goal:** Minimise total baking time (in minutes) required to produce large and medium pizzas.
+- Objective structure: total baking time = (baking time per large) × (number of large) + (baking time per medium) × (number of medium).
+
+2. **Suggested model type**
+
+- **Model:** Linear Programming (LP).
+- Reason: Objective (time) is linear in the decision variables; all constraints (dough, toppings, minimum quantities, ratio between pizza types) are linear inequalities.
+
+3. **Main decision variables**
+
+Define two primary decision variables:
+
+- \( x_L \): Number of large pizzas to make.
+- \( x_M \): Number of medium pizzas to make.
+
+Both should be:
+- Non-negative.
+- In principle, integer; however, start by modelling as continuous LP and note that the optimal solution should naturally be integer or can later be rounded/checked.
+
+4. **Key constraints to consider**
+
+Translate the story into linear inequalities:
+
+a) **Resource usage – dough**
+
+- Large pizza uses 12 units of dough.
+- Medium pizza uses 8 units of dough.
+- The restaurant must use **at least** 10,000 units of dough.
+- Constraint form: total dough used by large and medium pizzas must be ≥ 10,000.
+
+b) **Resource usage – toppings**
+
+- Large pizza uses 5 units of toppings.
+- Medium pizza uses 4 units of toppings.
+- The restaurant must use **at least** 4,400 units of toppings.
+- Constraint form: total toppings used by large and medium pizzas must be ≥ 4,400.
+
+c) **Minimum production of medium pizzas**
+
+- At least 200 medium pizzas must be made.
+- Constraint form: \( x_M \) ≥ 200.
+
+d) **Relationship between large and medium pizzas**
+
+- “At least two times as many large pizzas should be made than medium pizzas.”
+- Constraint form: number of large pizzas ≥ 2 × number of medium pizzas, i.e., \( x_L \) ≥ 2 \( x_M \).
+
+e) **Non-negativity and integrality**
+
+- \( x_L \) ≥ 0, \( x_M \) ≥ 0.
+- Optionally: \( x_L, x_M \) integer (depending on modelling environment; the problem is naturally integer but may not need an integer solver if solution is integral).
+
+5. **Objective function structure**
+
+- Baking times:
+  - Large: 12 minutes each.
+  - Medium: 8 minutes each.
+- Objective: minimise \( 12 x_L + 8 x_M \).
+
+6. **Modelling strategy**
+
+- Set up a 2-variable LP with:
+  - Objective: minimise total baking time as above.
+  - Constraints: dough, toppings, minimum medium pizzas, ratio of large to medium, non-negativity.
+- Solve graphically (since it is 2D) or via a solver.
+- Verify:
+  - All constraints are satisfied.
+  - Time is minimised at a feasible corner point.
+- If needed, enforce integrality on \( x_L, x_M \) and check that the integer-feasible solution equals or is very close to the LP optimum.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model of the pizza problem, plus suggestions for how to implement and solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_L \ge 0\): number of large pizzas to make  
+- \(x_M \ge 0\): number of medium pizzas to make  
+
+In a fully realistic model these should be integers, but the structure is linear, so we first treat them as continuous (LP). An integer version is a Mixed-Integer Linear Program (MILP).
+
+---
+
+## 2. Objective function
+
+We want to minimise the **total baking time**.
+
+- Each large pizza: 12 minutes  
+- Each medium pizza: 8 minutes  
+
+Objective:
+\[
+\min \; Z = 12 x_L + 8 x_M
+\]
+
+---
+
+## 3. Constraints
+
+### a) Dough usage
+
+- Large uses 12 units of dough
+- Medium uses 8 units of dough
+- Must use **at least** 10,000 units of dough
+
+\[
+12 x_L + 8 x_M \;\ge\; 10{,}000
+\]
+
+### b) Toppings usage
+
+- Large uses 5 units of toppings
+- Medium uses 4 units of toppings
+- Must use **at least** 4,400 units of toppings
+
+\[
+5 x_L + 4 x_M \;\ge\; 4{,}400
+\]
+
+### c) Minimum medium pizzas
+
+- At least 200 medium pizzas
+
+\[
+x_M \;\ge\; 200
+\]
+
+### d) Relationship between large and medium pizzas
+
+- “At least two times as many large pizzas as medium pizzas”  
+  → large pizzas ≥ 2 × medium pizzas
+
+\[
+x_L \;\ge\; 2 x_M
+\]
+
+### e) Non-negativity (and optional integrality)
+
+\[
+x_L \;\ge\; 0,\quad x_M \;\ge\; 0
+\]
+
+Optionally (for an integer model):
+
+\[
+x_L, x_M \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete LP model
+
+\[
+\begin{aligned}
+\text{Minimise} \quad & Z = 12 x_L + 8 x_M \\[4pt]
+\text{subject to} \quad 
+& 12 x_L + 8 x_M \;\ge\; 10{,}000 \quad &\text{(dough)}\\
+& 5 x_L + 4 x_M \;\ge\; 4{,}400 \quad &\text{(toppings)}\\
+& x_M \;\ge\; 200 \quad &\text{(minimum medium)}\\
+& x_L \;\ge\; 2 x_M \quad &\text{(large ≥ 2 × medium)}\\
+& x_L \;\ge\; 0,\; x_M \;\ge\; 0 \quad &\text{(non-negativity)}
+\end{aligned}
+\]
+
+For an MILP version, add \(x_L, x_M \in \mathbb{Z}\).
+
+---
+
+## 5. Suitable Python libraries
+
+To solve this optimisation problem in Python, appropriate libraries include:
+
+- **PuLP**  
+  - Very user-friendly for LP/MILP.  
+  - Can use CBC (bundled), GLPK, or commercial solvers (CPLEX, Gurobi).
+
+- **OR-Tools (Google)**  
+  - `ortools.linear_solver` for LP/MILP.  
+  - Good performance and clear modelling interface.
+
+- **SciPy (`scipy.optimize.linprog`)**  
+  - Good for **continuous** LP (no integrality).  
+  - If you need integer solutions, use PuLP or OR-Tools instead.
+
+---
+
+## 6. Minimal example in PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Pizza_Baking_Time_Min", pl.LpMinimize)
+
+# Decision variables (continuous; use cat="Integer" for MILP)
+x_L = pl.LpVariable("x_L", lowBound=0)
+x_M = pl.LpVariable("x_M", lowBound=0)
+
+# Objective function
+prob += 12 * x_L + 8 * x_M, "Total_Baking_Time"
+
+# Constraints
+prob += 12 * x_L + 8 * x_M >= 10000, "Dough"
+prob += 5 * x_L + 4 * x_M >= 4400, "Toppings"
+prob += x_M >= 200, "Min_Medium"
+prob += x_L >= 2 * x_M, "Large_at_least_2x_Medium"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Large pizzas (x_L):", x_L.value())
+print("Medium pizzas (x_M):", x_M.value())
+print("Min total baking time:", pl.value(prob.objective))
+```
+
+You can switch to an integer model by declaring:
+
+```python
+x_L = pl.LpVariable("x_L", lowBound=0, cat="Integer")
+x_M = pl.LpVariable("x_M", lowBound=0, cat="Integer")
+```
+
+---
+
+This formulation directly corresponds to your textual description and can be solved efficiently with standard LP/MILP solvers.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem (continuous LP; switch to Integer below for MILP)
+    prob = pl.LpProblem("Pizza_Baking_Time_Min", pl.LpMinimize)
+
+    # Decision variables: number of large and medium pizzas
+    # To make it MILP instead of LP, change cat to "Integer"
+    x_L = pl.LpVariable("x_L", lowBound=0)  # Large pizzas
+    x_M = pl.LpVariable("x_M", lowBound=0)  # Medium pizzas
+
+    # Objective function: minimise total baking time
+    prob += 12 * x_L + 8 * x_M, "Total_Baking_Time"
+
+    # Constraints
+    # Dough usage: 12 x_L + 8 x_M >= 10000
+    prob += 12 * x_L + 8 * x_M >= 10000, "Dough"
+
+    # Toppings usage: 5 x_L + 4 x_M >= 4400
+    prob += 5 * x_L + 4 * x_M >= 4400, "Toppings"
+
+    # At least 200 medium pizzas: x_M >= 200
+    prob += x_M >= 200, "Min_Medium"
+
+    # At least twice as many large as medium: x_L >= 2 x_M
+    prob += x_L >= 2 * x_M, "Large_at_least_2x_Medium"
+
+    # Solve the model using CBC (default bundled solver)
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    obj_value = pl.value(prob.objective)
+
+    # Optional: you could inspect variable values here if desired
+    # x_L_val = x_L.value()
+    # x_M_val = x_M.value()
+
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

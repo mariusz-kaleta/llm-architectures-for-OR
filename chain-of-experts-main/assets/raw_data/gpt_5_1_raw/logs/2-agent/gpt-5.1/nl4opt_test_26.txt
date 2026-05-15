@@ -1,0 +1,187 @@
+[MODELER]:
+**1. Decision variables**
+
+Let  
+- \(x\): number of math workbooks produced (and sold)  
+- \(y\): number of English workbooks produced (and sold)  
+
+Both are nonnegative and, in reality, integers, but we can model them as continuous for a standard linear program:
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+**2. Objective function**
+
+Profit per unit:  
+- Math: \$15 per workbook  
+- English: \$17 per workbook  
+
+Total profit to maximize:
+
+\[
+\max\; Z = 15x + 17y
+\]
+
+---
+
+**3. Constraints**
+
+1. **Demand lower bounds**  
+   At least 40 math workbooks:
+   \[
+   x \ge 40
+   \]  
+   At least 60 English workbooks:
+   \[
+   y \ge 60
+   \]
+
+2. **Capacity upper bounds**  
+   At most 140 math workbooks:
+   \[
+   x \le 140
+   \]  
+   At most 170 English workbooks:
+   \[
+   y \le 170
+   \]
+
+3. **Contract with the school**  
+   At least 200 workbooks total:
+   \[
+   x + y \ge 200
+   \]
+
+4. **Nonnegativity**
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+   (already implied by the above, but standard to state)
+
+---
+
+**4. Solving the model logically**
+
+Profit per English workbook (\$17) is higher than profit per math workbook (\$15), and there is no additional limiting resource except the individual upper bounds and the total-minimum requirement. Therefore, to maximize profit, we should:
+
+- Satisfy the **minimum** required for math workbooks (40).
+- Use the remaining production to make as many English workbooks as possible, respecting both:
+  - the minimum of 60 English workbooks, and  
+  - the maximum of 170 English workbooks.
+
+Check feasibility with extremes:
+
+- If we produce the **minimum math** and **maximum English**:
+  \[
+  x = 40,\quad y = 170
+  \]
+  Then:
+  \[
+  x + y = 40 + 170 = 210 \ge 200
+  \]
+  All constraints are satisfied:
+  - \(40 \ge 40\), \(40 \le 140\)
+  - \(170 \ge 60\), \(170 \le 170\)
+
+This gives profit:
+\[
+Z = 15(40) + 17(170) = 600 + 2890 = 3490
+\]
+
+Any shift from English to math (while total remains similar) reduces profit, because English has higher profit per unit. So:
+
+**Optimal solution:**
+\[
+x^* = 40 \text{ math workbooks},\quad y^* = 170 \text{ English workbooks}
+\]
+with maximum profit
+\[
+Z^* = \$3{,}490.
+\]
+
+---
+
+**5. Suggested Python libraries and model sketch**
+
+This is a simple linear program (LP). Suitable Python libraries include:
+
+- **PuLP** (`pulp`) – very straightforward modeling syntax.
+- **SciPy** (`scipy.optimize.linprog`) – good for basic LPs.
+- **OR-Tools** (`ortools.linear_solver`) – efficient and well-supported for LP/MIP.
+
+Example model with **PuLP**:
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Workbook_Production", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('math', lowBound=0)    # math workbooks
+y = pl.LpVariable('english', lowBound=0) # english workbooks
+
+# Objective
+prob += 15 * x + 17 * y
+
+# Constraints
+prob += x >= 40        # minimum math
+prob += y >= 60        # minimum english
+prob += x <= 140       # maximum math
+prob += y <= 170       # maximum english
+prob += x + y >= 200   # contract total
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal math:", x.value())
+print("Optimal english:", y.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This code will produce the optimal numbers \(x^* = 40\), \(y^* = 170\), and the maximum profit.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("Workbook_Production", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('math', lowBound=0)    # math workbooks
+    y = pl.LpVariable('english', lowBound=0) # english workbooks
+
+    # Objective function: maximize profit
+    prob += 15 * x + 17 * y
+
+    # Constraints
+    prob += x >= 40        # minimum math
+    prob += y >= 60        # minimum english
+    prob += x <= 140       # maximum math
+    prob += y <= 170       # maximum english
+    prob += x + y >= 200   # contract total
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print results (optional intermediate output)
+    print("Status:", pl.LpStatus[prob.status])
+    print("Optimal math (x):", x.value())
+    print("Optimal english (y):", y.value())
+    print("Max profit:", final_obj)
+
+    # Required final line
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

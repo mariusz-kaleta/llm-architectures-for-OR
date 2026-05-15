@@ -1,0 +1,282 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Minimise total sodium intake from ramen and fries while meeting minimum nutritional needs and the ramen-percentage limit.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with two continuous decision variables (number of ramen and fries portions).  
+   - Justification: Objective and all constraints are linear in the number of portions.
+
+3. Main decision variables  
+   - Let:
+     - R = number of ramen packs eaten per day (continuous, R ≥ 0)  
+     - F = number of fries packs eaten per day (continuous, F ≥ 0)
+
+4. Parameters (for clarity)  
+   - Ramen:
+     - Calories per pack: 400  
+     - Protein per pack: 20 g  
+     - Sodium per pack: 100 mg  
+   - Fries:
+     - Calories per pack: 300  
+     - Protein per pack: 10 g  
+     - Sodium per pack: 75 mg  
+   - Nutritional requirements:
+     - Minimum calories: 3000  
+     - Minimum protein: 80 g  
+   - Ramen proportion constraint:
+     - At most 30% of total meals (R + F) can be ramen.
+
+5. Objective function structure  
+   - Total sodium = (100 mg)·R + (75 mg)·F  
+   - Objective: Minimise 100·R + 75·F
+
+6. Key constraints to include  
+
+   a) Calorie requirement  
+   - Total calories from ramen and fries must be at least 3000:  
+     - 400·R + 300·F ≥ 3000  
+
+   b) Protein requirement  
+   - Total protein from ramen and fries must be at least 80 g:  
+     - 20·R + 10·F ≥ 80  
+
+   c) Ramen proportion limit  
+   - At most 30% of meals are ramen:  
+     - R ≤ 0.3·(R + F)  
+     - This can be algebraically rearranged for the modeller into a standard linear form.
+
+   d) Non-negativity  
+   - R ≥ 0  
+   - F ≥ 0  
+
+7. Modelling and solution strategy hints for the Modeller  
+
+   - Reduce the ramen proportion constraint:
+     - Rearranging R ≤ 0.3(R + F) yields a linear inequality relating R and F; do that algebra step before coding the model.
+   - Since there are only two variables and all constraints are linear, the feasible region is a polygon in (R, F) space:
+     - Optimal solution will lie at a vertex (intersection of two or more binding constraints).
+   - Check which nutritional constraint is actually binding at the optimum:
+     - Protein is relatively “cheap” in both items compared to calories; the calorie constraint is likely to be more restrictive, but this should be verified numerically.
+   - After solving:
+     - Verify that:
+       - Calories ≥ 3000  
+       - Protein ≥ 80  
+       - R ≤ 0.3(R + F)  
+     - Evaluate minimal sodium = 100R + 75F.
+   - Optionally, if integer meals are required:
+     - Re-run as an integer linear program (ILP) with integer R and F, and compare with the LP solution.
+
+---
+
+[MODELER]:
+Here’s the optimisation model distilled from the problem and the planner’s notes.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(R \ge 0\): number of ramen packs eaten per day  
+- \(F \ge 0\): number of fries packs eaten per day  
+
+(If you later want “whole meals only”, you would additionally require \(R, F \in \mathbb{Z}\).)
+
+---
+
+## 2. Parameters
+
+Nutritional content per pack:
+
+- Ramen  
+  - Calories: \(c_R = 400\)  
+  - Protein: \(p_R = 20\) g  
+  - Sodium: \(s_R = 100\) mg  
+
+- Fries  
+  - Calories: \(c_F = 300\)  
+  - Protein: \(p_F = 10\) g  
+  - Sodium: \(s_F = 75\) mg  
+
+Requirements:
+
+- Minimum calories: \(C_{\min} = 3000\)  
+- Minimum protein: \(P_{\min} = 80\) g  
+
+Ramen proportion:
+
+- At most 30% of total meals: ramen fraction \(\le 0.3\)
+
+---
+
+## 3. Objective function
+
+Minimise total sodium intake:
+
+\[
+\min\ Z = s_R R + s_F F = 100R + 75F
+\]
+
+---
+
+## 4. Constraints
+
+### a) Calorie requirement
+
+Total calories must be at least 3000:
+
+\[
+c_R R + c_F F \;\ge\; C_{\min}
+\]
+
+\[
+400R + 300F \;\ge\; 3000
+\]
+
+---
+
+### b) Protein requirement
+
+Total protein must be at least 80 g:
+
+\[
+p_R R + p_F F \;\ge\; P_{\min}
+\]
+
+\[
+20R + 10F \;\ge\; 80
+\]
+
+---
+
+### c) Ramen proportion limit
+
+At most 30% of total meals (ramen + fries) are ramen:
+
+\[
+\frac{R}{R+F} \;\le\; 0.3 \quad\text{when } R+F>0
+\]
+
+Equivalently (linearised):
+
+\[
+R \;\le\; 0.3(R + F)
+\]
+
+\[
+R \;\le\; 0.3R + 0.3F
+\]
+
+\[
+R - 0.3R \;\le\; 0.3F
+\]
+
+\[
+0.7R \;\le\; 0.3F
+\]
+
+\[
+7R \;\le\; 3F
+\]
+
+So we can use the linear form:
+
+\[
+7R - 3F \;\le\; 0
+\]
+
+Note: if \(R = F = 0\), the constraint is trivially satisfied and other constraints (calories/protein) rule out that corner.
+
+---
+
+### d) Non-negativity
+
+\[
+R \ge 0, \quad F \ge 0
+\]
+
+If you want integer numbers of meals:
+
+\[
+R, F \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 5. Complete LP model
+
+\[
+\begin{aligned}
+\min\quad & 100R + 75F \\
+\text{s.t.}\quad
+& 400R + 300F \;\ge\; 3000 \quad\text{(calories)} \\
+& 20R + 10F \;\ge\; 80 \quad\;\;\;\;\ \text{(protein)} \\
+& 7R - 3F \;\le\; 0 \quad\quad\quad\quad\ \text{(ramen fraction)} \\
+& R \ge 0,\; F \ge 0
+\end{aligned}
+\]
+
+Optional ILP: add \(R,F \in \mathbb{Z}\).
+
+---
+
+## 6. Suitable Python libraries
+
+To implement and solve this model, suitable Python libraries include:
+
+- **PuLP**  
+  - Very straightforward for LP/ILP; good for teaching and prototyping.  
+  - Interfaces to CBC (default), GLPK, CPLEX, Gurobi, etc.
+
+- **OR-Tools (Google OR-Tools)**  
+  - `ortools.linear_solver.pywraplp` for LP/ILP.  
+  - Industrial-grade, flexible, and fast.
+
+- **Pyomo**  
+  - More general modelling framework; good for larger or more complex optimisation tasks.
+
+- **SciPy (`scipy.optimize.linprog`)**  
+  - Can solve the pure continuous LP version (no integers), but is less convenient for integer constraints.
+
+For this 2-variable linear problem:
+
+- Use **PuLP** or **OR-Tools** if you want a clean algebraic-style model.
+- Use **SciPy** if you only care about a quick continuous LP solution and don’t need integrality.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the LP problem: minimize total sodium
+    prob = pulp.LpProblem("RamenFriesDiet", pulp.LpMinimize)
+
+    # Decision variables (continuous, >= 0)
+    R = pulp.LpVariable('R', lowBound=0, cat='Continuous')  # Ramen packs per day
+    F = pulp.LpVariable('F', lowBound=0, cat='Continuous')  # Fries packs per day
+
+    # Objective function: Minimize 100R + 75F (total sodium)
+    prob += 100 * R + 75 * F
+
+    # Constraints
+
+    # Calorie requirement: 400R + 300F >= 3000
+    prob += 400 * R + 300 * F >= 3000, "CalorieRequirement"
+
+    # Protein requirement: 20R + 10F >= 80
+    prob += 20 * R + 10 * F >= 80, "ProteinRequirement"
+
+    # Ramen proportion limit: 7R - 3F <= 0
+    prob += 7 * R - 3 * F <= 0, "RamenProportionLimit"
+
+    # Solve the problem using default solver
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print the final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

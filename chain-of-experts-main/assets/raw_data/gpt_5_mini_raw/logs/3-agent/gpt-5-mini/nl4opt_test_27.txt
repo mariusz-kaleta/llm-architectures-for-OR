@@ -1,0 +1,152 @@
+[MODELER]:
+Below I (1) give a precise mathematical model, (2) show the model is infeasible under the literal 30% restriction, and (3) give a practical alternative (if the 30% aesthetic limit is dropped) with the optimal purchase and solver recommendations.
+
+1) Decision variables
+- L ∈ Z≥0 : number of low-power air conditioners.
+- H ∈ Z≥7 : number of high-power air conditioners (at least 7 required).
+
+Objective
+- Minimise total number of units: minimize N = L + H.
+
+Constraints (from the problem text)
+- Cooling requirement: 12 L + 17 H ≥ 250.    (each low cools 12 units, each high 17)
+- Electricity capacity: 150 L + 250 H ≤ 3400. (each low uses 150 units/day, each high 250)
+- Aesthetic limit (as stated): the number of low-power models must be at most 30% of the total:
+  L ≤ 0.30 (L + H)  (equivalently 0.7 L ≤ 0.3 H, or 3 H − 7 L ≥ 0)
+- Integrality and nonnegativity: L,H integers, L ≥ 0, H ≥ 7.
+
+2) Feasibility check (why the above is infeasible)
+Combine the 30% inequality into the form L ≤ (3/7) H ≈ 0.42857 H.
+If we substitute the maximal allowable L = (3/7) H into the cooling and electricity inequalities (continuous relaxation) we get:
+- Cooling implied: H ≥ 250 / (17 + 12*(3/7)) = 250 / (155/7) ≈ 11.2857
+- Electricity implied: H ≤ 3400 / (250 + 150*(3/7)) = 3400 / (2200/7) ≈ 10.8182
+
+Thus the continuous relaxation already demands H ≥ 11.2857 and H ≤ 10.8182 simultaneously, which is impossible. Therefore there is no integer solution either: the three constraints (cooling, electricity, and L ≤ 30% of total) are mutually inconsistent. Conclusion: with the literal reading “at most 30% of the purchased units can be low-power,” the problem has no feasible solution.
+
+(You can also scan integer H from 7..13 and verify no integer L satisfies all constraints; H cannot exceed 13 because 14 high-power already exceeds the electricity limit.)
+
+3) Practical alternatives / remedies
+- If the 30% aesthetic limit is binding as stated, the company must either increase electricity available or reduce the cooling requirement (or change the 30% limit) to become feasible.
+- If the 30% aesthetic limit was a misunderstanding and instead should be ignored, the integer optimisation is feasible. Solving the ILP without the aesthetic constraint gives:
+
+Minimise L+H
+subject to 12L + 17H ≥ 250,
+150L + 250H ≤ 3400,
+H ≥ 7,
+L,H integers ≥0.
+
+A simple check / small search gives the optimal feasible solution:
+- H = 7 (high-power units)
+- L = 11 (low-power units)
+Total units = 18.
+Check: cooling = 17*7 + 12*11 = 119 + 132 = 251 ≥ 250.
+Electricity = 250*7 + 150*11 = 1750 + 1650 = 3400 ≤ 3400.
+
+So if the aesthetic 30% limit is removed, the minimum number of air conditioners to meet constraints is 18 (7 high-power and 11 low-power). Note this solution violates the L ≤ 0.3(L+H) rule (11 is 61.1% of 18), which is why it was infeasible under the strict 30% rule.
+
+4) How restrictive is “30%”? (useful diagnostic)
+If the company wants to know the smallest allowed percentage of low-powered units that would make the problem feasible, you can derive the threshold s (fraction of total allowed to be low-power). Solving the continuous feasibility condition gives s_min ≈ 0.5879 (≈ 58.8%). In words: to satisfy cooling and electricity simultaneously the low-power share must be at least about 58.8% — so the “at most 30%” bound is too strict to allow any feasible solution.
+
+5) Solver recommendations and implementation hints
+This is an integer linear program (ILP). Suitable Python libraries:
+- pulp (easy-to-use for small ILPs),
+- OR-Tools (CP-SAT solver, robust and fast),
+- mip or gurobipy (if commercial Gurobi is available),
+- for continuous relaxations: scipy.optimize.linprog.
+
+Example approach (outline using pulp):
+- Define integer variables L and H,
+- Add the three constraints shown above,
+- Solve; check solver status (INFEASIBLE if unsatisfiable),
+- If infeasible, present diagnostics (which constraint set causes infeasibility).
+
+If you want I can:
+- provide a ready-to-run pulp or OR-Tools Python script that (a) tests the model with the 30% constraint and reports infeasibility, and (b) solves the model without that constraint to return the optimal (L,H) = (11,7).
+
+---
+
+[CODER]:
+import math
+
+# Parameters
+cool_L = 12     # cooling per low-power unit
+cool_H = 17     # cooling per high-power unit
+elec_L = 150    # electricity per low-power unit
+elec_H = 250    # electricity per high-power unit
+cool_req = 250  # required cooling
+elec_cap = 3400 # electricity capacity
+H_min = 7
+H_max = elec_cap // elec_H  # 3400//250 = 13
+
+# Helper to compute feasible L range for a given H
+def feasible_L_range(H):
+    # From cooling: 12L + 17H >= 250 => L >= ceil((250 - 17H)/12)
+    numerator = cool_req - cool_H * H
+    if numerator <= 0:
+        L_low = 0
+    else:
+        L_low = math.ceil(numerator / cool_L)
+    # From electricity: 150L + 250H <= 3400 => L <= floor((3400 - 250H)/150)
+    denom = elec_cap - elec_H * H
+    if denom < 0:
+        return None  # no feasible L because electricity already exceeded
+    L_high = math.floor(denom / elec_L)
+    if L_high < 0:
+        return None
+    if L_low > L_high:
+        return None
+    return L_low, L_high
+
+# 1) Check feasibility with 30% aesthetic constraint:
+# L <= 0.30 (L + H)  <=>  0.7 L <= 0.3 H  <=>  7 L <= 3 H  (integer-safe)
+feasible_with_30 = []
+for H in range(H_min, H_max + 1):
+    rng = feasible_L_range(H)
+    if rng is None:
+        continue
+    L_low, L_high = rng
+    for L in range(L_low, L_high + 1):
+        if 7 * L <= 3 * H:
+            feasible_with_30.append((L, H))
+
+# Print diagnostic about 30% constraint feasibility
+if len(feasible_with_30) == 0:
+    print("Model with strict 30% aesthetic constraint: INFEASIBLE (no integer (L,H) found).")
+else:
+    print("Feasible solutions with 30% constraint (L,H):")
+    for sol in feasible_with_30:
+        L, H = sol
+        N = L + H
+        cooling = cool_L * L + cool_H * H
+        electricity = elec_L * L + elec_H * H
+        print(f" L={L}, H={H}, N={N}, cooling={cooling}, electricity={electricity}")
+
+# 2) Solve the ILP without the 30% constraint by exhaustive search (small search space)
+feasible_no30 = []
+for H in range(H_min, H_max + 1):
+    rng = feasible_L_range(H)
+    if rng is None:
+        continue
+    L_low, L_high = rng
+    for L in range(L_low, L_high + 1):
+        # All other constraints already satisfied by range; add to list
+        cooling = cool_L * L + cool_H * H
+        electricity = elec_L * L + elec_H * H
+        if cooling >= cool_req and electricity <= elec_cap:
+            feasible_no30.append((L, H))
+
+if len(feasible_no30) == 0:
+    print("Model without 30% constraint: INFEASIBLE (unexpected).")
+    best_N = None
+else:
+    # Find minimal N = L + H
+    best_N = min(L + H for (L, H) in feasible_no30)
+    best_solutions = [(L, H) for (L, H) in feasible_no30 if L + H == best_N]
+    print("Optimal solutions without the 30% constraint (minimize N = L+H):")
+    for L, H in best_solutions:
+        cooling = cool_L * L + cool_H * H
+        electricity = elec_L * L + elec_H * H
+        print(f" L={L}, H={H}, N={L+H}, cooling={cooling}, electricity={electricity}")
+
+# Final required print (only this exact line at the very end)
+print(f"FINAL_OBJ: {best_N}")

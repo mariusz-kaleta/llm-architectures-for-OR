@@ -1,0 +1,85 @@
+[MODELER]:
+First I state an interpretation and then give a formal model, solution, and solver options.
+
+Assumption (interpretation)
+- "he must drink at least 3 times as many apple juice boxes and orange juice boxes" means the number of apple boxes A is at least three times the number of orange boxes O, i.e. A ≥ 3O.
+
+Decision variables
+- O = number of orange-juice boxes (integer, ≥ 0)
+- A = number of apple-juice boxes (integer, ≥ 0)
+
+Objective
+- Maximize total vitamin D intake: maximize D = 10 O + 12 A
+
+Constraints
+1. Vitamin C limit: 8 O + 6 A ≤ 300
+2. Preference: A ≥ 3 O
+3. Minimum oranges: O ≥ 3
+4. Integrality and nonnegativity: O, A ∈ Z≥0
+
+Mathematical formulation
+Maximize 10O + 12A
+subject to
+8O + 6A ≤ 300
+A − 3O ≥ 0
+O ≥ 3
+O, A ∈ Z≥0
+
+Solution (analysis)
+- Substitute A = 3O + t (t ≥ 0). From 8O + 6(3O + t) ≤ 300 → 26O + 6t ≤ 300, so t ≤ (300 − 26O)/6.
+- Feasible integer O are 3 ≤ O ≤ 11. For each O, choose t at its maximum integer value; objective increases with t.
+- Evaluating O = 3..11 yields the best value at O = 3, with t = 37 → A = 46.
+
+Optimal solution
+- Orange boxes O = 3
+- Apple boxes A = 46
+- Total vitamin D = 10·3 + 12·46 = 582 units
+- Vitamin C used = 8·3 + 6·46 = 300 units (at the upper limit)
+
+Solver recommendations
+- If you want an integer solution use an integer linear programming solver:
+  - Python: pulp (CBC), OR-Tools (CP-SAT or linear solver), or gurobi/cplex if available.
+- If integrality is not required, scipy.optimize.linprog can solve the continuous LP (but here boxes are naturally integer).
+
+Example (pulp) — outline
+- Define LpProblem, LpVariable O and A as LpInteger with lowBound=0, add constraints and objective, call solve(), then read O.value(), A.value().
+
+If you want, I can provide a short runnable pulp or OR-Tools Python snippet to solve this exact model.
+
+---
+
+[CODER]:
+#!/usr/bin/env python3
+# Brute-force integer search for the given ILP:
+# Maximize 10*O + 12*A
+# s.t. 8*O + 6*A <= 300, A >= 3*O, O >= 3, O,A integers >= 0
+
+best_obj = None
+best_solution = None
+
+# Upper bound for O: when A = 0, 8*O <= 300 -> O <= 300//8
+max_O = 300 // 8
+
+for O in range(3, max_O + 1):
+    # A must be at least 3*O and also satisfy 6*A <= 300 - 8*O
+    max_A = (300 - 8 * O) // 6
+    min_A = 3 * O
+    if min_A > max_A:
+        continue
+    # For objective 10*O + 12*A, it increases with A, so take A = max_A
+    A = max_A
+    # Ensure A meets the preference constraint (it should, as checked)
+    if A < min_A:
+        continue
+    obj = 10 * O + 12 * A
+    if (best_obj is None) or (obj > best_obj):
+        best_obj = obj
+        best_solution = (O, A)
+
+# Fallback if no feasible solution found (shouldn't happen here)
+if best_obj is None:
+    value = 0
+else:
+    value = best_obj
+
+print(f"FINAL_OBJ: {value}")

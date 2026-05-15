@@ -1,0 +1,131 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Minimise total pollution produced by the chosen trips.
+
+2) Suggested model type
+- Model: Integer Linear Programming (ILP) with two integer decision variables (or simple discrete enumeration since there are few possibilities).
+
+3) Main decision variables
+- L = number of large-ship trips (integer, ≥ 0).
+- S = number of small-ship trips (integer, ≥ 0).
+
+4) Key constraints to include (described conceptually)
+- Capacity constraint: The combined passenger capacity of the chosen large and small trips must be at least the target number of customers (20,000).
+- Large-trip upper bound: The number of large-ship trips cannot exceed 7.
+- Small-trip proportion requirement: At least 40% of all trips must be small-ship trips (i.e., the count of small trips must be at least 40% of the total trips).
+- Integrality and nonnegativity: L and S must be nonnegative integers (trips are discrete).
+- Objective function: total pollution equals pollution per large trip times L plus pollution per small trip times S (minimise this).
+
+5) Modelling/solution strategy for the Modeller
+- Because there are only two integer variables and L can only take 8 values (0..7), use simple enumeration over L:
+  - For each candidate L in 0..7, compute the smallest integer S that simultaneously satisfies (a) the capacity requirement and (b) the 40% small-trip proportion requirement. If no S satisfies both for that L, discard that L.
+  - For each feasible (L,S) pair compute total pollution and keep the pair with the lowest pollution.
+- Alternatively, formulate the problem as an ILP and solve with any integer-program solver (CBC, GLPK, Gurobi, etc.). The ILP will have a linear objective and linear constraints as described above.
+
+6) Implementation notes and checks
+- Capacity and proportion constraints may both drive S upwards; ensure S chosen for a given L meets both.
+- Because pollution per passenger is lower for large ships, expect an optimal solution to try to use as many large trips as allowed, but the 40%-small constraint and total-capacity requirement will determine the exact counts.
+- Report the final integer values of L and S, the total pollution value, and verify total transported customers ≥ 20,000 and the small-trip share ≥ 40%.
+
+Use the enumeration procedure above (fast and exact here) unless you prefer an ILP solver for reproducibility.
+
+---
+
+[MODELER]:
+Mathematical model
+
+Decision variables
+- L ∈ Z, L ≥ 0 : number of large-ship trips.
+- S ∈ Z, S ≥ 0 : number of small-ship trips.
+
+Given data
+- Capacity per large trip = 2000 customers.
+- Capacity per small trip = 800 customers.
+- Pollution per large trip = 20 units.
+- Pollution per small trip = 15 units.
+- At most 7 large trips: L ≤ 7.
+- At least 40% of total trips must be small: S ≥ 0.4 (L + S).
+
+Constraints (linear form)
+1) Capacity: 2000 L + 800 S ≥ 20000.
+2) Large-trip upper bound: 0 ≤ L ≤ 7.
+3) Small-trip proportion: S ≥ 0.4 (L + S)  ⇔  3S ≥ 2L  (equivalently S ≥ (2/3) L).
+4) Integrality: L, S ∈ Z≥0.
+
+Objective
+Minimise total pollution: Z = 20 L + 15 S.
+
+Solution approach (enumeration, exact and trivial here)
+Because L ∈ {0,1,...,7} (only 8 values), enumerate L and for each L take the smallest integer S satisfying both:
+- capacity lower bound: S ≥ ceil((20000 − 2000 L) / 800) (if RHS ≤ 0 use S ≥ 0),
+- proportion bound: S ≥ ceil((2/3) L).
+
+For each feasible (L,S) compute Z = 20 L + 15 S and choose the pair with smallest Z.
+
+Enumeration results (computed)
+- L=0 → S = 25 → Z = 375
+- L=1 → S = 23 → Z = 365
+- L=2 → S = 20 → Z = 340
+- L=3 → S = 18 → Z = 330
+- L=4 → S = 15 → Z = 305
+- L=5 → S = 13 → Z = 295
+- L=6 → S = 10 → Z = 270
+- L=7 → S = 8  → Z = 260  (minimum)
+
+Optimal solution
+- Use L = 7 large-ship trips and S = 8 small-ship trips.
+- Total capacity = 7·2000 + 8·800 = 20400 ≥ 20000.
+- Small-trip share = 8 / (7+8) = 8/15 ≈ 53.3% ≥ 40%.
+- Total pollution = 20·7 + 15·8 = 260 units (minimum).
+
+Alternative formulation
+This is a small integer linear program:
+minimise 20L + 15S
+subject to
+2000L + 800S ≥ 20000
+3S − 2L ≥ 0
+0 ≤ L ≤ 7, L,S integer, S ≥ 0.
+
+Suggested solvers / Python libraries
+- Simple enumeration: Python with math.ceil (no solver required).
+- ILP solvers: pulp (CBC), OR-Tools CP-SAT OR-Tools linear solver, mip (Python-MIP), or commercial Gurobi/CPLEX if available.
+- For small-scale exact solve you can also use scipy.optimize for continuous relaxation, but integer library (pulp/ortools) is recommended for integrality.
+
+If you want, I can provide a short Python snippet that does the enumeration or a pulp model version.
+
+---
+
+[CODER]:
+import math
+
+# Data
+cap_large = 2000
+cap_small = 800
+pollution_large = 20
+pollution_small = 15
+demand = 20000
+max_L = 7
+
+bestZ = None
+best_solution = None
+
+for L in range(0, max_L + 1):
+    # capacity requirement for S
+    remaining = demand - cap_large * L
+    if remaining <= 0:
+        s_cap = 0
+    else:
+        s_cap = math.ceil(remaining / cap_small)
+    # proportion requirement: S >= (2/3) L -> S >= ceil(2L/3)
+    s_prop = math.ceil((2 * L) / 3)
+    S = max(s_cap, s_prop)
+    # compute objective
+    Z = pollution_large * L + pollution_small * S
+    # record best
+    if bestZ is None or Z < bestZ:
+        bestZ = Z
+        best_solution = (L, S, Z)
+
+# Final objective value
+value = bestZ
+print(f"FINAL_OBJ: {value}")

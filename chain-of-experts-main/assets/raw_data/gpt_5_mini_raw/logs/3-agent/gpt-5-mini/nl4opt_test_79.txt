@@ -1,0 +1,85 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x1 = number of doses of pain killer 1 (≥ 0)
+  - x2 = number of doses of pain killer 2 (≥ 0)
+
+  (If doses must be integer add x1, x2 ∈ Z≥0.)
+
+- Objective
+  - Maximise medicine delivered to the back:
+    maximize Z = 0.8 x1 + 0.4 x2
+
+- Constraints
+  - Sleeping medicine at most 8 units:
+    0.3 x1 + 0.6 x2 ≤ 8
+  - Legs at least 4 units:
+    0.5 x1 + 0.7 x2 ≥ 4
+  - Nonnegativity:
+    x1 ≥ 0, x2 ≥ 0
+
+Solution (continuous variables)
+
+This is a small 2-variable linear program. The feasible region’s extreme points are on the axes:
+- (x1, x2) = (26.666..., 0) (sleep constraint binding at x2=0)
+- (8, 0) (leg constraint binding at x2=0)
+- (0, 13.333...) (sleep binding at x1=0)
+- (0, 5.7142857) (leg binding at x1=0)
+
+Evaluating the objective at these points shows the maximum is attained at
+x1 = 80/3 ≈ 26.6667, x2 = 0,
+with maximum back medicine Z = 0.8*(80/3) = 64/3 ≈ 21.3333 units.
+
+If doses must be integer, the maximal integer-feasible solution is x1 = 26, x2 = 0 (x1 = 27 violates the sleeping constraint). That yields Z = 0.8*26 = 20.8 units.
+
+Recommended Python libraries
+- pulp (LP/MIP, easy to model and solve)
+- scipy.optimize.linprog (continuous LPs)
+- OR-Tools (linear and integer programming)
+- cvxpy (convex optimization modeling)
+
+Optional short example using PuLP (continuous LP):
+
+from pulp import LpMaximize, LpProblem, LpVariable, lpSum, value
+
+model = LpProblem(name="painkiller", sense=LpMaximize)
+x1 = LpVariable("x1", lowBound=0)
+x2 = LpVariable("x2", lowBound=0)
+model += 0.8*x1 + 0.4*x2
+model += 0.3*x1 + 0.6*x2 <= 8
+model += 0.5*x1 + 0.7*x2 >= 4
+model.solve()
+print(value(x1), value(x2), value(model.objective))
+
+(If you need integer doses, define LpVariable(..., cat='Integer').)
+
+If you want, I can provide a full script, or run the integer and continuous solves and report all optimal candidates.
+
+---
+
+[CODER]:
+import pulp
+
+# Define the LP model (maximize)
+model = pulp.LpProblem(name="painkiller", sense=pulp.LpMaximize)
+
+# Decision variables
+x1 = pulp.LpVariable("x1", lowBound=0)
+x2 = pulp.LpVariable("x2", lowBound=0)
+
+# Objective: maximize 0.8 x1 + 0.4 x2
+model += 0.8 * x1 + 0.4 * x2
+
+# Constraints
+model += 0.3 * x1 + 0.6 * x2 <= 8   # sleeping medicine at most 8 units
+model += 0.5 * x1 + 0.7 * x2 >= 4   # legs at least 4 units
+
+# Solve (use default CBC solver, suppress solver output)
+model.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Get objective value
+value = pulp.value(model.objective)
+
+# Final required output line
+print(f"FINAL_OBJ: {value}")

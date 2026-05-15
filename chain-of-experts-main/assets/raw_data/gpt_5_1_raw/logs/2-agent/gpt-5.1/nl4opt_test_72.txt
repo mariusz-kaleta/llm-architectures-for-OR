@@ -1,0 +1,152 @@
+[MODELER]:
+Here is a clean optimization model of the problem.
+
+### Decision variables
+
+Let  
+- \(x_1 \ge 0\): number of times table 1 is set up (or batches run at table 1)  
+- \(x_2 \ge 0\): number of times table 2 is set up (or batches run at table 2)
+
+(If the context requires whole tables/batches, you would later add integrality: \(x_1, x_2 \in \mathbb{Z}_{\ge 0}\).)
+
+### Objective
+
+Each “use” of:
+
+- Table 1 produces 4 units of slime.
+- Table 2 produces 5 units of slime.
+
+We want to maximize total slime produced:
+
+\[
+\max\ Z = 4x_1 + 5x_2
+\]
+
+### Constraints
+
+1. **Powder constraint**
+
+Each use of:
+
+- Table 1 uses 3 units of powder.
+- Table 2 uses 8 units of powder.
+
+Total available powder is 100 units:
+
+\[
+3x_1 + 8x_2 \le 100
+\]
+
+2. **Glue constraint**
+
+Each use of:
+
+- Table 1 uses 5 units of glue.
+- Table 2 uses 6 units of glue.
+
+Total available glue is 90 units:
+
+\[
+5x_1 + 6x_2 \le 90
+\]
+
+3. **Mess constraint**
+
+Each use of:
+
+- Table 1 produces 2 units of mess.
+- Table 2 produces 4 units of mess.
+
+At most 30 units of mess are allowed:
+
+\[
+2x_1 + 4x_2 \le 30
+\]
+
+4. **Nonnegativity**
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+If you require integer solutions (whole setups):
+
+\[
+x_1, x_2 \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+### Recommended solver / Python libraries
+
+This is a small linear programming (LP) or integer linear programming (ILP) problem.
+
+Suitable Python libraries:
+
+- **PuLP**: very straightforward for small linear/integer problems.
+- **OR-Tools (from Google)**: powerful MILP solver with a Python interface.
+- **SciPy**: `scipy.optimize.linprog` for the continuous LP version (no integrality).
+
+For example, using PuLP (continuous LP version):
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Maximize_Slime", pl.LpMaximize)
+
+# Decision variables (continuous; use cat="Integer" for integer)
+x1 = pl.LpVariable("x1", lowBound=0)
+x2 = pl.LpVariable("x2", lowBound=0)
+
+# Objective
+prob += 4*x1 + 5*x2
+
+# Constraints
+prob += 3*x1 + 8*x2 <= 100   # powder
+prob += 5*x1 + 6*x2 <= 90    # glue
+prob += 2*x1 + 4*x2 <= 30    # mess
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("x1 =", pl.value(x1))
+print("x2 =", pl.value(x2))
+print("Max slime =", pl.value(prob.objective))
+```
+
+Switch `x1 = pl.LpVariable("x1", lowBound=0, cat="Integer")` (and similarly for `x2`) if you need integer solutions.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("Maximize_Slime", pl.LpMaximize)
+
+    # Decision variables (integer setups)
+    x1 = pl.LpVariable("x1", lowBound=0, cat="Integer")
+    x2 = pl.LpVariable("x2", lowBound=0, cat="Integer")
+
+    # Objective: maximize slime
+    prob += 4 * x1 + 5 * x2
+
+    # Constraints
+    prob += 3 * x1 + 8 * x2 <= 100   # powder
+    prob += 5 * x1 + 6 * x2 <= 90    # glue
+    prob += 2 * x1 + 4 * x2 <= 30    # mess
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    obj_value = pl.value(prob.objective)
+    print(f"x1 = {pl.value(x1)}")
+    print(f"x2 = {pl.value(x2)}")
+    print(f"Max slime = {obj_value}")
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

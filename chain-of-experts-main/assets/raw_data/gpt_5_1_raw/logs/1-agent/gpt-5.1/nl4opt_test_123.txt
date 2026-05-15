@@ -1,0 +1,46 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Vaccine_Production", pulp.LpMinimize)
+
+# Decision variables: number of children's and adult vaccines
+x_c = pulp.LpVariable('Children', lowBound=0)
+x_a = pulp.LpVariable('Adult', lowBound=0)
+
+# Parameters
+total_mrna = 20000  # mg
+mrna_child = 50
+mrna_adult = 75
+
+# Objective: minimize total fever suppressant used
+# Each vaccine uses fever suppressant equal to its mRNA content (50 and 75 mg)
+prob += 50 * x_c + 75 * x_a
+
+# Constraints
+
+# mRNA availability
+prob += 50 * x_c + 75 * x_a <= total_mrna
+
+# At least 70% of vaccines should be adult vaccines
+# x_a >= 0.7 * (x_c + x_a)  ->  0.3 x_a >= 0.7 x_c  ->  3 x_a >= 7 x_c
+prob += 3 * x_a >= 7 * x_c
+
+# At least 50 children's vaccines
+prob += x_c >= 50
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+# Extract solution
+children_vaccines = pulp.value(x_c)
+adult_vaccines = pulp.value(x_a)
+objective_value = pulp.value(prob.objective)
+
+# Print solution details (optional for inspection)
+print(f"Children's vaccines: {children_vaccines}")
+print(f"Adult vaccines: {adult_vaccines}")
+print(f"Total fever suppressant used (mg): {objective_value}")
+
+# Required final objective print
+print(f"FINAL_OBJ: {objective_value}")

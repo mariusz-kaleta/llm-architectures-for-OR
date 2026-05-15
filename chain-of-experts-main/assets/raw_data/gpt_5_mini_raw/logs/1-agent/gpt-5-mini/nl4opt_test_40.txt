@@ -1,0 +1,48 @@
+[MONOLITH]:
+import pulp
+
+# Data (initialized directly)
+senior_wage = 3000
+junior_wage = 1000
+min_total_accountants = 100
+min_seniors = 5
+wage_cap = 150000
+
+# Define the LP problem: minimize wage bill
+prob = pulp.LpProblem("Minimize_Wage_Bill", pulp.LpMinimize)
+
+# Decision variables: number of senior and junior accountants (integers)
+S = pulp.LpVariable("Seniors", lowBound=0, cat="Integer")
+J = pulp.LpVariable("Juniors", lowBound=0, cat="Integer")
+
+# Objective: minimize total weekly wages
+prob += senior_wage * S + junior_wage * J, "Total_Wage_Bill"
+
+# Constraints
+prob += S + J >= min_total_accountants, "Minimum_Total_Accountants"
+prob += S >= min_seniors, "Minimum_Seniors"
+# Senior accountants should be at least a third of juniors: S >= (1/3) J --> 3S - J >= 0
+prob += 3 * S - J >= 0, "Experience_Ratio"
+prob += senior_wage * S + junior_wage * J <= wage_cap, "Wage_Cap"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract objective value
+obj_val = pulp.value(prob.objective)
+
+# Print decision variable values (optional informational)
+print(f"Seniors (S) = {int(pulp.value(S))}")
+print(f"Juniors (J) = {int(pulp.value(J))}")
+
+# Final required print in exact format
+# If objective is very close to an integer, show as integer
+if obj_val is None:
+    print("FINAL_OBJ: None")
+else:
+    if abs(obj_val - round(obj_val)) < 1e-6:
+        obj_print = int(round(obj_val))
+    else:
+        obj_print = float(obj_val)
+    print(f"FINAL_OBJ: {obj_print}")

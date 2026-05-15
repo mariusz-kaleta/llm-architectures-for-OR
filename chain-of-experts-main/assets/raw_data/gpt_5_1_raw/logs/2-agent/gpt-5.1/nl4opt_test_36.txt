@@ -1,0 +1,199 @@
+[MODELER]:
+Here is a clear optimization model for the problem.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_s \in \mathbb{Z}_{\ge 0}\): number of small bins  
+- \(x_l \in \mathbb{Z}_{\ge 0}\): number of large bins  
+
+(We will later restrict them further with constraints.)
+
+---
+
+## 2. Objective
+
+Each small bin holds 25 units of recycling; each large bin holds 60 units.
+
+We want to **maximize total collected recycling material**:
+
+\[
+\text{Maximize } Z = 25x_s + 60x_l
+\]
+
+---
+
+## 3. Constraints
+
+### a) Worker availability
+
+Each small bin requires 2 workers; each large bin requires 5 workers. There are 100 workers available:
+
+\[
+2x_s + 5x_l \le 100
+\]
+
+### b) Ratio of small to large bins
+
+The number of small bins must be three times the number of large bins:
+
+\[
+x_s = 3x_l
+\]
+
+### c) Minimum numbers of bins
+
+At least 10 small bins and at least 4 large bins:
+
+\[
+x_s \ge 10
+\]
+\[
+x_l \ge 4
+\]
+
+### d) Integrality and nonnegativity
+
+\[
+x_s, x_l \in \mathbb{Z},\quad x_s \ge 0,\ x_l \ge 0
+\]
+
+---
+
+## 4. Simplified model
+
+Because of \(x_s = 3x_l\), we can substitute into the worker and minimum constraints.
+
+**Worker constraint:**
+
+\[
+2x_s + 5x_l \le 100
+\Rightarrow 2(3x_l) + 5x_l \le 100
+\Rightarrow 6x_l + 5x_l \le 100
+\Rightarrow 11x_l \le 100
+\Rightarrow x_l \le \left\lfloor \frac{100}{11} \right\rfloor = 9
+\]
+
+**Minimum bins:**
+
+- \(x_l \ge 4\)
+- \(x_s = 3x_l \ge 10 \Rightarrow x_l \ge \frac{10}{3} \Rightarrow x_l \ge 4\) (same minimum)
+
+So the effective constraints on \(x_l\) are:
+
+\[
+4 \le x_l \le 9,\quad x_l \in \mathbb{Z}
+\]
+
+Then \(x_s = 3x_l\).
+
+Objective becomes:
+
+\[
+Z = 25x_s + 60x_l = 25(3x_l) + 60x_l = 135x_l
+\]
+
+Since this is linear and increasing in \(x_l\), we maximize \(x_l\) subject to its bounds. Thus:
+
+\[
+x_l^* = 9,\quad x_s^* = 3 \cdot 9 = 27
+\]
+
+---
+
+## 5. Optimal solution
+
+- Number of small bins: **27**  
+- Number of large bins: **9**  
+
+Check workers:
+
+\[
+2(27) + 5(9) = 54 + 45 = 99 \le 100
+\]
+
+Total recycling:
+
+\[
+25(27) + 60(9) = 675 + 540 = 1215 \text{ units}
+\]
+
+---
+
+## 6. Suitable Python libraries and formulation style
+
+This is a small integer linear program (ILP). Good Python libraries:
+
+- **PuLP** (simple LP/ILP modeling)
+- **OR-Tools** (Google OR-Tools CP-SAT or linear solver)
+- **Pyomo** (more general algebraic modeling)
+- **SciPy** is not ideal here because it doesn’t directly handle integrality constraints.
+
+### Example outline in PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("RecyclingBins", pl.LpMaximize)
+
+# Variables (integers)
+x_s = pl.LpVariable("small_bins", lowBound=0, cat="Integer")
+x_l = pl.LpVariable("large_bins", lowBound=0, cat="Integer")
+
+# Objective
+prob += 25 * x_s + 60 * x_l
+
+# Constraints
+prob += 2 * x_s + 5 * x_l <= 100          # worker constraint
+prob += x_s == 3 * x_l                    # ratio constraint
+prob += x_s >= 10                         # min small bins
+prob += x_l >= 4                          # min large bins
+
+# Solve
+prob.solve()
+print("Small bins:", x_s.value())
+print("Large bins:", x_l.value())
+print("Total recycling:", 25*x_s.value() + 60*x_l.value())
+```
+
+This model exactly captures the mathematical formulation above.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("RecyclingBins", pl.LpMaximize)
+
+    # Decision variables
+    x_s = pl.LpVariable("small_bins", lowBound=0, cat="Integer")
+    x_l = pl.LpVariable("large_bins", lowBound=0, cat="Integer")
+
+    # Objective: Maximize total collected recycling material
+    prob += 25 * x_s + 60 * x_l
+
+    # Constraints
+    prob += 2 * x_s + 5 * x_l <= 100      # Worker availability
+    prob += x_s == 3 * x_l                # Ratio of small to large bins
+    prob += x_s >= 10                     # Minimum small bins
+    prob += x_l >= 4                      # Minimum large bins
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Retrieve solution
+    small_bins = x_s.value()
+    large_bins = x_l.value()
+    total_recycling = 25 * small_bins + 60 * large_bins
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {int(total_recycling)}")
+
+if __name__ == "__main__":
+    main()

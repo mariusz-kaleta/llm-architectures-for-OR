@@ -1,0 +1,201 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- **Goal:** Minimize the *total number of vehicles* (tractors + cars) used to transport at least 500 kg of corn, while respecting the ratio constraint between cars and tractors.
+
+---
+
+2. **Suggested model type**
+
+- **Model:** Integer Linear Programming (ILP) / pure Integer Program  
+  - All decision variables represent counts of vehicles, so they must be nonnegative integers.
+  - The objective and constraints are linear in these variables.
+
+---
+
+3. **Main decision variables**
+
+Define integer decision variables:
+
+- \(T\): number of tractors used.
+- \(C\): number of cars used.
+
+Both must be nonnegative integers.
+
+---
+
+4. **Key constraints to consider**
+
+a. **Capacity requirement (corn demand)**  
+   - Each tractor carries 40 kg.  
+   - Each car carries 20 kg.  
+   - Total transported corn must be at least 500 kg.  
+   - Constraint form: total capacity from tractors and cars ≥ 500 kg.
+
+b. **Vehicle ratio constraint (speed/usage policy)**  
+   - “The number of cars used has to be at least twice the number of tractors used.”  
+   - This is a linear relationship between \(C\) and \(T\):  
+     - Cars must be ≥ 2 × tractors.
+
+c. **Nonnegativity and integrality**  
+   - \(T \ge 0\), \(C \ge 0\).  
+   - Both must be integers (cannot use fractional vehicles).
+
+---
+
+5. **Objective function**
+
+- Minimize the total number of vehicles:
+  - Objective: minimize \(T + C\).  
+
+---
+
+6. **Notes for the Modeller**
+
+- This is a small, simple ILP with only two integer variables and two main linear constraints (plus bounds).  
+- Depending on context, one could also:
+  - Check manually for small integer solutions (since variable ranges will be small) to validate the ILP solution.
+  - Explore whether relaxing integrality changes the optimal solution (likely the optimal is integral anyway).
+
+---
+
+[MODELER]:
+Here is a clean mathematical model and how you’d implement/solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(T \in \mathbb{Z}_{\ge 0}\): number of tractors used  
+- \(C \in \mathbb{Z}_{\ge 0}\): number of cars used  
+
+Both must be nonnegative integers.
+
+---
+
+## 2. Objective
+
+Minimize the total number of vehicles:
+
+\[
+\min \; Z = T + C
+\]
+
+---
+
+## 3. Constraints
+
+1. **Corn capacity requirement (at least 500 kg)**  
+
+   Each tractor carries 40 kg, each car 20 kg, so:
+
+   \[
+   40T + 20C \;\ge\; 500
+   \]
+
+2. **Cars-to-tractors ratio**
+
+   “The number of cars used has to be at least twice the number of tractors used”:
+
+   \[
+   C \;\ge\; 2T
+   \]
+
+3. **Nonnegativity and integrality**
+
+   \[
+   T \ge 0,\quad C \ge 0,\quad T, C \in \mathbb{Z}
+   \]
+
+---
+
+## 4. Model type
+
+This is a **pure Integer Linear Program (ILP)**:
+
+- Linear objective
+- Linear constraints
+- Integer variables
+
+The problem is very small (2 integer variables, 2 functional constraints).
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard MILP library is appropriate:
+
+- **PuLP** (pure Python, easy syntax, works with CBC by default)
+- **OR-Tools** (`pywraplp` / `linear_solver` module from Google, efficient)
+- **Pyomo** (more general algebraic modelling)
+- **MIP** (Python-MIP, uses CBC or other solvers)
+
+For a problem this small, **PuLP** or **OR-Tools** are perfectly sufficient.
+
+---
+
+## 6. Example implementation in Python (PuLP)
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("CornTransport", pl.LpMinimize)
+
+# Decision variables (nonnegative integers)
+T = pl.LpVariable('T', lowBound=0, cat='Integer')  # tractors
+C = pl.LpVariable('C', lowBound=0, cat='Integer')  # cars
+
+# Objective: minimize total vehicles
+prob += T + C, "Total_Vehicles"
+
+# Constraint: capacity at least 500 kg
+prob += 40 * T + 20 * C >= 500, "Capacity"
+
+# Constraint: cars at least twice tractors
+prob += C >= 2 * T, "Ratio"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal number of tractors (T):", pl.value(T))
+print("Optimal number of cars (C):", pl.value(C))
+print("Minimum total vehicles:", pl.value(T + C))
+```
+
+This encodes exactly the ILP model described above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create problem
+    prob = pl.LpProblem("CornTransport", pl.LpMinimize)
+
+    # Decision variables (nonnegative integers)
+    T = pl.LpVariable('T', lowBound=0, cat='Integer')  # tractors
+    C = pl.LpVariable('C', lowBound=0, cat='Integer')  # cars
+
+    # Objective: minimize total vehicles
+    prob += T + C, "Total_Vehicles"
+
+    # Constraint: capacity at least 500 kg
+    prob += 40 * T + 20 * C >= 500, "Capacity"
+
+    # Constraint: cars at least twice tractors
+    prob += C >= 2 * T, "Ratio"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get final objective value
+    final_obj = pl.value(T + C)
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

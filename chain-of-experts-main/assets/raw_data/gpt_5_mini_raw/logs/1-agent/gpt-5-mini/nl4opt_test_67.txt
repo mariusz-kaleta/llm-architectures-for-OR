@@ -1,0 +1,36 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization (from problem statement)
+time_per_fertilizer = 0.5  # minutes per unit of fertilizer
+time_per_seeds = 1.5      # minutes per unit of seeds
+max_total_units = 300
+min_fertilizer = 50
+
+# Define the LP
+prob = pulp.LpProblem("Lawn_Time_Minimization", pulp.LpMinimize)
+
+# Decision variables
+f = pulp.LpVariable("fertilizer_units", lowBound=min_fertilizer, cat="Continuous")
+s = pulp.LpVariable("seed_units", lowBound=0, cat="Continuous")
+
+# Objective: minimize total time
+prob += time_per_fertilizer * f + time_per_seeds * s
+
+# Constraints
+prob += f + s <= max_total_units            # at most 300 units combined
+prob += f <= 2 * s                          # at most twice the amount of fertilizer as seeds
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract solution
+f_val = pulp.value(f)
+s_val = pulp.value(s)
+obj_val = pulp.value(prob.objective)
+
+# Print results
+print(f"Optimal fertilizer units: {f_val}")
+print(f"Optimal seed units: {s_val}")
+print(f"Total time (minutes): {obj_val}")
+print(f"FINAL_OBJ: {obj_val}")

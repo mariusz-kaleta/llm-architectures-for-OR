@@ -1,0 +1,159 @@
+[MODELER]:
+Below is a mathematical optimization model for the problem, followed by Python modeling suggestions.
+
+---
+
+## 1. Decision Variables
+
+Let
+
+- \(x\) = number of regular vans to buy (integer, \(x \ge 0\))  
+- \(y\) = number of hybrid vans to buy (integer, \(y \ge 0\))
+
+---
+
+## 2. Objective
+
+Minimize the total number of vans:
+
+\[
+\min \; Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Delivery capacity
+
+A regular van delivers 500 packages/day, a hybrid van delivers 300 packages/day.  
+The company must deliver at least 20,000 packages/day:
+
+\[
+500x + 300y \;\ge\; 20000
+\]
+
+### 3.2 Pollution
+
+A regular van produces 200 pollution units/day; a hybrid van produces 100 units/day.  
+They can produce at most 7000 units/day:
+
+\[
+200x + 100y \;\le\; 7000
+\]
+
+### 3.3 Integrality and non-negativity
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Model Type
+
+This is a small **integer linear programming (ILP)** problem:
+
+- Linear objective (minimize \(x + y\))
+- Linear constraints
+- Integer (nonnegative) decision variables
+
+Because the numbers are moderate, it can also be relaxed to a linear program (LP) and rounded, but strictly speaking the original problem is ILP.
+
+---
+
+## 5. Solving in Python
+
+Any standard MILP/LP library will handle this easily. Suitable options:
+
+- **PuLP** (pure Python interface, can use CBC or other solvers)
+- **OR-Tools linear solver** (`ortools.linear_solver.pywraplp`) from Google
+- **SciPy**’s `scipy.optimize.linprog` (for LP relaxation; you’d then round and check feasibility)
+- **Pyomo** (more general modeling framework)
+
+### Example with PuLP (integer model)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Van_Purchase", pl.LpMinimize)
+
+# Decision variables (integers)
+x = pl.LpVariable('regular_vans', lowBound=0, cat='Integer')
+y = pl.LpVariable('hybrid_vans', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of vans
+prob += x + y
+
+# Constraints
+prob += 500*x + 300*y >= 20000, "DeliveryRequirement"
+prob += 200*x + 100*y <= 7000, "PollutionLimit"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Regular vans:", x.value())
+print("Hybrid vans:", y.value())
+print("Total vans:", x.value() + y.value())
+```
+
+### Example with OR-Tools
+
+```python
+from ortools.linear_solver import pywraplp
+
+solver = pywraplp.Solver.CreateSolver('CBC')
+
+x = solver.IntVar(0, solver.infinity(), 'regular_vans')
+y = solver.IntVar(0, solver.infinity(), 'hybrid_vans')
+
+# Constraints
+solver.Add(500 * x + 300 * y >= 20000)
+solver.Add(200 * x + 100 * y <= 7000)
+
+# Objective
+solver.Minimize(x + y)
+
+status = solver.Solve()
+
+if status == pywraplp.Solver.OPTIMAL:
+    print("Regular vans:", x.solution_value())
+    print("Hybrid vans:", y.solution_value())
+    print("Total vans:", x.solution_value() + y.solution_value())
+```
+
+These models directly encode the problem statement and will find the optimal numbers of regular and hybrid vans.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import itertools
+
+def is_feasible(x, y):
+    if x < 0 or y < 0:
+        return False
+    if 500 * x + 300 * y < 20000:
+        return False
+    if 200 * x + 100 * y > 7000:
+        return False
+    return True
+
+best_obj = None
+best_solution = None
+
+# Reasonable bounds: pollution constraint => 2x + y <= 70, so x,y in [0,70]
+for x in range(71):
+    for y in range(71):
+        if is_feasible(x, y):
+            obj = x + y
+            if best_obj is None or obj < best_obj:
+                best_obj = obj
+                best_solution = (x, y)
+
+# In case no feasible solution found (should not happen here)
+if best_obj is None:
+    best_obj = float('inf')
+
+print(f"FINAL_OBJ: {best_obj}")

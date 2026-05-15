@@ -1,0 +1,121 @@
+[MODELER]:
+Formulation (variables, objective, constraints)
+
+- Decision variables
+  - x = number of pill vaccinations (nonnegative integer)
+  - y = number of shot vaccinations (nonnegative integer)
+
+- Objective
+  - Maximize total patients: maximize Z = x + y
+
+- Constraints
+  1. Time limit: 10 x + 20 y ≤ 10 000 (minutes)
+  2. Shot requirement: y ≥ 3 x
+  3. Minimum pills: x ≥ 30
+  4. Integrality: x, y ∈ Z≥0 (patient counts are integers)
+
+Discussion and algebraic reduction
+
+Because of constraint (2) we can write y = 3x + t with t ≥ 0. Substitute into the time constraint:
+10x + 20(3x + t) ≤ 10000 → 70x + 20 t ≤ 10000.
+
+The objective becomes Z = x + y = x + 3x + t = 4x + t.
+
+For fixed x, t is maximized by t = (10000 − 70x) / 20 (subject to ≥ 0). Substituting that (continuous relaxation) gives
+Z = 4x + (10000 − 70x)/20 = 500 + 0.5 x,
+so Z increases with x. Hence in the continuous case we push x as large as allowed by 70x ≤ 10000, i.e. x ≤ 10000/70 ≈ 142.857. With integrality, x = floor(10000/70) = 142.
+
+Compute t and y for x = 142:
+- t = (10000 − 70·142)/20 = 60/20 = 3
+- y = 3·142 + 3 = 429
+
+Objective value:
+Z = x + y = 142 + 429 = 571 patients.
+
+(If integrality were ignored, the continuous optimum would be x = 10000/70 ≈ 142.857, y = 3x ≈ 428.571, giving Z ≈ 571.428; but patient counts must be integers, so x = 142, y = 429 is the integer optimum.)
+
+Recommended solvers / Python libraries
+
+- PuLP (simple MILP modeling + CBC default solver) — good for small ILPs.
+- OR-Tools CP-SAT (Google OR-Tools) — powerful and fast for integer problems.
+- pyomo with CBC, GLPK or commercial solvers (CPLEX, Gurobi) if available.
+- scipy.optimize.linprog only for continuous LP (not integer).
+
+Example (PuLP) snippet
+
+  from pulp import LpProblem, LpMaximize, LpVariable, lpSum, LpInteger, value
+
+  prob = LpProblem("VaccineScheduling", LpMaximize)
+  x = LpVariable("pills", lowBound=30, cat=LpInteger)
+  y = LpVariable("shots", lowBound=0, cat=LpInteger)
+
+  prob += x + y
+  prob += 10*x + 20*y <= 10000
+  prob += y >= 3*x
+
+  prob.solve()
+  print("pills:", int(value(x)), "shots:", int(value(y)), "total:", int(value(x)+value(y)))
+
+Result: pills = 142, shots = 429, total = 571.
+
+Summary answer: The optimal plan is to administer 142 pill vaccines and 429 shot vaccines, for a maximum of 571 patients within 10,000 minutes while satisfying all constraints.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained script to solve the integer optimization described.
+# Decision variables:
+#   x = number of pill vaccinations (integer, >=30)
+#   y = number of shot vaccinations (integer, >=0)
+# Maximize Z = x + y
+# Constraints:
+#   10*x + 20*y <= 10000
+#   y >= 3*x
+
+import math
+
+# Problem data (directly initialized)
+time_limit = 10000
+pill_time = 10
+shot_time = 20
+min_pills = 30
+
+# Search integer feasible solutions by enumerating x in feasible range.
+# From constraint y >= 3x and time constraint with minimal y gives 70x <= 10000 -> x <= floor(10000/70)
+x_max_feasible = (time_limit) // (pill_time + 3 * shot_time)  # equals floor(10000/70)
+# Ensure we include at least up to this bound and starting from min_pills
+x_start = min_pills
+x_end = max(x_start, x_max_feasible)
+
+best_x = None
+best_y = None
+best_total = -1
+
+for x in range(x_start, x_end + 1):
+    # For fixed x, maximum y allowed by time: shot_time*y <= time_limit - pill_time*x
+    remaining_time = time_limit - pill_time * x
+    if remaining_time < 0:
+        continue
+    y_max_by_time = remaining_time // shot_time
+    # Must also satisfy y >= 3x
+    if y_max_by_time < 3 * x:
+        continue
+    y = y_max_by_time  # since objective increases with y
+    total = x + y
+    if total > best_total:
+        best_total = total
+        best_x = x
+        best_y = y
+
+# As a sanity check, also compute algebraic solution (derived in problem statement)
+# x_algebraic = floor(10000/70)
+x_algebraic = (time_limit) // (pill_time + 3 * shot_time)
+y_algebraic = 3 * x_algebraic + ((time_limit - (pill_time + 3 * shot_time) * x_algebraic) // shot_time)
+total_algebraic = x_algebraic + y_algebraic
+
+# Choose the found best (they should match)
+final_total = best_total
+# Print final objective value as required (this must be the last printed line)
+print(f"FINAL_OBJ: {final_total}")
+```

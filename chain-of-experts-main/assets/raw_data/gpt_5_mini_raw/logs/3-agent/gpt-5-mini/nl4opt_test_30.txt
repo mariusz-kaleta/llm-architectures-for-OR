@@ -1,0 +1,76 @@
+[MODELER]:
+Formal model (integer linear program)
+
+Decision variables
+- c ∈ Z≥0 : number of cows
+- e ∈ Z≥0 : number of elephants
+
+Objective
+- Minimize total animals: minimize Z = c + e
+
+Constraints
+1. Capacity constraint: 20 c + 50 e ≥ 1000
+2. Elephant-to-cow upper bound: e ≤ c
+3. Cow-to-elephant upper bound: c ≤ 2 e
+4. Integrality: c, e ∈ Z≥0
+
+Remarks
+- This is an integer linear program (ILP). Because coefficients are small, you can solve by enumerating feasible e (or c) or use an ILP solver.
+
+Analytic reduction and solution
+- Divide capacity by 10: 2c + 5e ≥ 100.
+- From c ≤ 2e the maximum capacity for given e is when c = 2e: capacity = 40e + 50e = 90e, so e must satisfy 90 e ≥ 1000 ⇒ e ≥ ceil(1000/90) = 12.
+- For a given e, the minimal feasible c is c = max( e, ceil((100 − 5 e)/2) ), provided that this c ≤ 2 e.
+- Evaluate small integer e starting at 12:
+  - e = 12 → minimal c = 20 → total = 32
+  - e = 13 → c = 18 → total = 31
+  - e = 14 → c = 15 → total = 29 (capacity = 20*15 + 50*14 = 1000)
+  - e ≥ 15 gives larger totals
+- Therefore the minimum is achieved at c = 15 cows and e = 14 elephants with minimum total animals Z = 29.
+
+Suggested Python libraries to solve/verify
+- pulp (pure-Python ILP modeling; uses CBC by default)
+- ortools CP-SAT (Google OR-Tools; very efficient for integer problems)
+- mip (Python-MIP) or gurobipy / CPLEX Python API if commercial solvers are available
+- For this small problem you can also do a simple brute-force enumeration in plain Python.
+
+Example (concise) brute-force check in Python
+- Loop e from 12..20 (or wider), compute minimal feasible c, check constraints, track minimal c+e. This will quickly confirm c=15, e=14, total 29.
+
+If you want, I can provide a ready-to-run Python code snippet using pulp or ortools to demonstrate solving the ILP.
+
+---
+
+[CODER]:
+import math
+
+# Problem data
+capacity_required = 1000  # 20*c + 50*e >= 1000
+
+best_total = None
+best_solution = None
+
+# Enumerate elephants e over a safe range
+for e in range(0, 1001):
+    # Lower bound on c from e <= c
+    lb_e = e
+    # Lower bound on c from capacity: 20*c + 50*e >= 1000 => c >= ceil((1000 - 50*e)/20)
+    numerator = capacity_required - 50 * e
+    lb_capacity = math.ceil(numerator / 20) if numerator > 0 else 0
+    # c must be nonnegative
+    lb = max(0, lb_e, lb_capacity)
+    # Upper bound from c <= 2e
+    ub = 2 * e
+    if lb <= ub:
+        c = lb
+        total = c + e
+        if (best_total is None) or (total < best_total):
+            best_total = total
+            best_solution = (c, e)
+
+# best_total should be found
+if best_total is None:
+    raise RuntimeError("No feasible solution found")
+
+# Print final objective value in required format
+print(f"FINAL_OBJ: {best_total}")

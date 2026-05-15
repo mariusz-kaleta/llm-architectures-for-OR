@@ -1,0 +1,144 @@
+[MODELER]:
+Formulate this as a linear program.
+
+### Decision variables
+Let  
+- \(x_1\) = kilograms of **first mix** to prepare  
+- \(x_2\) = kilograms of **second mix** to prepare  
+
+Both must be nonnegative:
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+### Resource usage from each mix
+
+Each kg of **first mix** uses:
+- Cat paw: \(0.20\) kg  
+- Gold shark: \(0.80\) kg  
+
+Each kg of **second mix** uses:
+- Cat paw: \(0.35\) kg  
+- Gold shark: \(0.65\) kg  
+
+Available resources:
+- Cat paw: 20 kg  
+- Gold shark: 50 kg  
+
+### Constraints
+
+1. Cat paw snack availability:
+\[
+0.20x_1 + 0.35x_2 \le 20
+\]
+
+2. Gold shark snack availability:
+\[
+0.80x_1 + 0.65x_2 \le 50
+\]
+
+3. Nonnegativity:
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+### Objective function (maximize profit)
+
+Profit:
+- First mix: \$12 per kg → total \$\(12x_1\)  
+- Second mix: \$15 per kg → total \$\(15x_2\)
+
+Maximize:
+\[
+\max \; Z = 12x_1 + 15x_2
+\]
+
+---
+
+### Summary of the model
+
+\[
+\begin{aligned}
+\max\quad & 12x_1 + 15x_2 \\
+\text{s.t.}\quad
+& 0.20x_1 + 0.35x_2 \le 20 \quad &(\text{cat paw}) \\
+& 0.80x_1 + 0.65x_2 \le 50 \quad &(\text{gold shark}) \\
+& x_1 \ge 0,\; x_2 \ge 0
+\end{aligned}
+\]
+
+---
+
+### Suitable Python libraries
+
+To solve this linear program, use any of:
+
+- `PuLP` (`pulp`) – simple modeling interface for LPs
+- `scipy.optimize.linprog` – general-purpose linear programming solver
+- `ortools.linear_solver` – Google OR-Tools’ linear solver
+
+For example, in PuLP:
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("SnackMix", pl.LpMaximize)
+
+# Decision variables
+x1 = pl.LpVariable('x1', lowBound=0)
+x2 = pl.LpVariable('x2', lowBound=0)
+
+# Objective
+prob += 12*x1 + 15*x2
+
+# Constraints
+prob += 0.20*x1 + 0.35*x2 <= 20    # cat paw
+prob += 0.80*x1 + 0.65*x2 <= 50    # gold shark
+
+# Solve
+prob.solve()
+print("x1 =", x1.value())
+print("x2 =", x2.value())
+print("Max profit =", pl.value(prob.objective))
+```
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the linear programming problem
+    prob = pl.LpProblem("SnackMix", pl.LpMaximize)
+
+    # Decision variables
+    x1 = pl.LpVariable('x1', lowBound=0)  # kg of first mix
+    x2 = pl.LpVariable('x2', lowBound=0)  # kg of second mix
+
+    # Objective function: Maximize profit
+    prob += 12 * x1 + 15 * x2
+
+    # Constraints
+    # Cat paw availability
+    prob += 0.20 * x1 + 0.35 * x2 <= 20
+
+    # Gold shark availability
+    prob += 0.80 * x1 + 0.65 * x2 <= 50
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print solution details (optional for inspection)
+    # print(f"x1 (first mix kg) = {x1.value()}")
+    # print(f"x2 (second mix kg) = {x2.value()}")
+    # print(f"Max profit = {final_obj}")
+
+    # Mandatory final output
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

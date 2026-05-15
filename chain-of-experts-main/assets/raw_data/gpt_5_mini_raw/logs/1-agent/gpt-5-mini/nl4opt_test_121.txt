@@ -1,0 +1,42 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+cost_budget = 500.0
+cost_carrot = 0.30
+cost_cucumber = 0.50
+profit_carrot = 0.75
+profit_cucumber = 0.80
+
+min_carrots = 300
+max_carrots = 500
+
+# Define the problem
+prob = pulp.LpProblem("Produce_Produce_Profit_Maximization", pulp.LpMaximize)
+
+# Decision variables: number of carrots (C) and cucumbers (U), integers
+C = pulp.LpVariable("Carrots", lowBound=min_carrots, upBound=max_carrots, cat='Integer')
+U = pulp.LpVariable("Cucumbers", lowBound=0, cat='Integer')
+
+# Objective: maximize total profit
+prob += profit_carrot * C + profit_cucumber * U, "Total_Profit"
+
+# Constraints
+prob += cost_carrot * C + cost_cucumber * U <= cost_budget, "Budget_Constraint"
+prob += 3 * U <= C, "Cucumber_limit_by_carrots"  # U <= C/3
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve results
+carrots_sold = int(pulp.value(C))
+cucumbers_sold = int(pulp.value(U))
+final_obj = pulp.value(prob.objective)
+
+# Print results
+print(f"Optimal carrots to sell: {carrots_sold}")
+print(f"Optimal cucumbers to sell: {cucumbers_sold}")
+print(f"Total profit: {final_obj}")
+
+# Final required output line
+print(f"FINAL_OBJ: {final_obj}")

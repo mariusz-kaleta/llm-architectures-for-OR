@@ -1,0 +1,250 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimize total fuel (gas) consumed while delivering all required mail.
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP) – because the number of trips must be integers.
+
+3. Main decision variables  
+Let the modeller define two integer decision variables such as:
+
+- RegularTrips: number of regular-boat trips.  
+- SpeedTrips: number of speed-boat trips.
+
+(Alternative names allowed, but keep to two variables corresponding to the two boat types.)
+
+4. Objective (conceptual)  
+Minimize total fuel used:
+
+- Each regular trip consumes 10 liters.  
+- Each speed trip consumes 20 liters.  
+
+Total fuel = 10 × RegularTrips + 20 × SpeedTrips.  
+The objective is to minimize this expression.
+
+5. Key constraints to consider  
+
+a) Mail demand (capacity constraint)  
+- Each regular trip carries 20 pieces of mail.  
+- Each speed trip carries 30 pieces of mail.  
+- The service must deliver at least 1000 pieces of mail in total.  
+
+Constraint:  
+Total mail carried by all trips ≥ 1000  
+(20 × RegularTrips + 30 × SpeedTrips ≥ 1000)
+
+b) Maximum regular-boat trips  
+- There can be at most 20 regular-boat trips.  
+
+Constraint:  
+RegularTrips ≤ 20
+
+c) Speed-trip proportion requirement  
+- At least 50% of all trips must be speed-boat trips:  
+  SpeedTrips ≥ 50% of (RegularTrips + SpeedTrips).  
+
+This can be expressed by a linear inequality relating SpeedTrips and RegularTrips.
+
+d) Non-negativity and integrality  
+- Both decision variables must be non-negative integers.  
+
+Constraints:  
+RegularTrips ≥ 0, integer  
+SpeedTrips ≥ 0, integer  
+
+6. Modelling notes / strategy  
+
+- The core trade-off is between higher capacity but higher fuel per trip (speed boat) versus lower capacity and lower fuel per trip (regular boat), under the limitations on regular trips and the speed-trip share requirement.  
+- Because mail capacity is per trip and demand is relatively large (1000 pieces), the integrality will matter; do not relax to continuous variables in the final solution.  
+- Once the ILP is formulated, the modeller can solve it either by enumeration (since the feasible range of trips is small) or via a standard ILP solver.  
+- After obtaining optimal integer values, verify:  
+  • Mail delivered ≥ 1000  
+  • RegularTrips ≤ 20  
+  • SpeedTrips ≥ 50% of total trips  
+  • Total fuel minimized relative to all other feasible integer combinations.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem as an Integer Linear Program, plus guidance on how to implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let:
+
+- \(R \in \mathbb{Z}_{\ge 0}\): number of regular-boat trips  
+- \(S \in \mathbb{Z}_{\ge 0}\): number of speed-boat trips  
+
+Both must be non-negative integers.
+
+---
+
+## 2. Objective function
+
+Each regular trip uses 10 liters of gas.  
+Each speed trip uses 20 liters of gas.
+
+Minimize total fuel consumption:
+\[
+\min \; Z = 10R + 20S
+\]
+
+---
+
+## 3. Constraints
+
+### a) Mail demand (capacity constraint)
+
+Each regular trip: 20 pieces of mail  
+Each speed trip: 30 pieces of mail  
+Total required: at least 1000 pieces.
+
+\[
+20R + 30S \;\ge\; 1000
+\]
+
+---
+
+### b) Maximum number of regular-boat trips
+
+At most 20 regular trips:
+
+\[
+R \;\le\; 20
+\]
+
+---
+
+### c) Speed-trip proportion requirement
+
+At least 50% of all trips must be speed-boat trips:
+
+\[
+S \;\ge\; 0.5 (R + S)
+\]
+
+This can be written as a linear inequality:
+\[
+S \;\ge\; \frac{1}{2}R + \frac{1}{2}S
+\]
+\[
+S - \frac{1}{2}S \;\ge\; \frac{1}{2}R
+\]
+\[
+\frac{1}{2}S \;\ge\; \frac{1}{2}R
+\]
+\[
+S \;\ge\; R
+\]
+
+So the speed-trip proportion constraint is simply:
+\[
+S \;\ge\; R
+\]
+
+---
+
+### d) Non-negativity and integrality
+
+\[
+R \in \mathbb{Z}_{\ge 0}, \quad S \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Full ILP model (compact form)
+
+\[
+\begin{aligned}
+\min \quad & 10R + 20S \\
+\text{s.t.} \quad
+& 20R + 30S \;\ge\; 1000 \\
+& R \;\le\; 20 \\
+& S \;\ge\; R \\
+& R, S \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard MILP / ILP-capable solver can handle this small model:
+
+- **PuLP**: user-friendly, pure Python, can call CBC (default), GLPK, etc.  
+- **OR-Tools (Google)**: has a `pywraplp` interface for linear/integer programming.  
+- **Pyomo**: more general algebraic modeling, can use CBC, GLPK, Gurobi, CPLEX, etc.  
+- **scipy.optimize** is *not* suitable for integer constraints directly; you’d need an MILP solver, so prefer the above.
+
+For this problem, **PuLP** or **OR-Tools** are the most straightforward.
+
+---
+
+## 6. Example PuLP implementation skeleton
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("MailBoatScheduling", pl.LpMinimize)
+
+# Decision variables (integer, >=0)
+R = pl.LpVariable('RegularTrips', lowBound=0, cat='Integer')
+S = pl.LpVariable('SpeedTrips', lowBound=0, cat='Integer')
+
+# Objective: minimize total fuel
+prob += 10*R + 20*S, "TotalFuel"
+
+# Constraints
+prob += 20*R + 30*S >= 1000, "MailDemand"
+prob += R <= 20, "MaxRegularTrips"
+prob += S >= R, "SpeedTripProportion"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal Regular Trips:", pl.value(R))
+print("Optimal Speed Trips:", pl.value(S))
+print("Minimum Fuel:", pl.value(10*R + 20*S))
+```
+
+This directly encodes the ILP model above and will return the optimal numbers of regular and speed-boat trips.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the ILP problem
+    prob = pl.LpProblem("MailBoatScheduling", pl.LpMinimize)
+
+    # Decision variables (integer, non-negative)
+    R = pl.LpVariable('RegularTrips', lowBound=0, cat='Integer')
+    S = pl.LpVariable('SpeedTrips', lowBound=0, cat='Integer')
+
+    # Objective: minimize total fuel consumption
+    prob += 10 * R + 20 * S, "TotalFuel"
+
+    # Constraints
+    # Mail demand
+    prob += 20 * R + 30 * S >= 1000, "MailDemand"
+    # Max regular trips
+    prob += R <= 20, "MaxRegularTrips"
+    # Speed-trip proportion: at least 50% speed trips -> S >= R
+    prob += S >= R, "SpeedTripProportion"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get final objective value
+    final_obj = pl.value(10 * R + 20 * S)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

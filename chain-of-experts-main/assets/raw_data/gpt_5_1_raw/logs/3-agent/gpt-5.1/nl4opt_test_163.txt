@@ -1,0 +1,191 @@
+[MODELER]:
+Here’s a clean mathematical formulation of the problem and how to solve it.
+
+---
+
+## 1. Define decision variables
+
+Let  
+- \(x\) = number of servers delivering **by cart**  
+- \(y\) = number of servers delivering **by hand**
+
+We assume both \(x\) and \(y\) must be nonnegative integers (number of people).
+
+---
+
+## 2. Objective function
+
+Each type of server creates a certain number of refills per hour:
+
+- Cart server: 5 refills/hour  
+- Hand server: 20 refills/hour  
+
+We want to **minimize total refills per hour**:
+
+\[
+\min Z = 5x + 20y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Customer interactions requirement
+
+Each server has a certain number of customer interactions per hour:
+
+- Cart: 70 interactions/hour  
+- Hand: 85 interactions/hour  
+
+The restaurant wants at least 4000 customer interactions per hour:
+
+\[
+70x + 85y \ge 4000
+\]
+
+---
+
+### b) At least 70% of delivery shifts by cart
+
+“Delivery shifts” here are the total number of servers delivering (cart or hand). At least 70% must be by cart:
+
+\[
+\frac{x}{x + y} \ge 0.70 \quad \text{(for } x + y > 0\text{)}
+\]
+
+Multiply both sides by \(x + y\):
+
+\[
+x \ge 0.7(x + y)
+\]
+
+\[
+x \ge 0.7x + 0.7y
+\]
+
+\[
+0.3x \ge 0.7y
+\]
+
+\[
+x \ge \frac{7}{3}y \quad \text{or equivalently} \quad 3x \ge 7y
+\]
+
+So we add:
+
+\[
+3x - 7y \ge 0
+\]
+
+---
+
+### c) At least 3 servers delivering by hand
+
+\[
+y \ge 3
+\]
+
+---
+
+### d) Nonnegativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full optimization model
+
+\[
+\begin{aligned}
+\text{Minimize} \quad & Z = 5x + 20y \\
+\text{subject to} \quad 
+& 70x + 85y \ge 4000 \\
+& 3x - 7y \ge 0 \\
+& y \ge 3 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a **mixed-integer linear program** (MILP), though in this case both decision variables are integer so it’s an Integer Linear Program (ILP).
+
+---
+
+## 5. Suitable Python libraries
+
+You can solve this model with standard linear/integer programming tools:
+
+- **PuLP** – simple, pure-Python modeling interface, works well for teaching and small/medium problems.
+- **OR-Tools (Google)** – powerful for integer/constraint programming; good performance.
+- **Pyomo** – more general mathematical programming modeling library.
+- **SciPy’s `scipy.optimize`** – mainly for continuous problems; to enforce integrality you’d usually prefer PuLP or OR-Tools instead.
+
+For this particular problem, **PuLP** or **OR-Tools** is ideal.
+
+---
+
+## 6. Example PuLP formulation (sketch)
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("DimSumStaffing", pl.LpMinimize)
+
+# Decision variables (integer, >= 0)
+x = pl.LpVariable('x_cart_servers', lowBound=0, cat='Integer')
+y = pl.LpVariable('y_hand_servers', lowBound=3, cat='Integer')  # y >= 3
+
+# Objective: minimize total refills
+prob += 5 * x + 20 * y
+
+# Constraints
+prob += 70 * x + 85 * y >= 4000          # interactions
+prob += 3 * x - 7 * y >= 0               # at least 70% cart
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("x (cart servers):", pl.value(x))
+print("y (hand servers):", pl.value(y))
+print("Total refills:", pl.value(5 * x + 20 * y))
+```
+
+This will give the optimal number of cart vs hand servers that satisfies all constraints while minimizing total refills.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("DimSumStaffing", pl.LpMinimize)
+
+    # Decision variables (integers, non-negative)
+    x = pl.LpVariable('x_cart_servers', lowBound=0, cat='Integer')
+    y = pl.LpVariable('y_hand_servers', lowBound=3, cat='Integer')  # y >= 3
+
+    # Objective: minimize total refills per hour
+    prob += 5 * x + 20 * y
+
+    # Constraints
+    # Customer interactions requirement
+    prob += 70 * x + 85 * y >= 4000
+
+    # At least 70% of delivery shifts by cart -> 3x - 7y >= 0
+    prob += 3 * x - 7 * y >= 0
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute final objective value
+    final_obj = pl.value(5 * x + 20 * y)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

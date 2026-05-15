@@ -1,0 +1,111 @@
+[MODELER]:
+Model
+
+- Variables
+  - x = number of pills of supplement A (x >= 0).  
+  - y = number of pills of supplement B (y >= 0).  
+  (If pills must be whole, add integrality: x,y integer.)
+
+- Constraints (nutrient requirements)
+  - Iron: 5x + 4y >= 40
+  - Calcium: 10x + 15y >= 50
+
+- Objective (cost to minimize)
+  - Minimize C = 2x + 3y
+
+So the problem is the linear program
+  minimize 2x + 3y
+  subject to 5x + 4y >= 40
+             10x + 15y >= 50
+             x,y >= 0
+(and optionally x,y integer).
+
+Solution (analysis)
+- Check feasible corner points in the first quadrant:
+  - On x-axis y = 0: iron requires x >= 8 → point (8,0) is feasible; cost = 2*8 + 3*0 = $16.
+  - On y-axis x = 0: iron requires y >= 10 → point (0,10) is feasible; cost = 2*0 + 3*10 = $30.
+- The intersection of the two equality constraints (5x+4y=40 and 10x+15y=50) gives y < 0, so it is not in the feasible first quadrant.
+- Therefore the LP minimum occurs at (8,0) with minimum cost $16.
+
+Conclusion
+- Buy 8 pills of supplement A and 0 pills of supplement B. Total cost = $16.
+
+Recommended solvers / Python libraries
+- For continuous LP: scipy.optimize.linprog, cvxpy.
+- For (mixed) integer programming: PuLP (with CBC), OR-Tools (CP-SAT or linear solver).
+- Simple implementation: PuLP or OR-Tools will solve this directly; since the continuous LP already gives integer values here, a continuous solver is sufficient in this case.
+
+---
+
+[CODER]:
+import numpy as np
+
+# Define lines in form a*x + b*y = c
+# x=0 -> (1,0,0)
+# y=0 -> (0,1,0)
+lines = [
+    (1.0, 0.0, 0.0),     # x = 0
+    (0.0, 1.0, 0.0),     # y = 0
+    (5.0, 4.0, 40.0),    # 5x + 4y = 40
+    (10.0, 15.0, 50.0)   # 10x + 15y = 50
+]
+
+tol = 1e-9
+points = []
+
+# compute intersections of every pair of lines
+for i in range(len(lines)):
+    a1, b1, c1 = lines[i]
+    for j in range(i+1, len(lines)):
+        a2, b2, c2 = lines[j]
+        A = np.array([[a1, b1], [a2, b2]], dtype=float)
+        C = np.array([c1, c2], dtype=float)
+        det = np.linalg.det(A)
+        if abs(det) < 1e-12:
+            continue
+        sol = np.linalg.solve(A, C)
+        x, y = sol[0], sol[1]
+        # Check nonnegativity with tolerance
+        if x >= -tol and y >= -tol:
+            # Check original inequality constraints
+            if (5.0*x + 4.0*y) >= 40.0 - tol and (10.0*x + 15.0*y) >= 50.0 - tol:
+                # round small numerical noise
+                xr = 0.0 if abs(x) < 1e-12 else x
+                yr = 0.0 if abs(y) < 1e-12 else y
+                points.append((xr, yr))
+
+# Remove duplicates (within tolerance)
+unique_points = []
+for p in points:
+    found = False
+    for q in unique_points:
+        if abs(p[0]-q[0]) < 1e-8 and abs(p[1]-q[1]) < 1e-8:
+            found = True
+            break
+    if not found:
+        unique_points.append(p)
+
+# If no feasible intersection found (shouldn't happen), try simple feasible points on axes
+if not unique_points:
+    candidates = [(8.0, 0.0), (0.0, 10.0)]
+else:
+    candidates = unique_points
+
+# Evaluate objective C = 2x + 3y
+best_obj = None
+best_pt = None
+for x, y in candidates:
+    obj = 2.0*x + 3.0*y
+    if best_obj is None or obj < best_obj - 1e-12:
+        best_obj = obj
+        best_pt = (x, y)
+
+# Normalize numeric output if very close to integer
+if best_obj is None:
+    # No feasible solution found (should not occur)
+    best_obj = float('inf')
+
+if abs(best_obj - round(best_obj)) < 1e-8:
+    best_obj = int(round(best_obj))
+
+print(f"FINAL_OBJ: {best_obj}")

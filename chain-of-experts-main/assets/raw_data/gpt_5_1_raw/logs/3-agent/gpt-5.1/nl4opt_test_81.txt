@@ -1,0 +1,144 @@
+[MODELER]:
+Here is a clear optimization model for the farmer’s problem.
+
+---
+
+## 1. Decision Variables
+
+Let
+
+- \(x\) = number of acres processed with the windrower  
+- \(y\) = number of acres processed with the hay harvester  
+
+Both must be nonnegative:
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+## 2. Objective Function
+
+Each acre:
+
+- Windrower: 10 kg hay/acre  
+- Harvester: 8 kg hay/acre  
+
+Total hay processed:
+
+\[
+\text{Hay} = 10x + 8y
+\]
+
+We want to **maximize** this:
+
+\[
+\max\; Z = 10x + 8y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Land availability
+
+Total land is 200 acres:
+
+\[
+x + y \le 200
+\]
+
+### b) Fuel constraint
+
+Per acre:
+
+- Windrower uses 2 kg fuel/acre  
+- Harvester uses 1 kg fuel/acre  
+
+Total fuel available is 300 kg:
+
+\[
+2x + y \le 300
+\]
+
+### c) Methane emission constraint
+
+Per acre:
+
+- Windrower produces 5 kg methane/acre  
+- Harvester produces 3 kg methane/acre  
+
+Methane production is at most 800 kg:
+
+\[
+5x + 3y \le 800
+\]
+
+### d) Nonnegativity
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+## 4. Complete Mathematical Model
+
+\[
+\begin{aligned}
+\max\quad & 10x + 8y \\
+\text{s.t.}\quad
+& x + y \le 200 \\
+& 2x + y \le 300 \\
+& 5x + 3y \le 800 \\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+This is a **linear programming (LP)** problem.
+
+---
+
+## 5. Suitable Python Libraries
+
+You can solve this LP with any standard linear optimization library, such as:
+
+- **PuLP** (`pulp`): very easy modeling interface for LP/MIP; uses CBC or other solvers.
+- **SciPy**: `scipy.optimize.linprog` for linear programming.
+- **OR-Tools** from Google: `ortools.linear_solver.pywraplp` with `"GLOP"` (LP solver) or `"CBC"` (MIP solver, also works for LP).
+
+For this small problem, PuLP or SciPy’s `linprog` is especially straightforward.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the LP problem: maximize
+    prob = pulp.LpProblem("Farmer_Hay_Maximization", pulp.LpMaximize)
+
+    # Decision variables
+    x = pulp.LpVariable('x', lowBound=0)  # acres with windrower
+    y = pulp.LpVariable('y', lowBound=0)  # acres with harvester
+
+    # Objective function: maximize 10x + 8y
+    prob += 10 * x + 8 * y
+
+    # Constraints
+    prob += x + y <= 200          # Land availability
+    prob += 2 * x + y <= 300      # Fuel constraint
+    prob += 5 * x + 3 * y <= 800  # Methane emission constraint
+
+    # Solve
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

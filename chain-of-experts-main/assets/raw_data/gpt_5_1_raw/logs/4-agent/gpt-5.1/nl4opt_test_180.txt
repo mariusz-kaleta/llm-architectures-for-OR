@@ -1,0 +1,247 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- **Goal:** Minimize total sugar intake from eating oranges and grapefruits, while still meeting minimum vitamin C and vitamin A requirements and the preference condition on relative quantities.
+
+2. **Suggested model type**
+
+- **Model:** Linear Programming (LP) with two decision variables and linear constraints.
+
+3. **Main decision variables**
+
+Define nonnegative continuous variables (integer solution should emerge naturally, but integrality is not strictly required for formulation):
+
+- \(x\): number of oranges the patient eats.
+- \(y\): number of grapefruits the patient eats.
+
+4. **Objective function**
+
+- Each orange: 5 grams sugar  
+- Each grapefruit: 6 grams sugar  
+
+So the total sugar intake is:
+
+- **Objective:** Minimize total sugar = \(5x + 6y\).
+
+5. **Key constraints**
+
+a. **Vitamin C requirement**
+
+- Each orange: 5 units vitamin C  
+- Each grapefruit: 7 units vitamin C  
+- Required: at least 80 units of vitamin C  
+
+Constraint type/idea:
+
+- Vitamin C from oranges + vitamin C from grapefruits ≥ 80.
+
+b. **Vitamin A requirement**
+
+- Each orange: 3 units vitamin A  
+- Each grapefruit: 5 units vitamin A  
+- Required: at least 70 units of vitamin A  
+
+Constraint type/idea:
+
+- Vitamin A from oranges + vitamin A from grapefruits ≥ 70.
+
+c. **Preference for oranges**
+
+- The patient must eat **at least twice as many oranges as grapefruits**.
+
+Constraint type/idea:
+
+- Number of oranges ≥ 2 × number of grapefruits.
+
+d. **Nonnegativity**
+
+- The patient cannot eat a negative number of fruits.
+
+Constraint type/idea:
+
+- Oranges ≥ 0  
+- Grapefruits ≥ 0  
+
+6. **Modelling strategy notes**
+
+- Treat the problem as a 2-variable LP; the feasible region is defined by:
+  - Two nutrient (≥) constraints,
+  - One ratio-type preference constraint (≥),
+  - Nonnegativity constraints.
+- Solve graphically or via simplex; the optimal solution will occur at a corner point (intersection of active constraints).
+- After finding the LP solution, check whether the solution values are naturally integral. If fractional, you may optionally add integrality constraints (integer programming) and re-solve, but the standard textbook version typically accepts the LP solution.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model and some guidance on how to solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x \ge 0\): number of oranges eaten  
+- \(y \ge 0\): number of grapefruits eaten  
+
+(If you ultimately want whole fruits, you can later enforce \(x, y\) to be integers, but the basic model is continuous.)
+
+---
+
+## 2. Objective function (minimize sugar)
+
+Each fruit’s sugar content:
+
+- Orange: 5 g  
+- Grapefruit: 6 g  
+
+Total sugar:
+
+\[
+\text{Minimize } Z = 5x + 6y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Vitamin C requirement
+
+- Orange: 5 units vitamin C  
+- Grapefruit: 7 units vitamin C  
+- Need at least 80 units:
+
+\[
+5x + 7y \;\ge\; 80
+\]
+
+### b) Vitamin A requirement
+
+- Orange: 3 units vitamin A  
+- Grapefruit: 5 units vitamin A  
+- Need at least 70 units:
+
+\[
+3x + 5y \;\ge\; 70
+\]
+
+### c) Preference for oranges
+
+“At least twice as many oranges as grapefruits”:
+
+\[
+x \;\ge\; 2y
+\]
+
+### d) Nonnegativity
+
+\[
+x \;\ge\; 0,\quad y \;\ge\; 0
+\]
+
+---
+
+## 4. Full LP model
+
+\[
+\begin{aligned}
+\min_{x,y}\quad & 5x + 6y \\
+\text{s.t.}\quad
+& 5x + 7y \ge 80 \quad &&\text{(vitamin C)} \\
+& 3x + 5y \ge 70 \quad &&\text{(vitamin A)} \\
+& x - 2y \ge 0 \quad &&\text{(preference)} \\
+& x \ge 0,\ y \ge 0 \quad &&\text{(nonnegativity)}
+\end{aligned}
+\]
+
+If you require whole fruits, also impose:
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 5. Suggested Python tools and example code
+
+Since this is a small linear program, any standard LP solver is suitable. Common choices:
+
+- `pulp` (simple modeling interface over several solvers)
+- `scipy.optimize.linprog` (good for continuous LP)
+- `ortools.linear_solver` (Google OR-Tools; can handle LP and MIP)
+
+### Example with PuLP (continuous LP)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("FruitDiet", pl.LpMinimize)
+
+# Decision variables (continuous, >= 0)
+x = pl.LpVariable("oranges", lowBound=0)
+y = pl.LpVariable("grapefruits", lowBound=0)
+
+# Objective: minimize sugar
+prob += 5 * x + 6 * y, "TotalSugar"
+
+# Constraints
+prob += 5 * x + 7 * y >= 80, "VitaminC"
+prob += 3 * x + 5 * y >= 70, "VitaminA"
+prob += x - 2 * y >= 0, "Preference"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Oranges x =", x.value())
+print("Grapefruits y =", y.value())
+print("Min sugar =", pl.value(prob.objective))
+```
+
+### If you need integer solutions
+
+```python
+x = pl.LpVariable("oranges", lowBound=0, cat="Integer")
+y = pl.LpVariable("grapefruits", lowBound=0, cat="Integer")
+```
+
+The rest of the model stays the same.
+
+---
+
+This formulation can be used directly with `scipy.optimize.linprog` or OR-Tools as well; the main elements are the same: objective coefficients `[5, 6]`, inequality matrices for the three constraints, and nonnegativity bounds.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem (minimization)
+    prob = pl.LpProblem("FruitDiet", pl.LpMinimize)
+
+    # Decision variables (continuous, >= 0)
+    x = pl.LpVariable("oranges", lowBound=0)
+    y = pl.LpVariable("grapefruits", lowBound=0)
+
+    # Objective: minimize total sugar
+    prob += 5 * x + 6 * y, "TotalSugar"
+
+    # Constraints
+    prob += 5 * x + 7 * y >= 80, "VitaminC"
+    prob += 3 * x + 5 * y >= 70, "VitaminA"
+    prob += x - 2 * y >= 0, "Preference"
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

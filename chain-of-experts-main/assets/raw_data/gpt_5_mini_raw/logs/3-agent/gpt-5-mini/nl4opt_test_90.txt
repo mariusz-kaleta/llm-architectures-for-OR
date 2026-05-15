@@ -1,0 +1,163 @@
+[MODELER]:
+Model (linear program)
+
+Variables
+- x1 = number of regular cars produced per day (units), x1 >= 0
+- x2 = number of premium cars produced per day (units), x2 >= 0
+
+Objective
+- Maximize total daily profit: Z = 5000 x1 + 8500 x2
+
+Constraints
+- Demand limits:
+  - x1 <= 8
+  - x2 <= 6
+- Production capacity (total cars per day):
+  - x1 + x2 <= 12
+- Nonnegativity:
+  - x1 >= 0, x2 >= 0
+
+Solution reasoning
+This is a small linear program. Because premium cars give higher profit per unit (8500 > 5000), we should produce as many premium cars as allowed by their demand cap and the total capacity. Set x2 = 6 (its upper bound). Remaining capacity is 12 − 6 = 6, so x1 can be up to 6 (also less than its demand cap 8). Thus the optimal corner is x1 = 6, x2 = 6.
+
+Optimal solution
+- x1 = 6 regular cars
+- x2 = 6 premium cars
+- Maximum daily profit Z = 5000·6 + 8500·6 = 30,000 + 51,000 = $81,000
+
+Notes
+- If you required integer solutions, this is already integer. For larger/more complex variants use an integer programming solver.
+- This LP is trivial to solve by inspection because the feasible region is a small polygon and the objective coefficients are positive.
+
+Suggested Python solvers/libraries
+- PuLP (simple modeling + CBC solver): good for LP and integer LP
+- scipy.optimize.linprog: for continuous LP (minimization formulation)
+- OR-Tools (Google): for LP/MIP and larger problems
+- CVXPY: convenient modeling for convex problems
+
+Example code (PuLP)
+
+from pulp import LpProblem, LpVariable, LpMaximize, lpSum, PULP_CBC_CMD
+
+# define problem
+prob = LpProblem("Car_Production", LpMaximize)
+
+# variables
+x1 = LpVariable("x1", lowBound=0)
+x2 = LpVariable("x2", lowBound=0)
+
+# objective
+prob += 5000*x1 + 8500*x2
+
+# constraints
+prob += x1 <= 8
+prob += x2 <= 6
+prob += x1 + x2 <= 12
+
+# solve
+prob.solve(PULP_CBC_CMD(msg=False))
+
+print("x1 =", x1.value())
+print("x2 =", x2.value())
+print("Profit = $", (5000*x1.value() + 8500*x2.value()))
+
+Example code (scipy.optimize.linprog)
+
+from scipy.optimize import linprog
+
+# linprog minimizes, so minimize negative profit
+c = [-5000, -8500]
+A = [[1, 0],
+     [0, 1],
+     [1, 1]]
+b = [8, 6, 12]
+bounds = [(0, None), (0, None)]
+
+res = linprog(c, A_ub=A, b_ub=b, bounds=bounds, method='highs')
+x1_opt, x2_opt = res.x
+profit = 5000*x1_opt + 8500*x2_opt
+
+print("x1 =", x1_opt)
+print("x2 =", x2_opt)
+print("Profit = $", profit)
+
+Both methods return x1 = 6, x2 = 6 with profit $81,000.
+
+---
+
+[CODER]:
+```python
+# Self-contained solver for the described LP (no external libraries required)
+
+# Define problem data
+profit_coeffs = (5000.0, 8500.0)  # (coef for x1, coef for x2)
+x1_bounds = (0.0, 8.0)
+x2_bounds = (0.0, 6.0)
+capacity = 12.0  # x1 + x2 <= capacity
+
+# Generate candidate corner points from intersections of bounding lines:
+# lines: x1 = 0, x1 = 8, x2 = 0, x2 = 6, x1 + x2 = 12
+xs = [x1_bounds[0], x1_bounds[1]]
+ys = [x2_bounds[0], x2_bounds[1]]
+
+candidates = []
+
+# intersections of x1 = a and x2 = b
+for a in xs:
+    for b in ys:
+        candidates.append((a, b))
+
+# intersections of x1 = a with x1 + x2 = 12  -> (a, 12-a)
+for a in xs:
+    candidates.append((a, capacity - a))
+
+# intersections of x2 = b with x1 + x2 = 12  -> (12-b, b)
+for b in ys:
+    candidates.append((capacity - b, b))
+
+# also include possible intersection of x1+x2=12 with bounds at 0 (already covered),
+# and include origin explicitly
+candidates.append((0.0, 0.0))
+
+# Filter unique and feasible points
+tol = 1e-9
+unique = []
+for p in candidates:
+    x1, x2 = p
+    # round small numerical noise
+    if abs(x1) < tol:
+        x1 = 0.0
+    if abs(x2) < tol:
+        x2 = 0.0
+    # Check feasibility
+    if (x1 + tol >= x1_bounds[0] and x1 <= x1_bounds[1] + tol and
+        x2 + tol >= x2_bounds[0] and x2 <= x2_bounds[1] + tol and
+        x1 + x2 <= capacity + tol):
+        # clip within bounds
+        x1 = max(min(x1, x1_bounds[1]), x1_bounds[0])
+        x2 = max(min(x2, x2_bounds[1]), x2_bounds[0])
+        pt = (round(x1, 12), round(x2, 12))
+        if pt not in unique:
+            unique.append(pt)
+
+# Evaluate objective at each feasible corner and pick best
+best_obj = None
+best_point = None
+for x1, x2 in unique:
+    obj = profit_coeffs[0]*x1 + profit_coeffs[1]*x2
+    if best_obj is None or obj > best_obj + tol:
+        best_obj = obj
+        best_point = (x1, x2)
+
+# Prepare final objective value (as int if it's effectively integer)
+if best_obj is None:
+    final_value = 0.0
+else:
+    if abs(best_obj - round(best_obj)) < 1e-6:
+        final_value = int(round(best_obj))
+    else:
+        final_value = float(best_obj)
+
+# Final required print statement
+print(f"FINAL_OBJ: {final_value}")
+```

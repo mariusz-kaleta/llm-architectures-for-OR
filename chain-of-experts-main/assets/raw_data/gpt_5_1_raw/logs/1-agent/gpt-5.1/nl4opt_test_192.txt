@@ -1,0 +1,45 @@
+[MONOLITH]:
+import pulp as pl
+
+# Initialize the problem
+prob = pl.LpProblem("Gambling_Allocation", pl.LpMaximize)
+
+# Decision variables: amounts to bet on each sport
+x_b = pl.LpVariable('basketball', lowBound=0)
+x_h = pl.LpVariable('horse', lowBound=0)
+x_s = pl.LpVariable('soccer', lowBound=0)
+
+# Total money available
+total_money = 100000
+
+# Objective: maximize total payout
+# Payout per dollar: 1.2 (basketball), 0.5 (horse), 0.1 (soccer)
+prob += 1.2 * x_b + 0.5 * x_h + 0.1 * x_s
+
+# Constraints
+
+# Total money must be fully allocated
+prob += x_b + x_h + x_s == total_money
+
+# Average chance of losing money must be at most 30%
+# Weighted average losing probability:
+# (0.5*x_b + 0.25*x_h + 0.10*x_s) / total_money <= 0.30
+prob += 0.5 * x_b + 0.25 * x_h + 0.10 * x_s <= 0.30 * total_money
+
+# Solve the problem
+prob.solve(pl.PULP_CBC_CMD(msg=0))
+
+# Extract solution
+basketball_bet = pl.value(x_b)
+horse_bet = pl.value(x_h)
+soccer_bet = pl.value(x_s)
+final_obj = pl.value(prob.objective)
+
+# Print solution details (optional for user inspection)
+print(f"Basketball bet: {basketball_bet}")
+print(f"Horse race bet: {horse_bet}")
+print(f"Soccer game bet: {soccer_bet}")
+print(f"Total payout: {final_obj}")
+
+# Required final objective print
+print(f"FINAL_OBJ: {final_obj}")

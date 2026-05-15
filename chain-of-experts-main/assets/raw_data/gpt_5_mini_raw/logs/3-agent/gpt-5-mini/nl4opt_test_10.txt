@@ -1,0 +1,101 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of carrier pigeons (integer, x ≥ 0)
+  - y = number of owls (integer, y ≥ 0)
+
+- Objective
+  - Maximize total letters sent: maximize L = 2x + 5y
+
+- Constraints
+  1. Treats: 3x + 5y ≤ 1000 (only 1000 treats available)
+  2. Owl fraction: at most 40% of the birds are owls:
+     y ≤ 0.4 (x + y). Equivalently, rearranged to remove the sum on the right:
+     y ≤ (2/3) x  (because 0.6 y ≤ 0.4 x ⇒ y ≤ (0.4/0.6) x = (2/3) x)
+  3. Minimum pigeons: x ≥ 20
+  4. Integrality and nonnegativity: x, y ∈ Z≥0
+
+So the integer linear program is
+  maximize 2x + 5y
+  subject to
+    3x + 5y ≤ 1000
+    y ≤ (2/3) x
+    x ≥ 20
+    x, y integer ≥ 0
+
+Solution reasoning (short)
+- Owls deliver more letters per treat (1 letter/treat) than pigeons (2/3 letter/treat), so we try to use as many owls as allowed.
+- Using the constraints and checking integer feasibility, the optimal integer solution is:
+  x = 158 pigeons, y = 105 owls.
+- This uses 3*158 + 5*105 = 999 treats (within the 1000 limit), respects y ≤ 0.4(x+y) because 105 ≤ 0.4·263 = 105.2, and x ≥ 20.
+- Total letters = 2*158 + 5*105 = 841 letters.
+
+(Continuous relaxation gives a slightly larger fractional optimum ≈ 842.105 letters at x ≈ 157.8947, y ≈ 105.263, but integer constraints yield 841.)
+
+Recommended Python solvers/libraries
+- pulp (simple integer linear programming with CBC or other solvers)
+- OR-Tools (CP-SAT) for integer/CP solving
+- pyomo with a suitable MILP solver (CBC, GLPK, Gurobi, CPLEX)
+
+Example using pulp
+
+  import pulp
+  x = pulp.LpVariable('x', lowBound=0, cat='Integer')
+  y = pulp.LpVariable('y', lowBound=0, cat='Integer')
+
+  prob = pulp.LpProblem('birds', pulp.LpMaximize)
+  prob += 2*x + 5*y
+  prob += 3*x + 5*y <= 1000
+  prob += y <= (2/3)*x
+  prob += x >= 20
+
+  prob.solve()
+  print(pulp.value(x), pulp.value(y), pulp.value(prob.objective))
+
+This will return x = 158, y = 105, objective = 841.
+
+Answer: use 158 carrier pigeons and 105 owls to send 841 letters.
+
+---
+
+[CODER]:
+# Brute-force integer search for the given ILP
+# Decision variables: x (pigeons), y (owls)
+# Maximize 2x + 5y
+# Subject to:
+#   3x + 5y <= 1000
+#   y <= (2/3) x  (equivalently floor(2*x/3) for integers)
+#   x >= 20
+#   x, y integers >= 0
+
+best_obj = None
+best_x = None
+best_y = None
+
+for x in range(20, 334):  # x max when y=0: 3x <= 1000 -> x <= 333.33
+    max_y_by_fraction = (2 * x) // 3
+    remaining_treats = 1000 - 3 * x
+    if remaining_treats < 0:
+        continue
+    max_y_by_treats = remaining_treats // 5
+    y_max = min(max_y_by_fraction, max_y_by_treats)
+    if y_max < 0:
+        continue
+    # For given x, the objective 2x+5y is increasing in y, so choose y_max
+    y = y_max
+    obj = 2 * x + 5 * y
+    if (best_obj is None) or (obj > best_obj):
+        best_obj = obj
+        best_x = x
+        best_y = y
+
+# Optional verification (assert the found solution satisfies constraints)
+assert best_x is not None and best_y is not None
+assert 3 * best_x + 5 * best_y <= 1000
+assert best_y <= (2 * best_x) / 3 + 1e-9  # allow tiny float tolerance
+assert best_x >= 20
+assert isinstance(best_obj, int) or (abs(best_obj - round(best_obj)) < 1e-9)
+
+# Print final objective in required format
+print(f"FINAL_OBJ: {best_obj}")

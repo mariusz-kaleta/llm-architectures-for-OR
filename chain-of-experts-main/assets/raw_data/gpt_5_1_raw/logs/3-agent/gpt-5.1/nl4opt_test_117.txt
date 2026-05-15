@@ -1,0 +1,130 @@
+[MODELER]:
+Here is how to model this as an optimization problem.
+
+### 1. Decision variables
+
+Let  
+- \(x_1 \ge 0\): number of times Beaker 1 is used  
+- \(x_2 \ge 0\): number of times Beaker 2 is used  
+
+(If you need only whole beakers, you will later add integer constraints: \(x_1, x_2 \in \mathbb{Z}_{\ge 0}\).)
+
+### 2. Objective: maximize slime produced
+
+- Beaker 1 produces 5 units of slime per use.  
+- Beaker 2 produces 3 units of slime per use.
+
+Total slime:
+\[
+Z = 5x_1 + 3x_2
+\]
+
+Objective:
+\[
+\max\ Z = 5x_1 + 3x_2
+\]
+
+### 3. Constraints
+
+**Flour constraint**
+
+- Beaker 1 uses 4 units of flour per use.  
+- Beaker 2 uses 6 units of flour per use.  
+- At most 150 units of flour are available:
+
+\[
+4x_1 + 6x_2 \le 150
+\]
+
+**Special liquid constraint**
+
+- Beaker 1 uses 6 units of special liquid per use.  
+- Beaker 2 uses 3 units of special liquid per use.  
+- At most 100 units of special liquid are available:
+
+\[
+6x_1 + 3x_2 \le 100
+\]
+
+**Waste constraint**
+
+- Beaker 1 generates 4 units of waste per use.  
+- Beaker 2 generates 2 units of waste per use.  
+- At most 30 units of waste can be produced:
+
+\[
+4x_1 + 2x_2 \le 30
+\]
+
+**Nonnegativity (and optionally integrality)**
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+If whole beakers are required:
+\[
+x_1, x_2 \in \mathbb{Z}_{\ge 0}
+\]
+
+### 4. Complete mathematical model
+
+\[
+\begin{aligned}
+\max\quad & Z = 5x_1 + 3x_2 \\
+\text{s.t.}\quad 
+& 4x_1 + 6x_2 \le 150 \quad\text{(flour)}\\
+& 6x_1 + 3x_2 \le 100 \quad\text{(special liquid)}\\
+& 4x_1 + 2x_2 \le 30 \quad\text{(waste)}\\
+& x_1, x_2 \ge 0 \quad (\text{and integer if needed})
+\end{aligned}
+\]
+
+This is a **linear programming (LP)** problem; with integer requirements it becomes a **mixed-integer linear programming (MILP)** problem (here pure ILP since all variables can be integer).
+
+### 5. Suitable Python libraries
+
+All of the following can model and solve this:
+
+- **PuLP** (`pulp`): simple interface, good for teaching and small to medium LP/MILP problems.
+- **OR-Tools Linear Solver** (`ortools.linear_solver`): powerful, supports LP/MIP using CBC, GLOP, SCIP, etc.
+- **Pyomo**: more general modeling framework for optimization (LP, NLP, MINLP, etc.).
+- **SciPy** (`scipy.optimize.linprog`): can solve the continuous LP version (without integrality), but not integer constraints.
+
+For this type of camp/education problem, **PuLP** or **OR-Tools** is ideal.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: maximize objective
+    prob = pulp.LpProblem("Slime_Production", pulp.LpMaximize)
+
+    # Decision variables (integer, nonnegative)
+    x1 = pulp.LpVariable('x1', lowBound=0, cat='Integer')  # Beaker 1 uses
+    x2 = pulp.LpVariable('x2', lowBound=0, cat='Integer')  # Beaker 2 uses
+
+    # Objective function: maximize 5x1 + 3x2
+    prob += 5 * x1 + 3 * x2
+
+    # Constraints
+    # Flour: 4x1 + 6x2 <= 150
+    prob += 4 * x1 + 6 * x2 <= 150
+
+    # Special liquid: 6x1 + 3x2 <= 100
+    prob += 6 * x1 + 3 * x2 <= 100
+
+    # Waste: 4x1 + 2x2 <= 30
+    prob += 4 * x1 + 2 * x2 <= 30
+
+    # Solve
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

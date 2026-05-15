@@ -1,0 +1,43 @@
+[MONOLITH]:
+import pulp
+
+# Define the LP problem: minimize Vitamin K
+prob = pulp.LpProblem("Minimize_Vitamin_K", pulp.LpMinimize)
+
+# Decision variables: cups of drink A and B (nonnegative, continuous)
+xA = pulp.LpVariable("xA", lowBound=0, cat='Continuous')  # cups of A
+xB = pulp.LpVariable("xB", lowBound=0, cat='Continuous')  # cups of B
+
+# Objective: minimize Vitamin K = 4*xA + 12*xB
+prob += 4 * xA + 12 * xB, "Total_Vitamin_K"
+
+# Constraints:
+# Vitamin A: 8*xA + 15*xB >= 150
+prob += 8 * xA + 15 * xB >= 150, "Vitamin_A_min"
+
+# Vitamin D: 6*xA + 2*xB >= 300
+prob += 6 * xA + 2 * xB >= 300, "Vitamin_D_min"
+
+# Vitamin E: 10*xA + 20*xB <= 400
+prob += 10 * xA + 20 * xB <= 400, "Vitamin_E_max"
+
+# Solve the problem
+solver = pulp.PULP_CBC_CMD(msg=False)
+result_status = prob.solve(solver)
+
+status_str = pulp.LpStatus.get(prob.status, "Unknown")
+
+if status_str == "Optimal":
+    val_obj = pulp.value(prob.objective)
+    xA_val = xA.varValue
+    xB_val = xB.varValue
+    print("Status:", status_str)
+    print(f"xA (cups of A) = {xA_val}")
+    print(f"xB (cups of B) = {xB_val}")
+    # Final required print line
+    print(f"FINAL_OBJ: {val_obj}")
+else:
+    # No feasible solution or other status
+    print("Status:", status_str)
+    # Final required print line with an informative tag
+    print(f"FINAL_OBJ: INFEASIBLE")

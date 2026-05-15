@@ -1,0 +1,39 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Minimize_Probes", pulp.LpMinimize)
+
+# Decision variables: number of salinity tests (s) and pH tests (p)
+s = pulp.LpVariable('salinity_tests', lowBound=0, cat='Continuous')
+p = pulp.LpVariable('ph_tests', lowBound=0, cat='Continuous')
+
+# Objective function: minimize total number of probes
+# Each salinity test uses 3 probes, each pH test uses 2 probes
+prob += 3 * s + 2 * p
+
+# Constraints:
+# At least 250 pH tests
+prob += p >= 250, "Min_pH_tests"
+
+# At least 400 total tests
+prob += s + p >= 400, "Min_total_tests"
+
+# At most 1.5 times more pH tests than salinity tests: p <= 1.5 * s
+prob += p <= 1.5 * s, "pH_to_salinity_ratio"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract solution
+s_value = pulp.value(s)
+p_value = pulp.value(p)
+objective_value = pulp.value(prob.objective)
+
+# Print solution
+print(f"Optimal number of salinity tests: {s_value}")
+print(f"Optimal number of pH tests: {p_value}")
+print(f"Total probes used: {objective_value}")
+
+# Required final objective print
+print(f"FINAL_OBJ: {objective_value}")

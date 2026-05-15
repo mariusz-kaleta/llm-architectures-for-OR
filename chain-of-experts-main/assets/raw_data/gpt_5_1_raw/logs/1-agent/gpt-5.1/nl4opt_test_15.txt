@@ -1,0 +1,45 @@
+[MONOLITH]:
+import pulp as pl
+
+# Initialize problem
+prob = pl.LpProblem("Hospital_Transport_Cost_Minimization", pl.LpMinimize)
+
+# Decision variables: number of shifts for type II ambulances (A) and hospital vans (V)
+A = pl.LpVariable('Ambulance_Shifts', lowBound=0, cat='Continuous')
+V = pl.LpVariable('Van_Shifts', lowBound=0, cat='Continuous')
+
+# Parameters
+patients_needed = 320
+capacity_ambulance = 20
+capacity_van = 15
+cost_ambulance = 820
+cost_van = 550
+max_van_fraction = 0.60
+
+# Objective function: Minimize total cost
+prob += cost_ambulance * A + cost_van * V
+
+# Constraints
+
+# 1. Patient transport requirement
+prob += capacity_ambulance * A + capacity_van * V >= patients_needed, "Patient_Requirement"
+
+# 2. At most 60% of shifts are vans: V <= 0.6 * (A + V)
+#    This can be rewritten as: 0.4 V <= 0.6 A  →  2V <= 3A
+prob += 2 * V <= 3 * A, "Van_Fraction_Limit"
+
+# Solve the problem
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Extract results
+A_val = pl.value(A)
+V_val = pl.value(V)
+obj_val = pl.value(prob.objective)
+
+# Print detailed solution
+print(f"Ambulance shifts (Type II): {A_val}")
+print(f"Van shifts: {V_val}")
+print(f"Minimum total daily cost: {obj_val}")
+
+# Required final objective value print
+print(f"FINAL_OBJ: {obj_val}")

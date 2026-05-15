@@ -1,0 +1,104 @@
+[MODELER]:
+Here is a clear optimization model for this problem.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\): number of seasonal snow removers to hire (integer, \(x \ge 0\))
+- \(y\): number of permanent snow removers to hire (integer, \(y \ge 0\))
+
+---
+
+## 2. Objective
+
+Minimize the total number of snow removers hired:
+
+\[
+\min \; x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Labor-hours requirement
+
+Each seasonal worker provides 6 hours, each permanent worker provides 10 hours. At least 300 hours are needed:
+
+\[
+6x + 10y \;\ge\; 300
+\]
+
+### b) Budget constraint
+
+Each seasonal worker costs \$120, each permanent worker costs \$250. Total cost must not exceed \$6500:
+
+\[
+120x + 250y \;\le\; 6500
+\]
+
+### c) Non-negativity and integrality
+
+\[
+x \ge 0, \quad y \ge 0, \quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Model type
+
+This is an **integer linear programming (ILP)** problem:
+
+- Objective: linear (\(x + y\))
+- Constraints: linear
+- Variables: integer
+
+---
+
+## 5. Suitable Python libraries
+
+To solve this ILP in Python, appropriate libraries include:
+
+- **PuLP** (`pulp`): user-friendly, integrates with CBC (default) and other solvers.
+- **OR-Tools Linear Solver** (`ortools.linear_solver`): efficient, from Google, supports integer programming.
+- **Pyomo**: more general modeling language, supports ILP with various solvers (CBC, GLPK, Gurobi, CPLEX, etc.).
+- **SciPy** (`scipy.optimize`) is generally *not* ideal here because it does not natively handle integer constraints for this kind of problem.
+
+A typical choice for this size of problem would be **PuLP** or **OR-Tools**.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def solve_snow_removal_ilp():
+    # Create the problem
+    prob = pulp.LpProblem("Snow_Removal_Staffing", pulp.LpMinimize)
+
+    # Decision variables (non-negative integers)
+    x = pulp.LpVariable('seasonal', lowBound=0, cat='Integer')
+    y = pulp.LpVariable('permanent', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of workers
+    prob += x + y, "Total_Workers"
+
+    # Constraints
+    # Labor-hours requirement: 6x + 10y >= 300
+    prob += 6 * x + 10 * y >= 300, "Labor_Hours"
+
+    # Budget constraint: 120x + 250y <= 6500
+    prob += 120 * x + 250 * y <= 6500, "Budget"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    obj_value = pulp.value(prob.objective)
+    return obj_value
+
+if __name__ == "__main__":
+    value = solve_snow_removal_ilp()
+    print(f"FINAL_OBJ: {value}")

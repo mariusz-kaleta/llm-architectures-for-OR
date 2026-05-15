@@ -1,0 +1,132 @@
+[MODELER]:
+Model this as a linear optimization (linear programming) problem.
+
+### Decision variables
+Let  
+- \(x_s \ge 0\): number of small bones to make  
+- \(x_l \ge 0\): number of large bones to make  
+
+### Parameters
+- Tooth medication available: 2000 units  
+- Small bone: 10 units tooth medication, 12 units meat  
+- Large bone: 15 units tooth medication, 15 units meat  
+
+### Objective
+Minimize total meat used:
+\[
+\min\; M = 12x_s + 15x_l
+\]
+
+### Constraints
+
+1. **Tooth medication availability**
+
+Total medication used by small and large bones cannot exceed 2000:
+\[
+10x_s + 15x_l \le 2000
+\]
+
+2. **Preference for small bones (at least 50% small)**
+
+At least half of all bones must be small:
+\[
+x_s \ge x_l
+\]
+(equivalent to \(x_s \ge \frac{1}{2}(x_s + x_l)\))
+
+3. **Minimum number of large bones**
+
+At least 30 large bones:
+\[
+x_l \ge 30
+\]
+
+4. **Non-negativity and (if needed) integrality**
+
+\[
+x_s \ge 0,\quad x_l \ge 0
+\]
+
+If bones must be whole numbers:
+\[
+x_s, x_l \in \mathbb{Z}
+\]
+
+---
+
+### Solving the model
+
+Since this is a small linear program with (optionally) integer variables, all of these Python libraries are suitable:
+
+- `PuLP` (simple and well-suited for LP/ILP teaching examples)
+- `ortools.linear_solver` (Google OR-Tools)
+- `scipy.optimize.linprog` (for the continuous LP version; does not handle integer constraints directly)
+
+Example with PuLP (continuous variables; add `cat="Integer"` for integrality):
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Dog_Bone_Production", pl.LpMinimize)
+
+# Decision variables
+x_s = pl.LpVariable('x_s', lowBound=0)      # small bones
+x_l = pl.LpVariable('x_l', lowBound=0)      # large bones
+
+# Objective: minimize meat
+prob += 12 * x_s + 15 * x_l, "Total_Meat"
+
+# Constraints
+prob += 10 * x_s + 15 * x_l <= 2000, "Tooth_Medication"
+prob += x_s >= x_l, "At_Least_Half_Small"
+prob += x_l >= 30, "Min_Large"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Small bones:", x_s.value())
+print("Large bones:", x_l.value())
+print("Total meat used:", pl.value(prob.objective))
+```
+
+This fully encodes the optimization problem so a solver can find the optimal numbers of small and large bones that minimize meat usage.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("Dog_Bone_Production", pl.LpMinimize)
+
+    # Decision variables (continuous; change to cat="Integer" if integrality is required)
+    x_s = pl.LpVariable('x_s', lowBound=0)
+    x_l = pl.LpVariable('x_l', lowBound=0)
+
+    # Objective: minimize total meat used
+    prob += 12 * x_s + 15 * x_l, "Total_Meat"
+
+    # Constraints
+    # 1) Tooth medication availability
+    prob += 10 * x_s + 15 * x_l <= 2000, "Tooth_Medication"
+
+    # 2) At least half of all bones must be small => x_s >= x_l
+    prob += x_s >= x_l, "At_Least_Half_Small"
+
+    # 3) Minimum number of large bones
+    prob += x_l >= 30, "Min_Large"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,73 @@
+[MODELER]:
+Model (linear program)
+
+Decision variables
+- x = acres processed with the windrower (≥ 0)
+- y = acres processed with the hay harvester (≥ 0)
+
+Objective
+- Maximize total hay processed: maximize H = 10x + 8y (kg)
+
+Constraints
+- All land must be processed: x + y = 200
+- Fuel limit: 2x + 1y ≤ 300 (kg of fuel)
+- Methane limit: 5x + 3y ≤ 800 (kg of methane)
+- Nonnegativity: x ≥ 0, y ≥ 0
+
+Comments: acres may be taken as continuous; if acres must be integer, add x,y integer constraints.
+
+Analytic solution (simple substitution)
+From x + y = 200 → y = 200 − x. Substitute into the other constraints:
+- Fuel: 2x + (200 − x) ≤ 300 → x ≤ 100
+- Methane: 5x + 3(200 − x) ≤ 800 → x ≤ 100
+
+Feasible x ∈ [0,100]. Objective becomes H = 10x + 8(200 − x) = 2x + 1600, increasing in x, so optimum at x = 100. Then y = 100. Maximum hay = 10·100 + 8·100 = 1800 kg. Both fuel and methane constraints are binding.
+
+Suggested Python solvers
+- pulp (easy-to-use LP/MIP)
+- scipy.optimize.linprog (continuous LP)
+- ortools.linear_solver (Google OR-Tools) or cvxpy
+
+Example using pulp (continuous LP):
+
+from pulp import LpProblem, LpMaximize, LpVariable, lpSum, value
+
+prob = LpProblem("Hay_max", LpMaximize)
+x = LpVariable("windrower_acres", lowBound=0)
+y = LpVariable("harvester_acres", lowBound=0)
+
+prob += 10*x + 8*y  # objective
+prob += x + y == 200
+prob += 2*x + 1*y <= 300
+prob += 5*x + 3*y <= 800
+
+prob.solve()
+print(value(x), value(y), value(prob.objective))
+
+This returns x = 100, y = 100, objective = 1800.
+
+Answer
+Use the windrower on 100 acres and the hay harvester on 100 acres; this maximizes hay at 1800 kg.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+# Self-contained script to solve the given linear program analytically
+# Decision variables: x (windrower acres), y (harvester acres)
+# Objective: maximize H = 10x + 8y
+# Constraints:
+#   x + y = 200
+#   2x + y <= 300
+#   5x + 3y <= 800
+#   x, y >= 0
+
+# Solve by substitution: y = 200 - x
+# From fuel: 2x + (200 - x) <= 300 -> x <= 100
+# From methane: 5x + 3(200 - x) <= 800 -> x <= 100
+# Feasible x in [0, 100], objective H = 10x + 8(200 - x) = 2x + 1600 -> maximize at x = 100
+
+x = 100
+y = 200 - x
+H = 10 * x + 8 * y
+
+print(f"FINAL_OBJ: {H}")

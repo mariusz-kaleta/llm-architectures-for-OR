@@ -1,0 +1,40 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Meal_Delivery_Maximization", pulp.LpMaximize)
+
+# Decision variables
+bikes = pulp.LpVariable('bikes', lowBound=0, cat='Integer')
+scooters = pulp.LpVariable('scooters', lowBound=0, cat='Integer')
+
+# Objective: Maximize total meals delivered
+prob += 8 * bikes + 5 * scooters, "Total_Meals"
+
+# Constraints
+
+# Charge constraint: 3 units per bike, 2 units per scooter, total <= 200
+prob += 3 * bikes + 2 * scooters <= 200, "Charge_Constraint"
+
+# At most 30% of vehicles can be bikes: bikes <= 0.3 * (bikes + scooters)
+# This is equivalent to: 0.7 * bikes <= 0.3 * scooters => 7*bikes <= 3*scooters
+prob += 7 * bikes <= 3 * scooters, "Bike_Fraction_Constraint"
+
+# At least 20 scooters
+prob += scooters >= 20, "Min_Scooters"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Get results
+num_bikes = int(pulp.value(bikes))
+num_scooters = int(pulp.value(scooters))
+max_meals = pulp.value(prob.objective)
+
+# Print results
+print(f"Number of bikes: {num_bikes}")
+print(f"Number of scooters: {num_scooters}")
+print(f"Maximum number of meals delivered: {max_meals}")
+
+# Final objective value print as required
+print(f"FINAL_OBJ: {max_meals}")

@@ -1,0 +1,47 @@
+[MONOLITH]:
+import pulp
+
+# Problem data (initialized directly)
+total_mrna = 20000  # mg
+mrna_child = 50     # mg per children's vaccine
+mrna_adult = 75     # mg per adult vaccine
+fever_child = 50    # mg fever suppressant per children's vaccine
+fever_adult = 75    # mg fever suppressant per adult vaccine
+
+# Create integer linear programming problem (minimize fever suppressant)
+prob = pulp.LpProblem("Minimize_Fever_Suppressant", pulp.LpMinimize)
+
+# Decision variables: number of children's (x) and adult (y) vaccines (integers)
+x = pulp.LpVariable("children_vaccines", lowBound=0, cat="Integer")
+y = pulp.LpVariable("adult_vaccines", lowBound=0, cat="Integer")
+
+# Objective: minimize total fever suppressant used
+prob += fever_child * x + fever_adult * y
+
+# Constraints:
+# 1) mRNA availability
+prob += mrna_child * x + mrna_adult * y <= total_mrna
+
+# 2) At least 70% of vaccines should be adult vaccines:
+#    y >= 0.7 * (x + y)  ->  0.3*y >= 0.7*x  ->  3*y >= 7*x
+prob += 3 * y >= 7 * x
+
+# 3) At least 50 children's vaccines
+prob += x >= 50
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Retrieve solution values
+x_val = int(pulp.value(x))
+y_val = int(pulp.value(y))
+objective_value = fever_child * x_val + fever_adult * y_val
+
+# Print results
+print(f"Children's vaccines (x) = {x_val}")
+print(f"Adult vaccines (y) = {y_val}")
+print(f"Total fever suppressant used = {objective_value} mg")
+
+# Final required print
+print(f"FINAL_OBJ: {objective_value}")

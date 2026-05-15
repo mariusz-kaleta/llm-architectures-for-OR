@@ -1,0 +1,225 @@
+[MODELER]:
+Below is a complete mathematical model of the problem.
+
+---
+
+## 1. Decision variables
+
+Let  
+
+- \(x_m \ge 0\): number of molars to fill  
+- \(x_c \ge 0\): number of canines to fill  
+
+We will treat these as continuous for the model; if the dentist can only fill whole teeth, they should be integer (see note at the end).
+
+---
+
+## 2. Data (parameters)
+
+- Resin available: \(R = 3000\) units  
+- Painkiller per molar: \(p_m = 3\) units  
+- Painkiller per canine: \(p_c = 2.3\) units  
+- Resin per molar: \(r_m = 20\) units  
+- Resin per canine: \(r_c = 15\) units  
+- At least 60% of cavities filled must be canines:  
+  \(\displaystyle x_c \ge 0.6(x_m + x_c)\)  
+- Must reserve materials to fill at least 45 molars: \(x_m \ge 45\)
+
+---
+
+## 3. Constraints
+
+### 3.1 Resin availability
+
+The total resin used by molars and canines cannot exceed 3000:
+
+\[
+20x_m + 15x_c \le 3000
+\]
+
+### 3.2 Minimum canines (60% rule)
+
+At least 60% of treated teeth must be canines:
+
+\[
+x_c \ge 0.6(x_m + x_c)
+\]
+
+Rewriting:
+
+\[
+x_c \ge 0.6x_m + 0.6x_c
+\]
+\[
+x_c - 0.6x_c \ge 0.6x_m
+\]
+\[
+0.4x_c \ge 0.6x_m
+\]
+\[
+x_c \ge 1.5x_m
+\]
+
+So we can use the simpler linear constraint:
+
+\[
+x_c \ge 1.5x_m
+\]
+
+### 3.3 Minimum molars (reservation requirement)
+
+\[
+x_m \ge 45
+\]
+
+### 3.4 Non-negativity
+
+\[
+x_m \ge 0,\quad x_c \ge 0
+\]
+
+(If integer solutions are required, add \(x_m, x_c \in \mathbb{Z}\).)
+
+---
+
+## 4. Objective function
+
+We want to **minimize the total amount of painkiller used**:
+
+\[
+\min\; Z = 3x_m + 2.3x_c
+\]
+
+---
+
+## 5. Full linear programming model
+
+\[
+\begin{aligned}
+\min\quad & Z = 3x_m + 2.3x_c \\
+\text{s.t.}\quad
+& 20x_m + 15x_c \le 3000 \\
+& x_c \ge 1.5x_m \\
+& x_m \ge 45 \\
+& x_m \ge 0,\; x_c \ge 0
+\end{aligned}
+\]
+
+---
+
+## 6. Solving the model (and the optimal schedule)
+
+Plugging the constraints into the model:
+
+- From \(x_m \ge 45\) and \(x_c \ge 1.5x_m\):  
+  at minimum, \(x_m = 45 \Rightarrow x_c \ge 1.5 \cdot 45 = 67.5\).
+
+Check resin usage at this corner:
+
+\[
+20(45) + 15(67.5) = 900 + 1012.5 = 1912.5 \le 3000
+\]
+
+We still have spare resin. Using more teeth will increase painkiller use, so to minimize painkiller, we stay at the smallest \(x_m\) and \(x_c\) that satisfy all constraints:
+
+- \(x_m = 45\)  
+- \(x_c = 67.5\)
+
+Total painkiller:
+
+\[
+3(45) + 2.3(67.5) = 135 + 155.25 = 290.25
+\]
+
+So the **optimal (continuous) solution** is:
+
+- Molars: 45  
+- Canines: 67.5  
+
+If integer solutions are needed, you’d typically test nearby integer points like \((x_m, x_c) = (45, 68)\) and \((45, 69)\) and pick the feasible one with the least objective value.
+
+---
+
+## 7. Suitable Python libraries
+
+This is a small linear program; you can solve it with:
+
+- `PuLP` (pure Python LP modeling; easy to use)
+- `scipy.optimize.linprog` (for continuous LP only)
+- `ortools.linear_solver` (Google OR-Tools; supports LP/MIP)
+
+### Example with PuLP (continuous model)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("DentistScheduling", pl.LpMinimize)
+
+# Decision variables (continuous)
+x_m = pl.LpVariable('x_m', lowBound=0)
+x_c = pl.LpVariable('x_c', lowBound=0)
+
+# Objective: minimize painkiller
+prob += 3 * x_m + 2.3 * x_c
+
+# Constraints
+prob += 20 * x_m + 15 * x_c <= 3000          # Resin
+prob += x_c >= 1.5 * x_m                     # 60% canines
+prob += x_m >= 45                            # Reserve 45 molars
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Molars (x_m):", x_m.value())
+print("Canines (x_c):", x_c.value())
+print("Total painkiller:", pl.value(prob.objective))
+```
+
+To enforce integer numbers of teeth, change the variable definitions to:
+
+```python
+x_m = pl.LpVariable('x_m', lowBound=0, cat='Integer')
+x_c = pl.LpVariable('x_c', lowBound=0, cat='Integer')
+```
+
+and keep the rest unchanged.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Create the problem: minimize total painkiller
+    prob = pl.LpProblem("DentistScheduling_Integer", pl.LpMinimize)
+
+    # Decision variables: integers (whole teeth)
+    x_m = pl.LpVariable('x_m', lowBound=0, cat='Integer')  # molars
+    x_c = pl.LpVariable('x_c', lowBound=0, cat='Integer')  # canines
+
+    # Objective function: minimize 3*x_m + 2.3*x_c
+    prob += 3 * x_m + 2.3 * x_c
+
+    # Constraints
+    # Resin availability
+    prob += 20 * x_m + 15 * x_c <= 3000
+
+    # At least 60% canines: x_c >= 1.5 * x_m
+    prob += x_c >= 1.5 * x_m
+
+    # Reserve materials for at least 45 molars
+    prob += x_m >= 45
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value (total painkiller)
+    obj_value = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

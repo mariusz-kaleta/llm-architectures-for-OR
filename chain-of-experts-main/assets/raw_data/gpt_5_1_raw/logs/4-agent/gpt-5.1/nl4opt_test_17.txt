@@ -1,0 +1,220 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- **Goal:** Minimize the total “waiting” time for the chemicals to be effective for one house, given how many units of each chemical are used.
+- Interpreting “time it takes for a house to be cleaned” as the combined effective-time contribution:  
+  Total time = (time per unit of cleansing chemical × units of cleansing)  
+  + (time per unit of odor-removing chemical × units of odor-removing).
+
+2. **Suggested model type**
+
+- **Model:** Linear Programming (LP) with two decision variables.
+
+3. **Main decision variables**
+
+Define:
+- \(x\) = units of cleansing chemical used per house.
+- \(y\) = units of odor-removing chemical used per house.
+
+4. **Objective function (conceptual)**
+
+- Each unit of cleansing chemical requires 4 minutes to be effective.
+- Each unit of odor-removing chemical requires 6 minutes to be effective.
+- **Objective:** Minimize total time:  
+  Minimize \(4x + 6y\).
+
+5. **Key constraints**
+
+Translate the problem text into the following constraint types:
+
+1. **Minimum cleansing chemical requirement**
+   - The company must use **at least 100 units** of cleansing chemical.
+   - Constraint: \(x \ge 100\).
+
+2. **Minimum total chemicals requirement**
+   - “In total, at least 300 units of chemicals can be used per house.”  
+     (Interpretation: they must use at least 300 units in total.)
+   - Constraint: \(x + y \ge 300\).
+
+3. **Strength-related ratio constraint**
+   - “At most twice the amount of cleansing chemical as odor-removing chemical.”
+   - This bounds cleansing relative to odor-removing:
+   - Constraint: \(x \le 2y\).
+
+4. **Non-negativity**
+   - Cannot use negative amounts of chemicals:
+   - Constraints: \(x \ge 0\), \(y \ge 0\).  
+     (Redundant with \(x \ge 100\) for \(x\), but still standard to include.)
+
+6. **Solution strategy for the modeller**
+
+- Work in 2D (variables \(x, y\)).
+- Plot/identify the feasible region defined by:
+  - \(x \ge 100\)
+  - \(x + y \ge 300\)
+  - \(x \le 2y\)
+  - \(x, y \ge 0\)
+- Since this is a 2-variable LP, the optimum will occur at a **corner point** of the feasible region.
+- Find all intersection points of the lines:
+  - \(x = 100\)
+  - \(x + y = 300\)
+  - \(x = 2y\)
+  - (and check non-negativity)
+- Evaluate the objective \(4x + 6y\) at each feasible corner point to determine the minimum.
+
+This is all the structure the modeller needs: variables, objective, and constraints, with a clear plan to solve graphically or algebraically.
+
+---
+
+[MODELER]:
+Here is the optimisation model and how to solve it.
+
+---
+
+## 1. Decision variables
+
+Let  
+
+- \(x \ge 0\): units of cleansing chemical used per house  
+- \(y \ge 0\): units of odor-removing chemical used per house  
+
+---
+
+## 2. Objective function
+
+Each unit of:
+
+- cleansing chemical takes 4 minutes to be effective,
+- odor-removing chemical takes 6 minutes to be effective.
+
+Assuming the total “waiting time” to be minimized is the sum of unit-times:
+
+\[
+\min \; Z = 4x + 6y
+\]
+
+---
+
+## 3. Constraints
+
+1. **Minimum cleansing chemical**
+
+   At least 100 units of cleansing chemical:
+
+   \[
+   x \ge 100
+   \]
+
+2. **Minimum total chemicals**
+
+   Total units used per house must be at least 300:
+
+   \[
+   x + y \ge 300
+   \]
+
+3. **Strength ratio constraint**
+
+   At most twice as much cleansing as odor-removing chemical:
+
+   \[
+   x \le 2y
+   \]
+
+4. **Non-negativity**
+
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+
+---
+
+## 4. Compact LP formulation
+
+\[
+\begin{aligned}
+\min\quad & 4x + 6y \\
+\text{s.t.}\quad 
+& x \ge 100 \\
+& x + y \ge 300 \\
+& x \le 2y \\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python tools
+
+Since this is a small linear program, any standard LP solver/library is appropriate:
+
+- `PuLP` (pure Python, easy syntax)
+- `scipy.optimize.linprog` (SciPy)
+- `ortools.linear_solver` (Google OR-Tools)
+- `cvxpy` (more general convex optimization framework)
+
+For teaching or simple modelling, `PuLP` is often the most straightforward.
+
+---
+
+## 6. Example in Python with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("CleaningChemicals", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('x', lowBound=0)
+y = pl.LpVariable('y', lowBound=0)
+
+# Objective
+prob += 4*x + 6*y
+
+# Constraints
+prob += x >= 100          # min cleansing
+prob += x + y >= 300      # min total
+prob += x <= 2*y          # ratio
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal x (cleansing units):", x.value())
+print("Optimal y (odor-removing units):", y.value())
+print("Minimum total time:", pl.value(prob.objective))
+```
+
+This models exactly the optimisation structure derived from the problem text.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the LP problem: minimization
+    prob = pl.LpProblem("CleaningChemicals", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('x', lowBound=0)  # cleansing chemical units
+    y = pl.LpVariable('y', lowBound=0)  # odor-removing chemical units
+
+    # Objective function: minimize total waiting time
+    prob += 4 * x + 6 * y
+
+    # Constraints
+    prob += x >= 100          # minimum cleansing units
+    prob += x + y >= 300      # minimum total units
+    prob += x <= 2 * y        # strength ratio
+
+    # Solve problem using CBC solver
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract and print final objective value
+    final_obj = pl.value(prob.objective)
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

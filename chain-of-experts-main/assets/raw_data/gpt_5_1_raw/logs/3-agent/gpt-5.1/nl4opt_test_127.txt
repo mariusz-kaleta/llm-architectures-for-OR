@@ -1,0 +1,159 @@
+[MODELER]:
+Let’s model this as a linear optimization problem.
+
+### 1. Decision variables
+
+Let  
+- \(M\) = number of molars to fill  
+- \(C\) = number of canines to fill  
+
+Both are nonnegative real variables (in practice they should be integers, but the standard formulation starts with continuous variables):
+
+\[
+M \ge 0,\quad C \ge 0
+\]
+
+### 2. Objective function
+
+We want to **minimize total painkiller used**.
+
+- Each molar uses 3 units of painkiller  
+- Each canine uses 2.3 units of painkiller  
+
+So the objective is:
+
+\[
+\min Z = 3M + 2.3C
+\]
+
+### 3. Constraints
+
+#### (a) Resin availability
+
+The dentist has 3000 units of resin.
+
+- Each molar uses 20 units  
+- Each canine uses 15 units  
+
+So:
+
+\[
+20M + 15C \le 3000
+\]
+
+#### (b) At least 60% of cavities must be in canines
+
+“At least 60% of cavities filled must be in canines” means:
+
+\[
+\frac{C}{M + C} \ge 0.6
+\]
+
+Assuming \(M + C > 0\), multiply both sides by \(M + C\):
+
+\[
+C \ge 0.6(M + C)
+\]
+
+\[
+C \ge 0.6M + 0.6C
+\]
+
+\[
+C - 0.6C \ge 0.6M
+\]
+
+\[
+0.4C \ge 0.6M
+\]
+
+\[
+C \ge 1.5M
+\]
+
+So the canines constraint is:
+
+\[
+C \ge 1.5M
+\]
+
+#### (c) Reserve materials to fill at least 45 molars
+
+“Must reserve materials to fill at least 45 molars” is naturally interpreted as:
+
+- The resin plan must allow **at least** 45 molars to be filled.
+
+In scheduling terms, this means:
+
+\[
+M \ge 45
+\]
+
+(If the intended meaning were “after scheduling, there must still be enough remaining resin to fill 45 molars in the future,” the model would change; but that usually would be stated as a separate resource constraint. Given the problem wording, the standard interpretation in optimization exercises is \(M \ge 45\).)
+
+### 4. Full linear program
+
+\[
+\begin{aligned}
+\min\quad & 3M + 2.3C\\[4pt]
+\text{s.t.}\quad
+& 20M + 15C \le 3000 &\text{(resin)}\\
+& C \ge 1.5M &\text{(≥60% canines)}\\
+& M \ge 45 &\text{(at least 45 molars)}\\
+& M \ge 0,\ C \ge 0 &\text{(nonnegativity)}
+\end{aligned}
+\]
+
+If you need **integer** solutions (whole teeth only), add:
+\[
+M, C \in \mathbb{Z}
+\]
+
+### 5. Suitable Python libraries
+
+To solve this linear program in Python, you can use:
+
+- **PuLP** – very straightforward for LP/MIP formulations:
+  - `pulp.LpProblem`, `pulp.LpVariable`, `pulp.LpMinimize`
+- **SciPy** – `scipy.optimize.linprog` for continuous LP (not integer by default)
+- **OR-Tools** – `ortools.linear_solver.pywraplp.Solver` for LP and MIP with good performance
+
+For integer decision variables, **PuLP** or **OR-Tools** is preferable.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: minimize total painkiller usage
+    prob = pulp.LpProblem("Dental_Optimization", pulp.LpMinimize)
+
+    # Decision variables: M (molars), C (canines), nonnegative continuous
+    M = pulp.LpVariable('M', lowBound=0, cat='Continuous')
+    C = pulp.LpVariable('C', lowBound=0, cat='Continuous')
+
+    # Objective function: minimize 3M + 2.3C
+    prob += 3 * M + 2.3 * C
+
+    # Constraints
+    # Resin availability: 20M + 15C <= 3000
+    prob += 20 * M + 15 * C <= 3000, "Resin_Constraint"
+
+    # At least 60% canines: C >= 1.5M
+    prob += C >= 1.5 * M, "Canine_Proportion"
+
+    # At least 45 molars: M >= 45
+    prob += M >= 45, "Min_Molars"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    objective_value = pulp.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {objective_value}")
+
+if __name__ == "__main__":
+    main()

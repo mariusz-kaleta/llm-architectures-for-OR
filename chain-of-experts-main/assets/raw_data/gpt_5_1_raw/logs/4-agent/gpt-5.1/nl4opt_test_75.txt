@@ -1,0 +1,186 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total number of vans used to meet the shoe delivery requirement, given capacity and fleet-composition constraints.
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP) – variables represent counts of vans and trucks, which must be non‑negative integers.
+
+3. Main decision variables  
+Define integer decision variables such as:
+- V = number of vans used  
+- T = number of trucks used  
+
+4. Key constraints to consider  
+
+a) Capacity (demand satisfaction) constraint  
+- Each van carries 50 pairs; each truck carries 100 pairs.  
+- Total capacity from vans and trucks must be at least the required minimum:  
+  - 50·V + 100·T ≥ 2000  
+
+b) Fleet composition constraint  
+- The number of trucks cannot exceed the number of vans:  
+  - T ≤ V  
+
+c) Non-negativity and integrality  
+- V ≥ 0, T ≥ 0  
+- V, T must be integers (you cannot use a fraction of a van or truck).  
+
+5. Objective function structure  
+- Objective: Minimise V subject to the above constraints.  
+  - If desired, you can treat trucks as “free” in the objective (only minimising vans), or add a secondary objective (e.g., then minimise T) to break ties if multiple solutions use the same minimum number of vans.
+
+---
+
+[MODELER]:
+Here is a clean mathematical optimisation model of the problem, plus how you would implement/solve it.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(V \in \mathbb{Z}_{\ge 0}\): number of vans used  
+- \(T \in \mathbb{Z}_{\ge 0}\): number of trucks used  
+
+Both must be non‑negative integers.
+
+---
+
+## 2. Objective
+
+The question asks: “Find the minimum number of vans that can be used,” and treats trucks as effectively free in the objective.
+
+**Primary objective:**
+\[
+\min V
+\]
+
+Optionally, if you want to break ties by also minimising trucks, you can use a lexicographic objective or a small weight:
+
+\[
+\min \; V + \varepsilon T \quad (\text{with } 0 < \varepsilon \ll 1)
+\]
+
+but pure “minimise \(V\)” is sufficient for this problem.
+
+---
+
+## 3. Constraints
+
+1. **Capacity (demand satisfaction)**  
+   Each van carries 50 pairs, each truck 100 pairs. Need at least 2000 pairs:
+
+   \[
+   50V + 100T \;\ge\; 2000
+   \]
+
+2. **Fleet composition (trucks cannot exceed vans)**  
+
+   \[
+   T \;\le\; V
+   \]
+
+3. **Non‑negativity and integrality**
+
+   \[
+   V \ge 0,\; T \ge 0,\quad V,T \in \mathbb{Z}
+   \]
+
+---
+
+## 4. Model type
+
+This is a **small Integer Linear Programming (ILP)** problem:
+- Linear objective in \(V\) (and optionally \(T\))
+- Linear constraints
+- Integer (non‑negative) decision variables
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard MILP or LP solver can handle this. Recommended options:
+
+- **PuLP**  
+  - Easy to use, pure Python, and can call open-source solvers (CBC by default).
+  - Good for teaching and small models like this.
+
+- **OR-Tools (Google)** – `ortools.linear_solver`  
+  - Very efficient MILP solvers (e.g. CBC, SCIP) and good interface.
+
+- **SciPy (`scipy.optimize.linprog`)**  
+  - Only supports continuous LP directly; you’d get fractional \(V,T\).  
+  - Not ideal unless you relax integrality.
+
+For an exact integer solution, prefer **PuLP** or **OR-Tools**.
+
+---
+
+## 6. Example PuLP formulation (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("ShoeDelivery", pl.LpMinimize)
+
+# Variables
+V = pl.LpVariable("Vans", lowBound=0, cat="Integer")
+T = pl.LpVariable("Trucks", lowBound=0, cat="Integer")
+
+# Objective: minimise number of vans
+prob += V
+
+# Capacity constraint
+prob += 50 * V + 100 * T >= 2000, "Capacity"
+
+# Fleet composition constraint
+prob += T <= V, "Truck_le_Van"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Vans:", V.value())
+print("Trucks:", T.value())
+```
+
+This code directly implements the model above and will return the minimum number of vans (and a feasible number of trucks).
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the optimisation problem
+    prob = pl.LpProblem("ShoeDelivery", pl.LpMinimize)
+
+    # Decision variables
+    V = pl.LpVariable("Vans", lowBound=0, cat="Integer")
+    T = pl.LpVariable("Trucks", lowBound=0, cat="Integer")
+
+    # Objective: minimise number of vans
+    prob += V
+
+    # Constraints
+    prob += 50 * V + 100 * T >= 2000, "Capacity"
+    prob += T <= V, "Truck_le_Van"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    vans = V.value()
+    trucks = T.value()
+
+    # For this problem, objective is just the number of vans
+    final_obj = vans
+
+    # Optionally, ensure integer formatting
+    if abs(final_obj - round(final_obj)) < 1e-6:
+        final_obj = int(round(final_obj))
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

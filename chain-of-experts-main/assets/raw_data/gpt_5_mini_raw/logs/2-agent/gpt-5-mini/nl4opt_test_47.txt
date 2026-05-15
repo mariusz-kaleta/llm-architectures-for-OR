@@ -1,0 +1,106 @@
+[MODELER]:
+Below I convert the textual description into a formal optimization model, solve it analytically, and give solver/library recommendations and a short example (PuLP).
+
+1) Decision variables
+- x = number of LED fixtures (integer, x ≥ 0)
+- y = number of fluorescence fixtures (integer, y ≥ 0)
+
+2) Objective
+Minimize the total number of light changes per decade:
+Minimize Z = 3x + 4y
+(LEDs are changed 3 times/decade, fluorescents 4 times/decade.)
+
+3) Constraints
+- Minimum fixtures: x + y ≥ 300
+- Electricity limit (units per hour): 5x + 8y ≤ 2000
+- At least 30% fluorescence: y ≥ 0.30 (x + y)
+  (equivalently 7y ≥ 3x, or y ≥ (3/7)x, or implement as integer constraint y ≥ ceil(0.3*(x+y)))
+- x, y integer and nonnegative
+
+4) Analytical solution (reasoning)
+- For fixed total N = x + y, objective = 3x + 4y = 3N + y. So for fixed N you minimize Z by minimizing y.
+- The 30% requirement forces y ≥ 0.3 N. To minimize changes you should pick the smallest feasible N (because Z grows roughly as 3.3N if y is at the 30% minimum).
+- The smallest allowable N is 300, so set N = 300 and y = 0.3·300 = 90 (integer), x = 300 − 90 = 210.
+- Check electricity: 5·210 + 8·90 = 1050 + 720 = 1770 ≤ 2000, so feasible.
+
+Thus the optimal integer solution is:
+- x = 210 LEDs
+- y = 90 fluorescent lamps
+
+Total changes per decade: Z = 3·210 + 4·90 = 990
+Electricity used: 1770 units/hour (within the 2000 limit).
+
+5) Solver recommendation
+This is an integer linear program (small). Suitable libraries:
+- PuLP (with CBC) — easy to model and solve in Python
+- OR-Tools CP-SAT (fast, robust for integer problems)
+- scipy.optimize is not ideal because this is integer; use integer/ MILP solvers above
+
+6) Example PuLP model (sketch)
+- Define integer variables x,y
+- Minimize 3*x + 4*y
+- Add constraints: x + y >= 300; 5*x + 8*y <= 2000; y >= 0.3*(x + y) (or 7*y >= 3*x)
+- Solve (CBC) — will return x=210, y=90.
+
+If you want, I can provide full runnable PuLP or OR-Tools code for this model and show solver output.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Brute-force search to solve the integer linear program described:
+# Decision variables: x (LED fixtures), y (fluorescent fixtures), integers >= 0
+# Objective: Minimize Z = 3*x + 4*y
+# Constraints:
+#   x + y >= 300
+#   5*x + 8*y <= 2000
+#   y >= 0.3*(x + y)  <=>  7*y >= 3*x  (linearized)
+
+# Bounds from electricity constraint:
+max_x = 2000 // 5  # 400
+max_y = 2000 // 8  # 250
+
+best_val = None
+best_sol = None
+
+for x in range(0, max_x + 1):
+    # Given 7*y >= 3*x -> y >= ceil(3*x/7)
+    y_min_from_ratio = (3 * x + 6) // 7  # ceil(3*x/7)
+    # Also x+y >= 300 -> y >= 300 - x
+    y_min_from_total = max(0, 300 - x)
+    y_start = max(y_min_from_ratio, y_min_from_total)
+    if y_start > max_y:
+        continue
+    for y in range(y_start, max_y + 1):
+        if 5 * x + 8 * y > 2000:
+            # since y increases, further y will only increase electricity use; break inner loop
+            break
+        # 7*y >= 3*x already enforced by starting y
+        # x + y >= 300 already enforced by starting y
+        Z = 3 * x + 4 * y
+        if (best_val is None) or (Z < best_val):
+            best_val = Z
+            best_sol = (x, y)
+
+# Print results (informational)
+if best_sol is None:
+    print("No feasible solution found.")
+else:
+    x_opt, y_opt = best_sol
+    electricity = 5 * x_opt + 8 * y_opt
+    print(f"Optimal integer solution found: x = {x_opt}, y = {y_opt}")
+    print(f"Objective Z = 3*x + 4*y = {best_val}")
+    print(f"Electricity used = {electricity} (limit 2000)")
+    # Confirm analytic solution
+    analytic_x = 210
+    analytic_y = 90
+    analytic_Z = 3 * analytic_x + 4 * analytic_y
+    print(f"Analytic candidate: x = {analytic_x}, y = {analytic_y}, Z = {analytic_Z}")
+    if (analytic_x, analytic_y) == (x_opt, y_opt):
+        print("Analytic solution matches the optimal integer solution.")
+    else:
+        print("Analytic solution does NOT match the brute-force optimum.")
+
+# Final required single-line output (must be the last printed line)
+print(f"FINAL_OBJ: {best_val}")

@@ -1,0 +1,217 @@
+[MODELER]:
+Here is a clean mathematical model of the problem, plus how you could solve it in Python.
+
+---
+
+## 1. Decision Variables
+
+Let:
+
+- \( F \in \mathbb{Z}_{\ge 0} \): number of freight trips  
+- \( A \in \mathbb{Z}_{\ge 0} \): number of air trips  
+
+Both are integer variables.
+
+---
+
+## 2. Derived Quantities
+
+- Tons transported by freight: \( 5F \)  
+- Tons transported by air: \( 3A \)  
+- Total tons transported: \( T = 5F + 3A \)
+
+Total cost:
+
+- Cost = \( 300F + 550A \)
+
+---
+
+## 3. Constraints
+
+1. **Demand requirement (at least 200 tons):**
+
+\[
+5F + 3A \;\ge\; 200
+\]
+
+2. **Budget constraint (no more than \$20,000):**
+
+\[
+300F + 550A \;\le\; 20000
+\]
+
+3. **Air transport proportion (at least 30% of tons via air):**
+
+We require:
+
+\[
+\frac{\text{tons by air}}{\text{total tons}} \;\ge\; 0.30
+\quad\Rightarrow\quad
+\frac{3A}{5F + 3A} \;\ge\; 0.30
+\]
+
+Assuming \(5F + 3A > 0\), we can multiply both sides:
+
+\[
+3A \;\ge\; 0.30(5F + 3A)
+\]
+
+\[
+3A \;\ge\; 1.5F + 0.9A
+\]
+
+\[
+3A - 0.9A \;\ge\; 1.5F
+\quad\Rightarrow\quad
+2.1A \;\ge\; 1.5F
+\]
+
+\[
+A \;\ge\; \frac{1.5}{2.1}F = \frac{5}{7}F
+\]
+
+So the air proportion constraint becomes:
+
+\[
+A \;\ge\; \frac{5}{7}F
+\]
+
+4. **Minimum number of freight trips (at least 5 trips):**
+
+\[
+F \;\ge\; 5
+\]
+
+5. **Integrality and nonnegativity:**
+
+\[
+F, A \in \mathbb{Z}, \quad F \ge 0, \; A \ge 0
+\]
+
+---
+
+## 4. Objective Function
+
+We want to **minimize the total number of trips**:
+
+\[
+\min \; F + A
+\]
+
+Subject to all the constraints above.
+
+This is an **integer linear programming (ILP)** problem:
+
+- Linear objective
+- Linear constraints
+- Integer variables
+
+---
+
+## 5. Suitable Python Libraries
+
+You can model and solve this with any MILP-capable library, for example:
+
+- `PuLP` (pure Python, open-source, easy to use)
+- `Pyomo` (more general modeling library)
+- `ortools.linear_solver` from Google OR-Tools
+- `mip` (Python-MIP)
+- `gurobipy` (if you have Gurobi available)
+
+For a quick solution, `PuLP` or OR-Tools are excellent.
+
+---
+
+## 6. Example in Python (PuLP)
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Candle_Transport", pl.LpMinimize)
+
+# Decision variables (integer, non-negative)
+F = pl.LpVariable("FreightTrips", lowBound=0, cat="Integer")
+A = pl.LpVariable("AirTrips", lowBound=0, cat="Integer")
+
+# Objective: minimize total trips
+prob += F + A, "TotalTrips"
+
+# Constraints
+# 1. Demand: at least 200 tons
+prob += 5*F + 3*A >= 200, "Demand"
+
+# 2. Budget: at most 20000
+prob += 300*F + 550*A <= 20000, "Budget"
+
+# 3. At least 30% of tons via air: A >= (5/7)F
+prob += A >= (5.0/7.0)*F, "AirProportion"
+
+# 4. At least 5 freight trips
+prob += F >= 5, "MinFreightTrips"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Results
+status = pl.LpStatus[prob.status]
+F_opt = pl.value(F)
+A_opt = pl.value(A)
+total_trips = F_opt + A_opt
+total_tons = 5*F_opt + 3*A_opt
+total_cost = 300*F_opt + 550*A_opt
+
+print("Status:", status)
+print(f"Freight trips: {F_opt}")
+print(f"Air trips: {A_opt}")
+print(f"Total trips: {total_trips}")
+print(f"Total tons: {total_tons}")
+print(f"Total cost: {total_cost}")
+```
+
+This will give you the minimal number of total trips and the corresponding split between freight and air that satisfies all constraints.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create problem
+    prob = pl.LpProblem("Transport_Trips_Minimization", pl.LpMinimize)
+
+    # Decision variables (integer, non-negative)
+    F = pl.LpVariable("FreightTrips", lowBound=0, cat="Integer")
+    A = pl.LpVariable("AirTrips", lowBound=0, cat="Integer")
+
+    # Objective: minimize total trips
+    prob += F + A, "TotalTrips"
+
+    # Constraints
+
+    # 1. Demand: at least 200 tons
+    prob += 5 * F + 3 * A >= 200, "Demand"
+
+    # 2. Budget: at most 20000
+    prob += 300 * F + 550 * A <= 20000, "Budget"
+
+    # 3. At least 30% of tons via air: A >= (5/7)F
+    prob += A >= (5.0 / 7.0) * F, "AirProportion"
+
+    # 4. At least 5 freight trips
+    prob += F >= 5, "MinFreightTrips"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    F_opt = pl.value(F)
+    A_opt = pl.value(A)
+
+    total_trips = F_opt + A_opt
+
+    # Print required final objective line
+    print(f"FINAL_OBJ: {total_trips}")
+
+if __name__ == "__main__":
+    main()

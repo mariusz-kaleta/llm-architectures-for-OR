@@ -1,0 +1,258 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- **Goal:** Minimise the **total number of boxes used** (small + large) while:
+  - meeting or exceeding the minimum mask requirement, and  
+  - respecting stacking/usage preferences and minimum large-box use.
+
+---
+
+2. **Suggested model type**
+
+- **Model:** Integer Linear Programming (ILP)  
+  (All relationships are linear, but box counts must be integers and nonnegative.)
+
+---
+
+3. **Main decision variables**
+
+Define two primary integer decision variables:
+
+- **S** = number of small boxes used  
+- **L** = number of large boxes used  
+
+(Optionally, you may also define T = S + L as a derived variable if helpful for expressing the objective, but it is not necessary as an independent decision variable.)
+
+---
+
+4. **Key constraints to consider**
+
+a. **Mask capacity requirement**
+
+- Each small box holds 25 masks.  
+- Each large box holds 45 masks.  
+- At least 750 masks must be delivered.
+
+  Strategic constraint:
+  - Total masks supplied by all boxes must be **at least 750**.
+
+b. **Preference for small boxes (stacking/usage rule)**
+
+- There must be **at least three times as many small boxes as large boxes**.
+
+  Strategic constraint:
+  - The number of small boxes should be **≥ 3 ×** the number of large boxes.
+
+c. **Minimum usage of large boxes**
+
+- At least **5 large boxes must be used**.
+
+  Strategic constraint:
+  - Number of large boxes must be **≥ 5**.
+
+d. **Non-negativity and integrality**
+
+- Both S and L must be:
+  - **Non-negative**
+  - **Integer-valued**
+
+  Strategic constraints:
+  - S ≥ 0, integer  
+  - L ≥ 0, integer  
+
+---
+
+5. **Objective function (qualitative description)**
+
+- Minimize **total number of boxes**:
+  - Minimise S + L  
+- Note: Do **not** minimise total masks; the requirement is a lower bound. We accept oversupply of masks if it reduces the number of boxes, while satisfying the ratio and minimum-large-box conditions.
+
+---
+
+6. **Modelling notes / structure for the Modeller**
+
+- This is a **simple, small-scale ILP** with only two decision variables and a handful of linear constraints.
+- The **trade-off**:
+  - Large boxes are “more efficient” per box (more masks per box), so they tend to reduce total box count.
+  - But small boxes must be at least triple the large-box count, and at least 5 large boxes are mandatory.
+- For solution:
+  - It is feasible to solve by enumeration of L above its minimum subject to the ratio constraint, but the ILP solver will handle it directly.
+- Check and report:
+  - The optimal pair (S*, L*) that:
+    - meets all constraints,
+    - and yields minimum S* + L*.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem as an Integer Linear Program (ILP), plus guidance on how to implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(S \in \mathbb{Z}_{\ge 0}\): number of small boxes used  
+- \(L \in \mathbb{Z}_{\ge 0}\): number of large boxes used  
+
+(Each must be a nonnegative integer.)
+
+---
+
+## 2. Objective
+
+Minimize the total number of boxes:
+
+\[
+\min \; S + L
+\]
+
+---
+
+## 3. Constraints
+
+### a) Mask capacity requirement
+
+- Each small box holds 25 masks.
+- Each large box holds 45 masks.
+- At least 750 masks are required.
+
+\[
+25S + 45L \;\ge\; 750
+\]
+
+---
+
+### b) Preference for small boxes (stacking/usage rule)
+
+There must be at least three times as many small boxes as large boxes:
+
+\[
+S \;\ge\; 3L
+\]
+
+---
+
+### c) Minimum number of large boxes
+
+At least 5 large boxes must be used:
+
+\[
+L \;\ge\; 5
+\]
+
+---
+
+### d) Non-negativity and integrality
+
+\[
+S \;\ge\; 0, \quad L \;\ge\; 0
+\]
+\[
+S, L \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete ILP formulation
+
+\[
+\begin{aligned}
+\min \quad & S + L \\
+\text{s.t.} \quad 
+& 25S + 45L \;\ge\; 750 \\
+& S \;\ge\; 3L \\
+& L \;\ge\; 5 \\
+& S, L \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+The optimal solution \((S^*, L^*)\) gives the counts of small and large boxes that minimize the total number of boxes while satisfying all requirements.
+
+---
+
+## 5. Recommended Python tools
+
+Since this is a small ILP, many libraries will solve it easily. Good choices:
+
+- **PuLP** (pure Python, easy syntax)
+- **OR-Tools** (from Google, very efficient for ILPs and CP)
+- **Pyomo** (more general modeling framework)
+- **SciPy** is not ideal here because its core solvers are for continuous problems, not integer programming.
+
+For quick implementation, **PuLP** or **OR-Tools** is most straightforward.
+
+---
+
+## 6. Example: PuLP implementation sketch
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("MaskBoxPlanning", pl.LpMinimize)
+
+# Decision variables
+S = pl.LpVariable('S', lowBound=0, cat='Integer')
+L = pl.LpVariable('L', lowBound=0, cat='Integer')
+
+# Objective: Minimize total number of boxes
+prob += S + L
+
+# Constraints
+prob += 25*S + 45*L >= 750         # mask requirement
+prob += S >= 3*L                   # small/large ratio
+prob += L >= 5                     # minimum large boxes
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("S (small boxes) =", S.value())
+print("L (large boxes) =", L.value())
+print("Total boxes =", S.value() + L.value())
+```
+
+You can use a similar structure in OR-Tools’ `pywraplp` MIP solver if you prefer.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("MaskBoxPlanning", pl.LpMinimize)
+
+    # Decision variables
+    S = pl.LpVariable('S', lowBound=0, cat='Integer')  # Small boxes
+    L = pl.LpVariable('L', lowBound=0, cat='Integer')  # Large boxes
+
+    # Objective: Minimize total number of boxes
+    prob += S + L
+
+    # Constraints
+    prob += 25 * S + 45 * L >= 750      # Mask capacity requirement
+    prob += S >= 3 * L                  # Preference for small boxes
+    prob += L >= 5                      # Minimum number of large boxes
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract values
+    S_val = int(pl.value(S))
+    L_val = int(pl.value(L))
+    total_boxes = S_val + L_val
+
+    # (Optional intermediate prints - can be commented out if not needed)
+    # print(f"S (small boxes) = {S_val}")
+    # print(f"L (large boxes) = {L_val}")
+    # print(f"Total boxes = {total_boxes}")
+
+    # Final required output
+    print(f"FINAL_OBJ: {total_boxes}")
+
+if __name__ == "__main__":
+    main()

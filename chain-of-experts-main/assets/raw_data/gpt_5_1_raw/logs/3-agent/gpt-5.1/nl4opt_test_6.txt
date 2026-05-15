@@ -1,0 +1,114 @@
+[MODELER]:
+Here is a linear programming formulation of the problem.
+
+## Decision variables
+Let  
+- \(x\) = number of bikes used (integer, \(x \ge 0\))  
+- \(y\) = number of scooters used (integer, \(y \ge 0\))
+
+## Objective
+Maximize the total number of meals delivered:
+
+\[
+\text{Maximize } Z = 8x + 5y
+\]
+
+since each bike carries 8 meals and each scooter carries 5 meals.
+
+## Constraints
+
+1. **Charge limit (total available energy)**  
+   Each bike uses 3 units of charge and each scooter uses 2 units. Total charge ≤ 200:
+   \[
+   3x + 2y \le 200
+   \]
+
+2. **Scooter friendliness (at most 30% bikes among EVs)**  
+   At most 30% of all vehicles can be bikes:
+   \[
+   x \le 0.3(x + y)
+   \]
+   Rearranging:
+   \[
+   x \le 0.3x + 0.3y \\
+   0.7x \le 0.3y \\
+   7x \le 3y
+   \]
+
+3. **Minimum number of scooters**  
+   At least 20 scooters must be used:
+   \[
+   y \ge 20
+   \]
+
+4. **Integrality and non-negativity**
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+So the full model is:
+
+\[
+\begin{aligned}
+\max\ & 8x + 5y \\
+\text{s.t. } 
+& 3x + 2y \le 200 \\
+& 7x \le 3y \\
+& y \ge 20 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is an **integer linear programming (ILP)** problem, but because the coefficients are small, it might also be solved by linear programming with integrality checked afterward if the solution naturally lands on integers.
+
+## Suitable Python libraries
+
+To solve this model programmatically, you can use:
+
+- **PuLP** (`pulp`):  
+  A user-friendly LP/ILP modeling package in Python that can use CBC (included), GLPK, or commercial solvers.
+- **OR-Tools Linear Solver** (`ortools.linear_solver.pywraplp`):  
+  From Google OR-Tools, supports LP/MIP with several backends.
+- **Pyomo**:  
+  More general algebraic modeling language style, good for larger optimization modeling.
+- **SciPy (`scipy.optimize.linprog`)**:  
+  Can be used for the LP relaxation (continuous version). For integrality, you’d need additional logic, so it is less direct for ILP than PuLP or OR-Tools.
+
+For this kind of small ILP, **PuLP** or **OR-Tools** are particularly straightforward and appropriate.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem
+    prob = pulp.LpProblem("Meal_Delivery_Optimization", pulp.LpMaximize)
+
+    # Decision variables (non-negative integers)
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # bikes
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # scooters
+
+    # Objective function: Maximize 8x + 5y
+    prob += 8 * x + 5 * y
+
+    # Constraints
+    # 1) Charge limit: 3x + 2y <= 200
+    prob += 3 * x + 2 * y <= 200
+
+    # 2) Scooter friendliness: 7x <= 3y
+    prob += 7 * x <= 3 * y
+
+    # 3) Minimum scooters: y >= 20
+    prob += y >= 20
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,217 @@
+[MODELER]:
+Below is a clear LP formulation, notes about integrality, recommended solvers, and short Python examples.
+
+1) Decision variables
+- x = number of Zodiac pills taken per day (>= 0)
+- y = number of Sunny pills taken per day (>= 0)
+
+(If you must take whole pills, enforce x, y integer — then the problem becomes a MILP.)
+
+2) Parameters (given)
+- Z1 per Zodiac pill = 1.3 grams
+- Z1 per Sunny pill = 1.2 grams
+- D3 per Zodiac pill = 1.5 grams
+- D3 per Sunny pill = 5.0 grams
+- Required Z1 per day >= 5 grams
+- Required D3 per day >= 10 grams
+- Cost per Zodiac pill = $1
+- Cost per Sunny pill = $3
+
+3) LP formulation (continuous relaxation)
+Minimize cost:
+  minimize      C = 1*x + 3*y
+
+Subject to (requirements):
+  1.3 x + 1.2 y >= 5    (Z1 requirement)
+  1.5 x + 5.0 y >= 10   (D3 requirement)
+  x >= 0, y >= 0
+
+If integer pills are required, add:
+  x, y integer (nonnegative integers)
+
+4) Remarks / optimal values
+- Continuous LP optimum (allow fractional pills) is at the intersection of the two constraints:
+  x ≈ 2.7655, y ≈ 1.1707, cost ≈ $6.2777.
+- If pills must be integer, a lowest-cost integer feasible solution is
+  x = 4, y = 1 with cost = 4*1 + 1*3 = $7.
+
+5) Suggested Python libraries
+- pulp (easy modeling; supports integer variables) — good for teaching / small MILPs
+- OR-Tools CP-SAT (good for integer/CP-style optimization, fast)
+- scipy.optimize.linprog (for continuous LP only)
+- cvxpy (for higher-level modeling; continuous & integer with proper solvers)
+- Commercial solvers (Gurobi, CPLEX) if you need large-scale or faster solves
+
+6) Example code snippets
+
+a) Continuous LP with scipy.optimize.linprog
+(from scipy.optimize import linprog)
+```
+# minimize [1, 3]·[x,y] s.t. A_ub x <= b_ub (convert >= to <= by multiplying -1)
+c = [1, 3]
+A_ub = [[-1.3, -1.2],
+        [-1.5, -5.0]]
+b_ub = [-5, -10]
+bounds = [(0, None), (0, None)]
+res = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds)
+print(res.x, res.fun)
+```
+
+b) MILP with pulp (integer pills)
+```
+import pulp
+
+prob = pulp.LpProblem('MedMinCost', pulp.LpMinimize)
+x = pulp.LpVariable('Zodiac', lowBound=0, cat='Integer')
+y = pulp.LpVariable('Sunny',  lowBound=0, cat='Integer')
+
+prob += 1*x + 3*y                       # objective
+prob += 1.3*x + 1.2*y >= 5              # Z1 requirement
+prob += 1.5*x + 5.0*y >= 10             # D3 requirement
+
+prob.solve()
+print(pulp.value(x), pulp.value(y), pulp.value(prob.objective))
+```
+
+That is the complete LP formulation and practical guidance for solving it.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the pill minimization problem (continuous LP and integer MILP by brute force).
+# Data initialized directly in code. No external solver required.
+
+from math import ceil, isclose
+
+# Parameters
+z1_per_zodiac = 1.3
+z1_per_sunny = 1.2
+d3_per_zodiac = 1.5
+d3_per_sunny = 5.0
+
+req_z1 = 5.0
+req_d3 = 10.0
+
+cost_zodiac = 1.0
+cost_sunny = 3.0
+
+# 1) Continuous LP solution by solving the two equality constraints (intersection)
+# Solve:
+#  z1_per_zodiac * x + z1_per_sunny * y = req_z1
+#  d3_per_zodiac * x  + d3_per_sunny  * y = req_d3
+a11 = z1_per_zodiac
+a12 = z1_per_sunny
+a21 = d3_per_zodiac
+a22 = d3_per_sunny
+b1 = req_z1
+b2 = req_d3
+
+det = a11 * a22 - a12 * a21
+if abs(det) < 1e-12:
+    # Degenerate (shouldn't happen with given data)
+    cont_x = None
+    cont_y = None
+else:
+    cont_x = (b1 * a22 - a12 * b2) / det
+    cont_y = (a11 * b2 - b1 * a21) / det
+
+# Check feasibility (nonnegativity)
+cont_feasible = (cont_x is not None) and (cont_x >= -1e-9) and (cont_y >= -1e-9)
+
+# Also check the axis intersections (vertices where one var is 0)
+# If x = 0 -> need y >= max(req_z1 / z1_per_sunny, req_d3 / d3_per_sunny)
+if z1_per_sunny != 0:
+    y_needed_if_x0_from_z1 = req_z1 / z1_per_sunny
+else:
+    y_needed_if_x0_from_z1 = float('inf')
+if d3_per_sunny != 0:
+    y_needed_if_x0_from_d3 = req_d3 / d3_per_sunny
+else:
+    y_needed_if_x0_from_d3 = float('inf')
+y_if_x0 = max(y_needed_if_x0_from_z1, y_needed_if_x0_from_d3)
+
+# If y = 0 -> need x >= max(req_z1 / z1_per_zodiac, req_d3 / d3_per_zodiac)
+if z1_per_zodiac != 0:
+    x_needed_if_y0_from_z1 = req_z1 / z1_per_zodiac
+else:
+    x_needed_if_y0_from_z1 = float('inf')
+if d3_per_zodiac != 0:
+    x_needed_if_y0_from_d3 = req_d3 / d3_per_zodiac
+else:
+    x_needed_if_y0_from_d3 = float('inf')
+x_if_y0 = max(x_needed_if_y0_from_z1, x_needed_if_y0_from_d3)
+
+# Candidate continuous solutions: intersection (if feasible), (x_if_y0,0), (0,y_if_x0)
+candidates = []
+if cont_feasible:
+    # Ensure nonnegative small tolerance
+    x_c = max(0.0, cont_x)
+    y_c = max(0.0, cont_y)
+    candidates.append( (x_c, y_c, cost_zodiac * x_c + cost_sunny * y_c, 'intersection') )
+
+# axis points
+candidates.append( (x_if_y0, 0.0, cost_zodiac * x_if_y0 + cost_sunny * 0.0, 'y=0') )
+candidates.append( (0.0, y_if_x0, cost_zodiac * 0.0 + cost_sunny * y_if_x0, 'x=0') )
+
+# Select best continuous candidate that satisfies constraints (allow tiny tolerance)
+def satisfies_constraints(x, y):
+    return (z1_per_zodiac * x + z1_per_sunny * y >= req_z1 - 1e-9) and \
+           (d3_per_zodiac * x + d3_per_sunny * y >= req_d3 - 1e-9) and \
+           (x >= -1e-9) and (y >= -1e-9)
+
+best_cont = None
+for x, y, obj, tag in candidates:
+    if satisfies_constraints(x, y):
+        if (best_cont is None) or (obj < best_cont[2]):
+            best_cont = (x, y, obj, tag)
+
+if best_cont is None:
+    raise RuntimeError("No feasible continuous solution found (unexpected).")
+
+cont_x_opt, cont_y_opt, cont_obj_opt, cont_tag = best_cont
+
+# 2) Integer MILP: brute-force search over reasonable integer ranges
+# Determine reasonable upper bounds for search: if we only take one pill type:
+# x_max = ceil(max(requireds / per-pill for x when y=0)) and similarly for y
+x_only_needed = max(req_z1 / z1_per_zodiac if z1_per_zodiac>0 else 0.0,
+                    req_d3 / d3_per_zodiac if d3_per_zodiac>0 else 0.0)
+y_only_needed = max(req_z1 / z1_per_sunny if z1_per_sunny>0 else 0.0,
+                    req_d3 / d3_per_sunny if d3_per_sunny>0 else 0.0)
+
+# search bounds (add margin)
+x_max = int(ceil(x_only_needed)) + 10
+y_max = int(ceil(y_only_needed)) + 10
+
+best_int = None
+for xi in range(0, x_max + 1):
+    for yi in range(0, y_max + 1):
+        if (z1_per_zodiac * xi + z1_per_sunny * yi >= req_z1 - 1e-9) and \
+           (d3_per_zodiac * xi + d3_per_sunny * yi >= req_d3 - 1e-9):
+            obj = cost_zodiac * xi + cost_sunny * yi
+            if (best_int is None) or (obj < best_int[2]) or (isclose(obj, best_int[2]) and (xi + yi) < (best_int[0] + best_int[1])):
+                best_int = (xi, yi, obj)
+
+if best_int is None:
+    raise RuntimeError("No feasible integer solution found (unexpected).")
+
+int_x_opt, int_y_opt, int_obj_opt = best_int
+
+# Print results (informational)
+print("Continuous LP solution (allow fractional pills):")
+print(f" x = {cont_x_opt:.10f}, y = {cont_y_opt:.10f}, cost = {cont_obj_opt:.10f}  (found at {cont_tag})")
+print()
+print("Integer (MILP) solution (nonnegative integer pill counts) by brute force search:")
+print(f" x = {int_x_opt}, y = {int_y_opt}, cost = {int_obj_opt:.10f}")
+print()
+
+# Final required single-line output with final objective value.
+# Choose the integer solution's objective as the "final" objective (practical whole-pill solution).
+final_value = int_obj_opt
+# If it's effectively an integer, print as integer (for cleaner matching)
+if isclose(final_value, round(final_value)):
+    final_value = int(round(final_value))
+
+print(f"FINAL_OBJ: {final_value}")
+```

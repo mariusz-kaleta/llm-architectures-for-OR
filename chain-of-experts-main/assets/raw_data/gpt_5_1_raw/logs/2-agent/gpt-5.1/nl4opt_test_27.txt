@@ -1,0 +1,187 @@
+[MODELER]:
+Here is a clean mathematical model of the problem and how you could solve it with Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_L \in \mathbb{Z}_{\ge 0}\): number of low-power air conditioners  
+- \(x_H \in \mathbb{Z}_{\ge 0}\): number of high-power air conditioners  
+
+We seek integer (actually nonnegative integer) values.
+
+---
+
+## 2. Objective function
+
+We want to **minimize the total number of air conditioners**:
+
+\[
+\min\; Z = x_L + x_H
+\]
+
+---
+
+## 3. Constraints
+
+### a. Cooling capacity (at least 250 housing units)
+
+Each low-power unit cools 12 units, each high-power unit cools 17 units:
+
+\[
+12x_L + 17x_H \;\ge\; 250
+\]
+
+---
+
+### b. Electricity usage (at most 3400 units)
+
+Each low-power unit uses 150 electricity units per day, each high-power 250:
+
+\[
+150x_L + 250x_H \;\le\; 3400
+\]
+
+---
+
+### c. Limit on low-powered models (at most 30% of total units)
+
+“Low-powered model is limited to 30%” translates to:
+
+\[
+x_L \;\le\; 0.3(x_L + x_H)
+\]
+
+Rearrange:
+
+\[
+x_L \;\le\; 0.3x_L + 0.3x_H
+\]
+\[
+0.7x_L \;\le\; 0.3x_H
+\]
+\[
+7x_L \;\le\; 3x_H
+\]
+
+So the linear constraint is:
+
+\[
+7x_L - 3x_H \;\le\; 0
+\]
+
+---
+
+### d. At least 7 high-powered models
+
+\[
+x_H \;\ge\; 7
+\]
+
+---
+
+### e. Integrality and nonnegativity
+
+\[
+x_L, x_H \in \mathbb{Z}, \quad x_L \ge 0,\; x_H \ge 0
+\]
+
+---
+
+## 4. Complete model
+
+\[
+\begin{aligned}
+\min \quad & x_L + x_H \\
+\text{s.t.} \quad 
+& 12x_L + 17x_H \;\ge\; 250 \\
+& 150x_L + 250x_H \;\le\; 3400 \\
+& 7x_L - 3x_H \;\le\; 0 \\
+& x_H \;\ge\; 7 \\
+& x_L, x_H \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a **mixed-integer linear programming (MILP)** problem (here all integer).
+
+---
+
+## 5. Suitable Python libraries
+
+To solve this MILP in Python, good options are:
+
+- **PuLP**: Simple modeling interface, uses CBC by default (open source).
+- **OR-Tools (Google)**: Powerful MILP solver (`ortools.linear_solver`).
+- **Pyomo**: More general modeling framework, can call CBC, GLPK, Gurobi, CPLEX, etc.
+
+For this small problem, **PuLP** or **OR-Tools** is perfectly sufficient.
+
+---
+
+## 6. Example using PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("AC_Selection", pl.LpMinimize)
+
+# Decision variables (non-negative integers)
+x_L = pl.LpVariable("x_L", lowBound=0, cat="Integer")  # low-power
+x_H = pl.LpVariable("x_H", lowBound=0, cat="Integer")  # high-power
+
+# Objective: minimize total number of ACs
+prob += x_L + x_H
+
+# Constraints
+prob += 12 * x_L + 17 * x_H >= 250, "CoolingCapacity"
+prob += 150 * x_L + 250 * x_H <= 3400, "Electricity"
+prob += 7 * x_L - 3 * x_H <= 0, "LowPowerLimit_30pct"
+prob += x_H >= 7, "MinHighPower"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal x_L (low-power):", pl.value(x_L))
+print("Optimal x_H (high-power):", pl.value(x_H))
+print("Minimum total ACs:", pl.value(x_L + x_H))
+```
+
+Running this will give you the optimal numbers of low- and high-power air conditioners satisfying all constraints while minimizing the total count.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("AC_Selection", pl.LpMinimize)
+
+    # Decision variables (non-negative integers)
+    x_L = pl.LpVariable("x_L", lowBound=0, cat="Integer")  # low-power
+    x_H = pl.LpVariable("x_H", lowBound=0, cat="Integer")  # high-power
+
+    # Objective: minimize total number of ACs
+    prob += x_L + x_H
+
+    # Constraints
+    prob += 12 * x_L + 17 * x_H >= 250, "CoolingCapacity"
+    prob += 150 * x_L + 250 * x_H <= 3400, "Electricity"
+    prob += 7 * x_L - 3 * x_H <= 0, "LowPowerLimit_30pct"
+    prob += x_H >= 7, "MinHighPower"
+
+    # Solve using CBC solver
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(x_L + x_H)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

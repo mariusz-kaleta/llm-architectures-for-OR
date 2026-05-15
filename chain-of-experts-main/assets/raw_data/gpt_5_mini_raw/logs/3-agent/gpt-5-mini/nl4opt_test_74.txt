@@ -1,0 +1,99 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of painkiller pills (integer, x ≥ 0)
+  - y = number of sleeping pills (integer, y ≥ 0)
+
+- Objective
+  - Minimize total digestive medicine used: D = 3x + 5y
+
+- Constraints
+  1. Morphine availability: 10x + 6y ≤ 3000  (mg)
+  2. Minimum painkillers: x ≥ 50
+  3. At least 70% sleeping pills: y ≥ 0.7(x + y)
+     - equivalently 0.3y ≥ 0.7x → y ≥ (7/3) x
+  4. Integrality and nonnegativity: x, y ∈ Z≥0
+
+Remarks and solution
+
+- From constraint 3, y ≥ (7/3)x. The objective D = 3x + 5y is positive in both x and y, so to minimize D we should choose the smallest feasible x and the smallest feasible y for that x.
+- The minimum allowable x is x = 50. The corresponding minimal y is y = (7/3)·50 = 350/3 ≈ 116.6667.
+- Because pill counts must be integers, take y = 117.
+
+Check constraints:
+- Morphine used: 10·50 + 6·117 = 500 + 702 = 1202 mg ≤ 3000 (OK)
+- Fraction sleeping: 117 / (50 + 117) ≈ 0.7006 ≥ 0.70 (OK)
+
+Objective values:
+- If fractional pills were allowed: x = 50, y = 350/3 → D = 3·50 + 5·(350/3) = 733.333... units of digestive medicine.
+- With integer pills: x = 50, y = 117 → D = 3·50 + 5·117 = 735 units of digestive medicine.
+
+Recommended solvers / Python libraries
+- For an integer linear program: PuLP (with CBC or other backend) or OR-Tools CP-SAT.
+- For continuous LP relaxation: scipy.optimize.linprog or PuLP.
+- Example quick starter: use PuLP (or OR-Tools if you prefer faster/more scalable ILP).
+
+If you want, I can provide a short PuLP or OR-Tools script that implements and solves this model.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+from fractions import Fraction
+
+# Brute-force integer search for the ILP:
+# minimize D = 3x + 5y
+# s.t.
+#   10x + 6y <= 3000
+#   x >= 50
+#   y >= (7/3) x
+#   x, y integers >= 0
+
+best_obj = None
+best_x = None
+best_y = None
+
+# Upper bound on x: from 10x <= 3000 -> x <= 300
+for x in range(50, 301):
+    # minimal integer y satisfying y >= (7/3) x
+    # ceil(7*x/3) = (7*x + 2) // 3
+    y_min = (7 * x + 2) // 3
+    # ensure nonnegative
+    if y_min < 0:
+        y_min = 0
+    # check morphine constraint
+    if 10 * x + 6 * y_min <= 3000:
+        D = 3 * x + 5 * y_min
+        if (best_obj is None) or (D < best_obj):
+            best_obj = D
+            best_x = x
+            best_y = y_min
+
+# As a sanity check, there could be feasible solutions with larger y that reduce D (unlikely since coefficient of y is positive),
+# but we'll still check a reasonable range of y for completeness.
+if best_obj is not None:
+    # Check y up to the morphine-limited maximum when x is at minimum (3000/6 = 500)
+    for x in range(50, 301):
+        # compute max possible y from morphine: 6y <= 3000 - 10x -> y <= floor((3000-10x)/6)
+        max_y = (3000 - 10 * x) // 6
+        if max_y < 0:
+            continue
+        # minimal y respecting proportion
+        y_min = (7 * x + 2) // 3
+        # iterate y from y_min to max_y
+        for y in range(y_min, max_y + 1):
+            D = 3 * x + 5 * y
+            if (best_obj is None) or (D < best_obj):
+                best_obj = D
+                best_x = x
+                best_y = y
+
+# Print final objective value as required
+if best_obj is None:
+    # No feasible solution found (should not happen for this model)
+    print(f"FINAL_OBJ: None")
+else:
+    print(f"FINAL_OBJ: {best_obj}")
+```

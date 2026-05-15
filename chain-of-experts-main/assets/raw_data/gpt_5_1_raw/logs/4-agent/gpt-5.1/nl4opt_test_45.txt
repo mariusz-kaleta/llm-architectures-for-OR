@@ -1,0 +1,248 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximise total profit from producing Oil Max and Oil Max Pro, given limited amounts of substances A, B, and C.
+
+2. Suggested model type  
+Model: Linear Programming (LP), small-scale, continuous and (if needed) integer-constrained on production quantities.
+
+3. Main decision variables  
+Define decision variables as:
+- Number of containers of Oil Max to produce.  
+- Number of containers of Oil Max Pro to produce.  
+
+(If the context requires whole containers, indicate that these variables should be non-negative integers; otherwise non-negative reals are acceptable.)
+
+4. Key constraints to consider  
+
+a) Raw material availability constraints  
+Each container of each oil uses a fixed amount of substances A, B, and C, and total use cannot exceed available supply.
+
+- Substance A usage:  
+  - Oil Max uses 46 g per container.  
+  - Oil Max Pro uses 13 g per container.  
+  - Total usage of A across both products ≤ 1345 g.
+
+- Substance B usage:  
+  - Oil Max uses 43 g per container.  
+  - Oil Max Pro uses 4 g per container.  
+  - Total usage of B across both products ≤ 346 g.
+
+- Substance C usage:  
+  - Oil Max uses 56 g per container.  
+  - Oil Max Pro uses 45 g per container.  
+  - Total usage of C across both products ≤ 1643 g.
+
+b) Non-negativity (and possibly integrality) constraints  
+- Production of Oil Max ≥ 0.  
+- Production of Oil Max Pro ≥ 0.  
+- Optionally, constrain them to be integers if required by the problem context.
+
+5. Objective function structure  
+
+Profit per container:  
+- Oil Max: $10 per container.  
+- Oil Max Pro: $15 per container.  
+
+Objective:  
+- Maximise total profit = (profit per Oil Max × number of Oil Max containers) + (profit per Oil Max Pro × number of Oil Max Pro containers).
+
+6. Modelling strategy notes  
+
+- This is a straightforward 2-variable LP; the feasible region is defined by three linear resource constraints plus non-negativity.  
+- The modeller can solve it by:
+  - Graphical method (plotting constraints and evaluating objective at corner points), or  
+  - Using any LP solver (Excel Solver, Python/PuLP, etc.).  
+- Check all corner points of the feasible region formed by intersections of:
+  - Each pair of resource constraints.  
+  - Each resource constraint with axes (i.e., all production of one product, none of the other).  
+- Select the corner giving the maximum objective value while satisfying all constraints.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, plus a suggestion of how to solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of containers of **Oil Max** to produce  
+- \(y\) = number of containers of **Oil Max Pro** to produce  
+
+Depending on context, you can choose:
+
+- **Continuous LP**: \(x, y \ge 0\) (if fractional containers are acceptable, often for a classroom LP example), or  
+- **Integer LP**: \(x, y \in \mathbb{Z}_{\ge 0}\) (if containers must be whole numbers).
+
+For realism, integer constraints are more appropriate, but the linear relaxation will usually give the same or almost the same solution.
+
+---
+
+## 2. Objective function (profit maximisation)
+
+Profit per container:
+
+- Oil Max: \$10 per container  
+- Oil Max Pro: \$15 per container  
+
+Total profit:
+\[
+\text{Maximise } Z = 10x + 15y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Substance A constraint
+
+Each container uses:
+
+- Oil Max: 46 g of substance A  
+- Oil Max Pro: 13 g of substance A  
+
+Total A available: 1345 g.
+
+\[
+46x + 13y \le 1345
+\]
+
+---
+
+### b) Substance B constraint
+
+Each container uses:
+
+- Oil Max: 43 g of substance B  
+- Oil Max Pro: 4 g of substance B  
+
+Total B available: 346 g.
+
+\[
+43x + 4y \le 346
+\]
+
+---
+
+### c) Substance C constraint
+
+Each container uses:
+
+- Oil Max: 56 g of substance C  
+- Oil Max Pro: 45 g of substance C  
+
+Total C available: 1643 g.
+
+\[
+56x + 45y \le 1643
+\]
+
+---
+
+### d) Non-negativity (and optional integrality)
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+Optionally:
+
+\[
+x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full mathematical model
+
+\[
+\begin{aligned}
+\text{Maximise } \quad & Z = 10x + 15y \\
+\text{subject to } \quad
+& 46x + 13y \le 1345 \quad &&\text{(Substance A)} \\
+& 43x + 4y \le 346 \quad &&\text{(Substance B)} \\
+& 56x + 45y \le 1643 \quad &&\text{(Substance C)} \\
+& x \ge 0,\; y \ge 0 \\
+& \text{(optionally) } x, y \in \mathbb{Z}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+For solving this LP / MILP in Python, good choices are:
+
+- **PuLP** (very convenient modeling for small LP/MILPs)
+- **OR-Tools** (`ortools.linear_solver` for LP/MIP problems)
+- **SciPy** (`scipy.optimize.linprog`) – good for continuous LP, not for integrality
+
+For integer variables, prefer **PuLP** or **OR-Tools**.
+
+---
+
+## 6. Example PuLP implementation (with integrality)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Oil_Production", pl.LpMaximize)
+
+# Decision variables (Integer, >= 0)
+x = pl.LpVariable('OilMax', lowBound=0, cat='Integer')
+y = pl.LpVariable('OilMaxPro', lowBound=0, cat='Integer')
+
+# Objective function
+prob += 10 * x + 15 * y
+
+# Constraints
+prob += 46 * x + 13 * y <= 1345   # Substance A
+prob += 43 * x + 4 * y  <= 346    # Substance B
+prob += 56 * x + 45 * y <= 1643   # Substance C
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Oil Max (x):", x.value())
+print("Oil Max Pro (y):", y.value())
+print("Maximum Profit:", pl.value(prob.objective))
+```
+
+You can switch `cat='Integer'` to `cat='Continuous'` if you want a purely continuous LP.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem: Maximize profit
+    prob = pl.LpProblem("Oil_Production", pl.LpMaximize)
+
+    # Decision variables (Integer, >= 0)
+    x = pl.LpVariable('OilMax', lowBound=0, cat='Integer')
+    y = pl.LpVariable('OilMaxPro', lowBound=0, cat='Integer')
+
+    # Objective function: Maximize 10x + 15y
+    prob += 10 * x + 15 * y
+
+    # Constraints
+    prob += 46 * x + 13 * y <= 1345   # Substance A
+    prob += 43 * x + 4 * y  <= 346    # Substance B
+    prob += 56 * x + 45 * y <= 1643   # Substance C
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

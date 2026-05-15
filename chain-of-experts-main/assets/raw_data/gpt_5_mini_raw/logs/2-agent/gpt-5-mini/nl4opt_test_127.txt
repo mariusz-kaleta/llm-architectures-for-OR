@@ -1,0 +1,82 @@
+[MODELER]:
+Model
+
+Decision variables
+- M ∈ Z, M ≥ 0 — number of molars to fill.
+- C ∈ Z, C ≥ 0 — number of canines to fill.
+
+Objective
+- Minimize total pain-killer units: minimize P = 3M + 2.3C.
+
+Constraints
+1. Resin availability: 20M + 15C ≤ 3000.
+2. At least 60% of filled cavities are canines:
+   C ≥ 0.6 (M + C)  ⇔  C ≥ 1.5 M.
+3. Reserve for at least 45 molars: M ≥ 45.
+4. Integrality: M, C integers (teeth are indivisible).
+
+Full formulation
+minimize   P = 3M + 2.3C
+subject to
+  20M + 15C ≤ 3000
+  C − 1.5 M ≥ 0
+  M ≥ 45
+  M, C ∈ Z_{\ge 0}
+
+Solution reasoning (short)
+- From C ≥ 1.5M and M ≥ 45 we get M ≤ 3000/42.5 ≈ 70.59, so M ∈ {45,...,70}.
+- For fixed M the pain is minimized by taking the smallest feasible C, i.e. C = ceil(1.5 M).
+- Pain grows with M under C = ceil(1.5M), so the smallest feasible M (M = 45) gives the global minimum.
+- Therefore choose M = 45, C = ceil(1.5·45) = 68.
+
+Feasibility and results
+- Resin used: 20·45 + 15·68 = 900 + 1020 = 1920 ≤ 3000 (within supply).
+- Total pain-killer units: 3·45 + 2.3·68 = 135 + 156.4 = 291.4 units.
+
+(If fractional teeth were allowed, the continuous minimum would be at M=45, C=67.5 with pain 290.25; but teeth are integer so the practical solution is M=45, C=68.)
+
+Recommended solvers/libraries
+- For integer linear programming: PuLP (with CBC or GLPK), OR-Tools CP-SAT, or Gurobi/Cplex if available.
+- For linear programming relaxation (continuous): scipy.optimize.linprog or PuLP.
+
+Optional: small PuLP example (Python)
+- Use pulp.LpVariable for M and C with cat='Integer', set objective 3*M + 2.3*C and add the three constraints; solve with default CBC or another solver.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data (initialized directly)
+resin_capacity = 3000  # total resin units available
+resin_per_molar = 20
+resin_per_canine = 15
+pain_per_molar = 3.0
+pain_per_canine = 2.3
+
+# Decision variable bounds
+M_min = 45  # M >= 45
+M_max = resin_capacity // resin_per_molar  # loose upper bound
+
+best_P = None
+best_M = None
+best_C = None
+
+for M in range(M_min, M_max + 1):
+    # C must satisfy C >= 1.5 M (and be integer)
+    C_min = math.ceil(1.5 * M)
+    # Check resin constraint
+    if resin_per_molar * M + resin_per_canine * C_min <= resin_capacity:
+        P = pain_per_molar * M + pain_per_canine * C_min
+        if (best_P is None) or (P < best_P):
+            best_P = P
+            best_M = M
+            best_C = C_min
+
+# Final objective value (rounded to avoid floating representation artifacts)
+if best_P is None:
+    final_value = None
+else:
+    final_value = round(best_P, 6)
+
+print(f"FINAL_OBJ: {final_value}")

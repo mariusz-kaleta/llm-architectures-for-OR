@@ -1,0 +1,163 @@
+[MODELER]:
+Formulate this as an integer linear programming problem.
+
+### Decision variables
+
+Let  
+- \(x\) = number of vans used (integer, \(x \ge 0\))  
+- \(y\) = number of minibuses used (integer, \(y \ge 0\))  
+
+### Objective
+
+Each van produces 7 units of pollution; each minibus produces 10 units.  
+Minimize total pollution:
+
+\[
+\min \; Z = 7x + 10y
+\]
+
+### Constraints
+
+1. **Capacity (at least 150 kids transported):**  
+   A van holds 6 kids, a minibus holds 10 kids:
+
+   \[
+   6x + 10y \;\ge\; 150
+   \]
+
+2. **At most 10 minibuses:**
+
+   \[
+   y \;\le\; 10
+   \]
+
+3. **More vans than minibuses:**
+
+   \[
+   x \;\ge\; y + 1
+   \]
+
+4. **Integrality and nonnegativity:**
+
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+---
+
+### Solving / Optimal solution (by inspection / enumeration)
+
+We want low pollution, so we try to use as many seats per pollution unit as possible. Check feasible integer pairs \((x, y)\) where:
+
+- \(y \le 10\)
+- \(x \ge y+1\)
+- \(6x + 10y \ge 150\)
+
+Try \(y = 10\):
+
+- Capacity: \(6x + 10\cdot 10 \ge 150 \Rightarrow 6x + 100 \ge 150 \Rightarrow 6x \ge 50 \Rightarrow x \ge 8.\overline{3}\).  
+  Smallest integer \(x\) obeying this is \(x = 9\), and we need \(x \ge y+1 = 11\), so \(x=11\) is the smallest feasible for \(y=10\).
+
+Check pollution for \((x,y) = (11,10)\):  
+- Seats: \(6\cdot 11 + 10\cdot 10 = 66 + 100 = 166 \ge 150\)  
+- Pollution: \(7\cdot 11 + 10\cdot 10 = 77 + 100 = 177\)
+
+Try \(y = 9\):
+
+- Capacity: \(6x + 10\cdot 9 \ge 150 \Rightarrow 6x + 90 \ge 150 \Rightarrow 6x \ge 60 \Rightarrow x \ge 10\)
+- Must also have \(x \ge y+1 = 10\), so \(x = 10\) is feasible.
+
+Pollution for \((x,y) = (10,9)\):  
+- Seats: \(6\cdot 10 + 10\cdot 9 = 60 + 90 = 150\)  
+- Pollution: \(7\cdot 10 + 10\cdot 9 = 70 + 90 = 160\)
+
+Check nearby values to be sure this is minimal:
+
+- \(y=8\): need \(6x + 80 \ge 150 \Rightarrow x \ge 11.\overline{6}\), also \(x \ge 9\). Smallest feasible is \(x=12\).  
+  Pollution: \(7\cdot 12 + 10\cdot 8 = 84 + 80 = 164\) (worse than 160).
+
+- \(y=7\): need \(6x + 70 \ge 150 \Rightarrow x \ge 13.\overline{3}\), also \(x \ge 8\). Smallest feasible \(x=14\).  
+  Pollution: \(7\cdot 14 + 10\cdot 7 = 98 + 70 = 168\) (worse).
+
+As \(y\) decreases further, \(x\) must increase, and pollution only grows.  
+So the optimal solution is:
+
+\[
+x^* = 10 \text{ vans}, \quad y^* = 9 \text{ minibuses},\quad Z^* = 160
+\]
+
+### Answer
+
+Use:
+- 10 vans  
+- 9 minibuses  
+
+This combination carries exactly 150 children and minimizes total pollution (160 units) subject to the constraints.
+
+---
+
+### Python libraries suitable for solving this
+
+To solve this programmatically you can use any integer linear programming (MILP) capable library:
+
+- `PuLP` (pure Python, easy to learn)
+- `ortools.linear_solver` (Google OR-Tools, very fast and robust)
+- `pyomo` (more general algebraic modeling language)
+
+A minimal example with PuLP:
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("School_Transport", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('vans', lowBound=0, cat='Integer')
+y = pl.LpVariable('minibuses', lowBound=0, cat='Integer')
+
+# Objective
+prob += 7*x + 10*y
+
+# Constraints
+prob += 6*x + 10*y >= 150          # capacity
+prob += y <= 10                    # max minibuses
+prob += x >= y + 1                 # more vans than minibuses
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Vans:", x.value())
+print("Minibuses:", y.value())
+print("Total pollution:", pl.value(prob.objective))
+```
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+# Define the MILP problem
+prob = pl.LpProblem("School_Transport", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('vans', lowBound=0, cat='Integer')
+y = pl.LpVariable('minibuses', lowBound=0, cat='Integer')
+
+# Objective: Minimize total pollution
+prob += 7 * x + 10 * y
+
+# Constraints
+prob += 6 * x + 10 * y >= 150      # Capacity: at least 150 kids
+prob += y <= 10                    # At most 10 minibuses
+prob += x >= y + 1                 # More vans than minibuses
+
+# Solve the problem
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Extract optimal objective value
+final_obj = pl.value(prob.objective)
+
+# Print the final objective value in the required format
+print(f"FINAL_OBJ: {final_obj}")

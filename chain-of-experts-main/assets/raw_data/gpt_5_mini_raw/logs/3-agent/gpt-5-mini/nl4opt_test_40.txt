@@ -1,0 +1,88 @@
+[MODELER]:
+Model variables
+- S = number of senior accountants (nonnegative integer)
+- J = number of junior accountants (nonnegative integer)
+
+Objective
+- Minimize the weekly wage bill: minimize Z = 3000 S + 1000 J
+
+Constraints
+1. Total staff requirement: S + J >= 100
+2. Minimum seniors: S >= 5
+3. Experience ratio (seniors at least one third of juniors): S >= (1/3) J  (equivalently 3S - J >= 0)
+4. Upper bound on wage bill: 3000 S + 1000 J <= 150000
+5. Integrality / nonnegativity: S, J ∈ Z_{\ge 0} (or S, J ≥ 0 if you want the LP relaxation)
+
+Summary (standard linear form)
+Minimize
+  Z = 3000 S + 1000 J
+Subject to
+  S + J >= 100
+  S >= 5
+  3 S - J >= 0
+  3000 S + 1000 J <= 150000
+  S, J ≥ 0 (integers if required)
+
+Feasibility / solution note
+- Solving this ILP gives the optimal integer solution S = 25, J = 75 with cost Z = 3000·25 + 1000·75 = $150,000.
+- If the problem statement really requires the wage bill to be strictly less than $150,000 (i.e. 3000S + 1000J < 150000), then there is no feasible integer solution because the minimum achievable cost subject to the other constraints is exactly $150,000.
+
+Suggested Python solvers / libraries
+- For integer linear programming: PuLP (open source, CBC solver), OR-Tools CP-SAT (Google OR-Tools) or a commercial solver (Gurobi, CPLEX) if available.
+- For continuous LP relaxation: scipy.optimize.linprog
+- If you need guaranteed integer optimality and large models: OR-Tools or commercial solvers are recommended.
+
+Example (PuLP) skeleton
+- Use pulp.LpVariable(..., cat='Integer') for S and J, set the objective and constraints above, and call pulp.PULP_CBC_CMD().solve().
+
+If you want, I can give a short runnable PuLP or OR-Tools script that builds and solves this model.
+
+---
+
+[CODER]:
+#!/usr/bin/env python3
+# Self-contained solver for the described ILP using exhaustive integer search (no external libraries)
+
+def main():
+    best_cost = None
+    best_solution = None
+
+    # Bounds based on constraints and wage upper bound:
+    # 3000*S + 1000*J <= 150000  => 3*S + J <= 150
+    # S >= 5, S and J nonnegative integers
+    S_min = 5
+    S_max = 150 // 3  # floor(50)
+    J_max = 150
+
+    for S in range(S_min, S_max + 1):
+        # From experience ratio: J <= 3*S
+        J_upper_from_exp = 3 * S
+        # From wage upper bound: J <= 150 - 3*S
+        J_upper_from_wage = 150 - 3 * S
+        J_upper = min(J_max, J_upper_from_exp, J_upper_from_wage)
+        if J_upper < 0:
+            continue
+        # J must be integer >=0
+        for J in range(0, J_upper + 1):
+            # Constraints:
+            if S + J < 100:
+                continue
+            if 3 * S - J < 0:
+                continue
+            if 3000 * S + 1000 * J > 150000:
+                continue
+            cost = 3000 * S + 1000 * J
+            if (best_cost is None) or (cost < best_cost):
+                best_cost = cost
+                best_solution = (S, J)
+
+    # best_solution should be (25,75) with cost 150000 per problem statement
+    if best_cost is None:
+        # No feasible solution found; set to None (or could raise)
+        best_cost = None
+
+    # Final required print statement (only this exact line at the very end)
+    print(f"FINAL_OBJ: {best_cost}")
+
+if __name__ == "__main__":
+    main()

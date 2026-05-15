@@ -1,0 +1,99 @@
+[MODELER]:
+Model
+
+Decision variables
+- x = number of small bones (integer, x >= 0)
+- y = number of large bones (integer, y >= 0)
+
+Parameters
+- Tooth medication available: 2000 units
+- Small bone uses 10 units tooth medication and 12 units meat
+- Large bone uses 15 units tooth medication and 15 units meat
+
+Constraints
+1. Tooth medication capacity: 10x + 15y <= 2000
+2. At least 50% of bones are small: x >= 0.5(x + y)  => equivalently x >= y
+3. At least 30 large bones: y >= 30
+4. Integrality and nonnegativity: x, y ∈ Z, x >= 0, y >= 0
+
+Objective
+Minimize total meat used: minimize M = 12x + 15y
+
+Solution reasoning (standard interpretation: production is not required to use all medication)
+- The objective and coefficients are positive, so meat is minimized by producing as little as allowed by constraints.
+- Constraints require y >= 30 and x >= y, so smallest feasible production is x = y = 30.
+- Check tooth medication: 10(30) + 15(30) = 300 + 450 = 750 <= 2000 (feasible).
+- Total meat: 12(30) + 15(30) = 360 + 450 = 810 units.
+
+Therefore, to minimize meat under the stated constraints, make 30 small bones and 30 large bones (x = 30, y = 30), using 750 units of tooth medication and 810 units of meat.
+
+Alternative interpretation (if you are required to use all 2000 units of tooth medication)
+- Add equality constraint 10x + 15y = 2000.
+- From that and x >= y one gets y ∈ [30, 80] and x = 200 − 1.5y.
+- The objective becomes M = 2400 − 3y, which is minimized by maximizing y, so y = 80 and x = 80.
+- This yields x = y = 80, uses all 2000 units of tooth medication, and consumes 12(80) + 15(80) = 2160 units of meat.
+
+Recommended solvers / Python libraries
+- pulp (easy modeling of LP / IP): pulp.LpProblem with LpInteger variables
+- OR-Tools CP-SAT (if you want fast integer optimization)
+- scipy.optimize.linprog (for continuous LP only; not for integer)
+- cvxpy (supports integer variables via mixed-integer solvers if installed)
+
+Example (pulp) outlines
+- Formulation A (not required to use all medication):
+  - minimize 12*x + 15*y
+  - subject to 10*x + 15*y <= 2000, x >= y, y >= 30, x,y integer >= 0
+- Formulation B (use all medication):
+  - minimize 12*x + 15*y
+  - subject to 10*x + 15*y == 2000, x >= y, y >= 30, x,y integer >= 0
+
+If you want, I can supply ready-to-run pulp (or OR-Tools) code for either formulation. Which interpretation do you intend (not required to use all medication, or must use all 2000 units)?
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data
+TOOTH_MED = 2000
+# Small bone: uses 10 units tooth medication and 12 units meat
+# Large bone: uses 15 units tooth medication and 15 units meat
+
+# We assume the standard interpretation: not required to use all medication.
+# Decision variables: integer x (small bones) >=0, y (large bones) >=0
+# Constraints:
+# 1) 10*x + 15*y <= 2000
+# 2) x >= y
+# 3) y >= 30
+
+best_obj = None
+best_x = None
+best_y = None
+
+# Bounds for enumeration
+y_min = 30
+y_max = TOOTH_MED // 15  # maximal y if x=0 (but x must be >= y, we'll check feasibility)
+
+for y in range(y_min, y_max + 1):
+    # x must be at least y
+    x_min = y
+    # from medication constraint: 10*x <= TOOTH_MED - 15*y  => x <= floor((TOOTH_MED - 15*y)/10)
+    remaining_med_for_x = TOOTH_MED - 15 * y
+    if remaining_med_for_x < 0:
+        continue  # no feasible x for this y
+    x_max = remaining_med_for_x // 10
+    if x_max < x_min:
+        continue  # no feasible x satisfying x >= y
+    # For minimization of positive-coefficient objective, choose smallest feasible x (x_min)
+    x = x_min
+    meat = 12 * x + 15 * y
+    if (best_obj is None) or (meat < best_obj):
+        best_obj = meat
+        best_x = x
+        best_y = y
+
+# In theory there is a feasible solution; but handle if none found
+if best_obj is None:
+    best_obj = float('inf')
+
+print(f"FINAL_OBJ: {best_obj}")

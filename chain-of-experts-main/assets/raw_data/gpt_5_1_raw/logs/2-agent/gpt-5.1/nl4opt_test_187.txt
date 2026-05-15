@@ -1,0 +1,180 @@
+[MODELER]:
+Here is a mathematical optimization model for the problem.
+
+---
+
+### 1. Decision variables
+
+Let  
+- \(x \ge 0\): number of batches of vitamin **shots**  
+- \(y \ge 0\): number of batches of vitamin **pills**
+
+Depending on interpretation, we can also require \(x, y\) to be integers (batches are typically discrete).
+
+---
+
+### 2. Objective function
+
+Each batch of shots supplies 10 people, each batch of pills supplies 7 people.  
+We want to **maximize the total number of people supplied**:
+
+\[
+\max\; Z = 10x + 7y
+\]
+
+---
+
+### 3. Constraints
+
+**Vitamin C availability**
+
+Each shots batch uses 30 units; each pills batch uses 50 units.  
+Total usage cannot exceed 1200 units:
+
+\[
+30x + 50y \le 1200
+\]
+
+**Vitamin D availability**
+
+Each shots batch uses 40 units; each pills batch uses 30 units.  
+Total usage cannot exceed 1500 units:
+
+\[
+40x + 30y \le 1500
+\]
+
+**Popularity requirement (pills > shots)**
+
+Number of batches of pills must be strictly larger than number of batches of shots.  
+In linear programming we typically model it as:
+
+\[
+y \ge x + 1
+\]
+
+(if integer variables are used, “strictly larger” \(y > x\) is equivalent to \(y \ge x + 1\)).
+
+**Limit on shots batches**
+
+At most 10 batches of vitamin shots:
+
+\[
+x \le 10
+\]
+
+**Non-negativity and integrality**
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+If we treat batches as discrete:
+
+\[
+x, y \in \mathbb{Z}
+\]
+
+---
+
+### 4. Full model (integer linear program)
+
+\[
+\begin{aligned}
+\max\quad & 10x + 7y \\
+\text{s.t.}\quad
+& 30x + 50y \le 1200 \quad\text{(vitamin C)}\\
+& 40x + 30y \le 1500 \quad\text{(vitamin D)}\\
+& y \ge x + 1 \quad\text{(pills more popular)}\\
+& x \le 10 \quad\text{(shots limit)}\\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+### 5. Solving this in Python
+
+This is a small **integer linear programming (ILP)** problem. Suitable Python libraries:
+
+- **PuLP** (`pulp`) – simple modeling of LP/ILP, good for teaching and small problems.
+- **OR-Tools** (`ortools.linear_solver.pywraplp`) – powerful and efficient MILP/CP-SAT solvers.
+- **Pyomo** – more general modeling framework, integrates with many solvers.
+- For pure continuous LP (if you drop integrality), you could also use:
+  - `scipy.optimize.linprog`
+
+For this discrete batch problem, I recommend **PuLP** or **OR-Tools**.
+
+---
+
+### 6. Example with PuLP (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Vitamin_Clinic", pl.LpMaximize)
+
+# Decision variables (integer)
+x = pl.LpVariable('shots_batches', lowBound=0, cat='Integer')
+y = pl.LpVariable('pills_batches', lowBound=0, cat='Integer')
+
+# Objective
+prob += 10 * x + 7 * y
+
+# Constraints
+prob += 30 * x + 50 * y <= 1200     # Vitamin C
+prob += 40 * x + 30 * y <= 1500     # Vitamin D
+prob += y >= x + 1                  # Pills more popular
+prob += x <= 10                     # Max shots
+
+# Solve
+prob.solve()
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal shots batches:", pl.value(x))
+print("Optimal pills batches:", pl.value(y))
+print("Max people supplied:", pl.value(10 * x + 7 * y))
+```
+
+You can run this to get the exact optimal numbers of batches and the maximum people supplied.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Vitamin_Clinic", pl.LpMaximize)
+
+    # Decision variables (integer, non-negative)
+    x = pl.LpVariable('shots_batches', lowBound=0, cat='Integer')
+    y = pl.LpVariable('pills_batches', lowBound=0, cat='Integer')
+
+    # Objective: maximize number of people supplied
+    prob += 10 * x + 7 * y
+
+    # Constraints
+    prob += 30 * x + 50 * y <= 1200     # Vitamin C constraint
+    prob += 40 * x + 30 * y <= 1500     # Vitamin D constraint
+    prob += y >= x + 1                  # Pills more popular than shots
+    prob += x <= 10                     # Limit on shots batches
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    x_val = pl.value(x)
+    y_val = pl.value(y)
+    obj_val = pl.value(10 * x + 7 * y)
+
+    # Optionally, print intermediate results (not required but useful)
+    print(f"Optimal shots batches (x): {x_val}")
+    print(f"Optimal pills batches (y): {y_val}")
+    print(f"Max people supplied: {obj_val}")
+
+    # Final required output
+    print(f"FINAL_OBJ: {obj_val}")
+
+if __name__ == "__main__":
+    main()

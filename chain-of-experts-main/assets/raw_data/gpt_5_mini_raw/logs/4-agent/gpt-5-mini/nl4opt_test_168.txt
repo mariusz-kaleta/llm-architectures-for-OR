@@ -1,0 +1,126 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Maximise the total number of finished items (number of basketballs plus number of footballs).
+
+2. Suggested model type
+- Model: Linear Programming with integer decision variables (two-variable integer LP). Because there are only two variables, solving the LP relaxation graphically or with a small integer search is simple and reliable; enforce integrality since items are discrete.
+
+3. Main decision variables (name and meaning)
+- B = number of basketballs to produce.
+- F = number of footballs to produce.
+
+4. Key constraints (described verbally)
+- Material availability: each basketball consumes 5 units of material and each football consumes 3 units; total material used cannot exceed the 1500 units available.
+- Labor availability: each basketball requires 1 hour and each football requires 2 hours; total labor hours used cannot exceed the 750 hours available.
+- Sales/production mix requirement: there must be at least three times as many basketballs as footballs (the count of basketballs must be no less than three times the count of footballs).
+- Minimum football production: produce at least 50 footballs.
+- Non-negativity and integrality: both B and F must be whole numbers and non-negative.
+
+Practical modelling/solution guidance for the Modeller
+- Objective function: maximise B + F (explain in solver as integer objective).
+- Because there are only two variables, enumerate candidate corner solutions of the feasible region. Important candidate intersection types to compute:
+  - Intersections between the material constraint and the labor constraint.
+  - Intersections between each resource constraint and the ratio constraint (B = 3 F).
+  - Intersections between each resource constraint and the lower bound F = 50.
+  - The point defined by the ratio constraint together with F = 50 (gives B = 3*50 as one feasible candidate).
+- Check feasibility of each candidate with all constraints; pick the candidate that gives the largest B + F.
+- If using a solver, set up as an integer LP (two integer variables), but solving the LP relaxation first is fine to get candidate region — because the problem is small you can then verify integrality manually.
+- Sanity checks: ensure the final solution does not violate any resource limits or the B-to-F ratio; report which constraints are binding.
+
+Output required from the Modeller
+- Optimal values of B and F (integers).
+- Total number of items produced.
+- Which constraints are binding at the optimum.
+- A short verification (resource usage numbers and that B >= 3 F and F >= 50).
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- B ∈ Z, B ≥ 0 : number of basketballs to produce.
+- F ∈ Z, F ≥ 0 : number of footballs to produce.
+
+Objective
+- Maximise total items: maximize Z = B + F.
+
+Constraints
+1. Material: 5B + 3F ≤ 1500.
+2. Labor: B + 2F ≤ 750.
+3. Sales mix (ratio): B ≥ 3 F.
+4. Minimum footballs: F ≥ 50.
+5. Integrality: B, F integer; non‑negativity as above.
+
+Remarks on modelling
+- This is an integer linear program (two integer variables). Because there are only two variables you can also solve by enumerating F (50…upper bound) and computing the maximum feasible B for each F:
+  B_max(F) = floor( min( (1500 − 3F)/5, 750 − 2F ) ), and keep only F for which B_max(F) ≥ 3F.
+
+Suggested solvers / Python libraries
+- pulp (simple MILP interface), OR‑Tools (CP‑SAT or linear solver), or mip / docplex. For a tiny integer problem you can also solve by brute force (pure Python loop) or use scipy.optimize.linprog to get the LP relaxation then round/check integrality.
+
+Solution (exact)
+- Optimal integer solution: B = 250 basketballs, F = 83 footballs.
+- Total items produced = 250 + 83 = 333.
+
+Which constraints are (effectively) limiting
+- The material constraint is the limiting resource: 5B + 3F = 1499 (1 unit slack from the 1500 limit). Although not exactly equal to 1500 (because of integrality), you cannot increase either variable without violating the material constraint.
+- The ratio constraint B ≥ 3F is not tight (B = 250 > 3·83 = 249, slack 1).
+- Labor and F ≥ 50 are not binding (labor slack is large; F > 50).
+
+Verification (plugging values)
+- Material used: 5·250 + 3·83 = 1250 + 249 = 1499 ≤ 1500.
+- Labor used: 250 + 2·83 = 250 + 166 = 416 ≤ 750.
+- Ratio: 250 ≥ 3·83 = 249 (holds).
+- Minimum footballs: 83 ≥ 50 (holds).
+
+How to compute quickly in code (outline)
+- Simple enumeration (F from 50 to 83), compute B_max(F) as floor((1500-3F)/5) (material will be the active bound for F in this range), require B_max(F) ≥ 3F, compute Z = F + B_max(F), choose (F,B_max) giving largest Z.
+- Or set up pulp/ORTools MILP with two integer variables, objective B+F, and the constraints above, and solve.
+
+If you want, I can provide:
+- a short Python snippet using pulp or OR‑Tools that implements and solves this model, or
+- the small enumeration script that demonstrates the search and prints the same optimal solution.
+
+---
+
+[CODER]:
+#!/usr/bin/env python3
+import math
+
+# Problem data (initialized directly)
+MATERIAL_LIMIT = 1500  # 5B + 3F <= 1500
+LABOR_LIMIT = 750      # B + 2F <= 750
+MIN_F = 50             # F >= 50
+
+best_Z = -1
+best_B = None
+best_F = None
+
+# Upper bound for F from simple resource limits
+F_max_material = MATERIAL_LIMIT // 3  # 3F <= 1500
+F_max_labor = LABOR_LIMIT // 2        # 2F <= 750
+F_upper = min(F_max_material, F_max_labor)
+
+for F in range(MIN_F, F_upper + 1):
+    # Compute max B allowed by material and labor
+    rem_material = MATERIAL_LIMIT - 3 * F
+    if rem_material < 0:
+        continue
+    b_by_material = rem_material // 5
+    b_by_labor = LABOR_LIMIT - 2 * F
+    b_max = min(b_by_material, b_by_labor)
+    if b_max < 0:
+        continue
+    # Sales mix constraint B >= 3F
+    if b_max < 3 * F:
+        continue
+    B = b_max
+    Z = B + F
+    if Z > best_Z:
+        best_Z = Z
+        best_B = B
+        best_F = F
+
+# Final objective value
+print(f"FINAL_OBJ: {best_Z}")

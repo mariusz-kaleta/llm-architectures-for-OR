@@ -1,0 +1,191 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Minimise the total worker time required to meet the production requirements ( equivalently, minimise total time the labs run, since a session’s worker-hours equal its duration).
+
+2) Suggested model type
+- Model: Integer Linear Programming (ILP).  
+  Rationale: production is organized in discrete sessions of fixed duration; sessions are typically integer. If fractional sessions are acceptable, relax to a Linear Program (LP).
+
+3) Main decision variables (conceptual)
+- x1 = number of production sessions run at Lab 1 (non‑negative integer; each session lasts 3 hours).  
+- x2 = number of production sessions run at Lab 2 (non‑negative integer; each session lasts 5 hours).
+
+(Alternative formulation if modeller prefers continuous hours rather than sessions)
+- h1 = hours of operation at Lab 1 (non‑negative real).  
+- h2 = hours of operation at Lab 2 (non‑negative real).  
+  If the modeller uses hours directly, ensure consistency with the “session” structure (i.e. h1 should be an integer multiple of 3 and h2 an integer multiple of 5 if sessions must be whole).
+
+4) Key relationships and parameters to use
+- Production rates (given per hour): Lab1 produces 20 heart pills/hour and 30 lung pills/hour. Lab2 produces 30 heart pills/hour and 40 lung pills/hour.
+- Session durations / worker-hours per session: Lab1 session = 3 worker-hours (and lasts 3 hours); Lab2 session = 5 worker-hours (and lasts 5 hours).
+- Production per session (useful when using session variables):  
+  - Lab1: each session yields 20*3 = 60 heart pills and 30*3 = 90 lung pills.  
+  - Lab2: each session yields 30*5 = 150 heart pills and 40*5 = 200 lung pills.
+- Worker-hours available (resource limit): 1500 worker-hours total.
+
+5) Constraints to include (conceptual)
+- Heart production constraint: total heart pills produced (sum of per-session or per-hour output across labs) must be at least 20,000.
+- Lung production constraint: total lung pills produced must be at least 30,000.
+- Worker-hours availability constraint: total worker-hours used (3*x1 + 5*x2 if using session variables, or h1 + h2 if worker-hours per running hour equals elapsed hours) cannot exceed 1500.
+- Integrality / scheduling constraint: if sessions must be whole, x1 and x2 are integer; if exact session-length multiples are required when using hours, enforce h1 multiple of 3 and h2 multiple of 5 (this is a mixed-integer constraint).
+- Nonnegativity: x1, x2 (or h1, h2) must be >= 0.
+- Feasibility check: ensure the required production can be achieved within the available worker-hours; if not, report infeasibility.
+
+6) Objective (conceptual)
+- Minimise total worker-hours = 3*x1 + 5*x2 (if sessions used).  
+  If using hours directly, minimise total operation time = h1 + h2 (and ensure equivalence with worker-hours availability).
+
+7) Implementation notes and suggestions for the modeller
+- Start with an LP relaxation (allow fractional sessions/hours) to get a lower bound and to check feasibility quickly. If sessions must be integer, solve the ILP next.  
+- If infeasible under the worker-hours cap, report minimum worker-hours required and show shortfall. Alternatively examine trade-offs (e.g., relaxing worker-hours or raising production targets).  
+- Provide output: optimal x1 and x2 (or h1 and h2), total worker-hours used, and total production of heart and lung pills at the optimum. Also report dual/sensitivity information if using LP to show which constraint is binding.
+- Validate results by computing produced pills and worker-hours to confirm constraints satisfaction.
+
+Deliverable to expect from modeller: an ILP/LP model consistent with the above, solved numerically, with recommended integer or continuous solution, feasibility status, and the optimising run hours at each lab (converted from session counts if necessary).
+
+---
+
+[MODELER]:
+Below I convert the text into a clear mathematical model (continuous-hours formulation and integer-session formulation), state objective, variables, constraints, and give the numeric optimal solution plus solver recommendations.
+
+1) Parameters
+- Heart production rates (pills/hour): rH1 = 20 (lab1), rH2 = 30 (lab2).
+- Lung production rates (pills/hour): rL1 = 30 (lab1), rL2 = 40 (lab2).
+- Session durations: s1 = 3 hours per lab1 session, s2 = 5 hours per lab2 session.
+- Worker-hours available: Wmax = 1500.
+- Required production: Hreq = 20,000 heart pills, Lreq = 30,000 lung pills.
+
+2) Continuous-hours model (LP)
+- Decision variables:
+  - h1 >= 0 : hours run at lab1
+  - h2 >= 0 : hours run at lab2
+- Objective: minimize total worker-hours (total time)
+  minimize Z = h1 + h2
+- Constraints:
+  - Heart production: 20 h1 + 30 h2 >= 20000
+  - Lung production: 30 h1 + 40 h2 >= 30000
+  - Worker-hours availability (if you want to enforce the cap): h1 + h2 <= 1500
+  - Nonnegativity: h1 >= 0, h2 >= 0
+
+3) Integer-session model (ILP) — if sessions must be whole
+- Decision variables:
+  - x1 ∈ Z_{\ge0} : number of lab1 sessions (each session = 3 hours)
+  - x2 ∈ Z_{\ge0} : number of lab2 sessions (each session = 5 hours)
+- Hours relation: h1 = 3 x1, h2 = 5 x2
+- Objective: minimize total worker-hours
+  minimize Z = 3 x1 + 5 x2
+- Constraints (per-session production):
+  - Heart: 60 x1 + 150 x2 >= 20000    (because 20*3=60, 30*5=150)
+  - Lung:  90 x1 + 200 x2 >= 30000    (30*3=90, 40*5=200)
+  - Worker-hours availability: 3 x1 + 5 x2 <= 1500
+  - Integrality: x1, x2 integers >= 0
+
+4) Feasibility / analytic observation
+- Lab 2 is strictly better per hour for both products (30 > 20 and 40 > 30). Hence lab 2 dominates lab 1 and the optimal solution will use lab 2 only (unless lab 2 has an additional hidden limit).
+- Minimum hours if only lab2 is used:
+  - To meet hearts: h2 >= 20000/30 ≈ 666.67
+  - To meet lungs: h2 >= 30000/40 = 750
+  => h2 must be at least 750 hours to meet both; h1 = 0.
+
+5) Numeric optimal solution
+- Continuous LP optimum: h1* = 0 hours, h2* = 750 hours. Total worker-hours = 750 (≤ 1500). Production: hearts = 30*750 = 22,500 (≥ 20,000), lungs = 40*750 = 30,000 (≥ 30,000). The lung constraint is binding; the heart constraint is slack.
+- Integer-session (session) optimum: x1* = 0 sessions, x2* = 150 sessions (because 150 sessions × 5 hours = 750 hours). Total worker-hours = 3*0 + 5*150 = 750. Production per session model: hearts = 150*150 = 22,500, lungs = 150*200 = 30,000.
+
+6) Minimum worker-hours required and feasibility
+- Minimum worker-hours required to meet targets is 750. If Wmax < 750 the problem is infeasible. Here Wmax = 1500 > 750 so feasible.
+
+7) Solver recommendations and implementation notes
+- For the continuous LP: use scipy.optimize.linprog, or pulp (with the LP solver CBC), or OR-Tools LinearSolver.
+- For the integer-session ILP: use pulp (CBC backend), OR-Tools CP-SAT / MIP, or commercial solvers (Gurobi, CPLEX) if available.
+- Implementation workflow:
+  1. Solve LP relaxation (h1,h2 continuous) to get a lower bound and quick feasibility check.
+  2. If sessions must be integral, solve the ILP on x1,x2 (or require h1 multiple of 3 and h2 multiple of 5).
+  3. Report decision variables, total hours, and produced amounts. Also report which production constraint is binding (lung in this case).
+
+8) Short suggested Python approach (conceptual)
+- Continuous: use linprog to minimize [1,1] · [h1,h2] subject to A_ub = −[[20,30],[30,40]], b_ub = −[20000,30000], h ≥ 0.
+- Integer: use pulp.LpVariable(cat='Integer') for x1,x2, objective 3*x1+5*x2, and constraints as in section 3.
+
+Answer to the question "How many hours at each lab should be run to minimize the total time needed?":
+- Run lab1 zero hours, run lab2 750 hours (total time 750 hours). If you must use whole sessions: run 0 sessions of lab1 and 150 sessions of lab2 (150 × 5 = 750 hours).
+
+---
+
+[CODER]:
+import math
+
+# Parameters
+rH1 = 20.0  # heart pills per hour at lab1
+rH2 = 30.0  # heart pills per hour at lab2
+rL1 = 30.0  # lung pills per hour at lab1
+rL2 = 40.0  # lung pills per hour at lab2
+
+s1 = 3.0    # hours per lab1 session
+s2 = 5.0    # hours per lab2 session
+
+Wmax = 1500.0
+Hreq = 20000.0
+Lreq = 30000.0
+
+# Continuous-hours (LP) analytic solution
+# Since lab2 dominates lab1 on both products, set h1 = 0 and compute h2 needed
+h1_lp = 0.0
+h2_needed_hearts = Hreq / rH2
+h2_needed_lungs = Lreq / rL2
+h2_lp = max(h2_needed_hearts, h2_needed_lungs)
+total_hours_lp = h1_lp + h2_lp
+
+# Check feasibility with worker-hours cap
+feasible_lp = total_hours_lp <= Wmax
+
+# Determine which constraint is binding at LP solution
+hearts_produced_lp = rH1 * h1_lp + rH2 * h2_lp
+lungs_produced_lp = rL1 * h1_lp + rL2 * h2_lp
+heart_binding = abs(hearts_produced_lp - Hreq) < 1e-8
+lung_binding = abs(lungs_produced_lp - Lreq) < 1e-8
+
+# Integer-session (ILP) analytic solution
+# Use only lab2 sessions (lab2 dominates)
+# Each lab2 session produces:
+hearts_per_x2 = rH2 * s2  # 30 * 5 = 150
+lungs_per_x2 = rL2 * s2   # 40 * 5 = 200
+
+x1_ilp = 0
+x2_needed_hearts = math.ceil(Hreq / hearts_per_x2)
+x2_needed_lungs = math.ceil(Lreq / lungs_per_x2)
+x2_ilp = max(x2_needed_hearts, x2_needed_lungs)
+
+# Respect worker-hours cap: check feasibility
+total_hours_ilp = s1 * x1_ilp + s2 * x2_ilp
+feasible_ilp = total_hours_ilp <= Wmax
+
+# Compute productions for ILP solution
+hearts_produced_ilp = hearts_per_x2 * x2_ilp
+lungs_produced_ilp = lungs_per_x2 * x2_ilp
+
+# Print results (informational)
+print("CONTINUOUS LP SOLUTION")
+print(f"h1 = {h1_lp:.6f} hours")
+print(f"h2 = {h2_lp:.6f} hours")
+print(f"Total hours (LP) = {total_hours_lp:.6f}")
+print(f"Feasible under Wmax? {feasible_lp}")
+print(f"Hearts produced (LP) = {hearts_produced_lp:.6f}")
+print(f"Lungs produced (LP) = {lungs_produced_lp:.6f}")
+print(f"Heart constraint binding? {heart_binding}")
+print(f"Lung constraint binding? {lung_binding}")
+print()
+print("INTEGER SESSION (ILP) SOLUTION")
+print(f"x1 = {x1_ilp} sessions (lab1)")
+print(f"x2 = {x2_ilp} sessions (lab2)")
+print(f"Total hours (ILP) = {total_hours_ilp}")
+print(f"Feasible under Wmax? {feasible_ilp}")
+print(f"Hearts produced (ILP) = {hearts_produced_ilp}")
+print(f"Lungs produced (ILP) = {lungs_produced_ilp}")
+print()
+
+# Final objective value (minimum total worker-hours required)
+# Both LP and ILP give the same optimal total hours in this data: 750
+final_obj = int(total_hours_ilp)  # 750
+
+# CRITICAL: final line must be exactly this format
+print(f"FINAL_OBJ: {final_obj}")

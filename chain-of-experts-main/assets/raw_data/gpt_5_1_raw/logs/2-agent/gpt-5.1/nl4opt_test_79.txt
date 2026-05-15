@@ -1,0 +1,160 @@
+[MODELER]:
+Here is a clean mathematical optimization model for the problem, followed by how you could solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x_1 \ge 0\): number of doses of pain killer 1  
+- \(x_2 \ge 0\): number of doses of pain killer 2  
+
+(If doses must be whole numbers, you would additionally require \(x_1, x_2 \in \mathbb{Z}_{\ge 0}\).)
+
+---
+
+## 2. Objective function
+
+We want to maximize the total amount of medicine delivered to the back.
+
+- Pain killer 1: 0.8 units to the back per dose  
+- Pain killer 2: 0.4 units to the back per dose  
+
+So total back medicine is:
+\[
+\text{Back} = 0.8x_1 + 0.4x_2
+\]
+
+**Objective:**
+\[
+\max \; 0.8x_1 + 0.4x_2
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1. Sleep medicine constraint (at most 8 units)
+
+- Pain killer 1: 0.3 units of sleep medicine per dose  
+- Pain killer 2: 0.6 units of sleep medicine per dose  
+
+Total sleep medicine:
+\[
+0.3x_1 + 0.6x_2 \le 8
+\]
+
+### 3.2. Legs medicine constraint (at least 4 units)
+
+- Pain killer 1: 0.5 units to the legs per dose  
+- Pain killer 2: 0.7 units to the legs per dose  
+
+Total legs medicine must be at least 4 units:
+\[
+0.5x_1 + 0.7x_2 \ge 4
+\]
+
+### 3.3. Non-negativity (and integrality if needed)
+
+\[
+x_1 \ge 0, \quad x_2 \ge 0
+\]
+
+Optionally:
+\[
+x_1, x_2 \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Full linear program (LP) model
+
+\[
+\begin{aligned}
+\max_{x_1, x_2} \quad & 0.8x_1 + 0.4x_2 \\
+\text{s.t.} \quad
+& 0.3x_1 + 0.6x_2 \le 8 \quad &\text{(sleep medicine)}\\
+& 0.5x_1 + 0.7x_2 \ge 4 \quad &\text{(legs medicine)}\\
+& x_1, x_2 \ge 0 \quad &\text{(non-negativity)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+This is a linear programming problem. Suitable Python libraries include:
+
+- `PuLP` – simple and user-friendly for linear/integer programming.
+- `ortools.linear_solver` (Google OR-Tools) – very powerful and fast.
+- `scipy.optimize.linprog` – good for continuous LPs (no integer constraints).
+- `Pyomo` – more advanced modeling for complex optimization problems.
+
+For a quick implementation, **PuLP** or **OR-Tools** is ideal.
+
+---
+
+## 6. Example using PuLP
+
+```python
+import pulp as pl
+
+# Define the problem: maximize
+prob = pl.LpProblem("Painkiller_Optimization", pl.LpMaximize)
+
+# Decision variables (continuous, >= 0)
+x1 = pl.LpVariable("x1", lowBound=0)
+x2 = pl.LpVariable("x2", lowBound=0)
+
+# Objective: maximize back medicine: 0.8*x1 + 0.4*x2
+prob += 0.8 * x1 + 0.4 * x2
+
+# Constraints
+# Sleep medicine: 0.3*x1 + 0.6*x2 <= 8
+prob += 0.3 * x1 + 0.6 * x2 <= 8
+
+# Legs medicine: 0.5*x1 + 0.7*x2 >= 4
+prob += 0.5 * x1 + 0.7 * x2 >= 4
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal x1 (doses of pain killer 1):", x1.value())
+print("Optimal x2 (doses of pain killer 2):", x2.value())
+print("Max back medicine:", pl.value(prob.objective))
+```
+
+This code sets up and solves the model exactly as specified above.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem: maximize
+    prob = pl.LpProblem("Painkiller_Optimization", pl.LpMaximize)
+
+    # Decision variables (continuous, >= 0)
+    x1 = pl.LpVariable("x1", lowBound=0)
+    x2 = pl.LpVariable("x2", lowBound=0)
+
+    # Objective: maximize back medicine: 0.8*x1 + 0.4*x2
+    prob += 0.8 * x1 + 0.4 * x2
+
+    # Constraints
+    # Sleep medicine: 0.3*x1 + 0.6*x2 <= 8
+    prob += 0.3 * x1 + 0.6 * x2 <= 8
+
+    # Legs medicine: 0.5*x1 + 0.7*x2 >= 4
+    prob += 0.5 * x1 + 0.7 * x2 >= 4
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    final_obj = pl.value(prob.objective)
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

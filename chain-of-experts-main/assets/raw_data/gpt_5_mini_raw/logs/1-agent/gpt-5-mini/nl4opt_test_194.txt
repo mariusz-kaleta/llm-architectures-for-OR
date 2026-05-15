@@ -1,0 +1,55 @@
+[MONOLITH]:
+```python
+# Optimization to minimize fat intake subject to protein, iron and preference constraints
+# Problem data is initialized directly from the problem statement.
+
+from pulp import LpProblem, LpVariable, LpMinimize, LpStatus, PULP_CBC_CMD, value
+
+# Data (from the problem)
+# Nutrient contents per meal
+protein_fish = 10
+iron_fish = 12
+fat_fish = 7
+
+protein_chicken = 15
+iron_chicken = 8
+fat_chicken = 10
+
+# Requirements
+min_protein = 130
+min_iron = 120
+
+# Preference: at least twice as many chicken meals as fish meals
+# Decision variables: number of fish meals (f) and chicken meals (c)
+prob = LpProblem("Minimize_Fat", LpMinimize)
+
+# Integer meal counts
+f = LpVariable("fish_meals", lowBound=0, cat="Integer")
+c = LpVariable("chicken_meals", lowBound=0, cat="Integer")
+
+# Objective: minimize total fat
+prob += fat_fish * f + fat_chicken * c, "Total_Fat"
+
+# Constraints
+prob += protein_fish * f + protein_chicken * c >= min_protein, "ProteinRequirement"
+prob += iron_fish * f + iron_chicken * c >= min_iron, "IronRequirement"
+prob += c >= 2 * f, "ChickenPreference"
+
+# Solve
+solver = PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract results
+fish_count = int(f.varValue)
+chicken_count = int(c.varValue)
+total_fat = value(prob.objective)
+
+# Print solution details
+print(f"Status: {LpStatus[prob.status]}")
+print(f"Fish meals (f): {fish_count}")
+print(f"Chicken meals (c): {chicken_count}")
+print(f"Total fat: {total_fat}")
+
+# Final required output (must be the last line)
+print(f"FINAL_OBJ: {total_fat}")
+```

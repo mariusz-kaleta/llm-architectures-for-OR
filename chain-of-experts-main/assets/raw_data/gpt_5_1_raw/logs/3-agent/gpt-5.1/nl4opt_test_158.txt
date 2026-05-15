@@ -1,0 +1,149 @@
+[MODELER]:
+Let’s formalize this as an optimization (integer linear programming) problem.
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of otters used (integer, \(x \ge 0\))
+- \(y\) = number of dolphins used (integer, \(y \ge 0\))
+
+## 2. Objective function
+
+Each otter does 3 tricks, each dolphin does 1 trick.  
+We want to maximize the total number of tricks:
+
+\[
+\max \; Z = 3x + y
+\]
+
+## 3. Constraints
+
+### a) Treats constraint
+
+An otter needs 3 treats, a dolphin needs 5 treats. There are only 200 treats:
+
+\[
+3x + 5y \le 200
+\]
+
+### b) Minimum number of dolphins
+
+At least 10 dolphins must be used:
+
+\[
+y \ge 10
+\]
+
+### c) At most 30% of performers can be otters
+
+Total performers = \(x + y\).  
+At most 30% of them are otters:
+
+\[
+\frac{x}{x + y} \le 0.30, \quad \text{for } x + y > 0
+\]
+
+This can be rewritten linearly (assuming \(x + y > 0\), which will hold if we enforce \(y \ge 10\)):
+
+\[
+x \le 0.30(x + y)
+\]
+
+\[
+x \le 0.30x + 0.30y
+\]
+
+\[
+x - 0.30x \le 0.30y
+\]
+
+\[
+0.70x \le 0.30y
+\]
+
+\[
+7x \le 3y
+\]
+
+So the linear form is:
+
+\[
+7x \le 3y
+\]
+
+### d) Non-negativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+## 4. Full model
+
+Maximize:
+\[
+Z = 3x + y
+\]
+
+Subject to:
+\[
+3x + 5y \le 200
+\]
+\[
+y \ge 10
+\]
+\[
+7x \le 3y
+\]
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+## 5. Suitable Python libraries
+
+To solve this integer linear program in Python, any of these libraries is appropriate:
+
+- `PuLP` (simple modeling of LP/MIP problems, works with various solvers)
+- `OR-Tools` (from Google, excellent for integer programming and CP-SAT)
+- `Pyomo` (more general algebraic modeling language, supports many solvers)
+- `scipy.optimize` (for continuous LP/QP; not ideal here because we need integrality, but can be used if you relax integrality to continuous)
+
+For a concise and straightforward implementation, `PuLP` or `OR-Tools` is recommended.
+
+---
+
+[CODER]:
+import pulp
+
+def solve_otter_dolphin_problem():
+    # Create the problem: Maximize total tricks
+    prob = pulp.LpProblem("Otter_Dolphin_Tricks", pulp.LpMaximize)
+
+    # Decision variables (non-negative integers)
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # number of otters
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # number of dolphins
+
+    # Objective function: Maximize 3x + y
+    prob += 3 * x + y
+
+    # Constraints
+    # Treats constraint: 3x + 5y <= 200
+    prob += 3 * x + 5 * y <= 200
+
+    # Minimum number of dolphins: y >= 10
+    prob += y >= 10
+
+    # At most 30% of performers can be otters: 7x <= 3y
+    prob += 7 * x <= 3 * y
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract the optimal objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print the final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    solve_otter_dolphin_problem()

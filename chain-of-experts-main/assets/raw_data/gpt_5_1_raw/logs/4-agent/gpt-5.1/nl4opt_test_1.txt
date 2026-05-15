@@ -1,0 +1,319 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total amount of filler material used in producing large and small pills.
+
+---
+
+2. Suggested model type  
+Model: Linear Programming (LP) with integer decision variables (an Integer Linear Program, ILP), since the number of pills must be whole numbers.
+
+---
+
+3. Main decision variables  
+
+Define two non‑negative integer variables:
+
+- \(L\): number of large pills to produce  
+- \(S\): number of small pills to produce  
+
+(If needed, you can relax integrality first to solve as an LP, then enforce integer solutions.)
+
+---
+
+4. Key constraints to consider  
+
+a) Ingredient availability (medicinal ingredients)  
+- Each large pill uses 3 units of medicinal ingredients.  
+- Each small pill uses 2 units of medicinal ingredients.  
+- Total available medicinal ingredients = 1000 units.  
+
+Constraint:  
+- Total medicinal used by large and small pills cannot exceed 1000 units.  
+- You may also want to consider whether the problem intends *use all* 1000 units or *at most* 1000 units. The text “has 1000 units” can be interpreted either way; build the model both ways if needed:
+  - “At most” case: medicinal use ≤ 1000  
+  - “Exactly all” case: medicinal use = 1000  
+
+b) Minimum number of large pills  
+- The lab must make at least 100 large pills.  
+
+Constraint:  
+- \(L \ge 100\)
+
+c) Popularity requirement for small pills (proportion constraint)  
+- At least 60% of the total number of pills must be small.  
+- Total pills = \(L + S\).  
+- Proportion requirement: \(S\) ≥ 0.6 × (total pills).  
+
+Constraint:  
+- \(S \ge 0.6 (L + S)\)  
+- This can be algebraically rearranged into a linear inequality in terms of \(L\) and \(S\) for LP implementation (no division by variables in the final form).
+
+d) Non‑negativity and integrality  
+- \(L \ge 0\), \(S \ge 0\).  
+- Both \(L\) and \(S\) should be integers.
+
+---
+
+5. Objective function structure  
+
+Total filler usage:  
+- Large pill: 2 units of filler per pill.  
+- Small pill: 1 unit of filler per pill.  
+
+Objective:  
+- Minimise total filler = 2·\(L\) + 1·\(S\).
+
+---
+
+6. Modelling strategy notes  
+
+- First formulate the LP using the variables, constraints, and objective above.  
+- Check feasibility of the constraints (especially the popularity and minimum large-pill requirement together with the ingredient limit).  
+- Solve the relaxed LP (continuous L and S) to see the optimal region; then add integrality to get the final integer solution.  
+- Explicitly consider both variants of the medicinal-ingredient constraint (“use exactly 1000” vs “at most 1000”) and see which interpretation matches the problem context or assignment instructions.
+
+---
+
+[MODELER]:
+Here is a complete optimisation model based on the problem text and your planner notes.
+
+---
+
+## 1. Decision variables
+
+Let  
+
+- \(L \in \mathbb{Z}_{\ge 0}\): number of large pills produced  
+- \(S \in \mathbb{Z}_{\ge 0}\): number of small pills produced  
+
+Both must be integers because you cannot produce fractional pills.
+
+---
+
+## 2. Objective function
+
+Each pill uses filler:
+
+- Large pill: 2 units of filler  
+- Small pill: 1 unit of filler  
+
+Total filler used:  
+\[
+F = 2L + S
+\]
+
+**Objective**: minimise total filler  
+\[
+\min \; 2L + S
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Medicinal ingredient constraint
+
+Each pill uses medicinal ingredients:
+
+- Large pill: 3 units  
+- Small pill: 2 units  
+
+Total available medicinal: 1000 units.
+
+Two common interpretations:
+
+#### (A) “At most” 1000 units
+\[
+3L + 2S \;\le\; 1000
+\]
+
+#### (B) “Exactly use all” 1000 units
+\[
+3L + 2S \;=\; 1000
+\]
+
+You can model either; typically in such exam/textbook problems, it is “use all 1000 units,” so (B) is often intended.
+
+---
+
+### 3.2 Minimum number of large pills
+
+The lab must make at least 100 large pills:
+\[
+L \;\ge\; 100
+\]
+
+---
+
+### 3.3 Popularity requirement: at least 60% small pills
+
+“At least 60% of the total number of pills must be small” means:
+\[
+S \;\ge\; 0.6(L + S)
+\]
+
+Rearrange to a linear form:
+
+\[
+S \;\ge\; 0.6L + 0.6S
+\]
+\[
+S - 0.6S \;\ge\; 0.6L
+\]
+\[
+0.4S \;\ge\; 0.6L
+\]
+\[
+S \;\ge\; \frac{0.6}{0.4} L = 1.5L
+\]
+
+So the linear constraint is:
+
+\[
+S \;\ge\; 1.5L
+\]
+
+or equivalently (with integer coefficients):
+
+\[
+2S \;\ge\; 3L
+\]
+
+---
+
+### 3.4 Non-negativity and integrality
+
+\[
+L \;\ge\; 0,\quad S \;\ge\; 0,\quad L,S \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full model summary
+
+### Variant 1: At-most medicinal use
+
+\[
+\begin{aligned}
+\min\ & 2L + S \\
+\text{s.t. } 
+& 3L + 2S \le 1000 \\
+& L \ge 100 \\
+& 2S \ge 3L \\
+& L, S \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+### Variant 2: Exactly use all medicinal
+
+\[
+\begin{aligned}
+\min\ & 2L + S \\
+\text{s.t. } 
+& 3L + 2S = 1000 \\
+& L \ge 100 \\
+& 2S \ge 3L \\
+& L, S \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+Both are **integer linear programs (ILPs)** with a linear objective and linear constraints.
+
+---
+
+## 5. Suitable Python libraries
+
+For this ILP, these libraries are appropriate:
+
+- **PuLP**  
+  - Very simple modeling syntax in Python.  
+  - Can use CBC (bundled) or external solvers like GLPK, CPLEX, Gurobi.  
+  - Ideal for teaching / small to medium problems.
+
+- **OR-Tools (Google OR-Tools)**  
+  - `ortools.linear_solver` has MIP capabilities.  
+  - Good performance, open-source, actively maintained.
+
+- **Pyomo**  
+  - More general algebraic modeling language in Python.  
+  - Good for scaling to more complex models and experimenting with different solvers.
+
+- **SciPy’s `scipy.optimize.linprog`**  
+  - Only supports *continuous* LPs; you’d have to **relax integrality** (allow fractional \(L, S\)).  
+  - To enforce integrality you’d need to wrap it in your own branch-and-bound or use a dedicated MIP library instead.  
+  - So: suitable only for the LP relaxation, not for the final integer solution.
+
+---
+
+## 6. Example PuLP formulation (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Pills", pl.LpMinimize)
+
+# Decision variables (integer)
+L = pl.LpVariable('L', lowBound=0, cat='Integer')
+S = pl.LpVariable('S', lowBound=0, cat='Integer')
+
+# Objective: minimize filler
+prob += 2*L + S
+
+# Constraints
+# Choose one of the medicinal constraints:
+prob += 3*L + 2*S == 1000    # or <= 1000
+
+prob += L >= 100             # minimum large pills
+prob += 2*S >= 3*L           # at least 60% small
+
+# Solve
+prob.solve()
+print("Status:", pl.LpStatus[prob.status])
+print("L =", L.value(), "S =", S.value())
+print("Total filler =", 2*L.value() + S.value())
+```
+
+You can adapt the equality vs inequality line depending on which variant you want to study.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def solve_pills_problem(exact_medicinal=True):
+    # Create problem
+    prob = pl.LpProblem("Pills", pl.LpMinimize)
+
+    # Decision variables
+    L = pl.LpVariable('L', lowBound=0, cat='Integer')
+    S = pl.LpVariable('S', lowBound=0, cat='Integer')
+
+    # Objective: minimize filler usage
+    prob += 2 * L + S
+
+    # Constraints
+    if exact_medicinal:
+        prob += 3 * L + 2 * S == 1000  # exactly use all medicinal ingredient
+    else:
+        prob += 3 * L + 2 * S <= 1000  # at most medicinal ingredient
+
+    prob += L >= 100          # minimum number of large pills
+    prob += 2 * S >= 3 * L    # at least 60% of pills are small (2S >= 3L)
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract values
+    L_val = pl.value(L)
+    S_val = pl.value(S)
+    obj_val = 2 * L_val + S_val
+
+    return L_val, S_val, obj_val
+
+if __name__ == "__main__":
+    # Solve variant with exact medicinal use (as typically intended)
+    L_opt, S_opt, FINAL_OBJ = solve_pills_problem(exact_medicinal=True)
+
+    # Print final objective as required
+    print(f"FINAL_OBJ: {FINAL_OBJ}")

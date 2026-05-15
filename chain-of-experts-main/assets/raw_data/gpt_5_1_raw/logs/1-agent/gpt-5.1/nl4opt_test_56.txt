@@ -1,0 +1,39 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Pipe_Selection_Problem", pulp.LpMinimize)
+
+# Decision variables
+x = pulp.LpVariable('HighVolumePipes', lowBound=0, cat='Integer')
+y = pulp.LpVariable('LowVolumePipes', lowBound=0, cat='Integer')
+
+# Objective: Minimize total number of pipes
+prob += x + y, "TotalPipes"
+
+# Constraints
+
+# Capacity: total gallons per day
+prob += 10000 * x + 5000 * y >= 150000, "CapacityRequirement"
+
+# Technicians: total technicians available
+prob += 12 * x + 5 * y <= 160, "TechnicianLimit"
+
+# At most 35% of pipes are high-volume: x <= 0.35(x + y) -> 0.65x <= 0.35y -> 65x <= 35y
+prob += 65 * x <= 35 * y, "HighVolumePercentageLimit"
+
+# Minimum low-volume pipes
+prob += y >= 8, "MinLowVolumePipes"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Get the results
+x_val = pulp.value(x)
+y_val = pulp.value(y)
+obj_val = pulp.value(prob.objective)
+
+# Print the results
+print("High-volume pipes used:", x_val)
+print("Low-volume pipes used:", y_val)
+print(f"FINAL_OBJ: {obj_val}")

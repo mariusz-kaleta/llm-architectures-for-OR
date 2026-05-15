@@ -1,0 +1,152 @@
+[PLANNER]:
+1) Key optimisation goal
+- Minimise the total number of trips (total trips = freight trips + air trips).
+
+2) Suggested model type
+- Integer Linear Programming (ILP) with two integer decision variables (or a small exhaustive search / combinatorial enumeration, since there are only two integer variables and tight natural bounds).
+
+3) Main decision variables
+- Number of freight trips (integer, >= 5).
+- Number of air trips (integer, >= 0).
+
+4) Key constraints to include (described for implementation)
+- Tonnage requirement: the total transported mass (freight capacity per freight trip + air capacity per air trip) must be at least 200 tons.
+- Budget: total transport cost (cost per freight trip × freight trips + cost per air trip × air trips) must not exceed $20,000.
+- Air-share requirement: at least 30% of the total tons moved must be transported by air. (Express this as a linear constraint between air trips and freight trips when implementing.)
+- Minimum freight trips: freight trips must be at least 5.
+- Integrality and non-negativity: both decision variables must be non‑negative integers.
+- Practical upper bounds to tighten the search space:
+  - Upper bound on freight trips from tonnage alone (if no air) and from budget: f ≤ min(floor(200/5), floor(20000/300)). Use these numerical bounds to limit enumeration.
+  - Upper bound on air trips from tonnage alone and from budget: a ≤ min(floor(200/3), floor(20000/550)).
+
+Implementation notes and solver guidance
+- Formulate the air-share constraint linearly (implementer can algebraically rearrange it to a linear integer inequality to use in the ILP).
+- Because there are only two integer variables and modest bounds, a simple loop over feasible freight-trip values (start at the required minimum) and computing the minimal supporting air trips that satisfy both the air-share and tonnage constraints, then testing the budget, is an efficient and robust approach. Track the feasible (freight, air) pair with smallest sum of trips; if ties occur, use a secondary criterion such as lowest cost.
+- Alternatively, feed the ILP to any MIP solver (CBC/Gurobi/CPLEX/OR-Tools CP-SAT) with objective minimize (freight trips + air trips) and the listed constraints.
+- Verify feasibility first (there may be no feasible solution in other problems); provide the solver with the suggested variable bounds to speed up solving.
+
+Deliverable the modeller should produce
+- The ILP implementation or a short brute-force search script returning the optimal integer pair (freight trips, air trips), the total trips, total tons transported, and total cost. Also report if multiple optimal pairs exist and, if so, the chosen tie-breaker.
+
+---
+
+[MODELER]:
+Below I (1) give a clear ILP formulation, (2) show how to turn the non‑linear “air-share” constraint into a linear integer constraint, (3) state useful variable bounds, (4) give a short brute‑force Python search (which is simplest here), and (5) report the optimal solution found.
+
+1) Variables
+- f ∈ Z, f >= 5 : number of freight trips.
+- a ∈ Z, a >= 0 : number of air trips.
+
+2) Objective
+Minimise total trips: minimize T = f + a.
+
+3) Constraints (numeric)
+- Tonnage: 5 f + 3 a >= 200.
+- Budget: 300 f + 550 a <= 20,000.
+- Air-share (at least 30% of tons by air):
+  3 a >= 0.3 (5 f + 3 a).
+  Rearranged to integer linear form: 7 a >= 5 f. (Multiply both sides by 10 and simplify.)
+- Freight minimum: f >= 5.
+- Integrality: f, a integers and nonnegative.
+
+4) Practical variable bounds (tighten search)
+- From tonnage only (if all freight): f ≤ floor(200/5) = 40.
+- From budget only: f ≤ floor(20000/300) = 66 → combine with tonnage bound gives f ≤ 40.
+- For air: a ≤ min(floor(200/3)=66, floor(20000/550)=36) ⇒ a ≤ 36.
+So you may search f in [5,40] and a in [0,36].
+
+5) Solver suggestions
+- For a small ILP: pulp (CBC), OR-Tools CP-SAT, or pyomo with a solver (CBC/Gurobi/CPLEX).
+- Because there are only two integer variables and small bounds, a direct enumeration (two nested loops or for each f compute minimal feasible a) is fast and robust.
+
+6) Brute‑force Python (simple, no external solver) — finds optimal pair and tie‑breaks by lower cost:
+Note: this is runnable Python code (pure stdlib).
+
+python
+# brute-force search
+best = None  # tuple (total_trips, total_cost, f, a, tons)
+for f in range(5, 41):              # 5..40
+    # minimal a required by air-share: 7a >= 5f  => a >= ceil(5f/7)
+    a_min_share = -(-5*f // 7)     # integer ceiling
+    # minimal a required by tonnage: 3a >= 200 - 5f  => a >= ceil(max(0, 200-5f)/3)
+    remain = max(0, 200 - 5*f)
+    a_min_tonnage = -(-remain // 3)
+    a_min = max(a_min_share, a_min_tonnage, 0)
+    # practical upper bound for a from budget and global bound
+    a_max = min(36, (20000 - 300*f) // 550) if (20000 - 300*f) >= 0 else -1
+    if a_max < a_min:
+        continue
+    # since objective is minimize f+a, minimal a for this f is a_min
+    a = a_min
+    cost = 300*f + 550*a
+    tons = 5*f + 3*a
+    if cost <= 20000 and tons >= 200:
+        total_trips = f + a
+        candidate = (total_trips, cost, f, a, tons)
+        if (best is None) or (candidate[0] < best[0]) or (candidate[0] == best[0] and candidate[1] < best[1]):
+            best = candidate
+
+print("best =", best)  # prints (total_trips, total_cost, f, a, tons)
+
+7) Result (optimal)
+Running the above (or solving the ILP) yields the unique optimal integer solution:
+- Freight trips f = 28
+- Air trips a = 20
+- Total trips = 48
+- Total tons = 5*28 + 3*20 = 200 tons (exactly the requirement)
+- Total cost = 300*28 + 550*20 = $19,400 (within the $20,000 budget)
+
+This solution satisfies the air-share constraint (air tons = 60 which is 30% of 200), the freight minimum (f ≥ 5), and all other constraints. There is no feasible solution with fewer than 48 total trips; (28,20) is the minimal solution and also satisfies the budget, so no tie‑breaking was necessary.
+
+If you want, I can:
+- provide a ready-to-run pulp or OR-Tools ILP model, or
+- extend the search to enumerate all feasible pairs and rank by trips then cost.
+
+---
+
+[CODER]:
+# Brute-force search for the ILP described
+# Variables:
+#  f in Z, f >= 5
+#  a in Z, a >= 0
+# Objective: minimize T = f + a
+# Constraints:
+#  5f + 3a >= 200
+#  300f + 550a <= 20000
+#  7a >= 5f  (air-share)
+# Bounds for search: f in [5,40], a in [0,36]
+
+best = None  # tuple (total_trips, total_cost, f, a, tons)
+
+for f in range(5, 41):  # 5..40
+    # minimal a required by air-share: 7a >= 5f  => a >= ceil(5f/7)
+    a_min_share = -(-5 * f // 7)
+    # minimal a required by tonnage: 3a >= 200 - 5f  => a >= ceil(max(0, 200-5f)/3)
+    remain = max(0, 200 - 5 * f)
+    a_min_tonnage = -(-remain // 3)
+    a_min = max(a_min_share, a_min_tonnage, 0)
+    # practical upper bound for a from budget and global bound
+    budget_rem = 20000 - 300 * f
+    if budget_rem < 0:
+        continue
+    a_max_budget = budget_rem // 550
+    a_max = min(36, a_max_budget)
+    if a_max < a_min:
+        continue
+    # choose minimal a for this f to minimize f+a
+    a = a_min
+    cost = 300 * f + 550 * a
+    tons = 5 * f + 3 * a
+    if cost <= 20000 and tons >= 200:
+        total_trips = f + a
+        candidate = (total_trips, cost, f, a, tons)
+        if (best is None) or (candidate[0] < best[0]) or (candidate[0] == best[0] and candidate[1] < best[1]):
+            best = candidate
+
+# Extract final objective value (total trips)
+if best is None:
+    value = None
+else:
+    value = best[0]
+
+print(f"FINAL_OBJ: {value}")

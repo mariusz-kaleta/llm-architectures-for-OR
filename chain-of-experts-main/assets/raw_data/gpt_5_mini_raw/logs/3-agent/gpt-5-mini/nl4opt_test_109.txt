@@ -1,0 +1,86 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - s ∈ Z≥0: number of small boxes (each holds 25 masks)
+  - l ∈ Z≥5: number of large boxes (each holds 45 masks). (Integrality required)
+
+- Objective
+  - Minimize total boxes: minimize Z = s + l
+
+- Constraints
+  - Capacity constraint: 25 s + 45 l ≥ 750
+  - Stacking rule: s ≥ 3 l
+  - Integrality and bounds: s, l integers, l ≥ 5, s ≥ 0
+
+Solution logic (short)
+- For a fixed l, the minimal feasible s is
+  s = max(3 l, ceil((750 − 45 l) / 25)).
+- Evaluate integer l ≥ 5 to find the l that minimizes Z = s + l.
+
+Quick manual evaluation
+- l = 5 ⇒ s = max(15, ceil((750−225)/25)) = max(15, 21) = 21 ⇒ Z = 26
+- l = 6 ⇒ s = max(18, ceil((750−270)/25)) = max(18, 20) = 20 ⇒ Z = 26
+- l = 7 ⇒ s = 21 (because 3·7 = 21 already meets capacity) ⇒ Z = 28
+- For l ≥ 7, s = 3 l and Z = 4 l (increasing in l), so no better solution.
+
+Therefore the minimum total number of boxes is 26. There are two optimal combinations:
+- 21 small and 5 large, or
+- 20 small and 6 large.
+
+Recommended solvers / libraries
+- pulp (pure Python linear/integer programming)
+- OR-Tools CP-SAT (good for integer/CP-style problems)
+- mip (Python-MIP) or gurobipy/cvxpy with an integer-capable backend
+
+Example (pulp) code snippet
+  from math import ceil
+  import pulp
+  prob = pulp.LpProblem("min_boxes", pulp.LpMinimize)
+  s = pulp.LpVariable('s', lowBound=0, cat='Integer')
+  l = pulp.LpVariable('l', lowBound=5, cat='Integer')
+  prob += s + l
+  prob += 25*s + 45*l >= 750
+  prob += s >= 3*l
+  prob.solve(pulp.PULP_CBC_CMD(msg=0))
+  print(int(s.value()), int(l.value()), "total =", int(s.value())+int(l.value()))
+
+This will return one of the optimal solutions (either 21 small & 5 large or 20 small & 6 large).
+
+---
+
+[CODER]:
+import math
+
+# Data
+mask_per_small = 25
+mask_per_large = 45
+required_masks = 750
+
+# Constraints
+min_l = 5
+
+best_Z = None
+best_solutions = []
+
+# Search reasonable range for l (start at min_l). Upper bound: check up to 100 to be safe.
+for l in range(min_l, 101):
+    # minimal s to satisfy capacity: ceil((required_masks - 45*l)/25)
+    remaining = required_masks - mask_per_large * l
+    if remaining <= 0:
+        s_capacity = 0
+    else:
+        s_capacity = math.ceil(remaining / mask_per_small)
+    s_stack = 3 * l
+    s = max(s_capacity, s_stack)
+    if s < 0:
+        s = 0
+    Z = s + l
+    if (best_Z is None) or (Z < best_Z):
+        best_Z = Z
+        best_solutions = [(s, l)]
+    elif Z == best_Z:
+        best_solutions.append((s, l))
+
+# Final objective value
+print(f"FINAL_OBJ: {int(best_Z)}")

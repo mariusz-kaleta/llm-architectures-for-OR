@@ -1,0 +1,141 @@
+[MODELER]:
+Formulate this as a linear programming (LP) minimization problem.
+
+### 1. Decision variables
+
+Let  
+- \(x\) = number of servings of almonds (nonnegative real number)  
+- \(y\) = number of servings of cashews (nonnegative real number)
+
+### 2. Objective function (minimize total fat)
+
+Each serving of:
+- Almonds: 15 g fat  
+- Cashews: 12 g fat  
+
+Total fat:
+\[
+\text{Fat} = 15x + 12y
+\]
+
+Objective:
+\[
+\min \; 15x + 12y
+\]
+
+### 3. Constraints
+
+**Calorie constraint**  
+Each serving:
+- Almonds: 200 calories
+- Cashews: 300 calories
+
+Total calories must be at least 10 000:
+\[
+200x + 300y \;\geq\; 10000
+\]
+
+**Protein constraint**  
+Each serving:
+- Almonds: 20 g protein
+- Cashews: 25 g protein
+
+Total protein must be at least 800 g:
+\[
+20x + 25y \;\geq\; 800
+\]
+
+**Almond-to-cashew ratio constraint**  
+“At least twice as many servings of almonds as cashews”:
+\[
+x \;\geq\; 2y
+\]
+
+**Nonnegativity**
+\[
+x \;\geq\; 0,\quad y \;\geq\; 0
+\]
+
+This is a linear programming problem:
+\[
+\begin{aligned}
+\min\ & 15x + 12y \\
+\text{s.t. } 
+& 200x + 300y \ge 10000 \\
+& 20x + 25y \ge 800 \\
+& x - 2y \ge 0 \\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+---
+
+### 4. Solving the model (outline with Python)
+
+Suitable Python libraries:
+- `PuLP` (simple LP modeling)
+- `scipy.optimize.linprog`
+- `ortools.linear_solver` (Google OR-Tools)
+
+Example using PuLP:
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Nut_Choice", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('almonds', lowBound=0)
+y = pl.LpVariable('cashews', lowBound=0)
+
+# Objective: minimize total fat
+prob += 15*x + 12*y
+
+# Constraints
+prob += 200*x + 300*y >= 10000      # calories
+prob += 20*x + 25*y >= 800          # protein
+prob += x >= 2*y                    # ratio
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Servings of almonds:", x.value())
+print("Servings of cashews:", y.value())
+print("Minimum fat (g):", pl.value(15*x + 12*y))
+```
+
+This code will give the optimal number of servings of almonds (`x`) and cashews (`y`) that minimize fat while meeting calorie, protein, and ratio requirements.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("Nut_Choice", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('almonds', lowBound=0)
+    y = pl.LpVariable('cashews', lowBound=0)
+
+    # Objective: minimize total fat
+    prob += 15 * x + 12 * y
+
+    # Constraints
+    prob += 200 * x + 300 * y >= 10000      # calorie constraint
+    prob += 20 * x + 25 * y >= 800          # protein constraint
+    prob += x - 2 * y >= 0                  # ratio constraint: x >= 2y
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute objective value
+    obj_value = pl.value(15 * x + 12 * y)
+
+    # Print required final objective value line
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

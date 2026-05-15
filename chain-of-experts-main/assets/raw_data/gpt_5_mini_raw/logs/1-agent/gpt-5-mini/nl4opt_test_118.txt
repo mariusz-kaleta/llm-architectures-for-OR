@@ -1,0 +1,34 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Fish_Transport_Min_Time", pulp.LpMinimize)
+
+# Decision variables: number of helicopter trips (h) and car trips (c)
+h = pulp.LpVariable('helicopter_trips', lowBound=0, cat='Integer')
+c = pulp.LpVariable('car_trips', lowBound=0, cat='Integer')
+
+# Objective: minimize total time (minutes)
+prob += 40 * h + 30 * c
+
+# Constraints
+prob += 30 * h + 20 * c >= 300          # at least 300 fish transported
+prob += h <= 5                          # at most 5 helicopter trips
+prob += c >= 1.5 * h                    # at least 60% of trips must be by car -> c >= 1.5*h
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract solution
+helicopter_trips = int(pulp.value(h))
+car_trips = int(pulp.value(c))
+objective_value = pulp.value(prob.objective)
+
+# Print solution
+print(f"Helicopter trips: {helicopter_trips}")
+print(f"Car trips: {car_trips}")
+print(f"Total time (minutes): {objective_value}")
+
+# Final required print (must be the last line)
+value = int(objective_value) if abs(objective_value - round(objective_value)) < 1e-6 else objective_value
+print(f"FINAL_OBJ: {value}")

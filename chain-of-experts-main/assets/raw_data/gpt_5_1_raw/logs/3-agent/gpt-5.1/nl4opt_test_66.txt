@@ -1,0 +1,116 @@
+[MODELER]:
+Here’s a clean mathematical model of the problem.
+
+### Decision variables
+Let  
+- \(x\) = number of tractors used  
+- \(y\) = number of cars used  
+
+Both must be nonnegative integers:
+- \(x \ge 0,\; x \in \mathbb{Z}\)  
+- \(y \ge 0,\; y \in \mathbb{Z}\)
+
+### Objective
+Minimize the total number of vehicles (tractors + cars):
+\[
+\min \; z = x + y
+\]
+
+### Constraints
+
+1. **Capacity constraint (at least 500 kg):**
+
+Each tractor carries 40 kg, each car carries 20 kg, so:
+\[
+40x + 20y \ge 500
+\]
+
+2. **Cars at least twice the tractors:**
+\[
+y \ge 2x
+\]
+
+3. **Non-negativity and integrality:**
+\[
+x \ge 0,\; y \ge 0,\; x,y \in \mathbb{Z}
+\]
+
+This is an **integer linear programming (ILP)** problem.
+
+---
+
+### Suitable Python libraries
+
+To solve this ILP in Python, any of the following would work well:
+
+- **PuLP** (`pulp`) – very straightforward for educational and small ILP models.
+- **OR-Tools** (`ortools.linear_solver` or `ortools.sat.python.cp_model`) – powerful and efficient from Google.
+- **Pyomo** – more general modeling framework, good for larger or more complex models.
+
+For this small problem, **PuLP** or **OR-Tools** is ideal.
+
+---
+
+### Example PuLP formulation (sketch)
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("CornTransport", pl.LpMinimize)
+
+# Decision variables (nonnegative integers)
+x = pl.LpVariable('tractors', lowBound=0, cat='Integer')
+y = pl.LpVariable('cars', lowBound=0, cat='Integer')
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 40*x + 20*y >= 500          # capacity
+prob += y >= 2*x                    # cars at least twice tractors
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Tractors:", x.value())
+print("Cars:", y.value())
+print("Total vehicles:", x.value() + y.value())
+```
+
+This code directly implements the model above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("CornTransport", pl.LpMinimize)
+
+    # Decision variables (nonnegative integers)
+    x = pl.LpVariable('tractors', lowBound=0, cat='Integer')
+    y = pl.LpVariable('cars', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of vehicles
+    prob += x + y
+
+    # Constraints
+    prob += 40 * x + 20 * y >= 500      # Capacity constraint
+    prob += y >= 2 * x                  # Cars at least twice tractors
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    x_val = x.value()
+    y_val = y.value()
+    obj_val = x_val + y_val
+
+    # Required final print
+    print(f"FINAL_OBJ: {obj_val}")
+
+if __name__ == "__main__":
+    main()

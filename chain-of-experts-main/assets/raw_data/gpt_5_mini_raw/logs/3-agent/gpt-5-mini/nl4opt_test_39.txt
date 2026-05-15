@@ -1,0 +1,129 @@
+[MODELER]:
+Step 1 — decision variables
+- x = gallons of chocolate ice cream produced in the week
+- y = gallons of vanilla ice cream produced in the week
+
+Objective
+- Maximize weekly profit: maximize Z = 200x + 300y
+
+Constraints (from the text)
+1. Minimum production requirements:
+   - x ≥ 5
+   - y ≥ 5
+2. Upper bounds:
+   - x ≤ 10
+   - y ≤ 8
+3. Production-time availability (each gallon: chocolate 1 hour, vanilla 2 hours; 30 hours total):
+   - x + 2y ≤ 30
+
+Note on the worker statement
+The sentence about workers is ambiguous. Two plausible readings:
+A. It is a staffing composition requirement (e.g. at least 6 workers must be present) that does not limit production beyond the time constraint — in this case the constraints above are complete.
+B. It implies a worker-hours limitation: if, for example, a vanilla gallon requires 2 workers working for 2 hours (4 worker-hours) and chocolate requires 1 worker for 1 hour (1 worker-hour), and at most 6 workers are available for 30 hours (total worker-hours = 6·30 = 180), then an additional constraint would be 1·x + 4·y ≤ 180. In this problem that extra constraint does not become binding given the other bounds (it is slack), so it does not change the optimal solution. If you intended a different interpretation, replace or add the corresponding worker constraint.
+
+Complete LP (most direct interpretation)
+Maximize Z = 200x + 300y
+subject to
+  x + 2y ≤ 30
+  5 ≤ x ≤ 10
+  5 ≤ y ≤ 8
+  x, y ≥ 0
+
+Solve analytically / inspect feasible corners
+Feasible region is bounded by the box [5,10] × [5,8] and the time line x + 2y = 30. Check the corner with x and y at their upper bounds:
+- x = 10, y = 8 is feasible because 10 + 2·8 = 26 ≤ 30.
+Profit = 200·10 + 300·8 = 2,000 + 2,400 = $4,400.
+
+Because chocolate has higher profit per production hour (200 per 1 hour = 200/hr) than vanilla (300 per 2 hours = 150/hr), and the solution sits at the individual upper bounds, (x=10, y=8) is optimal.
+
+Answer (optimal production)
+- Produce 10 gallons of chocolate and 8 gallons of vanilla.
+- Maximum profit = $4,400.
+
+Recommended Python solvers/libraries
+- PuLP (simple, good for teaching/quick LPs)
+- scipy.optimize.linprog (for numerical linear programming)
+- OR-Tools (Google OR-Tools) or CVXOPT (for larger/more advanced models)
+
+Example (PuLP sketch)
+- Define LP: LpProblem(..., LpMaximize)
+- Variables: x = LpVariable('x', lowBound=5, upBound=10), y = LpVariable('y', lowBound=5, upBound=8)
+- Add constraint x + 2*y <= 30
+- Set objective 200*x + 300*y
+- Solve and read x.value(), y.value(), and objective.
+
+If you want, I can provide a full runnable PuLP or scipy example and, if needed, re-formulate with a specific interpretation of the worker constraint.
+
+---
+
+[CODER]:
+```python
+# Self-contained solver for the described LP:
+# Maximize Z = 200*x + 300*y
+# subject to:
+#   x + 2y <= 30
+#   5 <= x <= 10
+#   5 <= y <= 8
+
+import math
+
+# Problem data
+profit_x = 200.0
+profit_y = 300.0
+
+x_min, x_max = 5.0, 10.0
+y_min, y_max = 5.0, 8.0
+
+# Time constraint function: returns True if (x,y) satisfies x + 2y <= 30 (with tolerance)
+def time_feasible(x, y, tol=1e-9):
+    return x + 2.0 * y <= 30.0 + tol
+
+# Generate candidate corner points:
+candidates = []
+
+# Rectangle corners
+candidates += [
+    (x_min, y_min),
+    (x_min, y_max),
+    (x_max, y_min),
+    (x_max, y_max),
+]
+
+# Intersections of time line x + 2y = 30 with x = x_min and x = x_max
+for x_val in (x_min, x_max):
+    y_val = (30.0 - x_val) / 2.0
+    if y_min - 1e-9 <= y_val <= y_max + 1e-9:
+        candidates.append((x_val, y_val))
+
+# Intersections of time line with y = y_min and y = y_max
+for y_val in (y_min, y_max):
+    x_val = 30.0 - 2.0 * y_val
+    if x_min - 1e-9 <= x_val <= x_max + 1e-9:
+        candidates.append((x_val, y_val))
+
+# Filter feasible candidates (respecting bounds and time constraint)
+feasible = []
+for x, y in candidates:
+    if x_min - 1e-9 <= x <= x_max + 1e-9 and y_min - 1e-9 <= y <= y_max + 1e-9 and time_feasible(x, y):
+        feasible.append((x, y))
+
+# Ensure we have feasible points (should be true)
+if not feasible:
+    raise RuntimeError("No feasible points found. Check problem data.")
+
+# Evaluate objective and pick best
+best_obj = -math.inf
+best_point = None
+for x, y in feasible:
+    obj = profit_x * x + profit_y * y
+    if obj > best_obj + 1e-9:
+        best_obj = obj
+        best_point = (x, y)
+
+# Round objective to nearest integer if it's very close to an integer
+if abs(best_obj - round(best_obj)) < 1e-9:
+    best_obj = int(round(best_obj))
+
+# Final required print (only this final line must follow the exact format)
+print(f"FINAL_OBJ: {best_obj}")
+```

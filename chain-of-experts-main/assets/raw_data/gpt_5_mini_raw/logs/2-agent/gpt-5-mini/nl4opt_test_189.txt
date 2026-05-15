@@ -1,0 +1,94 @@
+[MODELER]:
+First I state an interpretation assumption (your sentence was slightly ambiguous): I assume “he must drink at least 3 times as many apple juice boxes and orange juice boxes” means
+apple_boxes ≥ 3 × orange_boxes. If you meant the reverse, tell me and I will reformulate.
+
+Variables
+- x = number of orange juice boxes (integer, x ≥ 0)
+- y = number of apple juice boxes (integer, y ≥ 0)
+
+Objective
+- Maximize total vitamin D: maximize Z = 10x + 12y
+  (each orange box gives 10 units D, each apple box gives 12 units D)
+
+Constraints
+1. Preference constraint: y ≥ 3x
+2. Minimum oranges: x ≥ 3
+3. Vitamin C upper bound: 8x + 6y ≤ 300
+4. Integrality / nonnegativity: x, y ∈ Z≥0
+
+(If you were willing to allow fractional boxes, drop the integrality constraint and solve a continuous LP.)
+
+Reasoning and solution
+- Apple gives more vitamin D per unit of vitamin C than orange (12 D / 6 C = 2 D per C for apple, vs 10/8 = 1.25 D per C for orange), so to maximize D under the C cap you should minimize x subject to its lower bound and the preference constraint. The minimum allowed x is 3.
+- With x = 3, the C constraint gives 6y ≤ 300 − 8·3 = 276 ⇒ y ≤ 46. Since y must be at least 3x = 9 and we want to maximize D we pick y = 46.
+- This uses the full C budget: 8·3 + 6·46 = 24 + 276 = 300 units of vitamin C.
+- Total vitamin D = 10·3 + 12·46 = 30 + 552 = 582 units.
+
+Optimal solution (under the interpreted constraints)
+- Orange boxes x = 3
+- Apple boxes y = 46
+- Vitamin C consumed = 300 (limit)
+- Vitamin D gained = 582 (maximum)
+
+Suggested solvers / libraries
+- For integer linear programming: PuLP (with CBC), OR-Tools CP-SAT, or Gurobi/CPLEX if you have licenses.
+- For continuous LP: scipy.optimize.linprog or CVXPY.
+
+Short example using PuLP
+- Formulate the model with pulp.LpVariable(..., cat='Integer'), set objective 10*x + 12*y, add constraints y >= 3*x, x >= 3, 8*x + 6*y <= 300, and solve. This will return x=3, y=46.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Data initialization
+vitamin_D_orange = 10  # D per orange box
+vitamin_D_apple = 12   # D per apple box
+vitamin_C_orange = 8   # C per orange box
+vitamin_C_apple = 6    # C per apple box
+
+C_max = 300            # maximum vitamin C allowed
+min_oranges = 3        # x >= 3
+preference_ratio = 3   # y >= 3*x
+
+# Search for integer optimal solution by enumeration (small variable ranges)
+best_obj = None
+best_x = None
+best_y = None
+
+# Upper bound for x: safe to iterate up to C_max//min(C per box)
+x_upper = C_max // min(vitamin_C_orange, vitamin_C_apple)
+
+for x in range(min_oranges, x_upper + 1):
+    # y must satisfy preference constraint
+    y_min = preference_ratio * x
+    # y must satisfy C constraint: 8x + 6y <= 300  => y <= (300 - 8x)/6
+    remaining_C = C_max - vitamin_C_orange * x
+    if remaining_C < 0:
+        continue
+    y_max = remaining_C // vitamin_C_apple
+    if y_max < y_min:
+        continue
+    # Since objective coefficient for y (12) is positive, choose y = y_max to maximize objective for this x
+    y = y_max
+    obj = vitamin_D_orange * x + vitamin_D_apple * y
+    if (best_obj is None) or (obj > best_obj):
+        best_obj = obj
+        best_x = x
+        best_y = y
+
+# Print results (allowed additional output). Final line must be exactly the required format.
+if best_obj is None:
+    print("No feasible integer solution found.")
+else:
+    print(f"Optimal integer solution found: x (orange) = {best_x}, y (apple) = {best_y}")
+    total_C = vitamin_C_orange * best_x + vitamin_C_apple * best_y
+    total_D = vitamin_D_orange * best_x + vitamin_D_apple * best_y
+    print(f"Total vitamin C used = {total_C}")
+    print(f"Total vitamin D gained = {total_D}")
+
+print(f"FINAL_OBJ: {best_obj}")
+```

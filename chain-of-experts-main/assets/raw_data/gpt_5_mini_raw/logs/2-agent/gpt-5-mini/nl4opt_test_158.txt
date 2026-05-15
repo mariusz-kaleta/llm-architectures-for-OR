@@ -1,0 +1,89 @@
+[MODELER]:
+Below is a clear mathematical formulation of the problem, reasoning about integrality, and a recommended way to solve it (with a small worked-out optimal solution).
+
+1) Decision variables
+- o ∈ Z≥0 : number of otter performers
+- d ∈ Z≥0 : number of dolphin performers
+
+2) Objective
+Maximize total number of tricks:
+Maximize T = 3o + 1d
+
+3) Constraints
+- Treats availability: 3o + 5d ≤ 200
+- Dolphin popularity: d ≥ 10
+- At most 30% of performers are otters:
+  o ≤ 0.3 (o + d)  (equivalently 7 o ≤ 3 d)
+- Integrality and nonnegativity: o, d ∈ Z≥0
+
+(You can rewrite the 30% constraint as 7o ≤ 3d to keep coefficients integer.)
+
+4) Model summary (compact)
+Maximize 3o + d
+subject to
+3o + 5d ≤ 200
+7o ≤ 3d
+d ≥ 10
+o, d ∈ Z≥0
+
+5) Remarks on structure and solution approach
+- This is an integer linear program (ILP). Because otters give 3 tricks for 3 treats (1 trick/treat) and dolphins give 1 trick for 5 treats (0.2 trick/treat), otters are far more treats-efficient, so we will use as many otters as allowed by the 30% cap. Given that, the optimal solution will have o as large as allowed by 7o ≤ 3d and treats used up as much as possible by adding dolphins until treats are exhausted.
+- Because the variable ranges are small, you can either (a) solve the ILP with any integer LP solver, or (b) brute-force enumerate feasible integer pairs (o small, d between 10 and say 200/5 = 40).
+
+6) Recommended Python libraries to solve
+- pulp (pure Python interface to several solvers) — easy to set up for small ILPs
+- ortools (CP-SAT solver) — very robust, fast
+- python-mip (mip) — uses CBC/Gurobi/Cplex backends
+- For continuous relaxations only: scipy.optimize.linprog (not suitable for integer constraints)
+
+7) Small analytical solution (worked)
+From 7o ≤ 3d → d ≥ (7/3) o. Substitute into treats and/ or reason that o should be as large as allowed.
+From treating 7o ≤ 3d and 3o + 5d ≤ 200 you can derive o ≤ 13 (integer). For o = 13, d must be at least ceil(91/3) = 31 and treats allow up to d ≤ floor((200 − 3·13)/5) = 32. Choosing the larger d (since each dolphin adds a trick) gives d = 32, o = 13.
+Check:
+- Treats: 3·13 + 5·32 = 39 + 160 = 199 ≤ 200
+- 30% cap: 13 ≤ 0.3·(13 + 32) = 13.5 (equivalently 7·13 = 91 ≤ 96 = 3·32)
+- dolphins ≥ 10 satisfied.
+
+Total tricks = 3·13 + 32 = 39 + 32 = 71 tricks. This is optimal.
+
+8) Example pulp implementation (short)
+- Use pulp.LpInteger variables, set Objective to maximize 3*o + d, add constraints as above, solve with the default CBC solver.
+
+If you want, I can provide the full Python code for pulp or ortools to solve this ILP and verify the result.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+#!/usr/bin/env python3
+# Brute-force search for the ILP:
+# Maximize T = 3o + d
+# subject to:
+# 3o + 5d <= 200
+# 7o <= 3d
+# d >= 10
+# o, d are nonnegative integers
+
+def main():
+    best_value = None
+    best_o = None
+    best_d = None
+
+    # Upper bound for o: from 3o + 5*10 <= 200 -> 3o <= 150 -> o <= 50
+    for o in range(0, 51):
+        # For given o, max d from treats constraint:
+        max_d = (200 - 3 * o) // 5
+        if max_d < 10:
+            continue
+        for d in range(10, max_d + 1):
+            if 7 * o <= 3 * d:
+                value = 3 * o + d
+                if (best_value is None) or (value > best_value):
+                    best_value = value
+                    best_o = o
+                    best_d = d
+
+    # At the very end, print the final objective value in the required format
+    print(f"FINAL_OBJ: {best_value}")
+
+if __name__ == "__main__":
+    main()

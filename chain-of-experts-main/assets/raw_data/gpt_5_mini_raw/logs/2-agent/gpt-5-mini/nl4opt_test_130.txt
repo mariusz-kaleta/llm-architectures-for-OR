@@ -1,0 +1,91 @@
+[MODELER]:
+Model
+
+Decision variables
+- x ∈ Z>=0: number of machines of type A.
+- y ∈ Z>=0: number of machines of type B.
+
+Objective
+- Minimize total machines: minimize Z = x + y.
+
+Constraints
+1. Production requirement: 30x + 50y ≥ 1000.
+2. Energy limit: 100x + 120y ≤ 3000.
+3. At most 30% of machines are type B: y/(x + y) ≤ 0.3.
+   - To avoid a nonlinear fraction, rewrite as 7y ≤ 3x (multiply both sides by 10(x+y) and simplify; equivalently y ≤ (3/7)x). Note this assumes x + y > 0; the trivial zero-machines solution is infeasible because of the production constraint.
+4. Minimum A machines: x ≥ 5.
+5. Integrality and nonnegativity: x, y integers, x, y ≥ 0.
+
+(Constraint 3 algebra: y/(x+y) ≤ 0.3 ⇒ y ≤ 0.3(x+y) ⇒ 0.7y ≤ 0.3x ⇒ 7y ≤ 3x.)
+
+Feasible-integer solution and optimality reasoning (short)
+- If you use the maximum allowed share of B (30%), the average output per machine is 0.7·30 + 0.3·50 = 36 items/machine. So you need at least ceil(1000/36) = 28 machines.
+- For N = 28, the integer upper bound on B is floor(0.3·28) = 8, so x = 28 − 8 = 20, y = 8.
+- Check constraints:
+  - Production: 30·20 + 50·8 = 600 + 400 = 1000 ✓
+  - Energy: 100·20 + 120·8 = 2000 + 960 = 2960 ≤ 3000 ✓
+  - Proportion: 8/28 ≈ 0.2857 ≤ 0.3 ✓
+  - x ≥ 5 ✓
+- No solution exists with fewer than 28 machines (e.g., N = 27 with at most floor(0.3·27)=8 B yields 30·19 + 50·8 = 970 < 1000), so (x, y) = (20, 8) is optimal.
+
+Suggested solvers / Python libraries
+- pulp (CBC solver built-in) — easy to model integer LPs.
+- ortools CP-SAT — powerful integer solver for small combinatorial models.
+- pyomo with glpk/CPLEX/GUROBI — for bigger models or commercial solvers.
+- scipy.optimize is not suitable for integer problems (use for continuous relaxation only).
+
+Example (pulp) sketch
+- Create integer LpVariables x, y.
+- Add constraints: 30*x + 50*y >= 1000; 100*x + 120*y <= 3000; 7*y <= 3*x; x >= 5.
+- Minimize x + y and solve (CBC).
+- Solver returns x = 20, y = 8.
+
+Answer
+- Use 20 machines of type A and 8 machines of type B (total 28 machines).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the integer model described.
+# Searches integer x (>=5) and y (>=0) to minimize x+y subject to:
+# 30x + 50y >= 1000
+# 100x + 120y <= 3000
+# 7y <= 3x
+
+def find_optimal():
+    best = None  # tuple (N, x, y)
+    # Reasonable bounds: x from 5..100, y from 0..100 (covers feasible space)
+    for x in range(5, 101):
+        for y in range(0, 101):
+            # Constraints
+            if 30*x + 50*y < 1000:
+                continue
+            if 100*x + 120*y > 3000:
+                continue
+            if 7*y > 3*x:
+                continue
+            N = x + y
+            if best is None or N < best[0] or (N == best[0] and x < best[1]):
+                best = (N, x, y)
+    return best
+
+result = find_optimal()
+if result is None:
+    # No feasible solution found (shouldn't happen for given model)
+    best_N = None
+    best_x = None
+    best_y = None
+else:
+    best_N, best_x, best_y = result
+
+# Optional: print the found solution (not required). Then final objective line exactly as required.
+if best_x is not None:
+    print(f"Optimal solution found: x={best_x}, y={best_y}, total_machines={best_N}")
+else:
+    print("No feasible integer solution found.")
+
+# Final required output line (must be last)
+print(f"FINAL_OBJ: {best_N}")
+```

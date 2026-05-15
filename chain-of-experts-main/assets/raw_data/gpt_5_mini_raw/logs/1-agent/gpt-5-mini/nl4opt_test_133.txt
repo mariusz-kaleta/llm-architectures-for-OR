@@ -1,0 +1,51 @@
+[MONOLITH]:
+```python
+# Optimization of metal extraction using two processes J and P
+# Process J: extracts 5 units metal, uses 8 units water, produces 3 units pollution
+# Process P: extracts 9 units metal, uses 6 units water, produces 5 units pollution
+# Resource limits: at most 1500 units of water, at most 1350 units of pollution
+
+from pulp import LpProblem, LpVariable, LpMaximize, lpSum, PULP_CBC_CMD, value
+
+# Data initialization (from problem statement)
+metal_J = 5
+water_J = 8
+pollution_J = 3
+
+metal_P = 9
+water_P = 6
+pollution_P = 5
+
+max_water = 1500
+max_pollution = 1350
+
+# Define the LP problem
+prob = LpProblem("Maximize_Metal", LpMaximize)
+
+# Decision variables: number of times to run process J and P (nonnegative, continuous)
+J = LpVariable("J", lowBound=0)
+P = LpVariable("P", lowBound=0)
+
+# Objective: maximize total metal extracted
+prob += metal_J * J + metal_P * P, "Total_Metal"
+
+# Constraints
+prob += water_J * J + water_P * P <= max_water, "Water_Limit"
+prob += pollution_J * J + pollution_P * P <= max_pollution, "Pollution_Limit"
+
+# Solve
+prob.solve(PULP_CBC_CMD(msg=False))
+
+# Retrieve results
+J_val = J.varValue
+P_val = P.varValue
+obj_val = value(prob.objective)
+
+# Print results (decision variables and final objective)
+print(f"Optimal J (process J runs): {J_val}")
+print(f"Optimal P (process P runs): {P_val}")
+print(f"Optimal total metal extracted: {obj_val}")
+
+# CRITICAL final line as required
+print(f"FINAL_OBJ: {obj_val}")
+```

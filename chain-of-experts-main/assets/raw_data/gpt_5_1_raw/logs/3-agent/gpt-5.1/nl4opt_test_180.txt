@@ -1,0 +1,166 @@
+[MODELER]:
+Here is how to model this as a mathematical optimization problem.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of oranges to eat (nonnegative real, could later restrict to integer)  
+- \(y\) = number of grapefruits to eat (nonnegative real, could later restrict to integer)
+
+---
+
+## 2. Objective function
+
+We want to **minimize total sugar** consumed.
+
+- Each orange has 5 grams of sugar.
+- Each grapefruit has 6 grams of sugar.
+
+So total sugar \(S\) is:
+
+\[
+\text{Minimize } S = 5x + 6y
+\]
+
+---
+
+## 3. Constraints
+
+### (a) Vitamin C requirement
+
+- Each orange: 5 units of vitamin C
+- Each grapefruit: 7 units of vitamin C
+- Need at least 80 units total
+
+\[
+5x + 7y \;\geq\; 80
+\]
+
+### (b) Vitamin A requirement
+
+- Each orange: 3 units of vitamin A
+- Each grapefruit: 5 units of vitamin A
+- Need at least 70 units total
+
+\[
+3x + 5y \;\geq\; 70
+\]
+
+### (c) Preference constraint (oranges at least twice grapefruits)
+
+The patient must eat **at least 2 times as many oranges as grapefruit**:
+
+\[
+x \;\geq\; 2y
+\]
+
+### (d) Nonnegativity
+
+\[
+x \;\geq\; 0,\quad y \;\geq\; 0
+\]
+
+If you require whole fruits only, you also add integer constraints:
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Model summary
+
+This is a **linear optimization problem**:
+
+\[
+\begin{aligned}
+\min_{x,y} \quad & 5x + 6y \\
+\text{s.t.} \quad & 5x + 7y \ge 80 \\
+& 3x + 5y \ge 70 \\
+& x \ge 2y \\
+& x, y \ge 0 \\
+& (\text{optionally } x, y \in \mathbb{Z})
+\end{aligned}
+\]
+
+---
+
+## 5. Solving this in Python
+
+This can be solved with any linear programming (LP) or mixed-integer programming (MIP) library. Suitable libraries:
+
+- `PuLP` (simple interface to LP/MIP solvers)
+- `ortools.linear_solver` (Google OR-Tools)
+- `scipy.optimize.linprog` (for continuous LP, not integer)
+- `pyomo` (more general modeling language)
+
+For a straightforward implementation:
+
+- Use **PuLP** if you want something light and easy.
+- Use **OR-Tools** if you want a production-strength solver and easy integer support.
+
+For example, with PuLP (continuous version):
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("FruitDiet", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('oranges', lowBound=0)   # can add cat='Integer' if needed
+y = pl.LpVariable('grapefruits', lowBound=0)
+
+# Objective
+prob += 5*x + 6*y
+
+# Constraints
+prob += 5*x + 7*y >= 80      # Vitamin C
+prob += 3*x + 5*y >= 70      # Vitamin A
+prob += x >= 2*y             # Preference
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Oranges (x):", x.value())
+print("Grapefruits (y):", y.value())
+print("Min sugar:", pl.value(5*x + 6*y))
+```
+
+This code directly implements the mathematical model above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("FruitDiet", pl.LpMinimize)
+
+    # Decision variables: integers, non-negative
+    x = pl.LpVariable('oranges', lowBound=0, cat='Integer')
+    y = pl.LpVariable('grapefruits', lowBound=0, cat='Integer')
+
+    # Objective: minimize total sugar
+    prob += 5 * x + 6 * y
+
+    # Constraints
+    prob += 5 * x + 7 * y >= 80      # Vitamin C
+    prob += 3 * x + 5 * y >= 70      # Vitamin A
+    prob += x >= 2 * y               # Preference: oranges at least twice grapefruits
+
+    # Solve the problem
+    prob.solve()
+
+    # Compute objective value
+    obj_value = pl.value(5 * x + 6 * y)
+
+    # Print objective value in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

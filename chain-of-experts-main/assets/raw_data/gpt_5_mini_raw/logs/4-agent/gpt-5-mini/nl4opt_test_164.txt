@@ -1,0 +1,211 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Maximise total profit from selling/installing refrigerators and stoves.
+
+2) Suggested model type
+- Model: Linear Programming (continuous LP). Note: if items must be whole numbers, solve as an Integer Linear Program (ILP) or round the LP solution and check feasibility.
+
+3) Main decision variables (naming and meaning)
+- R = number of refrigerators to sell/install.
+- S = number of stoves to sell/install.
+
+4) Key constraints to include (describe, with coefficients and units)
+- Mover-time capacity: each refrigerator consumes 60 minutes of mover time and each stove consumes 45 minutes; total mover time used cannot exceed 20,000 minutes.
+- Setup-time capacity: each refrigerator consumes 20 minutes of setup time and each stove consumes 25 minutes; total setup time used cannot exceed 13,000 minutes.
+- Nonnegativity: R >= 0, S >= 0.
+- Integrality (optional): R and S should be integers if fractional appliances are not allowed.
+
+5) Solution strategy / modelling steps for the Modeller
+- Implement the LP: maximise profit = 400*R + 260*S subject to the constraints listed above.
+- Because there are only two variables, solve graphically or evaluate corner points (axes intercepts and the intersection of the two capacity constraints) to find the optimal corner of the feasible region. Also run a simplex solver as a quick check.
+- If integer solutions are required, run an ILP solver or round the LP solution and verify feasibility and optimality by checking nearby integer points.
+- Perform sensitivity analysis / report: identify which constraint(s) are binding at the optimum and the shadow prices (marginal value) for mover and setup time, to guide decisions on acquiring more capacity.
+
+6) Quick checks / heuristics to guide the modeller
+- Compute resource usage and feasible maxima for single-product solutions (produce only refrigerators or only stoves) to get candidate corner solutions to compare.
+- Compare the profit at those candidate corners; also check the intersection of the two capacity constraints (if it lies in the positive quadrant).
+- If the LP solution is fractional, present both the continuous optimum and the nearest feasible integer solution(s), with their profits, so management can choose.
+
+7) Deliverables expected from the Modeller
+- Numeric optimal solution (R and S) for continuous LP and for integer-restricted problem (if applicable).
+- Total profit at that solution.
+- Which constraints are binding, and shadow prices for mover and setup time.
+- Short explanation of any rounding/feasibility checks if integer solutions were used.
+
+Optional (recommended): because this is a small two-variable problem, include a small plot of the feasible region and objective-level lines, and a short table comparing profit at the obvious corner candidates (all refrigerators, all stoves, intersection) to confirm the optimum.
+
+---
+
+[MODELER]:
+Below is a compact formal model, its solution, and solver recommendations.
+
+1) Decision variables
+- R >= 0 : number of refrigerators to sell/install.
+- S >= 0 : number of stoves to sell/install.
+(If fractional appliances are not allowed, require R,S integer.)
+
+2) Objective
+Maximise total profit:
+Max Z = 400 R + 260 S
+
+3) Constraints
+- Mover-time: 60 R + 45 S <= 20 000  (minutes)
+- Setup-time: 20 R + 25 S <= 13 000  (minutes)
+- Nonnegativity: R >= 0, S >= 0
+- (Optional) Integrality: R, S integers
+
+4) Solve analytically (two-variable LP)
+Evaluate corner candidates (axes intercepts and intersection):
+
+- R-axis (S = 0): R = min(20000/60, 13000/20) = min(333.333..., 650) = 333.333...
+  Profit = 400 * 333.333... = 133,333.33
+
+- S-axis (R = 0): S = min(20000/45, 13000/25) = min(444.444..., 520) = 444.444...
+  Profit = 260 * 444.444... = 115,555.56
+
+- Intersection of the two capacity lines:
+  Solve 60R + 45S = 20000 and 20R + 25S = 13000.
+  That intersection gives R = -141.666..., S = 633.333... (R < 0), so the intersection is outside the feasible (R,S >= 0) quadrant and is not relevant.
+
+Because the setup constraint never becomes tighter than mover-time in the positive quadrant, the mover-time constraint alone determines the feasible boundary. The continuous LP optimum is therefore:
+- Continuous optimum: R* = 20000/60 = 333.333..., S* = 0, Z* = $133,333.33.
+
+5) Integer (practical) solution
+Appliances must be whole integers. The best feasible integer choice is:
+- R = 333 refrigerators, S = 0 stoves.
+  Resource usage: mover time = 333*60 = 19,980 ≤ 20,000; setup time = 333*20 = 6,660 ≤ 13,000.
+  Profit = 333 * 400 = $133,200.
+No feasible integer solution with more than 333 refrigerators exists (334 refrigerators would use 20,040 mover minutes, exceeding capacity). Small mixes of stoves with fewer refrigerators were checked and none beat the 333-fridge plan.
+
+6) Binding constraints and shadow prices
+- Binding: mover-time constraint is binding (active) at the optimum.
+- Non-binding: setup-time constraint is slack (not binding).
+- Dual / shadow price for mover-time (value of one extra minute of mover capacity):
+  From refrigerator reduced-cost condition: y_mover = 400 / 60 = 6.6666667 $ per minute.
+  So one additional mover-minute would increase maximum profit by $6.6667 (approx). Setup-time shadow price = 0 (adding setup capacity does not increase profit at current prices).
+  Interpretation: use additional mover capacity to do refrigerators (they give higher profit per mover-minute).
+
+7) Quick checks / interpretation
+- Profit per mover-minute: refrigerator = 400/60 = $6.6667/min; stove = 260/45 = $5.7778/min → refrigerators are more profitable per scarce mover time, hence produce only refrigerators.
+- Setup capacity is abundant relative to mover capacity given the profits and times.
+
+8) Suggested Python libraries for solving and extensions
+- Continuous LP: scipy.optimize.linprog, cvxpy, PuLP (LP), OR-Tools linear solver.
+- Integer/MIP: PuLP (with CBC or other solver), OR-Tools CP-SAT, Gurobi/CPLEX (if available).
+- For sensitivity analysis: PuLP with solver duals (if solver supports), or use dedicated LP solvers (Gurobi/CPLEX) or compute duals analytically as above.
+- For plotting the feasible region and objective lines: matplotlib + numpy.
+
+If you want, I can:
+- Produce a short Python example (LP and ILP) using PuLP or OR-Tools, or
+- Produce the feasibility plot and objective-line figure.
+
+---
+
+[CODER]:
+```python
+import math
+
+# Problem data
+profit_R = 400.0  # profit per refrigerator
+profit_S = 260.0  # profit per stove
+
+# Resource capacities (minutes)
+mover_cap = 20000.0
+setup_cap = 13000.0
+
+# Resource usage per appliance (minutes)
+mover_R = 60.0
+mover_S = 45.0
+setup_R = 20.0
+setup_S = 25.0
+
+# 1) Continuous LP: evaluate corner points (axes intercepts and intersection)
+candidates = []
+
+# Origin
+candidates.append((0.0, 0.0))
+
+# R-axis intercepts (S=0) limited by both constraints
+R_by_mover = mover_cap / mover_R
+R_by_setup = setup_cap / setup_R
+R_axis = min(R_by_mover, R_by_setup)
+candidates.append((R_axis, 0.0))
+
+# S-axis intercepts (R=0)
+S_by_mover = mover_cap / mover_S
+S_by_setup = setup_cap / setup_S
+S_axis = min(S_by_mover, S_by_setup)
+candidates.append((0.0, S_axis))
+
+# Intersection of the two constraint lines:
+# Solve:
+# 60 R + 45 S = 20000
+# 20 R + 25 S = 13000
+# Solve using linear algebra
+det = mover_R * setup_S - mover_S * setup_R
+if abs(det) > 1e-12:
+    R_inter = (mover_cap * setup_S - mover_S * setup_cap) / det
+    S_inter = (mover_R * setup_cap - mover_cap * setup_R) / det
+    candidates.append((R_inter, S_inter))
+
+# Evaluate feasible candidates and pick best continuous solution
+def feasible(R, S, tol=1e-9):
+    if R < -tol or S < -tol:
+        return False
+    if mover_R * R + mover_S * S - mover_cap > tol:
+        return False
+    if setup_R * R + setup_S * S - setup_cap > tol:
+        return False
+    return True
+
+best_cont = (0.0, 0.0)
+best_cont_obj = -1e18
+for R, S in candidates:
+    if feasible(R, S):
+        obj = profit_R * R + profit_S * S
+        if obj > best_cont_obj:
+            best_cont_obj = obj
+            best_cont = (R, S)
+
+# 2) Integer (practical) solution: brute-force search over feasible integer (R,S)
+# Upper bounds for loops can be derived from mover capacity alone (tighter generally)
+R_max_int = int(math.floor(mover_cap / mover_R))  # 333
+S_max_int = int(math.floor(mover_cap / mover_S))  # 444
+
+best_int_obj = -1e18
+best_int_sol = (0, 0)
+
+for R_int in range(0, R_max_int + 1):
+    # For given R_int, compute max feasible S due to each constraint
+    rem_mover = mover_cap - mover_R * R_int
+    rem_setup = setup_cap - setup_R * R_int
+    if rem_mover < 0 or rem_setup < 0:
+        # R_int alone violates a constraint
+        continue
+    S_max_by_mover = int(math.floor(rem_mover / mover_S))
+    S_max_by_setup = int(math.floor(rem_setup / setup_S))
+    S_max_for_R = min(S_max_by_mover, S_max_by_setup)
+    if S_max_for_R < 0:
+        continue
+    # Instead of only checking S_max_for_R, scan all possible S up to that to be safe
+    for S_int in range(0, S_max_for_R + 1):
+        obj = profit_R * R_int + profit_S * S_int
+        if obj > best_int_obj:
+            best_int_obj = obj
+            best_int_sol = (R_int, S_int)
+
+# Prepare results (not printed except final required line)
+continuous_solution = {
+    "R": best_cont[0],
+    "S": best_cont[1],
+    "objective": best_cont_obj
+}
+integer_solution = {
+    "R": best_int_sol[0],
+    "S": best_int_sol[1],
+    "objective": best_int_obj
+}
+
+# Final required output line (print only this line in this exact format)
+print(f"FINAL_OBJ: {int(integer_solution['objective'])}")
+```

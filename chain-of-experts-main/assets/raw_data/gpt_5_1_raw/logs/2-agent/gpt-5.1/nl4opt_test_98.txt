@@ -1,0 +1,172 @@
+[MODELER]:
+Let’s turn this into an optimization model.
+
+## 1. Decision Variables
+
+Let  
+- \(x\) = number of helicopter trips (integer, \(x \ge 0\))  
+- \(y\) = number of bus trips (integer, \(y \ge 0\))
+
+## 2. Parameters
+
+- Helicopter:
+  - Capacity per trip: 5 patients
+  - Time per trip: 1 hour
+- Bus:
+  - Capacity per trip: 8 patients
+  - Time per trip: 3 hours
+- Demand: at least 120 patients
+- At least 30% of trips should be by helicopter
+- At most 10 bus trips
+
+## 3. Objective Function
+
+Total time spent operating all trips (assuming all trips can be done in parallel is not specified, so we minimize **total trip-hours**):
+
+\[
+\text{Minimize } Z = 1\cdot x + 3\cdot y
+\]
+
+## 4. Constraints
+
+### (a) Demand (transport at least 120 patients)
+
+Each helicopter trip carries 5, each bus trip carries 8:
+
+\[
+5x + 8y \;\ge\; 120
+\]
+
+### (b) Helicopter trip proportion (≥ 30% of all trips)
+
+At least 30% of all trips are helicopter trips:
+
+\[
+\frac{x}{x + y} \;\ge\; 0.3,\quad x + y > 0
+\]
+
+Rearranging:
+
+\[
+x \;\ge\; 0.3(x + y)
+\]
+\[
+x \;\ge\; 0.3x + 0.3y
+\]
+\[
+0.7x \;\ge\; 0.3y
+\]
+\[
+7x \;\ge\; 3y
+\]
+
+So the linear constraint is:
+
+\[
+7x - 3y \;\ge\; 0
+\]
+
+### (c) Bus trip limit
+
+\[
+y \;\le\; 10
+\]
+
+### (d) Non-negativity and integrality
+
+\[
+x \ge 0,\; y \ge 0,\quad x,y \in \mathbb{Z}
+\]
+
+## 5. Full Mathematical Model
+
+\[
+\begin{aligned}
+\min\ & Z = x + 3y \\
+\text{s.t. } 
+& 5x + 8y \ge 120 \\
+& 7x - 3y \ge 0 \\
+& y \le 10 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+## 6. Suitable Python Libraries
+
+This is a small integer linear programming (ILP) problem.
+
+Good Python libraries to model and solve it:
+
+- **PuLP** (pure Python, easy syntax, works with CBC, GLPK, etc.)
+- **OR-Tools (Google OR-Tools)** with the linear solver or CP-SAT
+- **Pyomo** (more general modelling framework, can use CBC, GLPK, Gurobi, CPLEX, etc.)
+- **scipy.optimize** is less ideal here because it doesn’t natively handle integer constraints as cleanly as ILP solvers.
+
+### Example with PuLP (sketch)
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Patient_Transport", pl.LpMinimize)
+
+# Decision variables (integer)
+x = pl.LpVariable('helicopter_trips', lowBound=0, cat='Integer')
+y = pl.LpVariable('bus_trips',        lowBound=0, cat='Integer')
+
+# Objective
+prob += x + 3*y
+
+# Constraints
+prob += 5*x + 8*y >= 120           # demand
+prob += 7*x - 3*y >= 0             # at least 30% helicopter trips
+prob += y <= 10                    # bus limit
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Helicopter trips:", x.value())
+print("Bus trips:", y.value())
+print("Total time:", pl.value(prob.objective))
+```
+
+This code directly implements the model above and a solver like CBC (shipped with PuLP) will find the optimal numbers of helicopter and bus trips.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Patient_Transport", pl.LpMinimize)
+
+    # Decision variables (integer, non-negative)
+    x = pl.LpVariable('helicopter_trips', lowBound=0, cat='Integer')
+    y = pl.LpVariable('bus_trips', lowBound=0, cat='Integer')
+
+    # Objective: minimize total trip-hours
+    prob += x + 3 * y
+
+    # Constraints
+    prob += 5 * x + 8 * y >= 120        # Demand
+    prob += 7 * x - 3 * y >= 0          # At least 30% helicopter trips
+    prob += y <= 10                     # At most 10 bus trips
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    obj_value = pl.value(prob.objective)
+
+    # Optionally could print solution components (not required)
+    # print("Status:", pl.LpStatus[prob.status])
+    # print("Helicopter trips (x):", x.value())
+    # print("Bus trips (y):", y.value())
+    # print("Total time:", obj_value)
+
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,158 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Maximise total profit from producing the two candy mixes.
+
+2) Suggested model type
+- Model: Linear Programming (continuous variables). The problem is linear in resource usage and profit and involves two decision variables, so LP is appropriate (graphical solution or simplex).
+
+3) Main decision variables (describe in words)
+- Variable 1: Kilograms of the "regular mix" to produce.
+- Variable 2: Kilograms of the "sour surprise mix" to produce.
+
+4) Key constraints to include (describe in words)
+- Regular-candy availability: Each kilogram of regular mix consumes 0.8 kg of regular candy; each kilogram of sour surprise consumes 0.1 kg of regular candy. Total regular-candy consumption must not exceed 80 kg available.
+- Sour-candy availability: Each kilogram of regular mix consumes 0.2 kg of sour candy; each kilogram of sour surprise consumes 0.9 kg of sour candy. Total sour-candy consumption must not exceed 60 kg available.
+- Nonnegativity: Production quantities of both mixes must be zero or positive (no negative production).
+- (Optional) If there are implicit limits not stated in the problem—e.g., market demand caps or production capacity—add those as upper-bound constraints if applicable.
+
+5) Objective function (stated in words)
+- Maximise total profit equal to $3 per kg of regular mix plus $5 per kg of sour surprise mix (i.e., $3 × kilograms of regular mix + $5 × kilograms of sour surprise mix).
+
+6) Solution approach / modelling notes for the modeller
+- With only two decision variables, solve graphically or with a small LP solver (simplex). Evaluate corner (extreme) points where resource constraints intersect and check the profit at each feasible corner to find the maximum.
+- Report the optimal production quantities (kg of each mix), the total profit, which constraints are binding, and shadow values/sensitivity for the two candy resources if requested.
+- Ensure units (kg, $) are consistent and state any assumptions about omitted constraints (e.g., no minimum production required, divisibility allowed).
+
+Deliverables expected from the modeller
+- The LP formulation written clearly in words and solved (solution values for both variables).
+- Total profit at the optimum and identification of binding constraints.
+- Optional: brief sensitivity analysis on changes to available regular or sour candy.
+
+---
+
+[MODELER]:
+Below I convert the story into a formal LP, solve it, and give interpretation and solver recommendations.
+
+1) Decision variables
+- x = kilograms of regular mix to produce (≥ 0).
+- y = kilograms of sour surprise mix to produce (≥ 0).
+
+2) Objective (maximize profit)
+Maximise Z = 3x + 5y  (dollars)
+
+3) Constraints (resource limits)
+- Regular candy: 0.8x + 0.1y ≤ 80  (kg)
+- Sour candy:    0.2x + 0.9y ≤ 60  (kg)
+- Nonnegativity: x ≥ 0, y ≥ 0
+
+4) Solve (analysis)
+Feasible corner points:
+- (0,0) → Z = 0
+- (100,0) (from 0.8x=80) → Z = 300
+- (0, 66.6667) (from 0.9y=60) → Z = 333.333...
+- Intersection of both resource constraints: solve
+   0.8x + 0.1y = 80
+   0.2x + 0.9y = 60
+  Solution: x = 94.2857142857 kg, y = 45.7142857143 kg
+  Z = 3(94.2857142857) + 5(45.7142857143) = 511.4285714286
+
+Maximum profit is at the intersection; other corners give lower profit.
+
+5) Optimal solution (report)
+- Produce x ≈ 94.2857 kg of regular mix
+- Produce y ≈ 45.7143 kg of sour surprise mix
+- Maximum total profit Z ≈ $511.43
+
+6) Binding constraints and dual (shadow) values
+- Both resource constraints are binding at the optimum (both used exactly).
+- Dual prices (marginal value of 1 extra kg of resource):
+  - Regular candy shadow price u1 ≈ $2.42857 per kg
+  - Sour candy shadow price  u2 ≈ $5.28571 per kg
+Interpretation: within the current basis, one extra kg of sour candy increases the maximum profit by about $5.29 (and one extra kg of regular candy by about $2.43), up to the usual allowable ranges (sensitivity limits not computed here).
+
+7) Assumptions
+- Continuous production (kg divisible).
+- No other limits (market demand, production capacity) besides the two candy supplies.
+- Profits and recipe proportions are exact and linear.
+
+8) Solver recommendations / code
+- Suitable Python libraries: PuLP (simple and readable), scipy.optimize.linprog, OR-Tools (linear solver), cvxpy.
+- Short PuLP example:
+
+  from pulp import LpProblem, LpMaximize, LpVariable, value
+
+  prob = LpProblem("CandyMix", LpMaximize)
+  x = LpVariable('x', lowBound=0)
+  y = LpVariable('y', lowBound=0)
+  prob += 3*x + 5*y
+  prob += 0.8*x + 0.1*y <= 80
+  prob += 0.2*x + 0.9*y <= 60
+  prob.solve()
+  print(value(x), value(y), value(prob.objective))
+
+If you want, I can (a) produce full solver output and sensitivity ranges (allowable increases/decreases), or (b) show the same model solved with scipy.optimize.linprog or OR-Tools. Which would you prefer?
+
+---
+
+[CODER]:
+```python
+import numpy as np
+
+# Data
+# Objective: maximize Z = 3*x + 5*y
+c = np.array([3.0, 5.0])
+
+# Constraints:
+# 0.8 x + 0.1 y <= 80
+# 0.2 x + 0.9 y <= 60
+A = np.array([[0.8, 0.1],
+              [0.2, 0.9]])
+b = np.array([80.0, 60.0])
+
+# Candidate corner points of feasible region:
+candidates = []
+
+# Origin
+candidates.append(np.array([0.0, 0.0]))
+
+# x-axis intercept: set y=0, take min enforced by constraints
+# From first constraint: 0.8 x <= 80 -> x = 80/0.8 = 100
+# From second constraint: 0.2 x <= 60 -> x = 60/0.2 = 300
+# Feasible x-axis intercept is min -> 100
+candidates.append(np.array([80.0/0.8, 0.0]))
+
+# y-axis intercept: set x=0, take min enforced by constraints
+# From first constraint: 0.1 y <= 80 -> y = 80/0.1 = 800
+# From second constraint: 0.9 y <= 60 -> y = 60/0.9 = 66.666...
+# Feasible y-axis intercept is min -> 60/0.9
+candidates.append(np.array([0.0, 60.0/0.9]))
+
+# Intersection of both constraints (solve A * [x,y] = b)
+intersection = np.linalg.solve(A, b)
+candidates.append(intersection)
+
+# Evaluate feasibility (allow small tolerance) and objective
+feasible_points = []
+tol = 1e-9
+for pt in candidates:
+    if np.all(pt >= -tol) and np.all(A.dot(pt) <= b + 1e-8):
+        feasible_points.append(pt)
+
+# Compute objective values and find maximum
+best_obj = -np.inf
+best_point = None
+for pt in feasible_points:
+    obj = c.dot(pt)
+    if obj > best_obj:
+        best_obj = obj
+        best_point = pt
+
+# Print results
+x_opt, y_opt = best_point
+print(f"Optimal x = {x_opt:.6f} kg")
+print(f"Optimal y = {y_opt:.6f} kg")
+print(f"Maximum profit = {best_obj:.6f} dollars")
+
+# Final required line
+print(f"FINAL_OBJ: {best_obj}")
+```

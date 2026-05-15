@@ -1,0 +1,120 @@
+[MODELER]:
+Here is a clean mathematical optimization model of the problem.
+
+## Decision variables
+
+Let  
+- \(x_1 \ge 0\): number of times demonstration 1 is performed  
+- \(x_2 \ge 0\): number of times demonstration 2 is performed  
+
+(If the problem requires whole demonstrations, then \(x_1, x_2\) should be integers.)
+
+## Objective
+
+Each demonstration produces minty foam:
+
+- Demonstration 1: 25 units of foam per performance  
+- Demonstration 2: 18 units of foam per performance  
+
+Maximize total minty foam:
+\[
+\text{Maximize } Z = 25x_1 + 18x_2
+\]
+
+## Constraints
+
+### Mint availability
+
+- Demo 1 uses 10 units of mint each time  
+- Demo 2 uses 12 units of mint each time  
+- Total mint available: 120 units  
+
+\[
+10x_1 + 12x_2 \le 120
+\]
+
+### Active ingredient availability
+
+- Demo 1 uses 20 units of active ingredient each time  
+- Demo 2 uses 15 units of active ingredient each time  
+- Total active ingredient available: 100 units  
+
+\[
+20x_1 + 15x_2 \le 100
+\]
+
+### Black tar limit
+
+- Demo 1 produces 5 units of black tar  
+- Demo 2 produces 3 units of black tar  
+- At most 50 units of black tar allowed  
+
+\[
+5x_1 + 3x_2 \le 50
+\]
+
+### Non-negativity (and integrality if needed)
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+If the show must do whole (indivisible) demonstrations:
+\[
+x_1, x_2 \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## Suitable Python libraries
+
+This is a small linear optimization problem:
+
+- With continuous \(x_1, x_2\): use `scipy.optimize.linprog` or `pulp` or `ortools.linear_solver` (LP mode).
+- With integer \(x_1, x_2\): use `PuLP` (CBC solver) or `ortools.linear_solver` with an integer programming (MIP) solver.
+
+Example tooling choices:
+- `PuLP` (simple LP/MIP modeling in pure Python)
+- `ortools.linear_solver` (from Google OR-Tools, very efficient for MIPs)
+- `scipy.optimize.linprog` (if you treat \(x_1, x_2\) as continuous).
+
+The model is now ready to be implemented in any of these libraries.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: maximize total minty foam
+    prob = pulp.LpProblem("MintyFoamMaximization", pulp.LpMaximize)
+
+    # Decision variables (integer, non-negative)
+    x1 = pulp.LpVariable('x1', lowBound=0, cat='Integer')  # times demonstration 1 is performed
+    x2 = pulp.LpVariable('x2', lowBound=0, cat='Integer')  # times demonstration 2 is performed
+
+    # Objective function: Maximize 25x1 + 18x2
+    prob += 25 * x1 + 18 * x2, "TotalMintyFoam"
+
+    # Constraints
+
+    # Mint availability: 10x1 + 12x2 <= 120
+    prob += 10 * x1 + 12 * x2 <= 120, "MintAvailability"
+
+    # Active ingredient availability: 20x1 + 15x2 <= 100
+    prob += 20 * x1 + 15 * x2 <= 100, "ActiveIngredientAvailability"
+
+    # Black tar limit: 5x1 + 3x2 <= 50
+    prob += 5 * x1 + 3 * x2 <= 50, "BlackTarLimit"
+
+    # Solve the problem using the default CBC solver
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the final objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print the final objective value in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,96 @@
+[MODELER]:
+Model
+
+- Variables
+  - A ∈ Z≥0 : number of doses of medicine A
+  - B ∈ Z≥0 : number of doses of medicine B
+
+- Objective
+  - Maximize the number of people treated:
+    maximize Z = 12A + 8B
+
+- Constraints
+  1. Imported material: 30A + 40B ≤ 300
+  2. mRNA: 50A + 30B ≤ 400
+  3. Production limit on A: 0 ≤ A ≤ 5
+  4. B must be larger than A (strict). For integer variables enforce: B ≥ A + 1
+  5. Integrality: A, B integers
+
+This is an integer linear program (ILP).
+
+Solving (by enumeration or an ILP solver)
+- Check integer A = 0..5 and pick the largest feasible B (subject to constraints and B ≥ A+1).
+- Feasible integer solutions give an optimum at:
+  - A = 3 doses of medicine A
+  - B = 5 doses of medicine B
+  - Total people treated = 12·3 + 8·5 = 76
+
+Suggested Python libraries to solve this
+- pulp (simple modeling + CBC solver)
+- OR-Tools CP-SAT (good for integer/CP problems)
+- mip (for CBC/Gurobi interfaces)
+- pyomo (modeling, with many solver backends)
+- scipy.optimize (only for continuous LP relaxations, not integer)
+
+Optional example using pulp
+
+from pulp import LpProblem, LpMaximize, LpVariable, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("meds", LpMaximize)
+A = LpVariable('A', lowBound=0, upBound=5, cat='Integer')
+B = LpVariable('B', lowBound=0, cat='Integer')
+prob += 12*A + 8*B
+prob += 30*A + 40*B <= 300
+prob += 50*A + 30*B <= 400
+prob += B >= A + 1
+prob.solve(PULP_CBC_CMD(msg=0))
+print(A.value(), B.value(), "treated =", 12*A.value() + 8*B.value())
+
+This returns A = 3, B = 5, treated = 76.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+import math
+
+# Problem data (initialized directly)
+# Variables:
+#   A in {0,1,2,3,4,5}
+#   B >= 0 integer, with B >= A+1
+# Objective: maximize Z = 12*A + 8*B
+# Constraints:
+#   30*A + 40*B <= 300
+#   50*A + 30*B <= 400
+
+best_obj = None
+best_A = None
+best_B = None
+
+for A in range(0, 6):  # A between 0 and 5 inclusive
+    # Compute upper bounds on B from constraints (integer floor)
+    ub1 = (300 - 30 * A) // 40
+    ub2 = (400 - 50 * A) // 30
+    B_max = min(ub1, ub2)
+    # B must be at least A+1
+    B_min_required = A + 1
+    if B_max < B_min_required:
+        continue  # no feasible B for this A
+    B = B_max
+    if B < 0:
+        continue
+    obj = 12 * A + 8 * B
+    if (best_obj is None) or (obj > best_obj):
+        best_obj = obj
+        best_A = A
+        best_B = B
+
+# If no feasible solution found, set best_obj to 0 (though problem has feasible solutions)
+if best_obj is None:
+    best_obj = 0
+    best_A = 0
+    best_B = 0
+
+# Final output line must be exactly this format
+print(f"FINAL_OBJ: {best_obj}")
+```

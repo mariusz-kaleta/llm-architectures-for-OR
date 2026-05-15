@@ -1,0 +1,41 @@
+[MONOLITH]:
+import pulp
+
+# Initialize the problem
+prob = pulp.LpProblem("Pharmacy_Production_Problem", pulp.LpMinimize)
+
+# Decision variables: number of painkiller pills (P) and sleeping pills (S)
+P = pulp.LpVariable('Painkiller_Pills', lowBound=0, cat='Integer')
+S = pulp.LpVariable('Sleeping_Pills', lowBound=0, cat='Integer')
+
+# Objective: Minimize total digestive medicine usage
+# Painkiller: 3 units each, Sleeping pill: 5 units each
+prob += 3 * P + 5 * S, "Total_Digestive_Medicine"
+
+# Constraints:
+
+# Morphine constraint: 10 mg per painkiller, 6 mg per sleeping pill, total 3000 mg
+prob += 10 * P + 6 * S <= 3000, "Morphine_Limit"
+
+# At least 50 painkiller pills
+prob += P >= 50, "Min_Painkillers"
+
+# At least 70% of the pills should be sleeping pills:
+# S >= 0.7 * (P + S)  ->  0.3*S >= 0.7*P  ->  3*S >= 7*P
+prob += 3 * S >= 7 * P, "Sleeping_Pill_Proportion"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+# Extract optimal values
+opt_P = pulp.value(P)
+opt_S = pulp.value(S)
+opt_obj = pulp.value(prob.objective)
+
+# Print solution details (optional for inspection)
+print("Optimal number of painkiller pills:", opt_P)
+print("Optimal number of sleeping pills:", opt_S)
+print("Minimum total digestive medicine used:", opt_obj)
+
+# Required final objective print
+print(f"FINAL_OBJ: {opt_obj}")

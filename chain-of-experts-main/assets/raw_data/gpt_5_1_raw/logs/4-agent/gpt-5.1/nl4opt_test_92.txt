@@ -1,0 +1,298 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximize the total number of viewers reached across all three media channels (z-tube, soorchle, wassa) subject to budget and mix constraints.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with integer decision variables (Mixed-Integer LP if integrality is enforced).  
+- If problem is treated as continuous for simplicity, standard LP is fine.  
+- Realistically, number of ads must be nonnegative integers.
+
+3. Main decision variables  
+Define one decision variable per medium:
+- \(Z\): number of z-tube advertisements to run per week  
+- \(S\): number of soorchle advertisements to run per week  
+- \(W\): number of wassa advertisements to run per week  
+
+All variables should be:
+- Nonnegative  
+- Integer-valued if you want a physically meaningful solution.
+
+4. Objective function (conceptual)  
+Maximize total audience:
+- Each z-tube ad: 400,000 viewers  
+- Each soorchle ad: 5,000 viewers  
+- Each wassa ad: 3,000 viewers  
+
+So your objective is to maximize:
+- Total viewers = 400,000·Z + 5,000·S + 3,000·W
+
+5. Key constraints to consider  
+
+a) Budget constraint  
+- Weekly advertising budget is $10,000.  
+- Costs:  
+  - z-tube: $1,000 per ad  
+  - soorchle: $200 per ad  
+  - wassa: $100 per ad  
+
+Constraint: total spend on all three media cannot exceed $10,000.
+
+b) Soorchle platform limit  
+- Soorchle allows at most 15 ads from a single company.  
+Constraint: S ≤ 15.
+
+c) Balance requirement: wassa share cap  
+- At most one third of the total number of advertisements can be on wassa.  
+- “Total number of advertisements” = Z + S + W.  
+Constraint:  
+- W ≤ (1/3)·(Z + S + W), which can be rearranged into a linear inequality for the model.
+
+d) Balance requirement: z-tube minimum share  
+- At least 5% of the total number of advertisements must be on z-tube.  
+- Again, total ads = Z + S + W.  
+Constraint:  
+- Z ≥ 0.05·(Z + S + W), which can also be rearranged into a linear inequality.
+
+e) Nonnegativity and integrality  
+- Z, S, W ≥ 0  
+- Preferably Z, S, W are integers.
+
+6. Modelling strategy summary for the Modeller  
+- Use an LP/MILP formulation with three decision variables Z, S, W.  
+- Set the objective to maximize total viewers based on per-ad audience numbers.  
+- Include:  
+  - A single budget inequality for total cost.  
+  - One simple upper bound on S.  
+  - Two proportional “mix” constraints linking W and Z to the total number of ads (Z+S+W), each converted into a linear inequality.  
+  - Nonnegativity and integrality conditions.  
+- Solve with any LP/MIP solver; then, if a non-integer solution arises (in pure LP), enforce integrality and re-solve.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by how you could implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(Z \in \mathbb{Z}_{\ge 0}\): number of z-tube ads per week  
+- \(S \in \mathbb{Z}_{\ge 0}\): number of soorchle ads per week  
+- \(W \in \mathbb{Z}_{\ge 0}\): number of wassa ads per week  
+
+(If integrality is relaxed, then \(Z,S,W \ge 0\) and real.)
+
+---
+
+## 2. Objective function
+
+Maximize total weekly viewers.
+
+Per-ad viewers:
+
+- z-tube: 400,000 viewers per ad  
+- soorchle: 5,000 viewers per ad  
+- wassa: 3,000 viewers per ad  
+
+Objective:
+\[
+\max\; 400{,}000\,Z \;+\; 5{,}000\,S \;+\; 3{,}000\,W
+\]
+
+---
+
+## 3. Constraints
+
+### a) Budget constraint
+
+Budget: \$10,000 per week.
+
+Per-ad costs:
+
+- z-tube: \$1,000 per ad  
+- soorchle: \$200 per ad  
+- wassa: \$100 per ad  
+
+Total spend must not exceed the budget:
+\[
+1{,}000\,Z + 200\,S + 100\,W \;\le\; 10{,}000
+\]
+
+---
+
+### b) Soorchle upper limit
+
+Soorchle allows at most 15 ads:
+\[
+S \;\le\; 15
+\]
+
+---
+
+### c) Wassa share cap
+
+“At most one third of the total number of advertisements should occur on wassa.”
+
+Total ads: \(T = Z + S + W\).
+
+Condition:
+\[
+W \;\le\; \tfrac{1}{3} (Z + S + W)
+\]
+
+Rewrite as a linear inequality:
+
+\[
+\begin{aligned}
+W &\le \tfrac{1}{3} (Z + S + W) \\
+3W &\le Z + S + W \\
+2W &\le Z + S
+\end{aligned}
+\]
+
+So the linear constraint is:
+\[
+2W \;\le\; Z + S
+\]
+
+---
+
+### d) z-tube minimum share
+
+“At least 5% of the total number of advertisements must be on z-tube.”
+
+\[
+Z \;\ge\; 0.05 (Z + S + W)
+\]
+
+Rewrite as a linear inequality:
+
+\[
+\begin{aligned}
+Z &\ge 0.05(Z + S + W) \\
+Z - 0.05Z &\ge 0.05S + 0.05W \\
+0.95Z &\ge 0.05S + 0.05W \\
+95Z &\ge 5S + 5W \quad (\text{multiply by }100)\\
+19Z &\ge S + W \quad (\text{divide by }5)
+\end{aligned}
+\]
+
+So the linear constraint is:
+\[
+19Z \;\ge\; S + W
+\]
+
+---
+
+### e) Nonnegativity and integrality
+
+\[
+Z, S, W \;\ge\; 0, \quad Z,S,W \in \mathbb{Z}
+\]
+
+(If solving as a pure LP approximation, you can drop the integrality and only enforce \(Z,S,W \ge 0\).)
+
+---
+
+## 4. Complete MILP model
+
+\[
+\begin{aligned}
+\max\quad & 400{,}000\,Z + 5{,}000\,S + 3{,}000\,W \\[4pt]
+\text{s.t.}\quad 
+& 1{,}000\,Z + 200\,S + 100\,W \;\le\; 10{,}000 \\[2pt]
+& S \;\le\; 15 \\[2pt]
+& 2W \;\le\; Z + S \\[2pt]
+& 19Z \;\ge\; S + W \\[2pt]
+& Z, S, W \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a Mixed-Integer Linear Programming (MILP) problem with 3 integer variables and 4 linear constraints (plus bounds).
+
+---
+
+## 5. Suitable Python libraries
+
+You can model and solve this with any standard LP/MIP library. Some good options:
+
+- **PuLP**: pure-Python modeling library, easy to use, can call CBC (default), GLPK, Gurobi, CPLEX, etc.
+- **OR-Tools (Google)**: has a linear solver and CP-SAT (for integer programming).
+- **Pyomo**: more general and flexible, good for larger projects or more advanced models.
+- **scipy.optimize.linprog**: only for continuous LP (no integrality), useful for a relaxed version of the problem.
+
+For this small MILP, **PuLP** or **OR-Tools** is ideal.
+
+---
+
+## 6. Example PuLP formulation (MILP)
+
+```python
+import pulp as pl
+
+# Create the problem
+prob = pl.LpProblem("Ad_Mix_Optimization", pl.LpMaximize)
+
+# Decision variables (nonnegative integers)
+Z = pl.LpVariable("Z", lowBound=0, cat=pl.LpInteger)  # z-tube ads
+S = pl.LpVariable("S", lowBound=0, cat=pl.LpInteger)  # soorchle ads
+W = pl.LpVariable("W", lowBound=0, cat=pl.LpInteger)  # wassa ads
+
+# Objective: maximize total viewers
+prob += 400000 * Z + 5000 * S + 3000 * W
+
+# Constraints
+prob += 1000 * Z + 200 * S + 100 * W <= 10000, "Budget"
+prob += S <= 15, "Soorchle_Limit"
+prob += 2 * W <= Z + S, "Wassa_Share_Cap"
+prob += 19 * Z >= S + W, "Ztube_Min_Share"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Z (z-tube ads):", pl.value(Z))
+print("S (soorchle ads):", pl.value(S))
+print("W (wassa ads):", pl.value(W))
+print("Total viewers:", pl.value(400000 * Z + 5000 * S + 3000 * W))
+print("Total cost:   ", pl.value(1000 * Z + 200 * S + 100 * W))
+```
+
+This implements exactly the mathematical model above and will return the optimal ad mix under all given constraints.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Ad_Mix_Optimization", pl.LpMaximize)
+
+    # Decision variables (nonnegative integers)
+    Z = pl.LpVariable("Z", lowBound=0, cat=pl.LpInteger)  # z-tube ads
+    S = pl.LpVariable("S", lowBound=0, cat=pl.LpInteger)  # soorchle ads
+    W = pl.LpVariable("W", lowBound=0, cat=pl.LpInteger)  # wassa ads
+
+    # Objective: maximize total viewers
+    prob += 400000 * Z + 5000 * S + 3000 * W
+
+    # Constraints
+    prob += 1000 * Z + 200 * S + 100 * W <= 10000  # Budget
+    prob += S <= 15                               # Soorchle limit
+    prob += 2 * W <= Z + S                        # Wassa share cap
+    prob += 19 * Z >= S + W                       # z-tube minimum share
+
+    # Solve the MILP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute final objective value
+    final_obj = pl.value(400000 * Z + 5000 * S + 3000 * W)
+
+    # Required final output
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

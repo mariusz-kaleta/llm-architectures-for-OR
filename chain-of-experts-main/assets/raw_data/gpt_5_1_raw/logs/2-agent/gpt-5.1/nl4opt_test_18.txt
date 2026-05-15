@@ -1,0 +1,190 @@
+[MODELER]:
+Formulate this as a linear programming (LP) problem.
+
+### 1. Decision variables
+
+Let  
+- \(x\) = number of elephants produced (per week)  
+- \(y\) = number of tigers produced (per week)
+
+Assume \(x, y \ge 0\) and can be fractional if partial production is allowed; if only whole animals are allowed, add integer constraints.
+
+---
+
+### 2. Objective function
+
+Profit per elephant = \$5  
+Profit per tiger = \$4  
+
+Maximize total weekly profit:
+\[
+\text{Maximize } Z = 5x + 4y
+\]
+
+---
+
+### 3. Constraints
+
+**Wood constraint**  
+Elephant: 50 g wood each  
+Tiger: 40 g wood each  
+Total wood available: 5000 g  
+
+\[
+50x + 40y \le 5000
+\]
+
+**Plastic constraint**  
+Elephant: 20 g plastic each  
+Tiger: 30 g plastic each  
+Total plastic available: 4000 g  
+
+\[
+20x + 30y \le 4000
+\]
+
+**Non-negativity**  
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+### 4. Solving the model analytically
+
+Solve the system at the intersection of both material constraints (since that’s likely where the optimum lies):
+
+\[
+\begin{cases}
+50x + 40y = 5000 \\
+20x + 30y = 4000
+\end{cases}
+\]
+
+From second equation:
+\[
+20x = 4000 - 30y \Rightarrow x = 200 - 1.5y
+\]
+
+Substitute into first:
+\[
+50(200 - 1.5y) + 40y = 5000
+\]
+\[
+10000 - 75y + 40y = 5000
+\]
+\[
+10000 - 35y = 5000 \Rightarrow 35y = 5000 \Rightarrow y = \frac{5000}{35} \approx 142.857
+\]
+\[
+x = 200 - 1.5 \cdot \frac{5000}{35} = 200 - \frac{7500}{35} = 200 - \approx 214.286 = -14.286
+\]
+
+This gives \(x < 0\), which is infeasible. So the optimal point will be on a boundary where one material is fully used and the other constraint or non-negativity binds.
+
+Check corner points of the feasible region:
+
+1. **Intersection with \(x = 0\)**  
+   - Wood: \(40y \le 5000 \Rightarrow y \le 125\)  
+   - Plastic: \(30y \le 4000 \Rightarrow y \le \frac{4000}{30} \approx 133.33\)  
+   ⇒ Feasible max \(y = 125\), profit:  
+   \[
+   Z = 5(0) + 4(125) = 500
+   \]
+
+2. **Intersection with \(y = 0\)**  
+   - Wood: \(50x \le 5000 \Rightarrow x \le 100\)  
+   - Plastic: \(20x \le 4000 \Rightarrow x \le 200\)  
+   ⇒ Feasible max \(x = 100\), profit:  
+   \[
+   Z = 5(100) + 4(0) = 500
+   \]
+
+3. **Intersection of plastic constraint with x- or y-axis already checked above (those are the same corner points).**
+
+The feasible region’s main corners are:
+- \((x, y) = (0, 0)\) → profit = 0  
+- \((x, y) = (100, 0)\) → profit = 500  
+- \((x, y) = (0, 125)\) → profit = 500  
+
+Both (100 elephants, 0 tigers) and (0 elephants, 125 tigers) are optimal with the same maximum profit of \$500. Any convex combination of these that stays within both constraints will have lower profit because profit per unit of resource is balanced here, and the two main constraints don’t intersect in the feasible quadrant.
+
+So:
+- One optimal solution: produce 100 elephants and 0 tigers.  
+- Another optimal solution: produce 0 elephants and 125 tigers.  
+Both give maximum profit \$500; there are also infinitely many other optimal solutions along the line segment between them that remain feasible only if they satisfy both resource constraints, but in this specific case the binding corners already capture the max.
+
+---
+
+### 5. Python modeling and solving
+
+You can use several libraries; all can easily handle this LP:
+
+- `PuLP` – very simple interface for LPs (recommended here)
+- `scipy.optimize.linprog` – for continuous LPs
+- `ortools.linear_solver` – powerful, also handles integer variants easily
+
+#### Example with PuLP
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Souvenir_Production", pl.LpMaximize)
+
+# Decision variables (continuous; use cat="Integer" for integers)
+x = pl.LpVariable("elephants", lowBound=0)
+y = pl.LpVariable("tigers", lowBound=0)
+
+# Objective
+prob += 5 * x + 4 * y, "Total_Profit"
+
+# Constraints
+prob += 50 * x + 40 * y <= 5000, "Wood"
+prob += 20 * x + 30 * y <= 4000, "Plastic"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Elephants:", x.value())
+print("Tigers:", y.value())
+print("Max Profit:", pl.value(prob.objective))
+```
+
+This will return one of the optimal corner solutions (solver may choose either 100,0 or 0,125 depending on its internal logic), both yielding a maximum profit of \$500.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Create the linear programming problem (maximization)
+    prob = pl.LpProblem("Souvenir_Production", pl.LpMaximize)
+
+    # Decision variables: number of elephants (x) and tigers (y)
+    x = pl.LpVariable("elephants", lowBound=0)  # continuous, >= 0
+    y = pl.LpVariable("tigers", lowBound=0)     # continuous, >= 0
+
+    # Objective function: Maximize profit = 5x + 4y
+    prob += 5 * x + 4 * y, "Total_Profit"
+
+    # Constraints
+    # Wood: 50x + 40y <= 5000
+    prob += 50 * x + 40 * y <= 5000, "Wood"
+
+    # Plastic: 20x + 30y <= 4000
+    prob += 20 * x + 30 * y <= 4000, "Plastic"
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,175 @@
+[MODELER]:
+Here is a clean mathematical model of the problem and how to solve it algorithmically.
+
+---
+
+## 1. Decision variables
+
+Let  
+
+- \(L \in \mathbb{Z}_{\ge 0}\): number of large mobile production units  
+- \(S \in \mathbb{Z}_{\ge 0}\): number of small mobile production units  
+
+Both are non-negative integers.
+
+---
+
+## 2. Objective
+
+Minimize the total number of parking spots required.  
+
+- Each large unit uses 2 spots.  
+- Each small unit uses 1 spot.
+
+**Objective function:**
+
+\[
+\min \; Z = 2L + S
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1. Capacity (people) constraint
+
+Each large unit holds 6 people, each small unit holds 2 people. We must transport at least 80 people:
+
+\[
+6L + 2S \;\ge\; 80
+\]
+
+### 3.2. Minimum number of small units
+
+At least 5 small units must be used:
+
+\[
+S \;\ge\; 5
+\]
+
+### 3.3. Large units must be at least 75% of all vehicles
+
+> “Large mobile production units … must make up at least 75% of all vehicles.”
+
+This means:
+
+\[
+L \;\ge\; 0.75(L + S)
+\]
+
+Rearrange that to a linear inequality:
+
+\[
+\begin{aligned}
+L &\ge 0.75L + 0.75S \\
+0.25L &\ge 0.75S \\
+L &\ge 3S
+\end{aligned}
+\]
+
+So we use:
+
+\[
+L \;\ge\; 3S
+\]
+
+### 3.4. Integrality and non-negativity
+
+\[
+L, S \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Full model (Integer Linear Program)
+
+\[
+\begin{aligned}
+\min\ & Z = 2L + S \\
+\text{s.t. } 
+& 6L + 2S \;\ge\; 80 \\
+& S \;\ge\; 5 \\
+& L \;\ge\; 3S \\
+& L, S \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a small integer linear programming (ILP) problem.
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard MILP/LP solver can handle this:
+
+- **PuLP** (pure Python interface, works with CBC by default; very simple for teaching and small models)
+- **OR-Tools** (Google’s optimization suite; supports linear and integer programming via `pywraplp`)
+- **Pyomo** (more general algebraic modeling, also supports ILP)
+- **SciPy** (`scipy.optimize.linprog`) can handle the *continuous* relaxation but not the integer nature directly; you would need a separate integer solver.
+
+For this problem, **PuLP** or **OR-Tools** are the most straightforward.
+
+---
+
+## 6. Example PuLP formulation
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Production_Units", pl.LpMinimize)
+
+# Decision variables (non-negative integers)
+L = pl.LpVariable('L', lowBound=0, cat='Integer')  # large units
+S = pl.LpVariable('S', lowBound=0, cat='Integer')  # small units
+
+# Objective: minimize parking spots
+prob += 2 * L + S
+
+# Constraints
+prob += 6 * L + 2 * S >= 80, "PeopleCapacity"
+prob += S >= 5, "MinSmallUnits"
+prob += L >= 3 * S, "LargeAtLeast75Percent"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Large units (L):", L.value())
+print("Small units (S):", S.value())
+print("Min parking spots:", pl.value(prob.objective))
+```
+
+This code directly corresponds to the mathematical model above and will provide the optimal number of large and small units and the minimum number of parking spots.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def solve_ilp():
+    # Define the problem
+    prob = pl.LpProblem("Production_Units", pl.LpMinimize)
+
+    # Decision variables (non-negative integers)
+    L = pl.LpVariable('L', lowBound=0, cat='Integer')  # large units
+    S = pl.LpVariable('S', lowBound=0, cat='Integer')  # small units
+
+    # Objective: minimize parking spots
+    prob += 2 * L + S
+
+    # Constraints
+    prob += 6 * L + 2 * S >= 80, "PeopleCapacity"
+    prob += S >= 5, "MinSmallUnits"
+    prob += L >= 3 * S, "LargeAtLeast75Percent"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    obj_value = pl.value(prob.objective)
+    return obj_value
+
+if __name__ == "__main__":
+    value = solve_ilp()
+    print(f"FINAL_OBJ: {value}")

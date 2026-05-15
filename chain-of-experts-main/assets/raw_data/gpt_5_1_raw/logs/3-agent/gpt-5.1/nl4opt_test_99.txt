@@ -1,0 +1,254 @@
+[MODELER]:
+Define decision variables:
+
+- \(x\): number of small teams  
+- \(y\): number of large teams  
+
+Both must be nonnegative integers.
+
+---
+
+### Objective
+
+Maximize the total lawn area mowed:
+
+- Each small team mows 50 sq ft  
+- Each large team mows 80 sq ft  
+
+Objective function:
+\[
+\max \; Z = 50x + 80y
+\]
+
+---
+
+### Constraints
+
+1. **Employee availability**
+
+Each small team uses 3 employees; each large team uses 5 employees. Total employees available: 150.
+
+\[
+3x + 5y \le 150
+\]
+
+2. **Small teams at least three times large teams**
+
+\[
+x \ge 3y
+\]
+
+3. **Minimum number of large teams**
+
+\[
+y \ge 6
+\]
+
+4. **Minimum number of small teams**
+
+\[
+x \ge 10
+\]
+
+5. **Nonnegativity and integrality**
+
+\[
+x, y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+### Solving the model (by inspection)
+
+Use the employee constraint as binding to maximize area (more teams use more employees → more lawn):
+
+\[
+3x + 5y = 150
+\]
+
+Together with \(x = 3y\) (since making \(x\) as small as allowed by \(x \ge 3y\) frees employees for more large teams, which mow more area per employee):
+
+Substitute \(x = 3y\) into \(3x + 5y = 150\):
+
+\[
+3(3y) + 5y = 150 \Rightarrow 9y + 5y = 150 \Rightarrow 14y = 150 \Rightarrow y = \frac{150}{14} \notin \mathbb{Z}
+\]
+
+Check integer values of \(y\) near \(150/14 \approx 10.71\), respecting all constraints and keeping \(x = 3y\) (tight):
+
+- Try \(y = 10\):  
+  - \(x = 3y = 30\)  
+  - Employees used: \(3\cdot 30 + 5\cdot 10 = 90 + 50 = 140 \le 150\)  
+  - Lawn mowed: \(50\cdot 30 + 80\cdot 10 = 1500 + 800 = 2300\)
+
+- Try \(y = 11\):  
+  - \(x = 3y = 33\)  
+  - Employees used: \(3\cdot 33 + 5\cdot 11 = 99 + 55 = 154 > 150\) (infeasible)
+
+So \(y\) cannot exceed 10 if \(x = 3y\).
+
+We should also use any remaining employees, if possible, to add more small teams (since large teams require 5 employees and may violate the employee constraint).
+
+At \(x=30, y=10\), employees used = 140, 10 employees left:
+
+- Each additional small team uses 3 employees: max extra small teams = \(\lfloor 10/3 \rfloor = 3\)
+- But adding small teams must still satisfy \(x \ge 3y\). With \(y=10\), \(x\) must be at least 30; any extra small teams keep constraint valid.
+
+So new candidate:
+
+- \(x = 30 + 3 = 33\), \(y = 10\)  
+- Employees: \(3\cdot 33 + 5\cdot 10 = 99 + 50 = 149 \le 150\)  
+- Lawn mowed: \(50\cdot 33 + 80\cdot 10 = 1650 + 800 = 2450\)
+
+Try increasing \(y\) by 1 from there (just to be thorough):
+
+For \(y = 11\), we saw the minimum feasible \(x\) (3y = 33) already exceeds employees. So no feasible pair with \(y \ge 11\).
+
+Now check if reducing \(y\) and adding more \(x\) could help. Note that per employee efficiency:
+
+- Small team: \(50/3 \approx 16.67\) sq ft per employee  
+- Large team: \(80/5 = 16\) sq ft per employee  
+
+So small teams are more efficient. However, we are forced to keep relatively many small teams anyway (x ≥ 3y and lower bounds). The bottleneck is the employee constraint; with small teams being more efficient, we should maximize employees used subject to constraints, and try not to let the less efficient large teams dominate.
+
+Check the extreme with minimal large teams, \(y = 6\):
+
+- From \(x \ge 3y\), \(x \ge 18\)  
+- Use employees fully: \(3x + 5\cdot 6 \le 150 \Rightarrow 3x + 30 \le 150 \Rightarrow 3x \le 120 \Rightarrow x \le 40\)
+- Best is \(x = 40\) (maximum possible, also ≥ 18 and ≥ 10):
+
+Employees: \(3\cdot 40 + 5\cdot 6 = 120 + 30 = 150\)  
+Lawn: \(50\cdot 40 + 80\cdot 6 = 2000 + 480 = 2480\)
+
+Compare:
+- \(x=33, y=10\): 2450 sq ft
+- \(x=40, y=6\): 2480 sq ft  ← larger
+
+We must also verify that increasing \(y\) above 6 while adjusting \(x\) doesn’t improve area. For any feasible solution using full employees \(3x+5y=150\), express \(x\) in terms of \(y\):
+
+\[
+x = \frac{150 - 5y}{3}
+\]
+
+Lawn area:
+\[
+Z(y) = 50x + 80y = 50\cdot \frac{150 - 5y}{3} + 80y
+= \frac{7500 - 250y}{3} + 80y
+= 2500 - \frac{250}{3}y + 80y
+= 2500 + \frac{-250 + 240}{3}y
+= 2500 - \frac{10}{3}y
+\]
+
+So for all full-employee solutions, Z strictly decreases as y increases. Thus the smallest feasible y (i.e., y = 6) with full employee usage gives the maximum area.
+
+Conclusion:
+
+- Optimal solution: \(x = 40\) small teams, \(y = 6\) large teams  
+- Maximum lawn mowed: 2480 sq ft
+
+---
+
+### Formulation summary
+
+Decision variables:
+
+- \(x \in \mathbb{Z}_{\ge 0}\): number of small teams  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of large teams  
+
+Maximize:
+\[
+\max Z = 50x + 80y
+\]
+
+Subject to:
+\[
+\begin{aligned}
+3x + 5y &\le 150 &\text{(employee availability)}\\
+x &\ge 3y &\text{(small teams ≥ 3 × large teams)}\\
+y &\ge 6 &\text{(minimum large teams)}\\
+x &\ge 10 &\text{(minimum small teams)}\\
+x, y &\in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+Optimal solution:
+\[
+x^* = 40,\quad y^* = 6,\quad Z^* = 2480 \text{ sq ft}
+\]
+
+---
+
+### Python tools to solve it
+
+This is a small integer linear programming (ILP) problem. Appropriate libraries:
+
+- `PuLP` (lightweight, easy syntax)
+- `ortools.linear_solver` from Google OR-Tools
+- `mip` (Python-MIP)
+- `cvxpy` (with an MILP-capable backend)
+
+Example with PuLP:
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Lawn_Mowing_Teams", pl.LpMaximize)
+
+# Variables
+x = pl.LpVariable('small_teams', lowBound=0, cat='Integer')
+y = pl.LpVariable('large_teams', lowBound=0, cat='Integer')
+
+# Objective
+prob += 50 * x + 80 * y
+
+# Constraints
+prob += 3 * x + 5 * y <= 150        # employees
+prob += x >= 3 * y                  # small >= 3 * large
+prob += y >= 6                      # min large teams
+prob += x >= 10                     # min small teams
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Small teams:", x.value())
+print("Large teams:", y.value())
+print("Max lawn area:", pl.value(prob.objective))
+```
+
+This will return the optimal solution \(x=40\), \(y=6\), \(Z=2480\).
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Lawn_Mowing_Teams", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('small_teams', lowBound=0, cat='Integer')
+    y = pl.LpVariable('large_teams', lowBound=0, cat='Integer')
+
+    # Objective function: maximize lawn area
+    prob += 50 * x + 80 * y
+
+    # Constraints
+    prob += 3 * x + 5 * y <= 150      # Employee availability
+    prob += x >= 3 * y                # Small teams at least 3 times large teams
+    prob += y >= 6                    # Minimum large teams
+    prob += x >= 10                   # Minimum small teams
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the optimal objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

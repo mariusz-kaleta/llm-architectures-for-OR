@@ -1,0 +1,170 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Maximise total monthly profit from selling mangos and guavas.
+
+2) Suggested model type
+- Model: Linear Programming (LP). If integer counts are required, use a Mixed-Integer LP (MIP) with integer decision variables for counts.
+
+3) Main decision variables (described, not formal symbols)
+- Number of mangos to buy/sell each month.
+- Number of guavas to buy/sell each month.
+
+4) Key constraints to include (described)
+- Budget constraint: total purchase cost of mangos and guavas cannot exceed $20,000 (mango unit cost $5, guava unit cost $3).
+- Mango sales bounds: at least 100 mangos and at most 150 mangos sold each month.
+- Guava-to-mango ratio: number of guavas sold is at most one third of the number of mangos sold.
+- Non-negativity and integrality: both counts must be non-negative; if fractional fruits not allowed, enforce integer variables.
+- Implicit feasibility: ensure chosen numbers respect all bounds simultaneously (budget may or may not be binding).
+
+5) Objective components / parameters (for modeller)
+- Profit per mango: $3 each.
+- Profit per guava: $4 each.
+- These feed directly into the LP objective to maximise total profit.
+
+6) Recommended solution approach / checks for the modeller
+- Formulate LP and solve with a standard solver (or graphically/simplex for two variables).
+- Because profits and constraints are linear, check corner (extreme) points of the feasible region.
+- Check whether the budget constraint is binding; if not, the mango upper bound or the guava-to-mango ratio likely bind.
+- If integer solutions are required, solve as a MIP (but given the sizes, integer rounding from LP solution is straightforward).
+
+7) Quick analytical insight (helps prioritise constraint checks)
+- Profit per dollar: mangos yield $3 profit on $5 cost (0.60 profit per $1), guavas yield $4 profit on $3 cost (≈1.33 profit per $1). Guavas are more profitable per dollar, but guava quantity is limited by the "at most one third of mangos" constraint.
+- With that ratio, the optimal strategy is to push mangos to their allowed maximum (to allow more guavas), then set guavas equal to the 1/3 bound, provided the budget still holds.
+
+8) Deliverable expected from modeller
+- A solved LP/MIP giving the optimal counts of mangos and guavas and the maximum profit.
+- Short sensitivity notes: identify which constraints are binding and how the solution changes if budget or ratio bounds change.
+
+Optional: Preliminary result (to verify with the solver)
+- Following the recommended reasoning, the modeller should find the optimum at the mango upper bound with guavas at one third of mangos (mangos = 150, guavas = 50), with the budget constraint not binding in this case. Please verify with the LP/MIP solver and report the objective value and which constraints are active.
+
+---
+
+[MODELER]:
+Below I convert the textual problem into a precise optimisation model, solve it, and give short sensitivity/solver guidance.
+
+1) Decision variables
+- m = number of mangos sold per month (units)
+- g = number of guavas sold per month (units)
+Both m and g are >= 0. If fractional fruits are not allowed, treat m and g as integers.
+
+2) Objective
+Maximise total monthly profit:
+Maximise Z = 3 m + 4 g
+
+(Profit per mango = $3, per guava = $4.)
+
+3) Constraints
+- Budget: 5 m + 3 g <= 20000
+  (mango cost $5, guava cost $3)
+- Mango sales bounds: 100 <= m <= 150
+- Guava-to-mango ratio: g <= m / 3
+- Integrality / non-negativity: m, g >= 0 (and integer if required)
+
+4) Analytical solution (two-variable LP)
+Because g appears only in upper-bounding constraints and profit coefficients are positive, at optimum g will be as large as allowed: g = m/3.
+Substitute into objective:
+Z = 3 m + 4 (m/3) = (13/3) m ≈ 4.3333 m.
+This is increasing in m, so choose the maximum allowed m: m = 150.
+Then g = m / 3 = 50.
+
+Check budget: 5*150 + 3*50 = 750 + 150 = 900 <= 20000, so the budget constraint is not binding.
+
+Optimal solution:
+- m* = 150 mangos
+- g* = 50 guavas
+- Maximum profit Z* = 3*150 + 4*50 = 450 + 200 = $650
+
+5) Binding constraints at optimum
+- m <= 150 is binding (m = 150).
+- g <= m/3 is binding (g = m/3 = 50).
+- Budget 5m + 3g <= 20000 is NOT binding (left-hand side = 900 << 20000).
+- Lower bound m >= 100 is not binding.
+
+6) Sensitivity notes (quick)
+- The current budget must be at least $900 for this solution to be feasible; if budget < 900 the budget becomes binding and the optimal mix would change.
+- If the ratio bound g <= m/3 is relaxed (allow a larger fraction of guavas), given guavas have higher profit per dollar and per unit, the model would increase g and possibly change the optimal m.
+- If the mango upper bound is raised above 150, the objective grows (because Z increases with m when g = m/3), so you would then push m to the new upper bound until another constraint (budget or practical upper limit) binds.
+
+7) Suggested solvers / Python libraries
+- For continuous LP: scipy.optimize.linprog
+- For LP/MIP (integer counts): PuLP (built-in CBC solver) or OR-Tools (CP-SAT for MIP)
+- For industrial use: Gurobi or CPLEX (if available)
+
+Optional small PuLP example (MIP with integer variables):
+from pulp import LpProblem, LpMaximize, LpVariable, LpInteger, PULP_CBC_CMD
+
+prob = LpProblem("FruitProfit", LpMaximize)
+m = LpVariable('m', lowBound=100, upBound=150, cat=LpInteger)
+g = LpVariable('g', lowBound=0, cat=LpInteger)
+prob += 3*m + 4*g                          # objective
+prob += 5*m + 3*g <= 20000                 # budget
+prob += g <= m/3                           # ratio
+prob.solve(PULP_CBC_CMD(msg=False))
+print(m.value(), g.value(), "Profit =", 3*m.value() + 4*g.value())
+
+This will produce m=150, g=50, Profit=650.
+
+If you want, I can (a) produce a full solver run with output, (b) show how the optimal solution changes when budget or the ratio are varied, or (c) provide a small script to perform sensitivity analysis. Which would you prefer?
+
+---
+
+[CODER]:
+import math
+
+# Problem data
+profit_m = 3    # profit per mango
+profit_g = 4    # profit per guava
+cost_m = 5
+cost_g = 3
+budget = 20000
+m_lb = 100
+m_ub = 150
+ratio = 1.0/3.0
+
+final_obj = None
+
+# First, attempt to solve with PuLP (MIP). If PuLP isn't available, fall back to analytical solution.
+try:
+    import pulp
+
+    prob = pulp.LpProblem("FruitProfit", pulp.LpMaximize)
+    m = pulp.LpVariable('m', lowBound=m_lb, upBound=m_ub, cat=pulp.LpInteger)
+    g = pulp.LpVariable('g', lowBound=0, cat=pulp.LpInteger)
+
+    prob += profit_m * m + profit_g * g
+    prob += cost_m * m + cost_g * g <= budget
+    # g <= m/3  -> represent as 3*g <= m to avoid fractional coefficient issues with integer vars
+    prob += 3 * g <= m
+
+    solver = pulp.PULP_CBC_CMD(msg=False)
+    prob.solve(solver)
+
+    m_val = int(pulp.value(m))
+    g_val = int(pulp.value(g))
+    obj_val = profit_m * m_val + profit_g * g_val
+
+    final_obj = obj_val
+
+except Exception:
+    # Fallback: analytical solution described in the problem statement.
+    # Because profit coefficients positive and g is upper-bounded, optimal g = m/3.
+    # Objective Z = (13/3) m is increasing in m, so pick m = m_ub.
+    m_val = m_ub
+    g_val = int(m_val * ratio)
+    # ensure g respects integer rounding and constraint 3*g <= m
+    if 3 * g_val > m_val:
+        g_val = m_val // 3
+    # verify budget; if budget smaller than needed, adjust (not needed here since budget is huge)
+    if cost_m * m_val + cost_g * g_val > budget:
+        # If infeasible with current budget, reduce m until feasible
+        while m_val >= m_lb and cost_m * m_val + cost_g * g_val > budget:
+            m_val -= 1
+            g_val = m_val // 3
+        if m_val < m_lb:
+            raise RuntimeError("No feasible solution under given budget and bounds.")
+    obj_val = profit_m * m_val + profit_g * g_val
+    final_obj = obj_val
+
+# Final required print (must be the very last output line)
+print(f"FINAL_OBJ: {final_obj}")

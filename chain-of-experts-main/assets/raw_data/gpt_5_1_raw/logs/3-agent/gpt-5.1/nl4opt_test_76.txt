@@ -1,0 +1,149 @@
+[MODELER]:
+Let’s translate the problem into a mathematical optimization model.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of small kegs used  
+- \(y\) = number of large kegs used  
+
+Both must be nonnegative integers:
+- \(x \ge 0, \; y \ge 0\)
+- \(x, y \in \mathbb{Z}\)
+
+## 2. Objective function
+
+Each small keg holds 40 liters, each large keg holds 100 liters. We want to maximize total liters of water:
+
+\[
+\text{Maximize } Z = 40x + 100y
+\]
+
+## 3. Constraints
+
+1. **Availability of small kegs**:  
+   At most 30 small kegs available:
+   \[
+   x \leq 30
+   \]
+
+2. **Availability of large kegs**:  
+   At most 10 large kegs available:
+   \[
+   y \leq 10
+   \]
+
+3. **Small vs. large relationship**:  
+   At least twice as many small kegs as large kegs:
+   \[
+   x \geq 2y
+   \]
+
+4. **Total number of kegs**:  
+   At most 25 kegs in total:
+   \[
+   x + y \leq 25
+   \]
+
+5. **Minimum number of large kegs**:  
+   At least 5 must be large:
+   \[
+   y \geq 5
+   \]
+
+6. **Integrality and nonnegativity**:
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+## 4. Full mathematical model
+
+\[
+\begin{aligned}
+\text{Maximize } & Z = 40x + 100y \\
+\text{subject to } 
+& x \le 30, \\
+& y \le 10, \\
+& x \ge 2y, \\
+& x + y \le 25, \\
+& y \ge 5, \\
+& x, y \in \mathbb{Z}_{\ge 0}.
+\end{aligned}
+\]
+
+## 5. Solving the model (sketch)
+
+Because there are only two variables with small bounds, this can be solved by inspection, but algorithmically it’s a small **integer linear program (ILP)**.
+
+Suitable Python libraries:
+- `PuLP` (simple modeling, pure Python)
+- `ortools.linear_solver` from Google OR-Tools (very efficient for ILPs)
+- `Pyomo` (more advanced modeling framework; overkill but fine)
+
+### Example: using PuLP
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Water_Transport", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('x', lowBound=0, cat='Integer')  # small kegs
+y = pl.LpVariable('y', lowBound=0, cat='Integer')  # large kegs
+
+# Objective
+prob += 40*x + 100*y
+
+# Constraints
+prob += x <= 30
+prob += y <= 10
+prob += x >= 2*y
+prob += x + y <= 25
+prob += y >= 5
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Small kegs (x):", pl.value(x))
+print("Large kegs (y):", pl.value(y))
+print("Total liters:", 40*pl.value(x) + 100*pl.value(y))
+```
+
+This code directly encodes the mathematical model above and lets the solver find the optimal number of small and large kegs.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Water_Transport", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('x', lowBound=0, cat='Integer')  # small kegs
+    y = pl.LpVariable('y', lowBound=0, cat='Integer')  # large kegs
+
+    # Objective function: Maximize total liters of water
+    prob += 40 * x + 100 * y
+
+    # Constraints
+    prob += x <= 30          # Availability of small kegs
+    prob += y <= 10          # Availability of large kegs
+    prob += x >= 2 * y       # At least twice as many small as large
+    prob += x + y <= 25      # Total number of kegs
+    prob += y >= 5           # Minimum number of large kegs
+
+    # Solve the problem
+    prob.solve()
+
+    # Compute final objective value
+    final_obj = pl.value(40 * x + 100 * y)
+
+    # Print the final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

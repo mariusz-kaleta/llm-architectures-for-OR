@@ -1,0 +1,187 @@
+[MODELER]:
+Here is a clean mathematical model of the problem and how to solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of packs of blueberries  
+- \(y\) = number of packs of strawberries  
+
+We will assume fractional packs are allowed unless the context explicitly requires whole packs; if needed, we can later enforce \(x, y\) as integers.
+
+---
+
+## 2. Objective (minimize sugar)
+
+Sugar per pack:
+- Blueberries: 5 grams  
+- Strawberries: 7 grams  
+
+Total sugar:
+
+\[
+\text{Sugar} = 5x + 7y
+\]
+
+**Objective function:**
+
+\[
+\min \; Z = 5x + 7y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Anti-oxidant requirement
+
+Each pack:
+- Blueberries: 3 units  
+- Strawberries: 1 unit  
+
+Minimum required: 90 units
+
+\[
+3x + y \;\ge\; 90
+\]
+
+---
+
+### b) Mineral requirement
+
+Each pack:
+- Blueberries: 5 units  
+- Strawberries: 7 units  
+
+Minimum required: 100 units
+
+\[
+5x + 7y \;\ge\; 100
+\]
+
+---
+
+### c) Strawberry–blueberry ratio
+
+The dietician recommends at least 3 times as many packs of strawberries as blueberries:
+
+\[
+y \;\ge\; 3x
+\]
+
+---
+
+### d) Nonnegativity
+
+\[
+x \;\ge\; 0,\quad y \;\ge\; 0
+\]
+
+If only whole packs are allowed, we add integrality:
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Full linear program
+
+\[
+\begin{aligned}
+\min \quad & Z = 5x + 7y \\
+\text{s.t.} \quad 
+& 3x + y \ge 90 \\
+& 5x + 7y \ge 100 \\
+& y \ge 3x \\
+& x \ge 0,\; y \ge 0 \\
+& (x, y \in \mathbb{Z}_{\ge 0} \text{ if integer packs are required})
+\end{aligned}
+\]
+
+---
+
+## 5. Solving with Python
+
+This is a standard **linear programming** (LP) problem, or a **mixed-integer linear program** (MILP) if you require integer packs.
+
+Suitable Python libraries:
+
+- `PuLP` – simple LP/MILP modeling, works with CBC by default  
+- `ortools.linear_solver` (Google OR-Tools) – powerful LP/MILP solver  
+- `scipy.optimize.linprog` – for continuous LP (no integer constraints)
+
+### Example using PuLP (continuous variables)
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("DietSugarMinimization", pl.LpMinimize)
+
+# Decision variables (non-negative, continuous)
+x = pl.LpVariable('blueberries', lowBound=0)
+y = pl.LpVariable('strawberries', lowBound=0)
+
+# Objective: minimize sugar
+prob += 5 * x + 7 * y
+
+# Constraints
+prob += 3 * x + y >= 90      # antioxidants
+prob += 5 * x + 7 * y >= 100 # minerals
+prob += y >= 3 * x           # at least 3x as many strawberries
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Blueberry packs (x):", pl.value(x))
+print("Strawberry packs (y):", pl.value(y))
+print("Minimum sugar:", pl.value(5 * x + 7 * y))
+```
+
+### For integer packs
+
+Change variable definitions to:
+
+```python
+x = pl.LpVariable('blueberries', lowBound=0, cat="Integer")
+y = pl.LpVariable('strawberries', lowBound=0, cat="Integer")
+```
+
+OR-Tools would be similarly appropriate; use `pywraplp.Solver.CreateSolver('CBC')` or `'SCIP'` and add linear constraints and integer variables if needed.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def solve_diet_problem_integer():
+    # Define the MILP problem
+    prob = pl.LpProblem("DietSugarMinimization_Integer", pl.LpMinimize)
+
+    # Decision variables (non-negative, integer)
+    x = pl.LpVariable('blueberries', lowBound=0, cat="Integer")
+    y = pl.LpVariable('strawberries', lowBound=0, cat="Integer")
+
+    # Objective: minimize sugar
+    prob += 5 * x + 7 * y
+
+    # Constraints
+    prob += 3 * x + y >= 90      # antioxidants
+    prob += 5 * x + 7 * y >= 100 # minerals
+    prob += y >= 3 * x           # at least 3x as many strawberries
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Objective value
+    obj_value = pl.value(5 * x + 7 * y)
+    return obj_value
+
+if __name__ == "__main__":
+    final_obj = solve_diet_problem_integer()
+    print(f"FINAL_OBJ: {final_obj}")

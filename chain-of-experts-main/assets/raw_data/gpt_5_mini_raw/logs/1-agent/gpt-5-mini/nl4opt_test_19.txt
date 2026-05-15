@@ -1,0 +1,47 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+inspection_time_available = 5000  # minutes
+fixing_time_available = 20000     # minutes
+
+# Times per appliance (minutes)
+inspection_washer = 30
+fixing_washer = 90
+inspection_freezer = 20
+fixing_freezer = 125
+
+# Revenues
+rev_washer = 250
+rev_freezer = 375
+
+# Define the problem
+prob = pulp.LpProblem("Repairman_Profit_Maximization", pulp.LpMaximize)
+
+# Decision variables: number of washers (x) and freezers (y) to repair (integers)
+x = pulp.LpVariable('washers', lowBound=0, cat='Integer')
+y = pulp.LpVariable('freezers', lowBound=0, cat='Integer')
+
+# Objective: maximize revenue
+prob += rev_washer * x + rev_freezer * y, "Total_Revenue"
+
+# Constraints
+prob += inspection_washer * x + inspection_freezer * y <= inspection_time_available, "Inspection_Time"
+prob += fixing_washer * x + fixing_freezer * y <= fixing_time_available, "Fixing_Time"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Retrieve results
+num_washers = int(pulp.value(x))
+num_freezers = int(pulp.value(y))
+final_obj = pulp.value(prob.objective)
+
+# Print solution details
+print(f"Washers to repair: {num_washers}")
+print(f"Freezers to repair: {num_freezers}")
+print(f"Total revenue: ${final_obj:.0f}")
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {final_obj:.0f}")

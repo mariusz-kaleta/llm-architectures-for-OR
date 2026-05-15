@@ -1,0 +1,261 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total activation time of all pills taken over the month, i.e., the sum of (number of calcium pills × 5 minutes) plus (number of vitamin D pills × 6 minutes).
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP) – essentially a small 2‑variable linear program with integer constraints.
+
+3. Main decision variables  
+Define two integer decision variables:
+- \(C\): number of calcium pills taken in the month.
+- \(V\): number of vitamin D pills taken in the month.
+
+4. Key constraints to consider  
+
+a) Total pills requirement  
+- The student must take at least 130 pills in total:
+  - Constraint: \(C + V \ge 130\).
+
+b) Minimum vitamin D requirement  
+- At least 40 pills must be vitamin D:
+  - Constraint: \(V \ge 40\).
+
+c) Complementarity requirement (more calcium than vitamin D)  
+- The student must take more calcium than vitamin D:
+  - Constraint: \(C > V\).
+  - In integer form, this can be implemented as: \(C \ge V + 1\).
+
+d) Non-negativity and integrality  
+- Both variables must be non-negative integers:
+  - \(C \ge 0\), \(V \ge 0\), and \(C, V\) integer.
+
+5. Objective function structure  
+
+Objective: Minimise total effectiveness time:
+- Total time = (time per calcium pill) × C + (time per vitamin D pill) × V  
+- With given data: \(5C + 6V\).  
+
+Since the coefficients are linear and the constraints are all linear, this is a small ILP (or LP with an implicit integer solution because of the problem context).  
+
+6. Modelling strategy / solution approach  
+
+- Formulate the ILP with:
+  - Objective: Minimise \(5C + 6V\).
+  - Constraints: as listed above.
+- Because there are only two variables, a modeller or solver can:
+  - Either use a standard LP/ILP solver directly, or
+  - Solve by inspection:
+    - Push the total number of pills to the minimum allowed (130) because both 5 and 6 minutes are positive, so extra pills only increase total time.
+    - Given \(C + V = 130\) and \(V \ge 40\), \(C = 130 - V\).
+    - Impose \(C \ge V + 1\) to find the feasible range of V and then choose the smallest V in that range (since vitamin D has higher time cost per pill).
+- The optimal solution will be at a boundary where total pills is exactly 130, vitamin D is at its minimum consistent with “more calcium than vitamin D,” and integrality holds.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, plus how you might solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(C \in \mathbb{Z}_{\ge 0}\): number of calcium pills taken in the month  
+- \(V \in \mathbb{Z}_{\ge 0}\): number of vitamin D pills taken in the month
+
+Both must be integers and non‑negative.
+
+---
+
+## 2. Objective
+
+Each calcium pill takes 5 minutes to be effective; each vitamin D pill takes 6 minutes.
+
+Minimize the **total activation time** over the month:
+
+\[
+\min\; Z = 5C + 6V
+\]
+
+---
+
+## 3. Constraints
+
+1. **Minimum total pills**
+
+   At least 130 pills in total:
+
+   \[
+   C + V \ge 130
+   \]
+
+2. **Minimum vitamin D pills**
+
+   At least 40 vitamin D pills:
+
+   \[
+   V \ge 40
+   \]
+
+3. **More calcium than vitamin D**
+
+   Calcium must strictly exceed vitamin D:
+
+   \[
+   C > V
+   \]
+
+   As an integer linear constraint, we implement this as:
+
+   \[
+   C \ge V + 1
+   \]
+
+4. **Non‑negativity and integrality**
+
+   \[
+   C \ge 0,\quad V \ge 0,\quad C, V \in \mathbb{Z}
+   \]
+
+---
+
+## 4. Full ILP formulation
+
+\[
+\begin{aligned}
+\min\quad & 5C + 6V \\
+\text{s.t.}\quad
+& C + V \ge 130 \\
+& V \ge 40 \\
+& C \ge V + 1 \\
+& C, V \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a small integer linear program (ILP) with 2 variables and 3 main constraints.
+
+---
+
+## 5. Modelling insight / simplification
+
+Since both coefficients in the objective (5 and 6) are positive, increasing the total number of pills always increases total time. So at optimum we will have
+
+\[
+C + V = 130
+\]
+
+The “more calcium than vitamin D” and “at least 40 vitamin D” conditions imply:
+
+- \(V \ge 40\)
+- \(C \ge V + 1\)
+- and \(C = 130 - V\)
+
+Substitute \(C = 130 - V\) into \(C \ge V + 1\):
+
+\[
+130 - V \ge V + 1 \Rightarrow 130 - 1 \ge 2V \Rightarrow 129 \ge 2V \Rightarrow V \le 64.5
+\]
+
+So feasible integer \(V\) range is:
+
+\[
+40 \le V \le 64
+\]
+
+Objective in terms of \(V\):
+
+\[
+Z(V) = 5(130 - V) + 6V = 650 - 5V + 6V = 650 + V
+\]
+
+So \(Z(V)\) increases with \(V\). To minimize total time, choose the smallest feasible \(V\):
+
+\[
+V^* = 40,\quad C^* = 130 - 40 = 90
+\]
+
+So the optimal plan is:
+- Calcium pills: \(C^* = 90\)
+- Vitamin D pills: \(V^* = 40\)
+
+---
+
+## 6. Python implementation suggestions
+
+Any of the following libraries is appropriate:
+
+- `PuLP` – very simple modelling syntax, pure Python.
+- `ortools.linear_solver` – from Google OR-Tools, efficient and well‑maintained.
+- `Pyomo` – more general algebraic modelling.
+- `scipy.optimize.linprog` – works for LPs, but you’d need to handle integrality yourself (rounding/enumeration), so less ideal here.
+
+For this tiny ILP, `PuLP` or OR-Tools is ideal.
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem definition
+prob = pl.LpProblem("Pills_Activation_Time_Min", pl.LpMinimize)
+
+# Decision variables (non-negative integers)
+C = pl.LpVariable("Calcium", lowBound=0, cat="Integer")
+V = pl.LpVariable("VitaminD", lowBound=0, cat="Integer")
+
+# Objective: minimize total activation time
+prob += 5 * C + 6 * V, "TotalActivationTime"
+
+# Constraints
+prob += C + V >= 130, "TotalPills"
+prob += V >= 40, "MinVitaminD"
+prob += C >= V + 1, "MoreCalciumThanVitaminD"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal Calcium pills:", C.value())
+print("Optimal Vitamin D pills:", V.value())
+print("Minimum total time (minutes):", pl.value(prob.objective))
+```
+
+This should give:
+
+- Calcium = 90  
+- Vitamin D = 40  
+- Total time = \(5 \cdot 90 + 6 \cdot 40 = 450 + 240 = 690\) minutes.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the ILP problem: minimize total activation time
+    prob = pl.LpProblem("Pills_Activation_Time_Min", pl.LpMinimize)
+
+    # Decision variables (non-negative integers)
+    C = pl.LpVariable("Calcium", lowBound=0, cat="Integer")
+    V = pl.LpVariable("VitaminD", lowBound=0, cat="Integer")
+
+    # Objective: minimize 5C + 6V
+    prob += 5 * C + 6 * V, "TotalActivationTime"
+
+    # Constraints
+    prob += C + V >= 130, "TotalPills"
+    prob += V >= 40, "MinVitaminD"
+    prob += C >= V + 1, "MoreCalciumThanVitaminD"
+
+    # Solve the ILP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,129 @@
+[MODELER]:
+Summary (decision problem)
+- Two processes:
+  - Process A (with catalyst): uses 10 units wood, 20 units oxygen, produces 15 units CO2.
+  - Process B (without catalyst): uses 15 units wood, 12 units oxygen, produces 18 units CO2.
+- Resources available: 300 units wood, 300 units oxygen.
+- Goal: choose how many times to run each process to maximize total CO2 produced.
+
+Mathematical model
+- Decision variables:
+  - x ≥ 0 = number (or fraction) of runs of Process A.
+  - y ≥ 0 = number (or fraction) of runs of Process B.
+- Objective:
+  - Maximize Z = 15 x + 18 y (total CO2).
+- Constraints:
+  - Wood: 10 x + 15 y ≤ 300
+  - Oxygen: 20 x + 12 y ≤ 300
+  - Nonnegativity: x ≥ 0, y ≥ 0
+
+Solution (continuous LP)
+- Solve the LP (corner-point method or solver). Important corner points:
+  - (x,y) = (15,0) → Z = 225
+  - (x,y) = (0,20) → Z = 360
+  - Intersection of 10x+15y=300 and 20x+12y=300 gives x = 5, y = 50/3 ≈ 16.6667 → Z = 375
+- Optimal solution (continuous): x = 5, y = 50/3, max CO2 = 375 units.
+  - Both resource constraints are binding at the optimum.
+
+Integer (if runs must be integer)
+- If x,y must be integers, the MILP optimum will be an integer pair near the continuous solution. Example feasible integer solutions:
+  - (x,y) = (4,17) → Z = 366 (both constraints satisfied)
+  - (x,y) = (5,16) → Z = 363
+- Use an MILP solver to find the exact integer-optimal solution.
+
+Recommended Python libraries
+- Continuous LP: scipy.optimize.linprog, PuLP, or OR-Tools linear solver.
+- Integer/MILP: PuLP (with CBC), OR-Tools CP-SAT or linear solver, or commercial solvers (Gurobi, CPLEX) if available.
+
+Example (PuLP) code sketch for continuous LP
+- Use pulp.LpProblem, LpVariable(lowBound=0), maximize objective, add constraints, then solve. (PuLP will give the continuous optimum by default.)
+
+If you want, I can:
+- Provide the exact PuLP or scipy.linprog code,
+- Solve the integer version (MILP) and return the integer-optimal x,y and CO2, or
+- Show a quick verification of which constraints are binding.
+
+---
+
+[CODER]:
+```python
+# Self-contained script to solve the described LP and integer version by enumeration.
+# Problem data:
+# Process A (x): wood 10, oxygen 20, CO2 15
+# Process B (y): wood 15, oxygen 12, CO2 18
+# Resources: wood 300, oxygen 300
+# Maximize Z = 15 x + 18 y
+# Constraints:
+#   10 x + 15 y <= 300
+#   20 x + 12 y <= 300
+#   x >= 0, y >= 0
+
+# No external solver required; small problem so we check LP corner points and brute-force integer search.
+
+def main():
+    # Coefficients
+    a_wood_x, a_wood_y = 10, 15
+    a_oxy_x,  a_oxy_y  = 20, 12
+    coef_CO2_x, coef_CO2_y = 15, 18
+    wood_cap = 300
+    oxy_cap  = 300
+
+    # Candidate continuous corner points:
+    # 1) intersection of oxygen binding with y=0 -> from 20x <= 300 => x = 15
+    p1 = (15.0, 0.0)
+    # 2) intersection of wood binding with x=0 -> from 15y <= 300 => y = 20
+    p2 = (0.0, 20.0)
+    # 3) intersection of both constraints (solve linear system)
+    #   10x + 15y = 300
+    #   20x + 12y = 300
+    # Solve analytically:
+    # Multiply first eq by 2: 20x + 30y = 600
+    # Subtract second: 18y = 300 -> y = 300 / 18 = 50/3
+    y3 = 300.0 / 18.0
+    # Then 20x = 300 - 12y -> x = (300 - 12*y)/20
+    x3 = (300.0 - 12.0 * y3) / 20.0
+    p3 = (x3, y3)
+
+    corners = [p1, p2, p3]
+
+    def objective(x, y):
+        return coef_CO2_x * x + coef_CO2_y * y
+
+    # Evaluate continuous corners and pick best
+    best_cont_point = None
+    best_cont_obj = -float('inf')
+    for (x, y) in corners:
+        # ensure feasibility (numerical tolerance)
+        if (a_wood_x * x + a_wood_y * y <= wood_cap + 1e-9) and (a_oxy_x * x + a_oxy_y * y <= oxy_cap + 1e-9):
+            val = objective(x, y)
+            if val > best_cont_obj:
+                best_cont_obj = val
+                best_cont_point = (x, y)
+
+    # Brute-force integer search for x,y >=0 integers within reasonable bounds
+    # Upper bounds from resource constraints (integer floor)
+    x_max = min(wood_cap // a_wood_x, oxy_cap // a_oxy_x)
+    y_max = min(wood_cap // a_wood_y, oxy_cap // a_oxy_y)
+    best_int_obj = -float('inf')
+    best_int_point = None
+    for xi in range(int(x_max) + 1):
+        for yi in range(int(y_max) + 1):
+            if (a_wood_x * xi + a_wood_y * yi <= wood_cap) and (a_oxy_x * xi + a_oxy_y * yi <= oxy_cap):
+                val = objective(xi, yi)
+                if val > best_int_obj:
+                    best_int_obj = val
+                    best_int_point = (xi, yi)
+
+    # Print results
+    print("Continuous LP optimum (corner check):")
+    print(f"  x = {best_cont_point[0]:.6f}, y = {best_cont_point[1]:.6f}, CO2 = {best_cont_obj:.6f}")
+    print("Integer (MILP) optimum by enumeration:")
+    print(f"  x = {best_int_point[0]}, y = {best_int_point[1]}, CO2 = {best_int_obj}")
+
+    # Final required print line (final objective value). We'll use the continuous LP optimum as the primary answer.
+    final_obj = best_cont_obj
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()
+```

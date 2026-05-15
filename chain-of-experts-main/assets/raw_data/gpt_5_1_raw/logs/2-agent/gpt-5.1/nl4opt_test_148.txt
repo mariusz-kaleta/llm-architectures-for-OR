@@ -1,0 +1,143 @@
+[MODELER]:
+Here is a clean mathematical model of the problem as a linear program.
+
+## Decision variables
+
+Let
+- \(x_N \ge 0\): hours to run the **northern** factory  
+- \(x_W \ge 0\): hours to run the **western** factory
+
+## Objective
+
+Minimize the **total operating time** of the two factories:
+\[
+\min \; Z = x_N + x_W
+\]
+
+## Constraints
+
+### 1. Production of anti-itch injections
+
+Every hour:
+- Northern factory produces 800 g of injections
+- Western factory produces 650 g of injections
+
+They must produce at least 800,000 g:
+\[
+800x_N + 650x_W \;\ge\; 800{,}000
+\]
+
+### 2. Production of topical cream
+
+Every hour:
+- Northern factory produces 700 g of cream
+- Western factory produces 750 g of cream
+
+They must produce at least 700,000 g:
+\[
+700x_N + 750x_W \;\ge\; 700{,}000
+\]
+
+### 3. Plastic availability
+
+Every hour:
+- Northern factory uses 40 units of plastic
+- Western factory uses 35 units of plastic
+
+They have at most 60,000 units of plastic:
+\[
+40x_N + 35x_W \;\le\; 60{,}000
+\]
+
+### 4. Nonnegativity
+
+\[
+x_N \ge 0,\quad x_W \ge 0
+\]
+
+---
+
+So the full linear program is:
+
+\[
+\begin{aligned}
+\min\quad & x_N + x_W \\
+\text{s.t.}\quad 
+& 800x_N + 650x_W \;\ge\; 800{,}000 \\
+& 700x_N + 750x_W \;\ge\; 700{,}000 \\
+& 40x_N + 35x_W \;\le\; 60{,}000 \\
+& x_N, x_W \;\ge\; 0
+\end{aligned}
+\]
+
+## Suitable Python libraries
+
+This is a standard linear programming (LP) problem. Good Python libraries to solve it:
+
+- **PuLP** (`pulp`): Simple modeling interface for LP/MIP; uses CBC or other solvers.
+- **SciPy**: `scipy.optimize.linprog` can solve this LP directly.
+- **OR-Tools** (`ortools.linear_solver`): Google’s optimization suite; supports LP/MIP with several solvers.
+
+### Example using PuLP
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Clinical_Firm_Scheduling", pl.LpMinimize)
+
+# Decision variables
+xN = pl.LpVariable('xN', lowBound=0)  # hours for northern factory
+xW = pl.LpVariable('xW', lowBound=0)  # hours for western factory
+
+# Objective
+prob += xN + xW, "Total_Time"
+
+# Constraints
+prob += 800*xN + 650*xW >= 800_000, "InjectionsRequirement"
+prob += 700*xN + 750*xW >= 700_000, "CreamRequirement"
+prob += 40*xN + 35*xW <= 60_000, "PlasticLimit"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Hours at northern factory:", xN.value())
+print("Hours at western factory:", xW.value())
+print("Minimum total time (hours):", pl.value(prob.objective))
+```
+
+Any of the listed libraries can solve this efficiently, since it is a small linear program.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Clinical_Firm_Scheduling", pl.LpMinimize)
+
+    # Decision variables
+    xN = pl.LpVariable('xN', lowBound=0)  # hours for northern factory
+    xW = pl.LpVariable('xW', lowBound=0)  # hours for western factory
+
+    # Objective: minimize total time
+    prob += xN + xW, "Total_Time"
+
+    # Constraints
+    prob += 800 * xN + 650 * xW >= 800_000, "InjectionsRequirement"
+    prob += 700 * xN + 750 * xW >= 700_000, "CreamRequirement"
+    prob += 40 * xN + 35 * xW <= 60_000, "PlasticLimit"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print final objective as required
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

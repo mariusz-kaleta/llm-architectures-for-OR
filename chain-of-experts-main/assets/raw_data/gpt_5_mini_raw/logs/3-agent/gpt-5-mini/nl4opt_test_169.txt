@@ -1,0 +1,68 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x ∈ Z_{\ge 0}: number of golf carts (capacity 4 each).
+  - y ∈ Z_{\ge 0}: number of pull carts (capacity 1 each).
+
+- Objective
+  - Minimize total number of carts: minimize Z = x + y.
+
+- Constraints
+  1. Carry at least 80 guests: 4x + y ≥ 80.
+  2. At most 60% of carts may be golf carts: x ≤ 0.6 (x + y). Equivalently (clear of decimals):
+     2x ≤ 3y.
+  3. Integrality and nonnegativity: x, y ∈ Z_{\ge 0}.
+
+Optional rearrangements useful in solution:
+- From 2x ≤ 3y ⇒ y ≥ (2/3) x.
+- From 4x + y ≥ 80 ⇒ y ≥ 80 − 4x.
+
+Hence for a given integer x, the smallest feasible y is y = max(ceil(80 − 4x), ceil(2x/3), 0), and we minimize x + y over integer x ≥ 0.
+
+Solution (analysis)
+- Consider x = 17: 80 − 4·17 = 80 − 68 = 12, and ceil(2·17/3) = ceil(34/3) = 12 ⇒ y = 12 is feasible. Total carts = 17 + 12 = 29 and capacity = 4·17 + 12 = 80.
+- Check neighbors:
+  - x = 16 ⇒ minimal y = max(80−64=16, ceil(32/3)=11) = 16 ⇒ total = 32.
+  - x = 18 ⇒ minimal y = max(80−72=8, ceil(36/3)=12) = 12 ⇒ total = 30.
+  - Other x give totals ≥ 29.
+
+Therefore the optimal integer solution is:
+- x = 17 golf carts and y = 12 pull carts, giving the minimum total number of carts = 29.
+
+Suggested Python libraries to solve/verify
+- pulp (linear/integer programming, easy modeling)
+- ortools CP-SAT (Google OR-Tools) for integer programming
+- mip (Python-MIP) or pyomo for more advanced models
+You can also solve it by simple integer enumeration because the problem size is tiny.
+
+If you want, I can provide a short pulp or ortools script that models and solves this instance.
+
+---
+
+[CODER]:
+import math
+
+# Enumerate integer solutions for x (golf carts) and compute minimal y (pull carts)
+best_obj = None
+best_x = None
+best_y = None
+
+# Upper bound for x: with capacity 4 per golf cart, beyond 80/4 = 20 is unnecessary;
+# but iterate a bit further to be safe
+for x in range(0, 81):
+    # minimal y from capacity constraint: y >= 80 - 4x
+    y_from_capacity = math.ceil(80 - 4 * x)
+    # minimal y from 60% rule rewritten: 2x <= 3y  => y >= ceil(2x/3)
+    y_from_ratio = math.ceil((2 * x) / 3)
+    y = max(y_from_capacity, y_from_ratio, 0)
+    # verify feasibility (should hold by construction)
+    if 4 * x + y >= 80 and 2 * x <= 3 * y and x >= 0 and y >= 0:
+        obj = x + y
+        if best_obj is None or obj < best_obj:
+            best_obj = obj
+            best_x = x
+            best_y = y
+
+# At this point best_obj should be the minimal total number of carts
+print(f"FINAL_OBJ: {best_obj}")

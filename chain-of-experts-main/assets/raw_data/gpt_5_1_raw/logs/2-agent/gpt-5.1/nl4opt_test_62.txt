@@ -1,0 +1,188 @@
+[MODELER]:
+Let’s turn this into a clear optimization model, then solve it.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of regular handbags produced and sold per month  
+- \(y\) = number of premium handbags produced and sold per month  
+
+Both must be nonnegative and cannot exceed demand and budget.
+
+## 2. Objective function
+
+Profit per handbag:  
+- Regular: \$30  
+- Premium: \$180  
+
+Total monthly profit:
+\[
+\max Z = 30x + 180y
+\]
+
+We want to **maximize** this profit.
+
+## 3. Constraints
+
+### a) Budget constraint
+
+Manufacturing cost per bag:  
+- Regular: \$200  
+- Premium: \$447  
+
+Total manufacturing cost cannot exceed the budget of \$250,000:
+\[
+200x + 447y \le 250000
+\]
+
+### b) Sales capacity (demand) constraint
+
+They can sell **at most 475 handbags in total**:
+\[
+x + y \le 475
+\]
+
+### c) Non-negativity
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+If we require integer numbers of handbags:
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+## 4. Complete mathematical model
+
+\[
+\begin{aligned}
+\max \quad & Z = 30x + 180y \\
+\text{s.t.} \quad 
+& 200x + 447y \le 250000 \\
+& x + y \le 475 \\
+& x \ge 0,\; y \ge 0 \\
+& x,y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+## 5. Solving analytically
+
+To maximize profit, it’s useful to think about **profit per dollar of cost**:
+
+- Regular: \(\dfrac{30}{200} = 0.15\) profit per cost dollar  
+- Premium: \(\dfrac{180}{447} \approx 0.4027\) profit per cost dollar  
+
+Premium is much more profitable per cost dollar, so we expect to produce as many premium handbags as constraints allow.
+
+Check if we can produce 475 premium bags within the budget:
+
+\[
+447 \cdot 475 = 212{,}325 \le 250{,}000
+\]
+
+So the budget is not binding at 475 units; the **total sales limit** is the binding constraint.
+
+Thus, the best strategy is to use all 475 units for the more profitable product (premium), i.e.:
+
+- \(x = 0\) (regular bags)  
+- \(y = 475\) (premium bags)  
+
+Check budget usage:
+
+\[
+200(0) + 447(475) = 212{,}325 \le 250{,}000
+\]
+
+Profit:
+
+\[
+Z = 30(0) + 180(475) = 85{,}500
+\]
+
+No combination with any regular bags can beat this, because:
+- Every time you replace a premium bag with a regular one, you lose profit and free up less cost capacity than the relative profit loss is worth, given the sales-cap limit.
+
+**Optimal solution:**
+- Regular handbags: **0**
+- Premium handbags: **475**
+- Maximum monthly profit: **\$85,500**
+
+## 6. Suitable Python libraries
+
+To model and solve this in Python as a linear/integer program, you can use:
+
+- `PuLP` (simple, pure Python, works with CBC solver)
+- `ortools.linear_solver` from Google OR-Tools (very efficient for LP/MIP)
+- `Pyomo` (more general algebraic modeling language, connects to various solvers)
+
+### Example using PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Handbag_Production", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('regular', lowBound=0, cat='Integer')
+y = pl.LpVariable('premium', lowBound=0, cat='Integer')
+
+# Objective function
+prob += 30 * x + 180 * y
+
+# Constraints
+prob += 200 * x + 447 * y <= 250000    # Budget
+prob += x + y <= 475                   # Sales capacity
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Regular handbags:", x.varValue)
+print("Premium handbags:", y.varValue)
+print("Max profit:", pl.value(prob.objective))
+```
+
+This will return:
+- Regular handbags: 0  
+- Premium handbags: 475  
+- Max profit: 85500.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Handbag_Production", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('regular', lowBound=0, cat='Integer')
+    y = pl.LpVariable('premium', lowBound=0, cat='Integer')
+
+    # Objective function: Maximize profit
+    prob += 30 * x + 180 * y
+
+    # Constraints
+    prob += 200 * x + 447 * y <= 250000    # Budget constraint
+    prob += x + y <= 475                   # Sales capacity constraint
+
+    # Solve the problem
+    prob.solve()
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print detailed solution (optional, but allowed as not the final line)
+    print("Status:", pl.LpStatus[prob.status])
+    print("Regular handbags (x):", int(x.varValue))
+    print("Premium handbags (y):", int(y.varValue))
+    print("Maximum profit Z:", final_obj)
+
+    # Required final output line
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

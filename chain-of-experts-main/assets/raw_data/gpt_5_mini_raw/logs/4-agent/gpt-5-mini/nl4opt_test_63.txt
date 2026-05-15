@@ -1,0 +1,173 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Maximise total annual profit from producing loaves of bread and batches of cookies.
+
+2) Suggested model type
+- Model: Linear programming (continuous) — small 2-variable LP (can be solved graphically or with the simplex method). Note: if whole loaves/batches are required, solve as an integer LP, but continuous solution will be integer-feasible here or can be rounded and rechecked.
+
+3) Main decision variables
+- Number of loaves of bread produced per year (non‑negative).
+- Number of cookie batches produced per year (non‑negative).
+
+4) Key constraints to include (described conceptually)
+- Stand‑mixer capacity: total mixer hours used by bread and cookies cannot exceed 3000 hours per year (each loaf uses 1 hour; each cookie batch uses 0.5 hour).
+- Oven capacity: total oven hours used by bread and cookies cannot exceed 3000 hours per year (each loaf uses 3 hours; each cookie batch uses 1 hour).
+- Non‑negativity of production quantities.
+- (Optional) Integrality constraint if you require integer numbers of loaves/batches.
+- (Optional) Add any external limits if present later (demand caps, storage, labor, ingredient availability, minimum production levels).
+
+5) Objective specification (conceptual)
+- Maximise total profit = (profit per loaf × number of loaves) + (profit per cookie batch × number of batches). (Use $5 per loaf and $3 per cookie batch.)
+
+6) Solving and interpretation guidance for the modeller
+- Because there are only two decision variables, produce a feasibility region from the two capacity constraints and evaluate corner solutions (axes and any intersection).
+- Check which capacity constraint is binding and compute profit per critical resource (e.g., profit per oven hour and profit per mixer hour) to get intuition on which product is more profitable to allocate scarce machine time to.
+- Compute sensitivity/dual values for the machine hours to see the marginal value of adding capacity.
+
+7) Quick economic insight (useful check)
+- Profit per oven hour: bread = $5 / 3 hours ≈ $1.67 per oven hour; cookies = $3 / 1 hour = $3 per oven hour. Because the oven is the scarcest/critical machine in this setting, cookies give higher return per oven hour, so expect the optimal plan to use oven capacity entirely for cookies (subject to mixer capacity). Verify feasibility: using oven fully for cookies requires 3000 mixer hours × 0.5 = 1500 mixer hours, which is within the 3000 mixer‑hour limit.
+
+8) Suggested outputs for the modeller to report
+- Optimal production quantities (loaves, cookie batches) and total profit.
+- Which constraints are binding and their dual/shadow prices.
+- Sensitivity ranges for profits and capacities (how solution changes if profits or available hours change).
+- If integrality was imposed, any change in optimal value from rounding.
+
+(If you want, I can solve the LP and return the numerical optimal production plan and profit.)
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- x = number of loaves of bread produced per year (x ≥ 0).
+- y = number of batches of cookies produced per year (y ≥ 0).
+
+Objective
+Maximise total annual profit:
+Maximise Z = 5x + 3y
+
+Constraints
+- Stand-mixer capacity (≤ 3000 hours):
+  x + 0.5 y ≤ 3000
+- Oven capacity (≤ 3000 hours):
+  3x + y ≤ 3000
+- Non-negativity:
+  x ≥ 0, y ≥ 0
+- (Optional) Integrality: x, y integer if you require whole loaves/batches.
+
+Remarks about model type
+- This is a linear program in two variables; it can be solved graphically, by simplex, or with any LP solver. If integrality is required, solve as an integer LP (but the continuous optimum here is integer-feasible).
+
+Analytical solution (quick)
+Compare resource profitability per oven hour (the binding resource here):
+- Bread: profit per oven hour = 5 / 3 ≈ 1.67
+- Cookies: profit per oven hour = 3 / 1 = 3
+
+Because cookies give higher profit per oven hour, oven capacity will be used by cookies. Check feasible extreme points (axes and intersection). The feasible region is bounded by the oven constraint and axes (the mixer constraint is not restrictive in the positive quadrant here). The extreme points are:
+- (x,y) = (0,0) → Z = 0
+- (x,y) = (1000,0) (oven binds: 3x = 3000) → Z = 5·1000 = 5000
+- (x,y) = (0,3000) (oven binds: y = 3000) → Z = 3·3000 = 9000
+
+Optimal solution: produce only cookies:
+- x* = 0 loaves, y* = 3000 batches of cookies
+- Maximum profit Z* = $9,000
+
+Which constraints bind and shadow prices
+- Binding: oven constraint 3x + y ≤ 3000 (fully used).
+- Non-binding: mixer constraint x + 0.5y ≤ 3000 (slack = 1500 hours).
+Shadow prices (economic intuition)
+- Oven shadow price ≈ $3 per additional oven hour (one more oven hour allows 1 more cookie batch, worth $3).
+- Mixer shadow price = $0 (since mixer has slack, a marginal additional mixer hour does not increase profit if oven remains limiting).
+
+Suggested solvers / Python libraries
+- pulp (simple modeling + CBC solver) — easy to formulate and solve LPs/ILPs.
+- scipy.optimize.linprog — basic LP solver (continuous).
+- OR-Tools (CP-SAT for integer, or linear solver for LP) — fast, industrial strength.
+- pyomo (for modeling larger/complex problems) + solver backend (GLPK, CBC, Gurobi).
+- cvxpy (for convex optimization problems).
+
+Example (quick) using pulp
+- Formulate the LP with pulp (continuous) and solve; pulp also supports integer variables if needed.
+
+If you want, I can provide runnable Python code for one of these libraries and/or show sensitivity (dual) values produced by a solver.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data
+# Maximise Z = 5x + 3y
+# s.t.
+#   x + 0.5 y <= 3000  (mixer)
+#   3x + y <= 3000     (oven)
+#   x >= 0, y >= 0
+
+tol = 1e-9
+
+# Define constraint lines (as functions to compute intersections)
+# Lines: x + 0.5 y = 3000  and  3x + y = 3000
+# We'll consider intersections of these with axes and with each other,
+# plus the origin.
+
+candidates = []
+
+# origin
+candidates.append((0.0, 0.0))
+
+# Intersection of oven with x-axis (y=0 -> 3x=3000)
+candidates.append((3000.0/3.0, 0.0))  # (1000,0)
+
+# Intersection of oven with y-axis (x=0 -> y=3000)
+candidates.append((0.0, 3000.0))
+
+# Intersection of mixer with x-axis (y=0 -> x=3000)
+candidates.append((3000.0, 0.0))
+
+# Intersection of mixer with y-axis (x=0 -> 0.5 y = 3000 -> y=6000)
+candidates.append((0.0, 6000.0))
+
+# Intersection of the two constraint lines:
+# Solve:
+#   x + 0.5 y = 3000
+#   3x + y = 3000
+# Use linear algebra
+# From second: y = 3000 - 3x
+# Substitute: x + 0.5*(3000 - 3x) = 3000
+# => x + 1500 - 1.5x = 3000 => -0.5x = 1500 => x = -3000, y = 3000 - 3*(-3000) = 12000
+candidates.append((-3000.0, 12000.0))
+
+# Evaluate feasibility and objective
+best_obj = -math.inf
+best_point = None
+
+for x, y in candidates:
+    # Check non-negativity
+    if x < -tol or y < -tol:
+        continue
+    # Check constraints
+    if x + 0.5*y <= 3000 + tol and 3*x + y <= 3000 + tol:
+        obj = 5*x + 3*y
+        if obj > best_obj + tol:
+            best_obj = obj
+            best_point = (x, y)
+
+# As a fallback (shouldn't be needed), also check integer corner produced by oven constraint when setting x=0
+# (already included). If best_obj still -inf, set to 0 at origin.
+if best_obj == -math.inf:
+    best_obj = 0.0
+    best_point = (0.0, 0.0)
+
+# If the objective is very close to an integer, cast to int for nicer output
+if abs(best_obj - round(best_obj)) < 1e-6:
+    best_obj_to_print = int(round(best_obj))
+else:
+    best_obj_to_print = best_obj
+
+# Final required print
+print(f"FINAL_OBJ: {best_obj_to_print}")
+```

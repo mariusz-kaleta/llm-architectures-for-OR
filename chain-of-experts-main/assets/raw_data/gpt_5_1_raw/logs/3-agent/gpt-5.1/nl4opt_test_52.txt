@@ -1,0 +1,196 @@
+[MODELER]:
+Formulate this as an integer linear programming (ILP) problem.
+
+## Decision variables
+
+Let  
+- \(x\) = number of small suitcases to send (integer, \(\ge 0\))  
+- \(y\) = number of large suitcases to send (integer, \(\ge 0\))
+
+## Objective
+
+Each small suitcase holds 50 snacks, each large suitcase holds 80 snacks.  
+Maximize total snacks sent:
+
+\[
+\max \; Z = 50x + 80y
+\]
+
+## Constraints
+
+1. **Preference for small suitcases**: at least twice as many small as large:
+
+\[
+x \ge 2y
+\]
+
+2. **Availability of small suitcases**:
+
+\[
+x \le 70
+\]
+
+3. **Availability of large suitcases**:
+
+\[
+y \le 50
+\]
+
+4. **Minimum number of large suitcases**:
+
+\[
+y \ge 15
+\]
+
+5. **Total number of suitcases at most 70**:
+
+\[
+x + y \le 70
+\]
+
+6. **Integrality**:
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## Solving analytically (briefly)
+
+From \(x \ge 2y\) and \(x + y \le 70\):
+
+\[
+2y + y \le 70 \Rightarrow 3y \le 70 \Rightarrow y \le \frac{70}{3} \approx 23.33
+\]
+
+Together with \(y \ge 15\) and \(y \le 50\), the feasible integer range for \(y\) is:
+
+\[
+15 \le y \le 23
+\]
+
+To maximize snacks, we want as many suitcases and as many large ones as possible, while respecting \(x \ge 2y\) and \(x + y \le 70\).
+
+For each feasible \(y\), the best \(x\) is the largest value allowed by:
+
+\[
+x \ge 2y, \quad x \le 70 - y, \quad x \le 70
+\]
+
+Thus:
+
+\[
+x = \min(70 - y, \text{subject to } x \ge 2y)
+\]
+
+But \(x \ge 2y\) and \(x \le 70 - y\) together give \(2y \le 70 - y \Rightarrow y \le 23.33\), which we already have. So at optimum we take:
+
+\[
+x = 70 - y
+\]
+
+Check total snacks as a function of \(y\):
+
+\[
+Z(y) = 50x + 80y = 50(70 - y) + 80y = 3500 - 50y + 80y = 3500 + 30y
+\]
+
+This is increasing with \(y\), so maximize \(y\) in its feasible range: \(y = 23\).
+
+Then:
+
+\[
+x = 70 - y = 70 - 23 = 47
+\]
+
+Check small≥2×large: \(47 \ge 2 \cdot 23 = 46\) ✓
+
+Total snacks:
+
+\[
+Z = 50 \cdot 47 + 80 \cdot 23 = 2350 + 1840 = 4190
+\]
+
+**Optimal solution**:  
+- Small suitcases: \(x = 47\)  
+- Large suitcases: \(y = 23\)  
+- Maximum snacks: 4190
+
+---
+
+## Suitable Python libraries
+
+To implement and solve this ILP in Python, good choices include:
+
+- `PuLP` – simple, pure-Python LP/ILP modeling.
+- `ortools.linear_solver` (from Google OR-Tools) – efficient MIP solver.
+- `pyomo` – more general algebraic modeling language for optimization.
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Snack_Suitcases", pl.LpMaximize)
+
+# Variables
+x = pl.LpVariable("small", lowBound=0, cat="Integer")
+y = pl.LpVariable("large", lowBound=0, cat="Integer")
+
+# Objective
+prob += 50 * x + 80 * y
+
+# Constraints
+prob += x >= 2 * y            # preference for small
+prob += x <= 70               # small availability
+prob += y <= 50               # large availability
+prob += y >= 15               # minimum large
+prob += x + y <= 70           # total suitcases limit
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Small suitcases:", x.value())
+print("Large suitcases:", y.value())
+print("Max snacks:", pl.value(prob.objective))
+```
+
+This will return \(x = 47\), \(y = 23\), and total snacks = 4190.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the ILP problem
+    prob = pl.LpProblem("Snack_Suitcases", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable("small", lowBound=0, cat="Integer")  # number of small suitcases
+    y = pl.LpVariable("large", lowBound=0, cat="Integer")  # number of large suitcases
+
+    # Objective function: Maximize total snacks
+    prob += 50 * x + 80 * y
+
+    # Constraints
+    prob += x >= 2 * y          # Preference for small suitcases
+    prob += x <= 70             # Availability of small suitcases
+    prob += y <= 50             # Availability of large suitcases
+    prob += y >= 15             # Minimum number of large suitcases
+    prob += x + y <= 70         # Total number of suitcases at most 70
+
+    # Solve the ILP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,125 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Minimise the total number of animals used (cows + elephants) while transporting at least 1000 bricks.
+
+2. Suggested model type
+- Model: Integer Linear Program (ILP). Both decision variables are integer counts of animals. Alternatively a small discrete enumeration over a bounded range will be simple and robust.
+
+3. Main decision variables
+- C = number of cows (nonnegative integer).
+- E = number of elephants (nonnegative integer).
+
+4. Key constraints to consider (conceptual, not formal equations)
+- Capacity requirement: the combined carrying capacity must be at least 1000 bricks (each cow carries 20, each elephant 50).
+- Elephant-to-cow relationship 1: the number of elephants cannot exceed the number of cows (E ≤ C).
+- Elephant-to-cow relationship 2: there can be at most twice the number of cows as elephants — interpret as the number of cows is at most twice the number of elephants (C ≤ 2·E).
+- Integrality: C and E must be integer values (whole animals) and nonnegative.
+- Practical bounding for search/solver: C does not need to exceed 50 (if all cows, 50 cows ×20 =1000), and E need not exceed 20 (20 elephants ×50 =1000). These bounds make enumeration very small and tractable.
+
+5. Suggested solving approach / modelling notes
+- Objective: minimize N = C + E.
+- Use an ILP solver (e.g., branch-and-bound) or a simple loop over feasible E values (0..20): for each E compute the smallest feasible C that satisfies C ≥ E, C ≤ 2E, and the capacity constraint; record feasible (C,E) and choose the one with smallest N. If ties occur, return all tied optimal solutions or choose the one with more elephants (since they carry more).
+- Validate solution by checking all constraints and that 20C + 50E ≥ 1000.
+
+6. Required outputs from the Modeller
+- The minimal total number of animals N* and the corresponding integer values C* (cows) and E* (elephants).
+- A brief verification showing the capacity and that the two inter-species constraints are satisfied.
+
+---
+
+[MODELER]:
+Below I convert the textual description into a formal model, give a short solution method, and report the optimal integer solution.
+
+1) Mathematical model (ILP)
+- Decision variables
+  - C ∈ Z≥0 : number of cows
+  - E ∈ Z≥0 : number of elephants
+
+- Objective
+  - Minimize N = C + E
+
+- Constraints
+  - Capacity: 20 C + 50 E ≥ 1000
+  - Elephant ≤ Cow: E ≤ C
+  - Cow ≤ 2 · Elephant: C ≤ 2 E
+  - Practical upper bounds (optional but useful): C ≤ 50, E ≤ 20
+
+- Full ILP
+  minimize C + E
+  subject to
+    20 C + 50 E ≥ 1000
+    E − C ≤ 0
+    C − 2 E ≤ 0
+    C, E ∈ Z≥0
+    (optionally C ≤ 50, E ≤ 20)
+
+2) Solving approaches
+- Exact ILP solvers: pulp (CBC), OR-Tools CP-SAT, pyomo + a MILP solver.
+- Simple enumeration: loop E = 0..20, for each E compute the smallest integer C satisfying the three constraints (C ≥ E, C ≤ 2E, 20C + 50E ≥ 1000); keep the (C,E) with minimal C+E. Because bounds are small, brute-force search is trivial and fast.
+
+Suggested libraries: pulp, ortools (cp-sat), pyomo, or just plain Python with integer loops.
+
+Example (algorithmic outline)
+- For E from 0 to 20:
+    - Compute minimal C_needed_capacity = ceil((1000 − 50 E)/20) (treat negative RHS as 0)
+    - Let C_min = max(E, C_needed_capacity)
+    - If C_min ≤ 2E and C_min ≤ 50 then (C_min,E) is feasible; compute N = C_min + E and track the minimum.
+
+3) Optimal solution (result)
+- Minimum total animals N* = 29
+- C* = 15 cows
+- E* = 14 elephants
+
+Verification
+- Capacity: 20·15 + 50·14 = 300 + 700 = 1000 ≥ 1000 ✔
+- Elephant ≤ Cow: 14 ≤ 15 ✔
+- Cow ≤ 2·Elephant: 15 ≤ 28 ✔
+- Integrality: both integers ✔
+
+Notes
+- There is no solution with fewer than 29 animals that satisfies all constraints.
+- If you prefer an ILP code snippet (pulp or OR-Tools) or a short enumeration script in Python, tell me which and I will provide it.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data (initialized directly)
+CAPACITY_REQUIRED = 1000
+COW_CAPACITY = 20
+ELEPHANT_CAPACITY = 50
+
+# Practical search bounds
+C_MAX = 50
+E_MAX = 20
+
+best_N = None
+best_C = None
+best_E = None
+
+for E in range(0, E_MAX + 1):
+    # minimal cows needed for capacity: ceil((1000 - 50*E) / 20)
+    remaining = CAPACITY_REQUIRED - ELEPHANT_CAPACITY * E
+    if remaining <= 0:
+        c_needed_capacity = 0
+    else:
+        c_needed_capacity = math.ceil(remaining / COW_CAPACITY)
+    # respect elephant ≤ cow
+    c_min = max(E, c_needed_capacity)
+    # check upper bound C ≤ 2E and C ≤ C_MAX
+    if c_min <= 2 * E and c_min <= C_MAX:
+        N = c_min + E
+        if (best_N is None) or (N < best_N):
+            best_N = N
+            best_C = c_min
+            best_E = E
+
+if best_N is None:
+    raise ValueError("No feasible solution found within given bounds.")
+
+# Final objective value output (required exact format)
+print(f"FINAL_OBJ: {best_N}")
+```

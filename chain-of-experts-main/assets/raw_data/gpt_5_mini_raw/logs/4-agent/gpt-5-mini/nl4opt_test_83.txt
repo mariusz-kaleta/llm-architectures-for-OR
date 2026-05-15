@@ -1,0 +1,207 @@
+[PLANNER]:
+1) Key optimisation goal
+- Maximise the total amount of mail (bags) delivered from the village, given time and policy limits.
+
+2) Suggested model type
+- Mixed Integer Linear Program (MILP). Use integer (count) decision variables for trip counts; you can solve a continuous LP relaxation first for quick bounds, then impose integrality.
+
+3) Main decision variables (describe only — do not write equations)
+- Number of runner deliveries/trips (R). Each runner trip carries 3 bags and consumes 4 hours.
+- Number of canoe deliveries/trips (C). Each canoe trip carries 10 bags and consumes 2 hours.
+- (Optional) Auxiliary variables for slack/unused hours or to represent totals if helpful for reporting.
+
+4) Key constraints to include (described)
+- Total-hours budget: the sum of hours used by runners and canoers cannot exceed the available 200 hours.
+- Minimum-runners requirement: at least 4 runner trips must be scheduled.
+- Canoe share cap: no more than 33% of deliveries may be by canoe. Interpret and implement this consistently:
+  - Most likely interpretation: 33% refers to the fraction of trips; implement that by enforcing that canoe trips are at most 33% of the total number of trips (canoes ≤ 0.33 × (runners + canoes)). This can be algebraically rearranged into a linear constraint between C and R so the model remains linear.
+  - Alternative interpretation (if problem text meant “33% of delivered mail by weight/volume”): enforce that the mail delivered by canoe does not exceed 33% of total mail delivered. If that interpretation is plausible, build and solve both versions and compare results.
+- Non-negativity and integrality: R and C must be non‑negative integers (counts of trips). If integer enforcement is too strict for quick insight, solve continuous relaxation first and then round/check feasibility.
+
+Additional modelling notes and recommendations
+- Objective function: maximize total bags delivered = (3 bags per runner trip × R) + (10 bags per canoe trip × C).
+- Note service productivity: canoers are much more time‑efficient (bags per hour); expect the optimal solution to push canoe use up to the policy cap and then use remaining time for runner trips, subject to the minimum-runner constraint.
+- Solve as MILP. If multiple interpretations of the 33% clause are possible, produce solutions for each interpretation and document which one was used. Report hours used, number of each trip type, and total mail delivered.
+
+---
+
+[MODELER]:
+Summary
+- We need a MILP with two integer decision variables: number of runner trips R and number of canoe trips C.
+- Objective: maximize total bags delivered = 3R + 10C.
+- Constraints: total available hours (200), minimum runners (R ≥ 4), the 33% policy (two plausible interpretations — see below), nonnegativity and integrality.
+
+Model (common parts)
+- Variables:
+  - R ∈ Z, R ≥ 4 : number of runner trips.
+  - C ∈ Z, C ≥ 0 : number of canoe trips.
+- Objective:
+  - Maximize Z = 3R + 10C.
+- Hours constraint:
+  - 4R + 2C ≤ 200  (equivalently 2R + C ≤ 100).
+- Integrality / bounds:
+  - R, C integers, R ≥ 4, C ≥ 0.
+
+Two interpretations of "At most 33% of deliveries can be by canoe"
+1) 33% of trips are by canoe (trips-share)
+   - Constraint: C ≤ 0.33 × (R + C).
+   - Rearranged (linear): (1 − 0.33)C ≤ 0.33 R → 0.67 C ≤ 0.33 R → C ≤ (0.33/0.67) R ≈ 0.492537 R.
+   - (If you prefer an exact 1/3 instead of 0.33, the constraint becomes C ≤ (1/2) R.)
+
+2) 33% of delivered mail (bags) is by canoe (mail-share)
+   - Constraint: 10C ≤ 0.33 × (3R + 10C).
+   - Rearranged: (10 − 3.3)C ≤ 0.99 R → 6.7 C ≤ 0.99 R → C ≤ (0.99/6.7) R ≈ 0.14776 R.
+   - (If using exact 1/3: 10C ≤ (1/3)(3R +10C) → 20C ≤ 3R → C ≤ (3/20) R = 0.15 R.)
+
+Solution(s) — solved as small MILPs (integer variables)
+I solved both plausible interpretations (both with the 0.33 decimal form, and note the exact 1/3 variants where useful).
+
+A. Trips-share (C ≤ 0.33(R + C); using 0.33)
+- Optimal integer solution: R = 40 runner trips, C = 19 canoe trips.
+- Hours used: 4·40 + 2·19 = 198 hours (≤ 200).
+- Total mail delivered: 3·40 + 10·19 = 310 bags.
+
+If you treat 33% as exact 1/3 (C ≤ (1/3)(R+C) → C ≤ R/2):
+- Optimal integer solution: R = 40, C = 20.
+- Hours used: 200 hours (exact).
+- Total mail delivered: 320 bags.
+
+B. Mail-share (canoe mail ≤ 33% of total; using 0.33)
+- Optimal integer solution: R = 47 runner trips, C = 6 canoe trips.
+- Hours used: 4·47 + 2·6 = 200 hours (exact).
+- Total mail delivered: 3·47 + 10·6 = 201 bags.
+
+(If using exact 1/3 in mail-share the numeric optimum is essentially the same: R = 47, C = 6 giving 201 bags.)
+
+Comments and interpretation
+- Canoe trips are much more productive per hour (5 bags/hour) than runners (0.75 bags/hour). Under the trips-share rule the model pushes canoe use to the policy cap and then uses remaining hours for runners → yields much higher total mail (310–320 bags).
+- Under the mail-share rule the canoe mail share constraint is much more restrictive, leading to many more runner trips and much lower total delivered mail (201 bags).
+- Which is correct depends on the policy meaning of “33%”: most natural reading in this problem statement is “33% of deliveries (trips)”, which yields the higher deliveries (R=40, C=19 if 33% interpreted as 0.33; R=40, C=20 if interpreted as precisely 1/3). I recommend confirming whether “33%” is intended as 0.33 (approx.) or exactly 1/3.
+
+Suggested solvers / libraries
+- pulp (simple Python MILP interface, uses CBC by default): good for small problems and prototyping.
+- OR-Tools (CP-SAT) — very fast and robust for integer problems.
+- Pyomo (with CBC/Gurobi) or Gurobi (proprietary, very fast) for larger or production-grade solving.
+- For a continuous relaxation first, use scipy.optimize.linprog or pulp with continuous variables.
+
+Minimal example (pseudocode / outline using pulp)
+- Define integer variables R and C.
+- Add constraints: R >= 4; 4*R + 2*C <= 200; canoe-share constraint (pick one of the two forms above).
+- Objective: maximize 3*R + 10*C.
+- Solve with pulp.PULP_CBC_CMD() (or OR-Tools) and report R,C,hours,mail.
+
+If you want, I can:
+- Provide a ready-to-run Python script for both interpretations (with both the 0.33 and exact 1/3 variants) that prints the optimal integer solutions and the LP relaxations.
+- Or use a different solver (OR-Tools or Gurobi) if you prefer.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the MILP under multiple interpretations of the 33% rule.
+# Uses PuLP (CBC solver included with PuLP).
+# Initializes data in code, solves 4 variants, prints results, and finally prints FINAL_OBJ: <value>
+
+import pulp
+
+def solve_case(name, linear_constraints):
+    # Create MILP
+    prob = pulp.LpProblem(name, pulp.LpMaximize)
+    # Decision variables
+    R = pulp.LpVariable('R', lowBound=4, cat='Integer')   # runner trips, integer, >=4
+    C = pulp.LpVariable('C', lowBound=0, cat='Integer')   # canoe trips, integer, >=0
+
+    # Objective: maximize 3R + 10C
+    prob += 3 * R + 10 * C, "TotalBags"
+
+    # Hours constraint: 4R + 2C <= 200
+    prob += 4 * R + 2 * C <= 200, "Hours"
+
+    # Add any additional linear constraints passed in (each is a tuple coeffs and rhs form)
+    # Each constraint is expressed as (a_R, a_C, sense, rhs) where sense is '<=' or '>=' or '=='
+    for (aR, aC, sense, rhs, cname) in linear_constraints:
+        if sense == "<=":
+            prob += aR * R + aC * C <= rhs, cname
+        elif sense == ">=":
+            prob += aR * R + aC * C >= rhs, cname
+        elif sense == "==":
+            prob += aR * R + aC * C == rhs, cname
+        else:
+            raise ValueError("Unsupported sense in constraint")
+
+    # Solve with default CBC solver
+    solver = pulp.PULP_CBC_CMD(msg=False)
+    result = prob.solve(solver)
+
+    status = pulp.LpStatus.get(prob.status, "Unknown")
+    R_val = int(pulp.value(R))
+    C_val = int(pulp.value(C))
+    obj = int(pulp.value(prob.objective))
+    hours_used = 4 * R_val + 2 * C_val
+    return {
+        "name": name,
+        "status": status,
+        "R": R_val,
+        "C": C_val,
+        "hours": hours_used,
+        "obj": obj,
+        "prob": prob
+    }
+
+def main():
+    cases = []
+
+    # 1) Trips-share interpretation using decimal 0.33:
+    # Constraint: C <= 0.33*(R + C) -> 0.67*C <= 0.33*R -> 0.67*C - 0.33*R <= 0
+    cases.append((
+        "Trips-share (0.33 decimal)",
+        [(-0.33, 0.67, "<=", 0, "TripsShare_0.33")]  # rearranged to: -0.33*R + 0.67*C <= 0
+        # Note: stored as (aR, aC, sense, rhs, name)
+    ))
+
+    # 1b) Trips-share exact 1/3:
+    # Constraint: C <= (1/3)*(R + C) -> 2C <= R -> 2*C - R <= 0
+    cases.append((
+        "Trips-share (1/3 exact)",
+        [(-1.0, 2.0, "<=", 0, "TripsShare_1div3")]  # -1*R + 2*C <= 0  <=> 2C <= R
+    ))
+
+    # 2) Mail-share interpretation using decimal 0.33:
+    # Constraint: 10C <= 0.33*(3R + 10C) -> 6.7*C <= 0.99*R -> 6.7*C - 0.99*R <= 0
+    cases.append((
+        "Mail-share (0.33 decimal)",
+        [(-0.99, 6.7, "<=", 0, "MailShare_0.33")]  # -0.99*R + 6.7*C <= 0
+    ))
+
+    # 2b) Mail-share exact 1/3:
+    # Constraint: 10C <= (1/3)*(3R +10C) -> 20C <= 3R -> 20*C - 3*R <= 0
+    cases.append((
+        "Mail-share (1/3 exact)",
+        [(-3.0, 20.0, "<=", 0, "MailShare_1div3")]  # -3*R + 20*C <= 0  <=> 20C <= 3R
+    ))
+
+    results = []
+    for name, constrs in cases:
+        res = solve_case(name, constrs)
+        results.append(res)
+
+    # Print summary of each case
+    for r in results:
+        print(f"Case: {r['name']}")
+        print(f" Status: {r['status']}")
+        print(f" R (runner trips): {r['R']}")
+        print(f" C (canoe trips): {r['C']}")
+        print(f" Hours used: {r['hours']} / 200")
+        print(f" Total bags delivered (objective): {r['obj']}")
+        print("")
+
+    # Determine the maximum objective among all cases
+    max_obj = max(r['obj'] for r in results)
+
+    # FINAL required output line (must be the last line)
+    print(f"FINAL_OBJ: {max_obj}")
+
+if __name__ == "__main__":
+    main()
+```

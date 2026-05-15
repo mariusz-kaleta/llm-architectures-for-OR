@@ -1,0 +1,100 @@
+[MODELER]:
+Formal model (integer linear program)
+
+Decision variables
+- d ∈ Z≥0: number of dual stamping machines.
+- s ∈ Z≥0: number of single stamping machines.
+
+Objective
+Minimize the total number of machines:
+minimize Z = d + s
+
+Constraints
+1. Production (at least 300 letters/min):
+50 d + 30 s ≥ 300
+(or 5d + 3s ≥ 30)
+
+2. Glue (at most 135 units/min):
+20 d + 15 s ≤ 135
+(or 4d + 3s ≤ 27)
+
+3. Single machines must be more than dual machines:
+s ≥ d + 1
+
+4. Integrality and nonnegativity:
+d, s ∈ Z≥0
+
+Solution (analysis)
+From the constraints (5d + 3s ≥ 30 and 4d + 3s ≤ 27) we get feasible integer pairs. Checking feasible integers that also satisfy s ≥ d+1 yields a unique feasible solution:
+
+d = 3, s = 5
+
+Verification:
+- Production: 50·3 + 30·5 = 150 + 150 = 300 ≥ 300
+- Glue: 20·3 + 15·5 = 60 + 75 = 135 ≤ 135
+- s > d: 5 > 3
+Total machines = 8 (minimal)
+
+Recommended solvers / Python libraries
+- pulp (linear/integer programming, uses CBC by default)
+- OR-Tools CP-SAT (good for small integer programs)
+- mip (Python-MIP), or gurobi/cplex if commercial solvers are available
+
+Example (pulp) -- outline
+1) Define integer variables d, s.
+2) Add the three constraints above.
+3) Minimize d + s and solve with CBC.
+
+If you want, I can provide a ready-to-run Python snippet using pulp or OR-Tools.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+# Self-contained Python script to solve the ILP by enumeration
+# Decision variables: d (dual machines), s (single machines), integers >=0
+# Minimize Z = d + s
+# Constraints:
+#  50 d + 30 s >= 300   (production)
+#  20 d + 15 s <= 135   (glue)
+#  s >= d + 1
+
+def is_feasible(d, s):
+    if d < 0 or s < 0:
+        return False
+    if 50 * d + 30 * s < 300:
+        return False
+    if 20 * d + 15 * s > 135:
+        return False
+    if s < d + 1:
+        return False
+    return True
+
+# Search bounds:
+# From glue and s>=d+1 we can deduce d is small; still search modest ranges
+max_d = 20
+max_s = 20
+
+feasible_solutions = []
+for d in range(max_d + 1):
+    for s in range(max_s + 1):
+        if is_feasible(d, s):
+            feasible_solutions.append((d, s, d + s))
+
+if not feasible_solutions:
+    print("No feasible integer solutions found.")
+else:
+    # Find minimal objective value
+    feasible_solutions.sort(key=lambda x: x[2])
+    min_obj = feasible_solutions[0][2]
+    # Collect all solutions achieving min_obj
+    best_solutions = [ (d,s) for (d,s,z) in feasible_solutions if z == min_obj ]
+    # Print found solutions (optional informational output)
+    print("Feasible solutions (d, s, Z):")
+    for d,s,z in feasible_solutions:
+        print(f"  ({d}, {s}, {z})")
+    print("Best solution(s) with minimal Z:")
+    for d,s in best_solutions:
+        print(f"  d = {d}, s = {s}, Z = {min_obj}")
+
+# Final required print line (exact format)
+print(f"FINAL_OBJ: {min_obj}")

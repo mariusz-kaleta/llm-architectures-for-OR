@@ -1,0 +1,53 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Maple_Oil_Processing", pulp.LpMaximize)
+
+# Decision variables: number of tanks (can be fractional)
+x_light = pulp.LpVariable("x_light", lowBound=0, cat="Continuous")        # light oil tanks
+x_nonsticky = pulp.LpVariable("x_nonsticky", lowBound=0, cat="Continuous")# non-sticky oil tanks
+x_heavy = pulp.LpVariable("x_heavy", lowBound=0, cat="Continuous")        # heavy oil tanks
+
+# Parameters (directly from the problem statement)
+rev_light = 550
+rev_nonsticky = 750
+rev_heavy = 950
+
+# Resource requirements
+# Compound A requirements per tank
+A_light = 3
+A_nonsticky = 6
+A_heavy = 9
+
+# Compound B requirements per tank
+B_light = 3
+B_nonsticky = 2
+B_heavy = 3
+
+# Available resources
+A_available = 250
+B_available = 150
+
+# Objective: maximize net revenue
+prob += rev_light * x_light + rev_nonsticky * x_nonsticky + rev_heavy * x_heavy, "Total_Revenue"
+
+# Constraints
+prob += A_light * x_light + A_nonsticky * x_nonsticky + A_heavy * x_heavy <= A_available, "Compound_A_Limit"
+prob += B_light * x_light + B_nonsticky * x_nonsticky + B_heavy * x_heavy <= B_available, "Compound_B_Limit"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve results
+val_light = pulp.value(x_light)
+val_nonsticky = pulp.value(x_nonsticky)
+val_heavy = pulp.value(x_heavy)
+objective_value = pulp.value(prob.objective)
+
+# Print solution (decision variable values) and final objective value as required
+print(f"Optimal tanks of light oil (can be fractional): {val_light}")
+print(f"Optimal tanks of non-sticky oil (can be fractional): {val_nonsticky}")
+print(f"Optimal tanks of heavy oil (can be fractional): {val_heavy}")
+print(f"Optimal total net revenue: {objective_value}")
+print(f"FINAL_OBJ: {objective_value}")

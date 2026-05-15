@@ -1,0 +1,159 @@
+[MODELER]:
+Let’s turn this into a clear optimization model.
+
+### 1. Decision variables
+
+Let  
+- \(v\) = number of vans used  
+- \(c\) = number of cars used  
+
+Both should be nonnegative integers:
+\[
+v \ge 0,\quad c \ge 0,\quad v,c \in \mathbb{Z}
+\]
+
+### 2. Objective
+
+The problem states: *“How many of each vehicle should be used to minimize the total number of cars used?”*
+
+So we minimize:
+\[
+\min c
+\]
+
+(We only care about the number of cars, not total vehicles or cost.)
+
+### 3. Constraints
+
+**Capacity constraint (must carry at least 200 voters):**
+
+- Vans carry 6 each, cars carry 3 each.  
+  Total capacity:
+  \[
+  6v + 3c \ge 200
+  \]
+
+**Van proportion constraint (at most 30% of vehicles can be vans):**
+
+- At most 30% of all vehicles used are vans:
+  \[
+  \frac{v}{v + c} \le 0.3
+  \]
+  for \(v + c > 0\).
+
+  Multiply both sides by \(v + c\) (assuming at least one vehicle is used):
+  \[
+  v \le 0.3(v + c)
+  \]
+  \[
+  v \le 0.3v + 0.3c
+  \]
+  \[
+  0.7v \le 0.3c
+  \]
+  \[
+  7v \le 3c
+  \]
+
+So the linear form of the constraint is:
+\[
+7v \le 3c
+\]
+
+### 4. Complete model
+
+\[
+\begin{aligned}
+\min\ & c \\
+\text{s.t. } & 6v + 3c \ge 200 \\
+& 7v \le 3c \\
+& v, c \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+### 5. Suitable Python libraries
+
+This is a small integer linear program (ILP). Appropriate libraries:
+
+- `PuLP` (simple interface to various MILP solvers; very suitable for teaching and small models)
+- `ortools.linear_solver` (Google OR-Tools MILP/LP solver)
+- `mip` (Python-MIP)
+- `pyomo` (more general modeling framework, also works well)
+
+For a problem this size, `pulp` or `ortools` are ideal.
+
+---
+
+### 6. (Optional) Solving by hand to see the answer
+
+From \(7v \le 3c\) we get:
+\[
+c \ge \frac{7}{3} v
+\]
+
+From capacity:
+\[
+6v + 3c \ge 200 \;\Rightarrow\; 2v + c \ge \frac{200}{3} \approx 66.67
+\]
+
+To minimize \(c\), given \(c \ge \frac{7}{3}v\), plug into capacity:
+
+\[
+2v + \frac{7}{3}v \ge \frac{200}{3}
+\Rightarrow \frac{13}{3}v \ge \frac{200}{3}
+\Rightarrow v \ge \frac{200}{13} \approx 15.38
+\]
+
+So smallest integer \(v\) is 16.
+
+Then:
+\[
+c \ge \frac{7}{3}\cdot 16 = \frac{112}{3} \approx 37.33 \Rightarrow c \ge 38
+\]
+
+Check feasibility with \(v = 16, c = 38\):
+
+- Capacity: \(6\cdot 16 + 3\cdot 38 = 96 + 114 = 210 \ge 200\) ✓  
+- Van proportion: total vehicles \(= 16 + 38 = 54\),  
+  \(\frac{16}{54} \approx 0.296 < 0.30\) ✓
+
+And this uses the minimal \(c\) consistent with the constraints.
+
+**Optimal solution:**
+- Vans: \(v = 16\)  
+- Cars: \(c = 38\)
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: minimize number of cars
+    prob = pulp.LpProblem("Minimize_Cars", pulp.LpMinimize)
+
+    # Decision variables
+    v = pulp.LpVariable('v', lowBound=0, cat=pulp.LpInteger)  # vans
+    c = pulp.LpVariable('c', lowBound=0, cat=pulp.LpInteger)  # cars
+
+    # Objective: minimize number of cars
+    prob += c, "Minimize_cars"
+
+    # Constraints
+    # Capacity: 6v + 3c >= 200
+    prob += 6 * v + 3 * c >= 200, "Capacity"
+
+    # Van proportion: 7v <= 3c
+    prob += 7 * v <= 3 * c, "Van_Proportion"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value (minimal number of cars)
+    final_obj = pulp.value(c)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

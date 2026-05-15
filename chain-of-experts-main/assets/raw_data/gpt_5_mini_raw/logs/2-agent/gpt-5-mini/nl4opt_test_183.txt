@@ -1,0 +1,85 @@
+[MODELER]:
+Formal mathematical model
+
+Decision variables
+- L ∈ Z≥0 : number of large-ship trips
+- S ∈ Z≥0 : number of small-ship trips
+
+Objective
+Minimize total pollution
+minimize P = 20L + 15S
+
+Constraints
+1. Capacity: 2000L + 800S ≥ 20,000
+2. Small-trip fraction: S ≥ 0.4(L + S)  (equivalently S ≥ (2/3)L)
+3. Large-trip availability: L ≤ 7
+4. Integrality and nonnegativity: L, S ∈ Z≥0
+
+(Constraint 2 rearranged: S ≥ 0.4L + 0.4S → 0.6S ≥ 0.4L → S ≥ (2/3)L.)
+
+Solve analytically / reasoning
+- Pollution per passenger: large = 20/2000 = 0.01 per customer, small = 15/800 = 0.01875 per customer. Large ships are more pollution-efficient, so use the maximum allowed large trips if feasible.
+- Set L = 7 (max). Capacity provided = 7·2000 = 14,000, so remaining customers = 6,000 → S ≥ 6000/800 = 7.5 → S must be integer so S ≥ 8.
+- Check small-trip fraction: S = 8 ≥ (2/3)·7 ≈ 4.67, so the 40% requirement is satisfied.
+- Pollution: P = 20·7 + 15·8 = 140 + 120 = 260 units.
+
+Check other integer L values (0..7) gives higher total pollution, so the integer optimal solution is
+- L = 7 large trips, S = 8 small trips, minimum pollution = 260 units.
+
+Remarks
+- If fractional trips were allowed, you would take L = 7 and S = 7.5 (pollution 20·7 + 15·7.5 = 247.5), but trips are integer so S = 8 is required.
+- This is a small integer linear program (ILP). Recommended solvers / libraries:
+  - pulp (pure Python MILP interface)
+  - ortools (CP-SAT solver for integer problems)
+  - pyomo or cvxpy (with an MILP solver backend like GLPK, CBC, Gurobi)
+  - scipy.optimize is not ideal for integer problems (continuous only)
+
+Example (pulp) outline
+- Define L and S as LpInteger variables.
+- Add constraints 2000*L + 800*S >= 20000, S >= (2/3)*L, L <= 7, L >= 0, S >= 0.
+- Minimize 20*L + 15*S and solve.
+
+Answer
+Use 7 large-ship trips and 8 small-ship trips; this meets all constraints and minimizes pollution at 260 units.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data
+capacity_large = 2000
+capacity_small = 800
+demand = 20000
+pollution_large = 20
+pollution_small = 15
+max_L = 7
+
+best_obj = None
+best_L = None
+best_S = None
+
+for L in range(0, max_L + 1):
+    # S must satisfy fraction constraint: S >= ceil( (2/3) * L ) = ceil(2L/3)
+    min_S_fraction = math.ceil((2 * L) / 3)
+    # S must satisfy capacity: 2000L + 800S >= 20000 -> S >= (20000 - 2000L)/800
+    remaining = demand - capacity_large * L
+    if remaining <= 0:
+        min_S_capacity = 0
+    else:
+        min_S_capacity = math.ceil(remaining / capacity_small)
+    min_S = max(0, min_S_fraction, min_S_capacity)
+
+    # For given L, increasing S increases pollution (coefficients positive), so minimal feasible S is best for that L
+    S = min_S
+    obj = pollution_large * L + pollution_small * S
+
+    if best_obj is None or obj < best_obj:
+        best_obj = obj
+        best_L = L
+        best_S = S
+
+# Set the required variable name for final print
+value = best_obj
+
+print(f"FINAL_OBJ: {value}")

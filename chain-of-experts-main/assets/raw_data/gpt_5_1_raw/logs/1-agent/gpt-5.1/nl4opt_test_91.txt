@@ -1,0 +1,42 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Minimize_Fat_Intake", pulp.LpMinimize)
+
+# Decision variables: number of turkey dinners (T) and tuna sandwiches (S)
+T = pulp.LpVariable('Turkey_Dinners', lowBound=0, cat='Continuous')
+S = pulp.LpVariable('Tuna_Sandwiches', lowBound=0, cat='Continuous')
+
+# Objective: Minimize total fat intake
+# Turkey dinner: 12 g fat, Tuna sandwich: 8 g fat
+prob += 12 * T + 8 * S, "Total_Fat"
+
+# Constraints:
+# Protein: at least 150 g
+# Turkey: 20 g protein, Tuna: 18 g protein
+prob += 20 * T + 18 * S >= 150, "Protein_Constraint"
+
+# Carbs: at least 200 g
+# Turkey: 30 g carbs, Tuna: 25 g carbs
+prob += 30 * T + 25 * S >= 200, "Carb_Constraint"
+
+# At most 40% of the meals should be turkey dinners:
+# T <= 0.4 * (T + S)  ->  T <= (2/3) * S
+prob += T <= (2.0 / 3.0) * S, "Turkey_Proportion_Constraint"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+# Extract results
+T_opt = pulp.value(T)
+S_opt = pulp.value(S)
+fat_opt = pulp.value(prob.objective)
+
+# Print solution details
+print(f"Optimal number of turkey dinners: {T_opt}")
+print(f"Optimal number of tuna sandwiches: {S_opt}")
+print(f"Minimum total fat intake: {fat_opt}")
+
+# Required final objective print
+print(f"FINAL_OBJ: {fat_opt}")

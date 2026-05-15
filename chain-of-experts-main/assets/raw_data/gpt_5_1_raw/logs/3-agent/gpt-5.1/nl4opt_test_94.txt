@@ -1,0 +1,108 @@
+[MODELER]:
+Model this as an integer linear program.
+
+### Decision variables
+- \(x\): number of ferry trips (integer, \(x \ge 0\))
+- \(y\): number of light rail trips (integer, \(y \ge 0\))
+
+### Objective
+Minimize the total number of trips:
+\[
+\min \; x + y
+\]
+
+### Constraints
+
+1. **Capacity (boxes shipped)**  
+   Each ferry trip carries 20 boxes, each light rail trip carries 15 boxes, and we need at least 500 boxes:
+   \[
+   20x + 15y \;\ge\; 500
+   \]
+
+2. **Light rail trips at least 4 times ferry trips**  
+   \[
+   y \;\ge\; 4x
+   \]
+
+3. **Integrality and non-negativity**  
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+This is a small integer linear program (ILP). Because coefficients and variables are small, you could also solve it by inspection, but algorithmically:
+
+### Suitable Python libraries
+
+Any mixed-integer linear programming solver is appropriate:
+
+- `pulp` (Python linear programming, open-source and easy to use)
+- `ortools.linear_solver` from Google OR-Tools (powerful MIP solver)
+- `mip` (Python-MIP)
+- `scipy.optimize` is less suitable because it does not natively handle integer constraints; you’d have to relax integrality or implement search manually.
+
+Example with PuLP (sketch):
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Corn_Shipping", pl.LpMinimize)
+
+# Variables
+x = pl.LpVariable('ferry_trips', lowBound=0, cat='Integer')
+y = pl.LpVariable('rail_trips', lowBound=0, cat='Integer')
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 20*x + 15*y >= 500
+prob += y >= 4*x
+
+# Solve
+prob.solve()
+print("Status:", pl.LpStatus[prob.status])
+print("Ferry trips:", x.value())
+print("Rail trips:", y.value())
+print("Total trips:", x.value() + y.value())
+```
+
+This exactly encodes the mathematical model above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Ferry_LightRail_Trips_Minimization", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('ferry_trips', lowBound=0, cat='Integer')
+    y = pl.LpVariable('rail_trips', lowBound=0, cat='Integer')
+
+    # Objective: minimize total trips
+    prob += x + y
+
+    # Constraints
+    prob += 20 * x + 15 * y >= 500      # Capacity (boxes shipped)
+    prob += y >= 4 * x                  # Light rail at least 4 times ferry
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    total_trips = pl.value(x + y)
+
+    # Optional: print detailed solution (can be removed if not needed)
+    # print(f"Status: {pl.LpStatus[prob.status]}")
+    # print(f"Ferry trips (x): {x.value()}")
+    # print(f"Light rail trips (y): {y.value()}")
+    # print(f"Total trips: {total_trips}")
+
+    # Final required output
+    print(f"FINAL_OBJ: {total_trips}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,160 @@
+[MODELER]:
+Let’s turn this into an optimization model and then solve it.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = amount of money invested in apartments (in dollars)  
+- \(y\) = amount of money invested in townhouses (in dollars)
+
+Both must be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+## 2. Objective function
+
+Profit from:
+- Apartments: 10% of \(x\) → \(0.10x\)
+- Townhouses: 15% of \(y\) → \(0.15y\)
+
+Maximize total profit:
+\[
+\max \; Z = 0.10x + 0.15y
+\]
+
+## 3. Constraints
+
+1. Total available money:
+   \[
+   x + y \le 600{,}000
+   \]
+
+2. Limit on apartments investment (no more than \$200,000):
+   \[
+   x \le 200{,}000
+   \]
+
+3. Apartments must be at least half of townhouses:
+   \[
+   x \ge \frac{1}{2}y
+   \quad\Longleftrightarrow\quad
+   2x \ge y
+   \]
+
+4. Nonnegativity:
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+
+This is a linear programming (LP) problem.
+
+## 4. Solve analytically
+
+Because townhouses yield a higher return (15% > 10%), you want to invest as much as possible in townhouses while respecting the constraints.
+
+Use the binding (tight) constraints at optimum:
+
+- You will use all available money: \(x + y = 600{,}000\)
+- Apartments at max: \(x = 200{,}000\)
+- Check the “at least half” constraint: \(x \ge \frac{1}{2}y\)
+
+From \(x = 200{,}000\) and \(x + y = 600{,}000\):
+\[
+y = 600{,}000 - 200{,}000 = 400{,}000
+\]
+
+Check feasibility:
+\[
+\text{Half condition: } x \ge \tfrac{1}{2}y \Rightarrow 200{,}000 \ge 0.5 \cdot 400{,}000 = 200{,}000
+\]
+This holds as equality, so the solution is feasible.
+
+Profit:
+\[
+Z = 0.10(200{,}000) + 0.15(400{,}000)
+  = 20{,}000 + 60{,}000
+  = 80{,}000
+\]
+
+No other feasible corner point will give higher profit, since any shift of money from townhouses to apartments reduces return, and you are already at the maximum townhouse allocation consistent with the constraints.
+
+## 5. Optimal investment
+
+- Invest **\$200,000 in apartments**
+- Invest **\$400,000 in townhouses**
+- Maximum profit: **\$80,000**
+
+## 6. How to model/solve in Python
+
+You can use any linear programming library, for example:
+
+- **PuLP** (`pulp`)
+- **OR-Tools** (`ortools.linear_solver`)
+- **SciPy** (`scipy.optimize.linprog`)
+
+Here is a PuLP example:
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("RealEstateInvestment", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('Apartments', lowBound=0)   # amount in apartments
+y = pl.LpVariable('Townhouses', lowBound=0)   # amount in townhouses
+
+# Objective function
+prob += 0.10 * x + 0.15 * y, "TotalProfit"
+
+# Constraints
+prob += x + y <= 600000          # Total available money
+prob += x <= 200000              # Max in apartments
+prob += x >= 0.5 * y             # Apartments at least half of townhouses
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Invest in apartments:", x.value())
+print("Invest in townhouses:", y.value())
+print("Maximum profit:", pl.value(prob.objective))
+```
+
+This will return:
+- Apartments: 200000.0  
+- Townhouses: 400000.0  
+- Maximum profit: 80000.0
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def solve_investment_problem():
+    # Create problem
+    prob = pl.LpProblem("RealEstateInvestment", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('Apartments', lowBound=0)   # amount in apartments
+    y = pl.LpVariable('Townhouses', lowBound=0)   # amount in townhouses
+
+    # Objective function: maximize profit
+    prob += 0.10 * x + 0.15 * y, "TotalProfit"
+
+    # Constraints
+    prob += x + y <= 600000          # Total available money
+    prob += x <= 200000              # Max in apartments
+    prob += x >= 0.5 * y             # Apartments at least half of townhouses
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    obj_value = pl.value(prob.objective)
+    return obj_value
+
+if __name__ == "__main__":
+    final_obj = solve_investment_problem()
+    print(f"FINAL_OBJ: {final_obj}")

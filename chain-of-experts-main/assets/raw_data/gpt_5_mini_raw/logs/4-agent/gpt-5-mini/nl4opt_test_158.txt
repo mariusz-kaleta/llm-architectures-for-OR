@@ -1,0 +1,149 @@
+[PLANNER]:
+1) Key optimisation goal
+- Maximise the total number of tricks performed (each otter performance yields 3 tricks; each dolphin performance yields 1 trick).
+
+2) Suggested model type
+- Integer Linear Programming (ILP). Only two integer decision variables are needed, so a small ILP or even an exhaustive discrete search is practical.
+
+3) Main decision variables
+- Number of otter performers (integer, ≥ 0).
+- Number of dolphin performers (integer, ≥ 0).
+(Optionally use a derived variable for total performers = otters + dolphins for readability.)
+
+4) Key constraints to include (described so they can be implemented linearly)
+- Treats budget: The total treats consumed cannot exceed 200. (Each otter performance consumes 3 treats; each dolphin performance consumes 5 treats.)
+- Minimum dolphins: At least 10 dolphins must be used.
+- Otter proportion cap: Otters may be at most 30% of all performers. (Implement by constraining otters relative to total performers; this is a linear constraint once the total-performers variable is introduced or when algebraically rearranged.)
+- Integrality and non-negativity: Both performer counts must be non‑negative integers.
+
+Additional modelling/solution notes
+- Objective function is linear: maximize (3 × otters) + (1 × dolphins).
+- Because there are only two integer variables, consider solving by a small enumeration over feasible dolphin counts (starting from the minimum of 10 up to the treat-based upper bound) and computing the best feasible otter count for each, or use any ILP solver (CBC, Gurobi, CP-SAT).
+- Check feasibility early (e.g., the minimum dolphin requirement must be compatible with the treat limit).
+- If there are unspoken operational limits (max animals available, show capacity, etc.), add those as upper bounds on the respective variables.
+
+---
+
+[MODELER]:
+Below is a concise, formal model of the planner’s problem, plus recommended solution approaches and libraries. I also give the optimal integer solution found by simple enumeration.
+
+1) Decision variables
+- o ∈ Z≥0 : number of otter performers
+- d ∈ Z≥0 : number of dolphin performers
+(Optionally) T ∈ Z≥0 : total performers, T = o + d (useful to linearize the percentage constraint).
+
+2) Objective
+Maximize total tricks:
+max   Z = 3·o + 1·d
+
+3) Constraints
+- Treats budget:
+3·o + 5·d ≤ 200
+
+- Minimum dolphins:
+d ≥ 10
+
+- Otter proportion cap (at most 30% of performers are otters).
+Two equivalent linear ways to express this:
+
+a) Using T = o + d:
+o ≤ 0.3 · T  (equivalently multiply by 10 to keep integer coefficients)
+10·o ≤ 3·T
+plus T = o + d
+
+b) Eliminated-T algebraic form:
+o ≤ 0.3·(o + d)
+0.7·o ≤ 0.3·d
+equivalently (multiply by 10):
+7·o ≤ 3·d
+(or o ≤ (3/7)·d)
+
+- Integrality and non-negativity:
+o, d (and T if used) are nonnegative integers.
+
+4) Remarks on linearity
+All constraints and the objective are linear. Using T makes the percentage constraint straightforward (10o ≤ 3T). Eliminating T gives 7o ≤ 3d which is also linear in integer variables.
+
+5) Small-problem solution strategy
+Because only two integer variables are present, you can solve by:
+- Exhaustive/enumeration: loop d from 10 to floor(200/5)=40, compute the largest feasible o:
+  o_max = min( floor((3/7)·d), floor((200 - 5·d)/3 ) )
+  evaluate Z = 3·o_max + d and keep the best (ties break arbitrarily).
+- Or solve with an ILP solver (pulp, ortools CP-SAT, python-mip, Gurobi, CPLEX).
+
+6) Recommended Python libraries
+- For small ILP: pulp (CBC backend), python-mip (mip), or OR-Tools CP-SAT (ortools.sat.python.cp_model).
+- For brute-force/enumeration: plain Python or numpy.
+- For commercial speed / large extension: Gurobi or CPLEX.
+
+7) Example enumeration algorithm (pseudo-Python)
+- for d in range(10, 200//5 + 1):
+    o_cap1 = (3*d)//7          # from 7o <= 3d
+    o_cap2 = (200 - 5*d)//3    # from treats
+    o = min(o_cap1, o_cap2)
+    if o >= 0:
+      Z = 3*o + d
+      record best (o,d,Z)
+
+8) Numeric result (optimal)
+Using the enumeration above (or an ILP solver) yields:
+- Optimal solution: o = 13 otters, d = 32 dolphins
+- Total treats used: 3·13 + 5·32 = 199 ≤ 200
+- Otter proportion: 13 / (13 + 32) = 13/45 ≈ 28.9% ≤ 30%
+- Objective: Z = 3·13 + 32 = 39 + 32 = 71 tricks (maximum)
+
+If you want, I can:
+- produce runnable Python code for the enumeration and/or an ILP formulation using pulp or OR-Tools, or
+- extend the model to include extra limits (e.g., maximum available animals, show capacity).
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the otter/dolphin planning ILP by enumeration.
+
+# Problem data
+TREATS_BUDGET = 200
+TREAT_OTTER = 3
+TREAT_DOLPHIN = 5
+MIN_DOLPHINS = 10
+
+# Search bounds
+d_min = MIN_DOLPHINS
+d_max = TREATS_BUDGET // TREAT_DOLPHIN  # max dolphins if only dolphins purchased
+
+best_Z = None
+best_o = None
+best_d = None
+
+for d in range(d_min, d_max + 1):
+    # From otter proportion constraint: 7*o <= 3*d  => o <= floor((3*d)/7)
+    o_cap1 = (3 * d) // 7
+
+    # From treats budget: 3*o + 5*d <= 200 => o <= floor((200 - 5*d)/3)
+    remaining_treats = TREATS_BUDGET - TREAT_DOLPHIN * d
+    if remaining_treats < 0:
+        continue
+    o_cap2 = remaining_treats // TREAT_OTTER
+
+    o = min(o_cap1, o_cap2)
+    if o < 0:
+        continue
+
+    Z = 3 * o + 1 * d  # objective: 3 tricks per otter, 1 per dolphin
+
+    if (best_Z is None) or (Z > best_Z):
+        best_Z = Z
+        best_o = o
+        best_d = d
+
+# Ensure we found a feasible solution
+if best_Z is None:
+    best_Z = 0
+    best_o = 0
+    best_d = 0
+
+# Final required output line (only this line must be exactly in this format)
+print(f"FINAL_OBJ: {best_Z}")
+```

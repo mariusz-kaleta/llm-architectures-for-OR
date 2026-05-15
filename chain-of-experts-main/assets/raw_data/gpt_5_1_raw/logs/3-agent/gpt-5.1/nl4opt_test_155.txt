@@ -1,0 +1,151 @@
+[MODELER]:
+Here is a clean optimization model for the problem.
+
+### 1. Decision variables
+
+Let:
+
+- \( x \ge 0 \): number of servings of apple-flavored baby food  
+- \( y \ge 0 \): number of servings of carrot-flavored baby food  
+
+Both can be modeled as continuous variables; if the situation requires integer servings, they should be restricted to integers.
+
+### 2. Objective function
+
+Each serving provides:
+
+- Apple: 2 units of fat  
+- Carrot: 4 units of fat  
+
+Total fat consumed is:
+\[
+\text{Fat} = 2x + 4y
+\]
+
+We want to **maximize** the baby’s total fat intake:
+\[
+\max \; Z = 2x + 4y
+\]
+
+### 3. Constraints
+
+1. **Preference ratio**: the baby must eat **three times as many apple servings as carrot servings**.
+
+   \[
+   x = 3y
+   \]
+
+2. **Minimum carrot servings**: he must eat **at least 2 servings of carrot**:
+
+   \[
+   y \ge 2
+   \]
+
+3. **Folate limit**: total folate must be at most 100 units.
+
+   - Apple: 5 units folate per serving  
+   - Carrot: 3 units folate per serving  
+
+   So:
+   \[
+   5x + 3y \le 100
+   \]
+
+4. **Nonnegativity**:
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+
+If integrality is desired:
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+### 4. Simplifying the model
+
+Using \( x = 3y \) in the folate constraint:
+
+\[
+5(3y) + 3y \le 100 \;\Rightarrow\; 15y + 3y \le 100 \;\Rightarrow\; 18y \le 100 \;\Rightarrow\; y \le \frac{100}{18} \approx 5.555\ldots
+\]
+
+Also need \( y \ge 2 \). So:
+
+\[
+2 \le y \le \frac{100}{18}
+\]
+
+Objective in terms of \( y \):
+
+\[
+Z = 2x + 4y = 2(3y) + 4y = 6y + 4y = 10y
+\]
+
+Since we maximize \(10y\) and \(10 > 0\), we choose the largest feasible \(y\).
+
+- If servings may be fractional:  
+  \( y^* = \frac{100}{18} \), \( x^* = 3y^* = \frac{300}{18} = \frac{50}{3} \).  
+  Maximum fat: \(Z^* = 10 \cdot \frac{100}{18} = \frac{1000}{18} \approx 55.56\).
+
+- If servings must be integers (typical in such word problems):  
+  \( y \le 5.55\ldots \Rightarrow y_{\max} = 5 \).  
+  Then \( x = 3y = 15 \).  
+  Check folate: \(5(15) + 3(5) = 75 + 15 = 90 \le 100\).  
+  Fat: \(2(15) + 4(5) = 30 + 20 = 50\).
+
+  Trying \( y = 6 \) would violate folate: \(5(18) + 3(6) = 90 + 18 = 108 > 100\).
+
+So with integer servings:  
+**Optimal solution**:  
+- Apple servings: \( x = 15 \)  
+- Carrot servings: \( y = 5 \)  
+- Maximum fat intake: \( 50 \) units  
+
+### 5. Suitable Python libraries
+
+To formulate and solve this linear optimization problem in Python, recommended libraries:
+
+- **PuLP**: simple modeling of linear and integer programs.
+- **OR-Tools (Google)**: powerful linear and mixed-integer solvers; good for larger or more complex models.
+- **Pyomo**: more general algebraic modeling, suitable for linear, nonlinear, and mixed-integer optimization.
+
+For this problem, **PuLP** or **OR-Tools linear solver** would be very easy to use.
+
+---
+
+[CODER]:
+import pulp
+
+def solve_baby_food_optimization():
+    # Create the problem: maximize fat intake
+    prob = pulp.LpProblem("BabyFoodFatMaximization", pulp.LpMaximize)
+
+    # Decision variables: integer servings of apple (x) and carrot (y)
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')
+
+    # Objective: maximize total fat = 2x + 4y
+    prob += 2 * x + 4 * y, "TotalFat"
+
+    # Constraints
+
+    # Preference ratio: must eat three times as many apple servings as carrot servings
+    prob += x == 3 * y, "PreferenceRatio"
+
+    # Minimum carrot servings: at least 2 servings of carrot
+    prob += y >= 2, "MinCarrot"
+
+    # Folate limit: 5x + 3y <= 100
+    prob += 5 * x + 3 * y <= 100, "FolateLimit"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract the objective value
+    final_obj = pulp.value(prob.objective)
+
+    return final_obj
+
+if __name__ == "__main__":
+    value = solve_baby_food_optimization()
+    print(f"FINAL_OBJ: {value}")

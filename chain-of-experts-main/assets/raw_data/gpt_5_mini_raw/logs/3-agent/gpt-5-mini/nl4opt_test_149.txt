@@ -1,0 +1,90 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- L ∈ Z≥0 : number of long desks
+- S ∈ Z≥0 : number of short desks
+
+Parameters
+- cost_long = 300, cost_short = 100
+- area_long = 10, area_short = 4
+- seats_long = 6, seats_short = 2
+- budget = 2000, area_limit = 200
+
+Objective
+- Maximize total seats: maximize Z = 6L + 2S
+
+Constraints
+1. Budget: 300L + 100S ≤ 2000
+2. Area: 10L + 4S ≤ 200
+3. Integrality and nonnegativity: L, S ∈ Z≥0
+
+Remarks / algebraic simplification
+- Objective can be written Z = 2(3L + S). The budget constraint is 3L + S ≤ 20, so Z ≤ 2·20 = 40. Thus the maximum possible seats is 40 if we use the budget fully.
+- If 3L + S = 20, the area constraint becomes 5L + 2S ≤ 100 ⇒ always satisfied for S = 20 − 3L with L ≥ 0 (and integer L ≤ 6), so the area limit is not binding for those solutions.
+
+Optimal integer solutions
+- All integer pairs satisfying 3L + S = 20 and 0 ≤ L ≤ 6 give the maximum 40 seats:
+  (L,S) = (0,20), (1,17), (2,14), (3,11), (4,8), (5,5), (6,2).
+- If you prefer to also minimize used floor area among those optima, choose the one with largest L (long desks are more space-efficient: 6/10 = 0.6 seats/ft² vs 2/4 = 0.5 seats/ft²). That is L = 6, S = 2:
+  cost = 300·6 + 100·2 = 2000, area = 10·6 + 4·2 = 68 ft², seats = 6·6 + 2·2 = 40.
+
+Recommended solution
+- Buy 6 long desks and 2 short desks (spend all $2000, achieve 40 seats, use 68 ft²).
+
+Solver recommendations
+- For integer linear programming: use pulp, OR-Tools (python ortools.linear_solver), or mip (from Python-MIP).
+- For LP relaxation / quick check: scipy.optimize.linprog (but that does not enforce integrality).
+- The problem is small; it can also be solved by simple enumeration of integer L,S satisfying constraints.
+
+Optional example (Python/PuLP)
+- Use pulp with L and S as LpInteger variables, maximize 6*L + 2*S subject to the two linear constraints shown above.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the integer optimization problem by enumeration
+
+# Parameters
+cost_long = 300
+cost_short = 100
+area_long = 10
+area_short = 4
+seats_long = 6
+seats_short = 2
+budget = 2000
+area_limit = 200
+
+# Search bounds
+max_L = budget // cost_long  # at most 6
+max_S = budget // cost_short  # at most 20
+
+best_obj = -1
+best_solutions = []  # store tuples (L, S, area)
+
+for L in range(max_L + 1):
+    for S in range(max_S + 1):
+        if cost_long * L + cost_short * S > budget:
+            continue
+        if area_long * L + area_short * S > area_limit:
+            continue
+        obj = seats_long * L + seats_short * S
+        if obj > best_obj:
+            best_obj = obj
+            best_solutions = [(L, S, area_long * L + area_short * S)]
+        elif obj == best_obj:
+            best_solutions.append((L, S, area_long * L + area_short * S))
+
+# If multiple optima, choose one with minimal area, then maximal L (more long desks)
+if best_obj >= 0:
+    # sort by (area asc, L desc)
+    best_solutions.sort(key=lambda t: (t[2], -t[0]))
+    chosen_L, chosen_S, chosen_area = best_solutions[0]
+else:
+    chosen_L = chosen_S = chosen_area = 0
+
+# (Optional) we could print chosen solution details, but requirement only mandates final objective line.
+print(f"FINAL_OBJ: {best_obj}")
+```

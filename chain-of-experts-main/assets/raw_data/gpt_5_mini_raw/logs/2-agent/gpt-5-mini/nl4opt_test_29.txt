@@ -1,0 +1,138 @@
+[MODELER]:
+Below is a precise mathematical model, a short solution analysis, and recommended solver libraries + a small Python example to compute the answer.
+
+1) Decision variables
+- x ∈ Z≥0 : number of top-loading machines
+- y ∈ Z≥0 : number of front-loading machines
+
+2) Objective
+Minimize total machines: minimize Z = x + y
+
+3) Constraints
+- Capacity (items/day): 50x + 75y ≥ 5000
+- Energy (kWh/day): 85x + 100y ≤ 7000
+- At most 40% top-loading: x ≤ 0.4 (x + y)  
+  Equivalent linear form: 3x − 2y ≤ 0  (because x ≤ 0.4x + 0.4y → 0.6x ≤ 0.4y → 3x ≤ 2y)
+- Minimum front-loading machines: y ≥ 10
+- Integrality / nonnegativity: x, y ∈ Z≥0
+
+4) Small analytic check / solution
+- If x = 0 then y must satisfy 75y ≥ 5000 → y ≥ 66.667 → y ≥ 67, and energy: 100·67 = 6700 ≤ 7000 → feasible. So (x,y) = (0,67) is feasible with total 67 machines.
+- Any solution with fewer than 67 machines is impossible because 66 machines can wash at most 66·75 = 4950 items < 5000.
+- Therefore the minimal total number of machines is 67. Feasible optimal allocations include:
+  - x = 0, y = 67 (no top-loading machines), or
+  - x = 1, y = 66 (also feasible: 50·1 + 75·66 = 5000; energy 6685 ≤ 7000).
+  (x ≥ 2 with total 67 fails the items constraint.)
+
+Recommended final answer (practical): buy 67 front-loading machines (x = 0, y = 67) to minimize the number of machines while meeting all constraints.
+
+5) Suggested solver libraries
+- pulp (Python) — simple linear / integer programming interface (CBC solver)
+- OR-Tools (CP-SAT) — robust mixed-integer solver
+- Mixed-integer capability of Gurobi / CPLEX if available (commercial)
+
+6) Example using pulp (Python)
+(install pulp with pip install pulp)
+```
+import pulp
+
+# Variables
+x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # top-loading
+y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # front-loading
+
+# Problem
+prob = pulp.LpProblem('Laundromat', pulp.LpMinimize)
+prob += x + y                       # objective
+prob += 50*x + 75*y >= 5000         # capacity
+prob += 85*x + 100*y <= 7000        # energy
+prob += 3*x - 2*y <= 0              # 3x <= 2y  (at most 40% top-loading)
+prob += y >= 10                     # at least 10 front-loading
+
+prob.solve()
+print('Status:', pulp.LpStatus[prob.status])
+print('x (top-loading) =', int(pulp.value(x)))
+print('y (front-loading) =', int(pulp.value(y)))
+print('Total machines =', int(pulp.value(x) + pulp.value(y)))
+```
+
+This will produce x = 0, y = 67 (or x = 1, y = 66 depending on solver tie-breaking) and total = 67.
+
+If you want, I can produce the full OR-Tools CP-SAT code or run a quick enumeration to list all optimal allocations.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the integer optimization by enumeration
+
+# Problem:
+# Minimize Z = x + y
+# s.t.
+# 50x + 75y >= 5000
+# 85x + 100y <= 7000
+# 3x - 2y <= 0   (i.e., x <= 2y/3)
+# y >= 10
+# x, y integers >= 0
+
+def find_optimal_allocations():
+    feasible = []
+    min_obj = None
+
+    # Derive safe bounds:
+    # From energy: 100y <= 7000 -> y <= 70
+    y_min = 10
+    y_max = 70
+
+    for y in range(y_min, y_max + 1):
+        # x must satisfy proportion: x <= floor(2*y/3)
+        x_bound_proportion = (2 * y) // 3
+
+        # energy gives another upper bound for x: 85x <= 7000 - 100y
+        rem_energy = 7000 - 100 * y
+        if rem_energy < 0:
+            continue
+        x_bound_energy = rem_energy // 85
+
+        x_max = min(x_bound_proportion, x_bound_energy)
+        if x_max < 0:
+            continue
+
+        # x lower bound can be 0, but capacity may force a minimum
+        for x in range(0, x_max + 1):
+            if 50 * x + 75 * y < 5000:
+                continue
+            if 85 * x + 100 * y > 7000:
+                continue
+            if 3 * x - 2 * y > 0:
+                continue
+            # y >= 10 already enforced by loop
+            obj = x + y
+            if (min_obj is None) or (obj < min_obj):
+                min_obj = obj
+                feasible = [(x, y)]
+            elif obj == min_obj:
+                feasible.append((x, y))
+
+    return min_obj, feasible
+
+def main():
+    min_obj, allocations = find_optimal_allocations()
+    if min_obj is None:
+        print("No feasible integer solution found.")
+        # Still must print FINAL_OBJ line - using None to indicate infeasible.
+        print(f"FINAL_OBJ: {None}")
+        return
+
+    # Print found optimal allocations
+    print("Optimal objective value (min machines):", min_obj)
+    print("Feasible optimal allocations (x = top-loading, y = front-loading):")
+    for x, y in allocations:
+        print(f"  x = {x}, y = {y}, total = {x + y}")
+
+    # As required, final line must be exactly this format:
+    print(f"FINAL_OBJ: {min_obj}")
+
+if __name__ == "__main__":
+    main()
+```

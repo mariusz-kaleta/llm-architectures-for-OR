@@ -1,0 +1,48 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization based on the problem statement
+platinum_avail = 450    # units of platinum available
+palladium_avail = 390   # units of palladium available
+
+# Resource requirements per catalyst type
+# Palladium-heavy catalyst (x): 15 platinum, 25 palladium, rate 5 units/sec
+plat_req_x = 15
+pall_req_x = 25
+rate_x = 5
+
+# Platinum-heavy catalyst (y): 20 platinum, 14 palladium, rate 4 units/sec
+plat_req_y = 20
+pall_req_y = 14
+rate_y = 4
+
+# Create LP problem (maximization)
+prob = pulp.LpProblem("Catalyst_Selection", pulp.LpMaximize)
+
+# Decision variables: number of each catalyst (continuous, >=0)
+x = pulp.LpVariable('palladium_heavy', lowBound=0, cat='Continuous')  # number of palladium-heavy catalysts
+y = pulp.LpVariable('platinum_heavy', lowBound=0, cat='Continuous')   # number of platinum-heavy catalysts
+
+# Objective: maximize conversion rate (units per second)
+prob += rate_x * x + rate_y * y, "Total_Conversion_Rate"
+
+# Constraints: resource availability
+prob += plat_req_x * x + plat_req_y * y <= platinum_avail, "Platinum_Constraint"
+prob += pall_req_x * x + pall_req_y * y <= palladium_avail, "Palladium_Constraint"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract solution values
+x_opt = pulp.value(x)
+y_opt = pulp.value(y)
+obj = pulp.value(prob.objective)
+
+# Print results
+print(f"Optimal number of palladium-heavy catalysts (x): {x_opt}")
+print(f"Optimal number of platinum-heavy catalysts (y): {y_opt}")
+print(f"Maximum conversion rate (units per second): {obj}")
+
+# Final required output line (must be last)
+value = obj
+print(f"FINAL_OBJ: {value}")

@@ -1,0 +1,102 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- v ∈ Z_{\ge 0} = number of vans (integer, nonnegative)
+- m ∈ Z_{\ge 0} = number of minibuses (integer, nonnegative)
+
+Objective
+Minimize total pollution: minimize Z = 7v + 10m.
+
+Constraints
+- Capacity: 6v + 10m ≥ 150
+- Max minibuses: m ≤ 10
+- Vans must exceed minibuses: v ≥ m + 1
+- Integrality: v, m integers
+
+Optimal solution (by enumeration or integer programming)
+Checking feasible integer pairs satisfying the constraints gives the optimal solution
+- v = 10 vans
+- m = 9 minibuses
+Total capacity = 6·10 + 10·9 = 60 + 90 = 150 (meets the demand exactly)
+Total pollution = 7·10 + 10·9 = 70 + 90 = 160 units (minimum)
+
+Remarks
+- Per‑child pollution: van = 7/6 ≈ 1.1667, minibus = 10/10 = 1.0. Minibuses are cleaner per child, but the v > m constraint forces at least one more van than minibus, and at most 10 minibuses is allowed; the combination (10,9) is best.
+- This is an integer linear program (ILP).
+
+Recommended Python libraries to solve
+- pulp (simple LP/MIP interface, uses CBC default solver)
+- OR-Tools (CP‑SAT solver for integer/constraint problems)
+- mip (Python MIP with CBC/Gurobi support)
+- pyomo (modeling with many solvers)
+(scikit‑optimize / scipy.optimize are not suitable for integer decisions)
+
+Example code (brute-force and pulp)
+
+Brute-force (simple and reliable for small domain):
+for m in range(0, 11):
+    for v in range(0, 40):  # upper bound large enough
+        if 6*v + 10*m >= 150 and v >= m + 1:
+            pollution = 7*v + 10*m
+            record best
+
+Pulp (ILP):
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpInteger, PULP_CBC_CMD
+
+prob = LpProblem('school_transport', LpMinimize)
+v = LpVariable('v', lowBound=0, cat=LpInteger)
+m = LpVariable('m', lowBound=0, upBound=10, cat=LpInteger)
+prob += 7*v + 10*m
+prob += 6*v + 10*m >= 150
+prob += v >= m + 1
+prob.solve(PULP_CBC_CMD(msg=False))
+print(int(v.value()), int(m.value()), int(7*v.value() + 10*m.value()))
+
+This returns v=10, m=9, pollution=160.
+
+If you want, I can provide a ready-to-run Python script using OR-Tools or show the full brute-force output.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+#!/usr/bin/env python3
+# Self-contained script to solve the ILP by brute-force enumeration
+# Decision variables:
+#   v >= 0 integer (vans)
+#   m >= 0 integer (minibuses)
+# Objective:
+#   minimize Z = 7*v + 10*m
+# Constraints:
+#   6*v + 10*m >= 150
+#   m <= 10
+#   v >= m + 1
+
+def main():
+    m_max = 10
+    # upper bound for v: need 6*v >= 150 when m = 0 -> v >= 25, but v must be >= m+1 so safe upper bound:
+    v_max = 40
+
+    best = None  # tuple (pollution, v, m, capacity)
+    for m in range(0, m_max + 1):
+        for v in range(0, v_max + 1):
+            if 6 * v + 10 * m >= 150 and v >= m + 1:
+                pollution = 7 * v + 10 * m
+                capacity = 6 * v + 10 * m
+                if best is None or pollution < best[0]:
+                    best = (pollution, v, m, capacity)
+
+    if best is None:
+        print("No feasible solution found.")
+        final_obj = None
+    else:
+        pollution, v_best, m_best, capacity = best
+        print(f"Best integer feasible solution found: v = {v_best}, m = {m_best}")
+        print(f"Total capacity = {capacity}, Total pollution = {pollution}")
+        final_obj = pollution
+
+    # Final required line (must be the very last line and exact format)
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

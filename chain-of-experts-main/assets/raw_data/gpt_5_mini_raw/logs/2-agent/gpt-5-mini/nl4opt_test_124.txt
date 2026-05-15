@@ -1,0 +1,103 @@
+[MODELER]:
+Formal integer linear programming model
+
+Decision variables
+- H ∈ Z_{\ge 0} : number of high–intensity drills used (integer).
+- L ∈ Z_{\ge 0} : number of low–intensity drills used (integer).
+
+Objective
+- Minimize total number of drills: minimize Z = H + L.
+
+Constraints (per day)
+1. Processing capacity: 50H + 30L ≥ 800.
+   (Divide by 10 for simpler coefficients: 5H + 3L ≥ 80.)
+
+2. Water availability: 50H + 20L ≤ 700.
+   (Divide by 10: 5H + 2L ≤ 70.)
+
+3. Noise restriction: at most 40% of drills can be high intensity.
+   H ≤ 0.4 (H + L)  ⇔  0.6 H ≤ 0.4 L  ⇔  3H ≤ 2L (all integers).
+
+4. Minimum low–intensity drills: L ≥ 10.
+
+5. Integrality and nonnegativity: H, L ∈ Z_{\ge 0}.
+
+Complete ILP
+Minimize H + L
+subject to
+- 5H + 3L ≥ 80
+- 5H + 2L ≤ 70
+- 3H ≤ 2L
+- L ≥ 10
+- H, L ∈ Z_{\ge 0}
+
+Solution (analysis)
+- From feasibility L must lie between 10 and 35 (water bound).
+- Enumerating integer L (10..35) and taking the smallest feasible H for each L gives the minimum total H+L.
+- The minimum total number of drills is 22. Two integer solutions attain this minimum:
+  - H = 8, L = 14  (50·8 + 30·14 = 820 gems, water 50·8 + 20·14 = 680)
+  - H = 7, L = 15  (50·7 + 30·15 = 800 gems, water 50·7 + 20·15 = 650)
+
+Both satisfy the noise and minimum-low constraints. Either allocation achieves the minimal 22 drills; if you prefer fewer high–intensity drills (to reduce noise further), choose H = 7, L = 15.
+
+Recommended Python libraries to solve
+- PuLP (simple, pure-Python LP/MIP modeling; solver CBC included)
+- OR-Tools CP-SAT (Google OR-Tools, good for integer problems and faster for combinatorial cases)
+- mip (Python mip package with CBC/Gurobi support)
+- scipy.optimize is not suitable since this is an integer program.
+
+Example (outline) with PuLP
+- Define integer variables H,L.
+- Add the linear constraints above.
+- Set objective to minimize H+L.
+- Solve (CBC) and read H.value(), L.value().
+
+If you want, I can provide a short PuLP or OR-Tools script that solves this ILP and prints all optimal solutions.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Enumerate feasible integer solutions for H and L according to:
+# 5H + 3L >= 80
+# 5H + 2L <= 70
+# 3H <= 2L
+# L >= 10
+# H, L >= 0 integers
+best_obj = None
+best_solutions = []
+
+for L in range(10, 36):  # L feasible range from water constraint: L <= 35
+    # Lower bound on H from processing capacity
+    H_low = math.ceil((80 - 3 * L) / 5)
+    if H_low < 0:
+        H_low = 0
+    # Upper bound on H from water availability
+    H_up_water = math.floor((70 - 2 * L) / 5)
+    # Upper bound on H from noise restriction
+    H_up_noise = math.floor((2 * L) / 3)
+    H_up = min(H_up_water, H_up_noise)
+    if H_up < 0:
+        continue
+    if H_low <= H_up:
+        # For fixed L, choose the smallest feasible H to minimize H+L
+        H = H_low
+        # Verify feasibility (safety check)
+        if 5*H + 3*L >= 80 and 5*H + 2*L <= 70 and 3*H <= 2*L:
+            obj = H + L
+            if (best_obj is None) or (obj < best_obj):
+                best_obj = obj
+                best_solutions = [(H, L)]
+            elif obj == best_obj:
+                best_solutions.append((H, L))
+
+# If no solution found (should not happen), set best_obj to a large number
+if best_obj is None:
+    best_obj = float('inf')
+
+# Final required output line
+print(f"FINAL_OBJ: {best_obj}")
+```

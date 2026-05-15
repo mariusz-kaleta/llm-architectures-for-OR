@@ -1,0 +1,160 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of regular glass panes produced (x ≥ 0)
+  - y = number of tempered glass panes produced (y ≥ 0)
+
+- Objective
+  - Maximise profit: Z = 8x + 10y
+
+- Constraints
+  - Heating time: 3x + 5y ≤ 300 (minutes available)
+  - Cooling time: 5x + 8y ≤ 300 (minutes available)
+  - x, y ≥ 0 (and integer if you require whole panes)
+
+Remarks: For x,y ≥ 0 the heating constraint is redundant because 3x+5y ≤ 5x+8y, so the effective feasible region is determined by 5x+8y ≤ 300 and nonnegativity.
+
+Solve analytically (corner points)
+- Intercepts of 5x + 8y = 300:
+  - x = 60, y = 0 → profit = 8·60 + 10·0 = $480
+  - x = 0, y = 37.5 → profit = 8·0 + 10·37.5 = $375
+- Origin (0,0) profit = $0
+
+Maximum occurs at x = 60, y = 0 (produce only regular panes).
+Maximum profit = $480.
+
+Suggested Python libraries for solving this LP
+- pulp (pure-Python LP modelling, default CBC solver)
+- ortools.linear_solver (Google OR-Tools)
+- scipy.optimize.linprog (simplex/interior-point solvers)
+- cvxpy (higher-level modelling; can enforce integrality with mixed-integer solvers)
+
+Example (PuLP) — minimal code sketch
+  from pulp import LpProblem, LpMaximize, LpVariable, lpSum, PULP_CBC_CMD
+  prob = LpProblem('Glass', LpMaximize)
+  x = LpVariable('regular', lowBound=0)
+  y = LpVariable('tempered', lowBound=0)
+  prob += 8*x + 10*y
+  prob += 3*x + 5*y <= 300
+  prob += 5*x + 8*y <= 300
+  prob.solve(PULP_CBC_CMD(msg=0))
+  print(x.value(), y.value(), 'profit', (8*x.value()+10*y.value()))
+
+This returns x = 60, y = 0, profit = 480.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the given LP by enumerating corner points (no external libraries)
+
+def intersect(line1, line2, tol=1e-12):
+    # line represented as ('axis','x',value) or ('axis','y',value) or ('lin', a, b, c) meaning a*x + b*y = c
+    t1 = line1[0]; t2 = line2[0]
+    if t1 == 'axis' and t2 == 'axis':
+        # could be x=val and y=val
+        if line1[1] == 'x' and line2[1] == 'y':
+            return (line1[2], line2[2])
+        if line1[1] == 'y' and line2[1] == 'x':
+            return (line2[2], line1[2])
+        # both same axis -> no single intersection (parallel), return None
+        return None
+    if t1 == 'axis' and t2 == 'lin':
+        axis, var, val = line1
+        a, b, c = line2[1], line2[2], line2[3]
+        if var == 'x':
+            x = val
+            if abs(b) < tol:
+                return None
+            y = (c - a * x) / b
+            return (x, y)
+        else:  # var == 'y'
+            y = val
+            if abs(a) < tol:
+                return None
+            x = (c - b * y) / a
+            return (x, y)
+    if t1 == 'lin' and t2 == 'axis':
+        return intersect(line2, line1, tol)
+    if t1 == 'lin' and t2 == 'lin':
+        a1, b1, c1 = line1[1], line1[2], line1[3]
+        a2, b2, c2 = line2[1], line2[2], line2[3]
+        det = a1 * b2 - a2 * b1
+        if abs(det) < tol:
+            return None
+        x = (c1 * b2 - c2 * b1) / det
+        y = (a1 * c2 - a2 * c1) / det
+        return (x, y)
+    return None
+
+def is_feasible(pt, tol=1e-9):
+    if pt is None:
+        return False
+    x, y = pt
+    if x is None or y is None:
+        return False
+    if x < -tol or y < -tol:
+        return False
+    # Constraints:
+    # 3x + 5y <= 300
+    # 5x + 8y <= 300
+    if 3*x + 5*y > 300 + tol:
+        return False
+    if 5*x + 8*y > 300 + tol:
+        return False
+    return True
+
+def objective(pt):
+    x, y = pt
+    return 8*x + 10*y
+
+def main():
+    # Define lines: axes and constraints
+    # axes: x=0, y=0
+    axes = [('axis','x',0.0), ('axis','y',0.0)]
+    # constraint lines (equalities)
+    # 3x + 5y = 300
+    # 5x + 8y = 300
+    lines = [('lin', 3.0, 5.0, 300.0), ('lin', 5.0, 8.0, 300.0)]
+    all_lines = axes + lines
+
+    # compute all pairwise intersections
+    candidates = []
+    n = len(all_lines)
+    for i in range(n):
+        for j in range(i+1, n):
+            pt = intersect(all_lines[i], all_lines[j])
+            if pt is not None:
+                candidates.append(pt)
+
+    # Also include origin explicitly (should be covered by axes intersection)
+    candidates.append((0.0, 0.0))
+
+    # Filter feasible and evaluate objective
+    feasible_pts = []
+    for pt in candidates:
+        if is_feasible(pt):
+            feasible_pts.append((pt, objective(pt)))
+
+    if not feasible_pts:
+        final_obj = 0.0
+    else:
+        # pick best
+        best_pt, best_val = max(feasible_pts, key=lambda item: item[1])
+        final_obj = best_val
+        # Optionally you could also retrieve best_pt if needed:
+        # best_x, best_y = best_pt
+
+    # If final_obj is very close to integer, cast to int for clean output
+    if abs(round(final_obj) - final_obj) < 1e-9:
+        final_obj = int(round(final_obj))
+    else:
+        final_obj = float(final_obj)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()
+```

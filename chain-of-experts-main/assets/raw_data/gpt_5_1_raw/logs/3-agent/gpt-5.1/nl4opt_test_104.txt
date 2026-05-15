@@ -1,0 +1,170 @@
+[MODELER]:
+Let’s model this as an integer linear optimization problem.
+
+### Decision variables
+- \(L\): number of limousines (integer, \(L \ge 0\))
+- \(B\): number of buses (integer, \(B \ge 0\))
+
+### Objective
+Minimize the total number of vehicles:
+\[
+\min \; Z = L + B
+\]
+
+### Constraints
+
+1. **Capacity (transport at least 400 people):**
+   - Each limousine carries 12 people, each bus 18:
+   \[
+   12L + 18B \ge 400
+   \]
+
+2. **Limousine proportion (at least 70% of vehicles must be limousines):**
+   - At least 70% of all vehicles are limousines:
+   \[
+   \frac{L}{L + B} \ge 0.7
+   \]
+   Multiply both sides by \(L + B\) (and assume \(L + B > 0\), which is true if they must transport at least 400 people):
+   \[
+   L \ge 0.7(L + B)
+   \]
+   \[
+   L \ge 0.7L + 0.7B
+   \]
+   \[
+   0.3L \ge 0.7B
+   \]
+   \[
+   3L \ge 7B
+   \]
+   or equivalently:
+   \[
+   3L - 7B \ge 0
+   \]
+
+3. **Integrality and nonnegativity:**
+   \[
+   L, B \in \mathbb{Z}_{\ge 0}
+   \]
+
+So the full model is:
+
+\[
+\begin{aligned}
+\min \quad & L + B \\
+\text{s.t.} \quad & 12L + 18B \ge 400, \\
+& 3L - 7B \ge 0, \\
+& L, B \in \mathbb{Z}_{\ge 0}.
+\end{aligned}
+\]
+
+### Solving conceptually
+
+First, use the proportion constraint \(3L \ge 7B\). To minimize total vehicles, we expect to be close to the capacity boundary:
+
+From \(3L = 7B\) (borderline case, giving minimum limousines for a given number of buses):
+\[
+L = \frac{7}{3}B.
+\]
+
+Substitute into capacity:
+\[
+12\left(\frac{7}{3}B\right) + 18B \ge 400
+\]
+\[
+28B + 18B \ge 400
+\]
+\[
+46B \ge 400 \Rightarrow B \ge \frac{400}{46} \approx 8.6956.
+\]
+
+Try integer values \(B = 9, 8, \dots\) with the constraint \(3L \ge 7B\) and capacity:
+
+- **\(B = 9\)**:  
+  \(3L \ge 7 \cdot 9 = 63 \Rightarrow L \ge 21\).  
+  Capacity: \(12 \cdot 21 + 18 \cdot 9 = 252 + 162 = 414 \ge 400\).  
+  Total vehicles: \(L + B = 21 + 9 = 30\).
+
+- **\(B = 8\)**:  
+  \(3L \ge 56 \Rightarrow L \ge 18.\overline{6} \Rightarrow L \ge 19\).  
+  Capacity: \(12 \cdot 19 + 18 \cdot 8 = 228 + 144 = 372 < 400\) → infeasible.
+
+Smaller \(B\) only reduces capacity further, so the minimum total vehicles occurs at \(L = 21, B = 9\).
+
+**Optimal solution:**  
+- Limousines: **21**  
+- Buses: **9**  
+- Total vehicles: **30**
+
+### Python libraries suitable for solving
+
+This is a small integer linear program (ILP). Good choices:
+
+- `PuLP` (simple to use, pure Python interface)
+- `ortools.linear_solver` from Google OR-Tools (very efficient and well-documented)
+- `Pyomo` (more general algebraic modeling, suitable if you have many related models)
+
+Example outline using PuLP:
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("TransportProblem", pl.LpMinimize)
+
+# Decision variables
+L = pl.LpVariable('L', lowBound=0, cat='Integer')
+B = pl.LpVariable('B', lowBound=0, cat='Integer')
+
+# Objective
+prob += L + B
+
+# Constraints
+prob += 12*L + 18*B >= 400
+prob += 3*L - 7*B >= 0
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("L =", pl.value(L))
+print("B =", pl.value(B))
+print("Total vehicles =", pl.value(L + B))
+```
+
+This will return \(L = 21\), \(B = 9\).
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("TransportProblem", pl.LpMinimize)
+
+    # Decision variables
+    L = pl.LpVariable('L', lowBound=0, cat='Integer')  # Limousines
+    B = pl.LpVariable('B', lowBound=0, cat='Integer')  # Buses
+
+    # Objective: minimize total number of vehicles
+    prob += L + B
+
+    # Constraints
+    # Capacity: at least 400 people
+    prob += 12 * L + 18 * B >= 400
+
+    # Limousine proportion: at least 70% limousines -> 3L - 7B >= 0
+    prob += 3 * L - 7 * B >= 0
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(L + B)
+
+    # Print in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

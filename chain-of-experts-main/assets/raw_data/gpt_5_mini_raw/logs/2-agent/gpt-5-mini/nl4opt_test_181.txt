@@ -1,0 +1,90 @@
+[MODELER]:
+Model the problem as a linear program.
+
+Decision variables
+- A = number of anxiety-medication units (>= 0)
+- D = number of anti‑depressant units (>= 0)
+
+Objective
+Minimize total time T = 3A + 5D (minutes), because each anxiety unit takes 3 minutes and each anti‑depressant unit takes 5 minutes.
+
+Constraints
+- Total medication at least 100 units: A + D >= 100
+- At least 30 units must be anxiety medication: A >= 30
+- Anxiety at most twice anti‑depressant: A <= 2D
+- Nonnegativity: A >= 0, D >= 0
+
+Mathematical formulation
+minimize   T = 3A + 5D
+subject to
+  A + D >= 100
+  A >= 30
+  A - 2D <= 0
+  A, D >= 0
+
+Continuous solution (units may be fractional)
+The optimal point occurs where A + D = 100 and A = 2D (intersection of the two active constraints). Solve:
+  A = 2D,  2D + D = 100  =>  3D = 100  => D = 100/3 ≈ 33.333...
+  A = 200/3 ≈ 66.666...
+Total time T = 3*(200/3) + 5*(100/3) = 200 + 500/3 = 1100/3 ≈ 366.667 minutes.
+
+Integer solution (units must be whole numbers)
+If A and D must be integers, take the nearest feasible integer point that minimizes T. The feasible integer optimum is:
+  A = 66 units of anxiety medication
+  D = 34 units of anti‑depressant
+Total time T = 3*66 + 5*34 = 198 + 170 = 368 minutes.
+(Reason: D = 33 is infeasible because A ≤ 66 but A + D ≥ 100 would require A ≥ 67; D = 34 allows A = 66 which is the best nearby integer solution.)
+
+Suggested Python libraries to solve this
+- For continuous LP: scipy.optimize.linprog, PuLP, CVXOPT
+- For mixed-integer LP: PuLP (with CBC), OR-Tools (Linear solver or CP-SAT), Gurobi or CPLEX (if available)
+- If you want to enumerate/inspect boundary cases manually, plain algebra is simpler as shown.
+
+If you want, I can provide a short Python example using PuLP or scipy.optimize.linprog (continuous) or PuLP/OR-Tools (integer).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data (initialized directly)
+# Decision variables: A (anxiety units), D (anti-depressant units)
+# Objective: minimize T = 3*A + 5*D
+# Constraints:
+#   A + D >= 100
+#   A >= 30
+#   A <= 2*D
+#   A, D >= 0
+
+# Continuous solution (analytical)
+# Intersection of A + D = 100 and A = 2D:
+D_cont = 100.0 / 3.0
+A_cont = 2.0 * D_cont
+T_cont = 3.0 * A_cont + 5.0 * D_cont  # should equal 1100/3
+
+# Find integer optimal solution by brute force search
+min_T_int = float('inf')
+best_A = None
+best_D = None
+
+# Reasonable bounds: search 0..200 for both (safe upper bound)
+for A in range(0, 201):
+    for D in range(0, 201):
+        if A + D < 100:
+            continue
+        if A < 30:
+            continue
+        if A > 2 * D:
+            continue
+        T = 3 * A + 5 * D
+        if T < min_T_int:
+            min_T_int = T
+            best_A = A
+            best_D = D
+
+# Print results (informational)
+print(f"Continuous solution: A = {A_cont:.6f}, D = {D_cont:.6f}, T = {T_cont:.6f}")
+print(f"Integer optimal solution found by search: A = {best_A}, D = {best_D}, T = {min_T_int}")
+
+# Final required output line (must be the very last printed line)
+print(f"FINAL_OBJ: {min_T_int}")

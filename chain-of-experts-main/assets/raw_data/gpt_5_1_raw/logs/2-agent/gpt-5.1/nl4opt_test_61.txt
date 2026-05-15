@@ -1,0 +1,156 @@
+[MODELER]:
+Here is a clean mathematical model of the problem, then how to solve it with Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of premium printers (integer, \(x \ge 0\))
+- \(y\) = number of regular printers (integer, \(y \ge 0\))
+
+---
+
+## 2. Objective
+
+Minimize the total number of printers:
+
+\[
+\min \; Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Printing capacity
+
+Each premium prints 30 pages/min, each regular prints 20 pages/min. Require at least 200 pages/min:
+
+\[
+30x + 20y \;\ge\; 200
+\]
+
+### b) Ink usage
+
+Each premium uses 4 units of ink/min, each regular uses 3 units/min. At most 35 units/min total:
+
+\[
+4x + 3y \;\le\; 35
+\]
+
+### c) User-friendliness condition
+
+The number of regular printers must be less than the number of premium printers:
+
+\[
+y < x
+\]
+
+In an integer linear programming model, we usually write this using a non-strict inequality, such as:
+
+\[
+y \le x - 1
+\]
+
+### d) Integrality and non-negativity
+
+\[
+x, y \in \mathbb{Z}, \quad x \ge 0,\; y \ge 0
+\]
+
+---
+
+## 4. Full mathematical model
+
+\[
+\begin{align}
+\min\quad & x + y \\
+\text{s.t.}\quad
+& 30x + 20y \;\ge\; 200 \\
+& 4x + 3y \;\le\; 35 \\
+& y \le x - 1 \\
+& x, y \in \mathbb{Z},\; x \ge 0,\; y \ge 0
+\end{align}
+\]
+
+This is a small **integer linear program (ILP)**.
+
+---
+
+## 5. Suitable Python libraries
+
+Any MILP solver or linear/integer optimization library will work well:
+
+- `pulp` (Python linear programming library, easy to use, pure Python front-end)
+- `ortools.linear_solver` (Google OR-Tools, very strong MILP support)
+- `Pyomo` (more general modelling language, can call CBC, GLPK, Gurobi, CPLEX, etc.)
+
+For such a small ILP, `pulp` or OR-Tools is perfectly sufficient.
+
+---
+
+## 6. Example with PuLP
+
+```python
+import pulp as pl
+
+# Create problem: minimize total printers
+prob = pl.LpProblem("Printer_Selection", pl.LpMinimize)
+
+# Variables (non-negative integers)
+x = pl.LpVariable('premium', lowBound=0, cat='Integer')
+y = pl.LpVariable('regular', lowBound=0, cat='Integer')
+
+# Objective
+prob += x + y, "TotalPrinters"
+
+# Constraints
+prob += 30*x + 20*y >= 200, "PageCapacity"
+prob += 4*x + 3*y <= 35,    "InkUsage"
+prob += y <= x - 1,         "RegularLessThanPremium"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Premium printers (x):", pl.value(x))
+print("Regular printers (y):", pl.value(y))
+print("Total printers:", pl.value(x + y))
+```
+
+You can run this to get the optimal counts of premium and regular printers that minimize the total number while satisfying all constraints.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Create problem: minimize total printers
+    prob = pl.LpProblem("Printer_Selection", pl.LpMinimize)
+
+    # Variables (non-negative integers)
+    x = pl.LpVariable('premium', lowBound=0, cat='Integer')
+    y = pl.LpVariable('regular', lowBound=0, cat='Integer')
+
+    # Objective
+    prob += x + y, "TotalPrinters"
+
+    # Constraints
+    prob += 30 * x + 20 * y >= 200, "PageCapacity"
+    prob += 4 * x + 3 * y <= 35, "InkUsage"
+    prob += y <= x - 1, "RegularLessThanPremium"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(x + y)
+
+    # Final required print
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

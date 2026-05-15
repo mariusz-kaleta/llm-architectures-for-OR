@@ -1,0 +1,176 @@
+[MODELER]:
+We can model this as a small integer linear optimization problem.
+
+Let  
+- \(x\) = number of golf carts (capacity 4)  
+- \(y\) = number of pull carts (capacity 1)
+
+Both \(x, y\) must be nonnegative integers.
+
+### Objective
+Minimize the total number of carts:
+\[
+\min \; x + y
+\]
+
+### Constraints
+
+1. **Capacity requirement:** at least 80 guests must be transported.  
+   Each golf cart carries 4 guests, each pull cart 1 guest:
+   \[
+   4x + y \;\ge\; 80
+   \]
+
+2. **Golf carts at most 60% of all carts:**  
+   At most 60% of the carts can be golf carts:
+   \[
+   x \le 0.6(x + y)
+   \]
+   Rearranging:
+   \[
+   x \le 0.6x + 0.6y \Rightarrow 0.4x \le 0.6y \Rightarrow 2x \le 3y
+   \]
+   So the constraint can be written as:
+   \[
+   2x - 3y \le 0
+   \]
+
+3. **Integrality and nonnegativity:**
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+### Solving by inspection (optimization result)
+
+We want to **minimize \(x + y\)** subject to:
+- \(4x + y \ge 80\)
+- \(2x \le 3y\)
+- \(x, y \in \mathbb{Z}_{\ge 0}\)
+
+From the percentage constraint:
+\[
+2x \le 3y \Rightarrow y \ge \frac{2}{3}x
+\]
+
+Use capacity constraint:
+\[
+4x + y \ge 80 \Rightarrow 4x + \frac{2}{3}x \le 4x + y
+\]
+So a rough lower bound:
+\[
+4x + \frac{2}{3}x \ge 80 \Rightarrow \frac{14}{3}x \ge 80 \Rightarrow x \ge \frac{240}{14} \approx 17.14
+\]
+Thus \(x \ge 18\) (integer).
+
+Take \(x = 18\). From \(2x \le 3y\):
+\[
+36 \le 3y \Rightarrow y \ge 12
+\]
+Check capacity with \(y=12\):
+\[
+4(18) + 12 = 72 + 12 = 84 \ge 80
+\]
+Total carts: \(18 + 12 = 30\).
+
+Check if fewer than 30 carts is possible:
+
+Suppose \(x + y \le 29\). The highest capacity per cart is with as many golf carts as allowed. From \(2x \le 3y\) and \(x + y = 29\), solve:
+
+- \(y = 29 - x\)
+- \(2x \le 3(29 - x) \Rightarrow 2x \le 87 - 3x \Rightarrow 5x \le 87 \Rightarrow x \le 17.4\)
+
+So with 29 carts, \(x \le 17\). Max capacity with 29 carts is then:
+\[
+\text{capacity} \le 4(17) + (29 - 17) = 68 + 12 = 80
+\]
+To achieve 80 exactly, we would need \(x = 17, y = 12\). Check the 60% constraint:
+\[
+\frac{x}{x + y} = \frac{17}{29} \approx 0.586 < 0.6
+\]
+So it’s feasible and has total carts \(= 29\), which is better than 30.
+
+Check if 28 carts can work: \(x + y = 28\).
+
+- From \(2x \le 3y = 3(28 - x)\):
+  \[
+  2x \le 84 - 3x \Rightarrow 5x \le 84 \Rightarrow x \le 16.8 \Rightarrow x \le 16
+  \]
+- Max capacity with \(x = 16, y=12\):
+  \[
+  4(16) + 12 = 64 + 12 = 76 < 80
+  \]
+So 28 carts are not enough. Therefore the optimal solution is:
+
+- \(x = 17\) golf carts  
+- \(y = 12\) pull carts  
+- Total carts \(= 29\), satisfying all constraints and minimizing total carts.
+
+### Recommended Python tools
+
+This is an integer linear programming (ILP) problem. Suitable Python libraries:
+
+- `PuLP` (simple, pure Python, good for teaching/small models)
+- `ortools.linear_solver` (Google OR-Tools, very efficient and free)
+- `pyscipopt` (interface to SCIP, strong MILP solver, more advanced)
+
+A minimal `pulp` setup would be:
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("GolfCarts", pl.LpMinimize)
+
+# Variables
+x = pl.LpVariable('golf_carts', lowBound=0, cat='Integer')
+y = pl.LpVariable('pull_carts', lowBound=0, cat='Integer')
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 4*x + y >= 80          # capacity
+prob += 2*x <= 3*y             # at most 60% golf carts
+
+# Solve
+prob.solve()
+print("Golf carts:", x.value())
+print("Pull carts:", y.value())
+print("Total carts:", x.value() + y.value())
+```
+
+This will return \(x = 17, y = 12\).
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("GolfCarts", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('golf_carts', lowBound=0, cat='Integer')
+    y = pl.LpVariable('pull_carts', lowBound=0, cat='Integer')
+
+    # Objective: minimize total carts
+    prob += x + y
+
+    # Constraints
+    prob += 4 * x + y >= 80          # Capacity requirement
+    prob += 2 * x <= 3 * y           # At most 60% golf carts
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Retrieve solution
+    x_val = pl.value(x)
+    y_val = pl.value(y)
+    total_carts = x_val + y_val
+
+    # Print final objective value as required
+    print(f"FINAL_OBJ: {total_carts}")
+
+if __name__ == "__main__":
+    main()

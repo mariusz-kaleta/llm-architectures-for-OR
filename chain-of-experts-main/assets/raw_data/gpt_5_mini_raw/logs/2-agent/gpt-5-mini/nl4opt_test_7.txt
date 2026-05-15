@@ -1,0 +1,168 @@
+[MODELER]:
+Model
+- Decision variables:
+  x = number of chairs produced (≥ 0)
+  y = number of dressers produced (≥ 0)
+
+- Objective:
+  Maximize profit Z = 43x + 52y
+
+- Constraints:
+  Stain: 1.4x + 1.1y ≤ 17
+  Oak wood: 2x + 3y ≤ 11
+  Nonnegativity: x ≥ 0, y ≥ 0
+
+Remarks and solution
+- Solve the LP by checking corner points. The two resource constraints give intercepts:
+  - Stain: x-intercept = 17/1.4 ≈ 12.1429, y-intercept = 17/1.1 ≈ 15.4545
+  - Wood: x-intercept = 11/2 = 5.5, y-intercept = 11/3 ≈ 3.6667
+- For all feasible (x,y) ≥ 0 satisfying the wood constraint, the stain constraint is not binding (it is redundant), so the feasible polygon is the triangle with vertices (0,0), (5.5,0), (0,11/3).
+- Evaluate profit at vertices:
+  - (0,0): Z = 0
+  - (5.5,0): Z = 43(5.5) = 236.50
+  - (0,11/3): Z = 52(11/3) ≈ 190.67
+
+Continuous (fractional) optimum
+- Maximum profit = $236.50 at (x,y) = (5.5, 0) — i.e., 5.5 chairs, 0 dressers (if fractional production were allowed).
+
+Integer (practical) solution
+- If x and y must be integers, evaluate integer feasible combinations satisfying 2x + 3y ≤ 11.
+  Checking feasible integer pairs gives the best integer solution x = 4, y = 1 with profit Z = 4·43 + 1·52 = $224.
+  (Other feasible integer candidates give lower profit: e.g. (5,0) → $215; (1,3) → $199.)
+
+Recommended Python libraries for solving
+- Continuous LP: scipy.optimize.linprog or PuLP
+- Integer (MIP): PuLP (CBC/Gurobi/CPLEX), OR-Tools CP-SAT
+- For enumerating small integer feasible sets: plain Python or itertools
+
+Optional quick PuLP sketch (continuous or integer):
+- Use pulp.LpProblem, LpVariable (cat='Continuous' or 'Integer'), add constraints, set objective, call prob.solve().
+
+Answer summary
+- Maximum profit if fractional production allowed: $236.50 (5.5 chairs, 0 dressers).
+- Maximum profit if production must be integer: $224 (4 chairs, 1 dresser).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data
+c_x = 43.0  # profit per chair
+c_y = 52.0  # profit per dresser
+
+# Constraints:
+# 1.4 x + 1.1 y <= 17   (stain)
+# 2   x + 3   y <= 11   (oak wood)
+
+def stain_ok(x, y, tol=1e-9):
+    return 1.4*x + 1.1*y <= 17 + tol
+
+def wood_ok(x, y, tol=1e-9):
+    return 2.0*x + 3.0*y <= 11 + tol
+
+def feasible(x, y, tol=1e-9):
+    return x >= -tol and y >= -tol and stain_ok(x, y, tol) and wood_ok(x, y, tol)
+
+# Candidate vertices: origin, intercepts of each constraint with axes, intersection of the two constraints
+candidates = []
+
+# Origin
+candidates.append((0.0, 0.0))
+
+# Stain intercepts
+candidates.append((17.0/1.4, 0.0))   # x-intercept of stain
+candidates.append((0.0, 17.0/1.1))   # y-intercept of stain
+
+# Wood intercepts
+candidates.append((11.0/2.0, 0.0))   # x-intercept of wood
+candidates.append((0.0, 11.0/3.0))   # y-intercept of wood
+
+# Intersection of the two constraint lines:
+# Solve:
+# 1.4 x + 1.1 y = 17
+# 2   x + 3   y = 11
+A11, A12, b1 = 1.4, 1.1, 17.0
+A21, A22, b2 = 2.0, 3.0, 11.0
+
+det = A11*A22 - A12*A21
+if abs(det) > 1e-12:
+    x_int = (b1*A22 - A12*b2) / det
+    y_int = (A11*b2 - b1*A21) / det
+    candidates.append((x_int, y_int))
+
+# Filter unique feasible vertices (within tolerance)
+unique_feasible = []
+tol = 1e-9
+for x, y in candidates:
+    if x < -tol or y < -tol:
+        continue
+    if not feasible(x, y, tol):
+        continue
+    # Check uniqueness
+    is_new = True
+    for (ux, uy) in unique_feasible:
+        if abs(ux - x) <= 1e-7 and abs(uy - y) <= 1e-7:
+            is_new = False
+            break
+    if is_new:
+        unique_feasible.append((x, y))
+
+# Evaluate objective at feasible vertices
+def profit(x, y):
+    return c_x*x + c_y*y
+
+best_continuous = None
+best_cont_point = None
+evaluations = []
+for x, y in unique_feasible:
+    z = profit(x, y)
+    evaluations.append((x, y, z))
+    if best_continuous is None or z > best_continuous:
+        best_continuous = z
+        best_cont_point = (x, y)
+
+# Enumerate integer feasible solutions and find best integer solution
+# Determine reasonable bounds for enumeration
+# x_max = floor(min(intercepts x from constraints)), y_max similar
+x_max = int(math.floor(min(17.0/1.4, 11.0/2.0)))
+y_max = int(math.floor(min(17.0/1.1, 11.0/3.0)))
+# To be safe, extend bounds by 1
+x_max = max(x_max, 0) + 1
+y_max = max(y_max, 0) + 1
+
+best_integer = None
+best_int_point = None
+integer_solutions = []
+for xi in range(0, x_max+1):
+    for yi in range(0, y_max+1):
+        if feasible(xi, yi):
+            zi = profit(xi, yi)
+            integer_solutions.append((xi, yi, zi))
+            if best_integer is None or zi > best_integer:
+                best_integer = zi
+                best_int_point = (xi, yi)
+
+# Output results
+print("Feasible continuous vertices and profits:")
+for x, y, z in sorted(evaluations, key=lambda t: (t[0], t[1])):
+    print(f"  (x={x:.6f}, y={y:.6f}) -> Z = {z:.6f}")
+
+if best_cont_point is not None:
+    print(f"\nContinuous optimum: x = {best_cont_point[0]:.6f}, y = {best_cont_point[1]:-0.6f}, Z = {best_continuous:.6f}")
+else:
+    print("\nNo feasible continuous solution found.")
+
+if best_int_point is not None:
+    print(f"Integer optimum: x = {best_int_point[0]}, y = {best_int_point[1]}, Z = {best_integer:.2f}")
+else:
+    print("No feasible integer solution found.")
+
+# According to problem remark, continuous optimal should be 236.50 at (5.5, 0)
+# Integer optimal should be 224 at (4,1)
+
+# Final required print line (only this text on the line). We'll output the continuous optimum value formatted to 2 decimals.
+print(f"FINAL_OBJ: {best_continuous:.2f}")
+```

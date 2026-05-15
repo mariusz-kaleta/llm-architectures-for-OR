@@ -1,0 +1,126 @@
+[MODELER]:
+Model
+
+Decision variables
+- A = number of almond servings (>= 0).
+- C = number of cashew servings (>= 0).
+
+(If servings must be whole, add integrality constraints A, C ∈ Z≥0. If fractional servings allowed, treat as continuous.)
+
+Objective
+- Minimize total fat F = 15A + 12C.
+
+Constraints
+- Calories: 200A + 300C ≥ 10000.
+- Protein: 20A + 25C ≥ 800.
+- Almonds at least twice cashews: A ≥ 2C.
+- Nonnegativity: A ≥ 0, C ≥ 0.
+- (Optional) Integrality: A, C ∈ Z≥0.
+
+Summary as an LP
+minimize 15A + 12C
+subject to
+200A + 300C ≥ 10000
+20A + 25C ≥ 800
+A − 2C ≥ 0
+A, C ≥ 0
+(optional: A, C integers)
+
+Continuous (LP) solution (allow fractional servings)
+Because A ≥ 2C and coefficients are positive, the LP optimum occurs at the equality A = 2C. Substitute A = 2C into the calorie constraint:
+700C ≥ 10000 → C = 10000/700 = 100/7 ≈ 14.2857143
+A = 2C = 200/7 ≈ 28.5714286
+
+Total fat F = 15A + 12C = 600 (grams).
+This solution also satisfies protein exactly: 65C = 800.
+
+Integer (whole-serving) solution
+If servings must be integers, compute the smallest integer-feasible pair (A, C). Searching nearby integer values yields the best integer solution:
+A = 29, C = 14
+Checks:
+- Calories: 200·29 + 300·14 = 10000
+- Protein: 20·29 + 25·14 = 930 ≥ 800
+- A ≥ 2C holds (29 ≥ 28)
+Total fat F = 15·29 + 12·14 = 603 (grams).
+
+Recommended solvers / Python libraries
+- Continuous LP: scipy.optimize.linprog, cvxpy.
+- Mixed-integer linear program (MILP): PuLP (CBC), OR-Tools (CBC or SCIP), Pyomo (with CBC/GLPK/Gurobi).
+- For simple problems PuLP or OR-Tools CP-SAT are easy to use.
+
+Optional short example (PuLP outline)
+- Define LpVariables A, C (cat='Integer' for integer solution or default continuous).
+- Set objective pulp.lpSum([15*A, 12*C]).
+- Add constraints as above.
+- Solve with pulp.PULP_CBC_CMD() and read A.value(), C.value().
+
+Answer
+- Continuous-servings optimum: A = 200/7 ≈ 28.571 almonds, C = 100/7 ≈ 14.286 cashews, minimum fat = 600 g.
+- If servings must be whole: A = 29 almonds, C = 14 cashews, minimum achievable fat = 603 g.
+
+---
+
+[CODER]:
+import math
+
+# Problem data (initialized directly)
+# Decision variables: A (almond servings), C (cashew servings)
+# Objective: minimize fat F = 15*A + 12*C
+# Constraints:
+#   200*A + 300*C >= 10000   (calories)
+#   20*A  + 25*C  >= 800     (protein)
+#   A >= 2*C
+#   A, C >= 0
+# Optional integrality: A, C integers
+
+# Continuous LP solution (analytical using A = 2C, since A >= 2C and coefficients positive)
+C_cont = 10000.0 / 700.0   # from 200*(2C) + 300*C = 700C >= 10000
+A_cont = 2.0 * C_cont
+fat_cont = 15.0 * A_cont + 12.0 * C_cont
+
+# Integer (whole-serving) solution: brute-force search over reasonable bounds
+best_int = None
+best_fat_int = float("inf")
+best_pair = (None, None)
+
+# Reasonable search bounds:
+# C won't need to be huge. Use 0..1000 to be safe.
+for C in range(0, 1001):
+    # Minimum A to satisfy calories: 200*A >= 10000 - 300*C
+    cal_needed = 10000 - 300 * C
+    if cal_needed <= 0:
+        A_req_cal = 0
+    else:
+        A_req_cal = math.ceil(cal_needed / 200.0)
+    # Minimum A to satisfy protein: 20*A >= 800 - 25*C
+    prot_needed = 800 - 25 * C
+    if prot_needed <= 0:
+        A_req_prot = 0
+    else:
+        A_req_prot = math.ceil(prot_needed / 20.0)
+    # Minimum A to satisfy A >= 2C
+    A_req_ratio = 2 * C
+
+    A_min = max(0, A_req_cal, A_req_prot, A_req_ratio)
+
+    # Check feasibility and compute fat
+    # A_min is integer already
+    if A_min >= 0:
+        # Verify constraints explicitly (safety)
+        if (200 * A_min + 300 * C >= 10000) and (20 * A_min + 25 * C >= 800) and (A_min >= 2 * C):
+            fat = 15 * A_min + 12 * C
+            if fat < best_fat_int:
+                best_fat_int = fat
+                best_int = (A_min, C)
+                best_pair = (A_min, C)
+
+# Display results
+print(f"Continuous solution: A = {A_cont:.9f}, C = {C_cont:.9f}, fat = {fat_cont:.6f}")
+if best_int is not None:
+    A_int, C_int = best_int
+    print(f"Integer solution (best): A = {A_int}, C = {C_int}, fat = {best_fat_int}")
+else:
+    print("No integer feasible solution found in search range.")
+
+# Final required print (final objective value). We present the continuous LP optimum value.
+print(f"FINAL_OBJ: {fat_cont}")

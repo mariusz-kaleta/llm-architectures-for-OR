@@ -1,0 +1,35 @@
+[MONOLITH]:
+import pulp
+
+# Decision variables
+# L: number of large cruise ship trips (integer)
+# S: number of small cruise ship trips (integer)
+prob = pulp.LpProblem("Cruise_Pollution_Minimization", pulp.LpMinimize)
+
+L = pulp.LpVariable("L", lowBound=0, cat="Integer")
+S = pulp.LpVariable("S", lowBound=0, cat="Integer")
+
+# Objective: minimize total pollution
+prob += 20 * L + 15 * S, "Total_Pollution"
+
+# Constraints
+prob += 2000 * L + 800 * S >= 20000, "Customer_Capacity"
+prob += L <= 7, "Max_Large_Trips"
+# At least 40% of total trips must be small => S >= 0.4*(L+S) => 0.6S >= 0.4L => 3S >= 2L
+prob += 3 * S >= 2 * L, "Small_Trip_Fraction"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Gather results
+L_val = int(pulp.value(L))
+S_val = int(pulp.value(S))
+obj_val = pulp.value(prob.objective)
+
+# Print solution details
+print(f"Large_trips = {L_val}")
+print(f"Small_trips = {S_val}")
+print(f"Total_pollution = {obj_val}")
+
+value = obj_val
+print(f"FINAL_OBJ: {value}")

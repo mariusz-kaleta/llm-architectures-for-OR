@@ -1,0 +1,89 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of oranges (nonnegative integer)
+  - y = number of grapefruits (nonnegative integer)
+
+- Objective
+  - Minimize total sugar S = 5x + 6y (grams)
+
+- Constraints
+  - Vitamin C: 5x + 7y >= 80
+  - Vitamin A: 3x + 5y >= 70
+  - Preference (patient prefers oranges): x >= 2y
+  - Integrality and nonnegativity: x, y ∈ Z_{\ge 0}
+
+Remarks on continuous relaxation
+- If x,y are allowed to be fractional (continuous LP), the optimal solution is
+  x = 140/11 ≈ 12.7273, y = 70/11 ≈ 6.3636 with S ≈ 101.818 g.
+  (This is not realistic here because fruits are discrete.)
+
+Integer (realistic) solution
+- Solving the integer program yields the optimal integer solution:
+  x = 15 oranges, y = 5 grapefruits
+  which gives vitamins:
+    - C: 5*15 + 7*5 = 110 ≥ 80
+    - A: 3*15 + 5*5 = 70 ≥ 70 (binding)
+    - Preference: 15 ≥ 2*5 = 10
+  and minimal sugar S = 5*15 + 6*5 = 105 grams.
+
+Suggested Python libraries to solve this
+- For exact integer solution: PuLP, OR-Tools (CP-SAT), python-mip (MIP).
+- For continuous LP only: scipy.optimize.linprog.
+- Example: PuLP with the default CBC solver or OR-Tools CP-SAT for guaranteed integer solution.
+
+Optional: short PuLP sketch
+- Set up binary/Integer variables x,y, objective minimize 5*x + 6*y, add the constraints above, call solve() and read x.value(), y.value().
+
+Answer
+- The patient should eat 15 oranges and 5 grapefruits to minimize sugar intake (105 grams).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+# Integer optimization by enumeration for the fruit problem
+# Decision variables:
+#   x = number of oranges (nonnegative integer)
+#   y = number of grapefruits (nonnegative integer)
+# Objective:
+#   Minimize S = 5*x + 6*y
+# Constraints:
+#   5*x + 7*y >= 80   (Vitamin C)
+#   3*x + 5*y >= 70   (Vitamin A)
+#   x >= 2*y          (preference)
+
+# Brute-force search over a reasonable range
+max_x = 100
+max_y = 100
+
+best_S = None
+best_x = None
+best_y = None
+
+for x in range(max_x + 1):
+    for y in range(max_y + 1):
+        if x < 2*y:
+            continue
+        if 5*x + 7*y < 80:
+            continue
+        if 3*x + 5*y < 70:
+            continue
+        S = 5*x + 6*y
+        if best_S is None or S < best_S:
+            best_S = S
+            best_x = x
+            best_y = y
+        # optional tie-breaker: prefer fewer fruits total if same sugar
+        elif S == best_S:
+            if (x + y) < (best_x + best_y):
+                best_x = x
+                best_y = y
+
+if best_S is None:
+    raise RuntimeError("No feasible integer solution found in search range.")
+
+# Print solution summary (optional)
+print(f"Optimal integer solution found: x={best_x} oranges, y={best_y} grapefruits, Sugar={best_S} g")
+# Final required line (must be exactly this format)
+print(f"FINAL_OBJ: {best_S}")

@@ -1,0 +1,313 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- **Goal:** Minimise the *total amount of pain killer* used for all scheduled fillings, subject to:
+  - Limited resin supply.
+  - Scheduling at least 60% of fillings as canines.
+  - Reserving enough materials to be able to fill at least 45 molars.
+
+2. **Suggested model type**
+
+- **Model:** Linear Programming (LP), with continuous decision variables that can be treated as integer counts (if needed, can later enforce integrality).
+
+3. **Main decision variables**
+
+Define variables as number of cavities (fillings) scheduled:
+
+- \(M\): number of molar cavities to fill.
+- \(C\): number of canine cavities to fill.
+
+If you want to handle the “reserve materials for at least 45 molars” more explicitly, you could introduce:
+
+- \(M_{\text{scheduled}}\): molars actually scheduled to fill.
+- \(M_{\text{reserved}}\): molars for which material is reserved (could be equal to or greater than \(M_{\text{scheduled}}\) depending on interpretation).
+
+But a simpler interpretation is: the resource plan must allow for at least 45 molars (i.e., not using up all resin with canines so that at least 45 molars could be filled).
+
+4. **Key constraints to consider**
+
+Use the problem data:
+
+- Resin per molar: 20 units.
+- Resin per canine: 15 units.
+- Pain killer per molar: 3 units.
+- Pain killer per canine: 2.3 units.
+- Total resin available: 3000 units.
+- At least 60% of fillings must be canines.
+- Must reserve materials to fill at least 45 molars.
+
+So constraints to include:
+
+1. **Resin capacity constraint**
+   - Total resin used for scheduled fillings (and possibly reserved molars) cannot exceed 3000 units.
+   - If you interpret “reserve” as actually setting aside resin and not using it for anything else, then:
+     - Resin for scheduled molars + resin for scheduled canines + resin reserved for 45 molars ≤ 3000.
+   - Alternatively, if you interpret it as “do not plan in such a way that you *cannot* fill at least 45 molars”, then:
+     - Ensure remaining resin after scheduling canines is at least enough for 45 molars.
+
+2. **Canine proportion constraint (at least 60% canines)**
+   - Number of canines must be at least 60% of total fillings:
+     - \(C \ge 0.6(M + C)\).
+   - This is a linear fraction constraint that can be rewritten in linear form.
+
+3. **Non-negativity constraints**
+   - \(M, C \ge 0\).
+   - If integer solutions are desired, you can enforce integrality, but with the given scale it might not be critical.
+
+4. **Reservation for 45 molars**
+   Two main modelling choices; the Modeller should pick one and be consistent:
+
+   - **Option A: Reserve resin explicitly**
+     - Dedicate resin for at least 45 molars: 45 × 20 = 900 units.
+     - Then use only the remaining resin for the optimisation of scheduled fillings.
+     - This becomes a fixed deduction from the total resin capacity: 3000 − 900 = 2100 units for optimised scheduling.
+   
+   - **Option B: Implicit reservation via constraint**
+     - Ensure that, after planning canines and molars, there is still enough “theoretical” resin to fill 45 molars.
+     - That implies: total resin used for scheduled fillings + resin for 45 molars ≤ 3000.
+
+   Option B is more general and keeps all decisions in one model.
+
+5. **Objective function structure**
+
+- Total pain killer use:
+  - For molars: 3 units per filling.
+  - For canines: 2.3 units per filling.
+- Objective: Minimise 3·M + 2.3·C.
+
+6. **Checks and modelling notes**
+
+- Ensure the model is **feasible**: verify that reserving for 45 molars does not completely eliminate the possibility of scheduling any canines under the 60% rule.
+- Be prepared to:
+  - Solve the LP.
+  - Check whether the optimal solution yields integer values of M and C.
+  - If necessary, convert to an Integer Linear Program (ILP) to enforce integer counts.
+
+This structure is enough for the Modeller to set up and solve the LP and then interpret the optimal numbers of molar and canine fillings.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model of the problem, followed by how you would implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(M \ge 0\): number of molar cavities to schedule.
+- \(C \ge 0\): number of canine cavities to schedule.
+
+(If you need integer counts, later require \(M, C \in \mathbb{Z}_{\ge 0}\).)
+
+We will use the “implicit reservation” interpretation (Option B from your plan): the schedule must leave enough resin such that 45 molars *could* still be filled.
+
+---
+
+## 2. Parameters
+
+From the problem:
+
+- Resin per molar: \(r_M = 20\) units.
+- Resin per canine: \(r_C = 15\) units.
+- Pain killer per molar: \(p_M = 3\) units.
+- Pain killer per canine: \(p_C = 2.3\) units.
+- Total resin available: \(R = 3000\) units.
+- Required reservation for 45 molars: \(45\) molars → \(45 \times 20 = 900\) units of resin.
+- At least 60% of scheduled fillings must be canines.
+
+---
+
+## 3. Objective function
+
+Minimise total pain killer used:
+
+\[
+\min\; Z = 3M + 2.3C
+\]
+
+---
+
+## 4. Constraints
+
+### 4.1. Resin capacity with reservation (implicit)
+
+Total resin for **scheduled** fillings plus resin required to still be able to fill 45 molars cannot exceed 3000:
+
+\[
+20M + 15C + 20 \cdot 45 \;\le\; 3000
+\]
+
+i.e.
+
+\[
+20M + 15C + 900 \le 3000
+\quad \Rightarrow \quad
+20M + 15C \le 2100
+\]
+
+This ensures that after using resin on scheduled fillings, there is at least 900 units left for 45 molars.
+
+> If you prefer the “explicit reservation” view, you could model a variable \(R_{\text{res}}\) for reserved resin, but it collapses to the same constraint here since 45 is fixed.
+
+### 4.2. Canine proportion constraint (at least 60% canines)
+
+At least 60% of the scheduled fillings must be canines:
+
+\[
+C \;\ge\; 0.6(M + C)
+\]
+
+Rearrange to a linear form:
+
+\[
+C \;\ge\; 0.6M + 0.6C
+\quad \Rightarrow \quad
+0.4C \;\ge\; 0.6M
+\quad \Rightarrow \quad
+C \;\ge\; 1.5M
+\]
+
+So we include:
+
+\[
+C - 1.5 M \ge 0
+\]
+
+### 4.3. Non-negativity (and optionally integrality)
+
+\[
+M \ge 0, \quad C \ge 0
+\]
+
+Optionally, if needed:
+
+\[
+M, C \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 5. Complete LP model
+
+**Decision variables**
+
+- \(M, C \ge 0\).
+
+**Objective**
+
+\[
+\min\; Z = 3M + 2.3C
+\]
+
+**Subject to**
+
+1. Resin + reservation:
+
+   \[
+   20M + 15C \le 2100
+   \]
+
+2. Canine proportion:
+
+   \[
+   C \ge 1.5M
+   \]
+
+3. Non-negativity:
+
+   \[
+   M, C \ge 0
+   \]
+
+(If you enforce integer counts, make \(M, C\) integers.)
+
+---
+
+## 6. Suitable Python libraries
+
+For this linear program:
+
+- **PuLP**: very straightforward for teaching/quick modelling.
+- **OR-Tools (linear_solver)**: fast and well-maintained by Google.
+- **Pyomo**: more expressive if you later build larger models.
+- **scipy.optimize.linprog**: works for continuous LP (no integrality).
+
+Since we may want integer counts later, **PuLP** or **OR-Tools** is recommended.
+
+---
+
+## 7. Example: PuLP implementation (continuous or integer)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("DentistScheduling", pl.LpMinimize)
+
+# Decision variables (use LpInteger instead of LpContinuous if you need integers)
+M = pl.LpVariable('Molars', lowBound=0, cat='Continuous')
+C = pl.LpVariable('Canines', lowBound=0, cat='Continuous')
+
+# Objective: Minimize pain killer
+prob += 3 * M + 2.3 * C
+
+# Constraint 1: Resin + reservation for 45 molars
+prob += 20 * M + 15 * C <= 2100, "ResinCapacityWithReservation"
+
+# Constraint 2: At least 60% canines -> C >= 1.5 M
+prob += C >= 1.5 * M, "CanineProportion"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Molars (M):", M.value())
+print("Canines (C):", C.value())
+print("Total pain killer:", pl.value(prob.objective))
+```
+
+To enforce integer counts, change the variable definitions to:
+
+```python
+M = pl.LpVariable('Molars', lowBound=0, cat='Integer')
+C = pl.LpVariable('Canines', lowBound=0, cat='Integer')
+```
+
+The same structure can be implemented in OR-Tools’ `pywraplp.Solver` or in Pyomo with almost identical linear expressions.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem: Minimize total pain killer usage
+    prob = pl.LpProblem("DentistScheduling", pl.LpMinimize)
+
+    # Decision variables: integer counts of molar (M) and canine (C) fillings
+    M = pl.LpVariable('Molars', lowBound=0, cat='Integer')
+    C = pl.LpVariable('Canines', lowBound=0, cat='Integer')
+
+    # Objective function: Minimize 3M + 2.3C
+    prob += 3 * M + 2.3 * C
+
+    # Constraint 1: Resin capacity with reservation for 45 molars
+    # 20M + 15C <= 2100
+    prob += 20 * M + 15 * C <= 2100, "ResinCapacityWithReservation"
+
+    # Constraint 2: At least 60% canines -> C >= 1.5M
+    prob += C >= 1.5 * M, "CanineProportion"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pl.value(prob.objective)
+
+    # Required final print format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

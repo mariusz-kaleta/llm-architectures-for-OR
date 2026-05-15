@@ -1,0 +1,155 @@
+[MODELER]:
+Here is a standard linear programming (LP) model of the problem.
+
+## 1. Decision variables
+
+Let:
+
+- \(x \ge 0\): number of color printers produced per day  
+- \(y \ge 0\): number of black-and-white printers produced per day  
+
+## 2. Objective function
+
+Each color printer gives \$200 profit; each black-and-white printer gives \$70 profit.  
+Maximize total daily profit:
+
+\[
+\max\; Z = 200x + 70y
+\]
+
+## 3. Constraints
+
+1. **Color production capacity** (color team can make at most 20/day):
+
+\[
+x \le 20
+\]
+
+2. **Black-and-white production capacity** (B&W team can make at most 30/day):
+
+\[
+y \le 30
+\]
+
+3. **Shared paper tray machine capacity** (at most 35 printers in total per day):
+
+\[
+x + y \le 35
+\]
+
+4. **Non-negativity**:
+
+\[
+x \ge 0, \quad y \ge 0
+\]
+
+This fully defines the linear program.
+
+## 4. Solving (analytical insight)
+
+Because color printers are more profitable (\$200 > \$70), the machine capacity should favor colors as much as possible, subject to other limits:
+
+- From color team capacity: \(x \le 20\)  
+- From machine capacity: if \(x = 20\), then \(y \le 35 - 20 = 15\)  
+
+This point \((x,y) = (20, 15)\) satisfies all constraints:
+- \(20 \le 20\)
+- \(15 \le 30\)
+- \(20 + 15 = 35 \le 35\)
+
+Profit:
+
+\[
+Z = 200(20) + 70(15) = 4000 + 1050 = 5050
+\]
+
+Checking alternative corner points:
+
+- \((x,y) = (20,0)\): \(Z = 200(20) + 70(0) = 4000\)
+- \((x,y) = (0,30)\) but must also satisfy \(x+y \le 35\), so allowed:
+  - \((0,30)\): \(Z = 70(30) = 2100\)
+  - \((5,30)\) (since \(5+30=35\)): \(Z = 200(5) + 70(30) = 1000 + 2100 = 3100\)
+
+The maximum among these feasible corner points is at \((20,15)\).
+
+**Optimal production plan:**
+
+- Color printers: 20 per day  
+- Black-and-white printers: 15 per day  
+- Maximum profit: \$5,050 per day
+
+## 5. Python libraries suitable for solving this LP
+
+Several libraries can model and solve this linear program:
+
+- **PuLP** (pure Python, easy LP modeling, uses CBC or other solvers)
+- **SciPy** (`scipy.optimize.linprog` for linear programming)
+- **OR-Tools** (from Google, powerful for LP/MIP problems)
+- **Pyomo** (more general algebraic modeling language in Python)
+
+### Example in PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Printer_Production", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('color_printers', lowBound=0)
+y = pl.LpVariable('bw_printers', lowBound=0)
+
+# Objective
+prob += 200 * x + 70 * y
+
+# Constraints
+prob += x <= 20               # Color team capacity
+prob += y <= 30               # B&W team capacity
+prob += x + y <= 35           # Shared machine capacity
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal color printers:", x.varValue)
+print("Optimal B&W printers:", y.varValue)
+print("Max profit:", pl.value(prob.objective))
+```
+
+This will return:
+- `Optimal color printers: 20.0`
+- `Optimal B&W printers: 15.0`
+- `Max profit: 5050.0`
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the LP problem (maximization)
+    prob = pl.LpProblem("Printer_Production", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('color_printers', lowBound=0)
+    y = pl.LpVariable('bw_printers', lowBound=0)
+
+    # Objective function: Maximize 200x + 70y
+    prob += 200 * x + 70 * y
+
+    # Constraints
+    prob += x <= 20          # Color production capacity
+    prob += y <= 30          # B&W production capacity
+    prob += x + y <= 35      # Shared machine capacity
+
+    # Solve the problem
+    prob.solve()
+
+    # Extract objective value
+    objective_value = pl.value(prob.objective)
+
+    # Final required print
+    print(f"FINAL_OBJ: {objective_value}")
+
+if __name__ == "__main__":
+    main()

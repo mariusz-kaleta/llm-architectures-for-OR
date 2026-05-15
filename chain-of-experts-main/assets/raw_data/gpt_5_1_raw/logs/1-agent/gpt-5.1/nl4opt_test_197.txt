@@ -1,0 +1,37 @@
+[MONOLITH]:
+import pulp
+
+# Initialize the problem: minimize gelatin usage
+prob = pulp.LpProblem("Vaccine_Production", pulp.LpMinimize)
+
+# Decision variables: number of first-dose (x1) and second-dose (x2) vaccines
+x1 = pulp.LpVariable('x1', lowBound=0, cat='Continuous')
+x2 = pulp.LpVariable('x2', lowBound=40, cat='Continuous')  # at least 40 second-dose
+
+# Parameters
+antibiotics_available = 35000
+antibiotics_first = 30
+antibiotics_second = 65
+gelatin_first = 20
+gelatin_second = 60
+
+# Objective: Minimize total gelatin used
+prob += gelatin_first * x1 + gelatin_second * x2
+
+# Constraint: Antibiotics availability
+prob += antibiotics_first * x1 + antibiotics_second * x2 <= antibiotics_available
+
+# Constraint: First-dose must be more than second-dose
+prob += x1 >= x2 + 1  # strictly more; model as integer gap of at least 1
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+x1_opt = pulp.value(x1)
+x2_opt = pulp.value(x2)
+final_obj = pulp.value(prob.objective)
+
+print(f"Optimal first-dose vaccines (x1): {x1_opt}")
+print(f"Optimal second-dose vaccines (x2): {x2_opt}")
+print(f"Minimum gelatin used: {final_obj}")
+print(f"FINAL_OBJ: {final_obj}")

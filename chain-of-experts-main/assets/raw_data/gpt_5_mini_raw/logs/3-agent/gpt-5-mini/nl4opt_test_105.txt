@@ -1,0 +1,140 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x_h ≥ 0 = number of batches of hams produced (continuous; integer if batches must be whole)
+  - x_r ≥ 0 = number of batches of pork ribs produced
+
+- Objective
+  - Maximize profit: maximize Z = 150 x_h + 300 x_r
+
+- Constraints
+  - Meat slicer time: 4 x_h + 2 x_r ≤ 4000
+  - Meat packer time: 2.5 x_h + 3.5 x_r ≤ 4000
+  - Nonnegativity: x_h ≥ 0, x_r ≥ 0
+
+Solving (continuous LP)
+- Solve the two-machine constraints and objective by checking vertices. The LP optimal solution is:
+  - x_h = 0
+  - x_r = 4000 / 3.5 = 8000/7 ≈ 1142.857 batches
+  - Maximum profit Z = 300 * (8000/7) ≈ $342,857.14
+
+(If integer batches required)
+- The largest integer feasible value for x_r is 1142 (since 1143 would violate the packer time). Then x_h = 0, profit = 300 * 1142 = $342,600.
+
+Suggested Python libraries for solving
+- pulp (simple, high-level LP/MIP)
+- scipy.optimize.linprog (continuous LP)
+- ortools.linear_solver (Google OR-Tools, supports LP and MIP)
+- cvxpy (convex optimization modeling)
+
+Example with pulp (continuous LP)
+  from pulp import LpProblem, LpMaximize, LpVariable, value
+
+  prob = LpProblem("Meat", LpMaximize)
+  xh = LpVariable("hams", lowBound=0)
+  xr = LpVariable("ribs", lowBound=0)
+
+  prob += 150*xh + 300*xr
+  prob += 4*xh + 2*xr <= 4000
+  prob += 2.5*xh + 3.5*xr <= 4000
+
+  prob.solve()
+  print(xh.varValue, xr.varValue, "Profit =", value(prob.objective))
+
+This will return xh = 0 and xr = 8000/7 ≈ 1142.857 with profit ≈ 342,857.14.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data
+# Maximize Z = 150*xh + 300*xr
+c_xh = 150.0
+c_xr = 300.0
+
+# Constraints (left-hand side coefficients and RHS)
+# 4*xh + 2*xr <= 4000
+# 2.5*xh + 3.5*xr <= 4000
+constraints = [
+    (4.0, 2.0, 4000.0),
+    (2.5, 3.5, 4000.0),
+    (1.0, 0.0, 0.0),   # xh >= 0  as line xh = 0 -> 1*xh + 0*xr = 0
+    (0.0, 1.0, 0.0),   # xr >= 0  as line xr = 0 -> 0*xh + 1*xr = 0
+]
+
+def intersect(line1, line2, tol=1e-12):
+    a1, b1, c1 = line1
+    a2, b2, c2 = line2
+    det = a1 * b2 - a2 * b1
+    if abs(det) < tol:
+        return None  # parallel or coincident
+    x = (c1 * b2 - c2 * b1) / det
+    y = (a1 * c2 - a2 * c1) / det
+    return (x, y)
+
+# Generate all intersections of pairs of boundary lines
+vertices = []
+n = len(constraints)
+for i in range(n):
+    for j in range(i+1, n):
+        pt = intersect(constraints[i], constraints[j])
+        if pt is not None:
+            vertices.append(pt)
+
+# Also ensure origin is included (it will be from intersections, but ensure)
+vertices.append((0.0, 0.0))
+
+# Feasibility check
+def feasible(xh, xr, tol=1e-9):
+    if xh < -tol or xr < -tol:
+        return False
+    if 4.0*xh + 2.0*xr > 4000.0 + tol:
+        return False
+    if 2.5*xh + 3.5*xr > 4000.0 + tol:
+        return False
+    return True
+
+# Evaluate objective at feasible vertices, keep best
+best_obj = -math.inf
+best_point = None
+for (xh, xr) in vertices:
+    if feasible(xh, xr):
+        obj = c_xh * xh + c_xr * xr
+        if obj > best_obj:
+            best_obj = obj
+            best_point = (xh, xr)
+
+# As a safety, also check the axis extreme points (where one variable = 0 and other at its constraint limit)
+# xr when xh = 0 -> min(4000/2, 4000/3.5)
+xr_axis_candidates = [
+    min(4000.0/2.0, 4000.0/3.5),
+    0.0
+]
+xh_axis_candidates = [
+    min(4000.0/4.0, 4000.0/2.5),
+    0.0
+]
+for xr in xr_axis_candidates:
+    xh = 0.0
+    if feasible(xh, xr):
+        obj = c_xh*xh + c_xr*xr
+        if obj > best_obj:
+            best_obj = obj
+            best_point = (xh, xr)
+for xh in xh_axis_candidates:
+    xr = 0.0
+    if feasible(xh, xr):
+        obj = c_xh*xh + c_xr*xr
+        if obj > best_obj:
+            best_obj = obj
+            best_point = (xh, xr)
+
+# Final objective value
+value = best_obj
+
+print(f"FINAL_OBJ: {value}")
+```

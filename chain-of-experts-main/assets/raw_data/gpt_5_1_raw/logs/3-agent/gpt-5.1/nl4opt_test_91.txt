@@ -1,0 +1,184 @@
+[MODELER]:
+We can model this as a linear optimization (linear programming) problem.
+
+### Decision variables
+
+Let  
+- \(x\) = number of turkey dinners  
+- \(y\) = number of tuna salad sandwiches  
+
+We assume fractional meals are allowed unless you explicitly require whole meals (integer).
+
+### Objective
+
+Minimize total fat intake:
+
+\[
+\text{Minimize } Z = 12x + 8y
+\]
+
+because:
+- each turkey dinner has 12 g fat
+- each tuna sandwich has 8 g fat
+
+### Constraints
+
+**1. Protein requirement (at least 150 g):**
+
+Each meal contributes:
+- turkey: 20 g protein → \(20x\)
+- tuna: 18 g protein → \(18y\)
+
+So:
+\[
+20x + 18y \;\ge\; 150
+\]
+
+**2. Carbohydrate requirement (at least 200 g):**
+
+Each meal contributes:
+- turkey: 30 g carbs → \(30x\)
+- tuna: 25 g carbs → \(25y\)
+
+So:
+\[
+30x + 25y \;\ge\; 200
+\]
+
+**3. At most 40% of meals are turkey dinners:**
+
+Total meals is \(x + y\). At most 40% are turkey:
+
+\[
+x \;\le\; 0.4(x + y)
+\]
+
+Rearrange:
+
+\[
+x \le 0.4x + 0.4y
+\]
+\[
+x - 0.4x \le 0.4y
+\]
+\[
+0.6x \le 0.4y
+\]
+\[
+3x \le 2y
+\]
+or equivalently
+\[
+y \;\ge\; 1.5x
+\]
+
+**4. Non-negativity:**
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+If you want only whole meals: \(x, y \in \mathbb{Z}_{\ge 0}\).
+
+### Full mathematical model
+
+\[
+\begin{aligned}
+\text{Minimize} \quad & Z = 12x + 8y \\
+\text{subject to} \quad
+& 20x + 18y \ge 150 \\
+& 30x + 25y \ge 200 \\
+& 3x \le 2y \\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+(optionally \(x, y\) integer)
+
+---
+
+### Suitable Python libraries
+
+For this linear program, any LP solver works well:
+
+- **PuLP** (`pulp`): very straightforward for educational examples.
+- **OR-Tools Linear Solver** (`ortools.linear_solver`): fast and well-documented.
+- **SciPy** (`scipy.optimize.linprog`): good for continuous LP (no integrality).
+
+If you want integer solutions (whole meals), use:
+
+- PuLP (with CBC solver, default)
+- OR-Tools (MIP solver)
+- `mip` or `python-mip`
+
+---
+
+### Example PuLP formulation (continuous variables)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Meal_Planning", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('turkey_dinners', lowBound=0)
+y = pl.LpVariable('tuna_sandwiches', lowBound=0)
+
+# Objective: minimize fat
+prob += 12*x + 8*y
+
+# Constraints
+prob += 20*x + 18*y >= 150    # protein
+prob += 30*x + 25*y >= 200    # carbs
+prob += 3*x <= 2*y            # at most 40% turkey
+
+# Solve
+prob.solve()
+print("Status:", pl.LpStatus[prob.status])
+print("turkey dinners =", x.value())
+print("tuna sandwiches =", y.value())
+print("min fat (g) =", pl.value(prob.objective))
+```
+
+Change to integer meals by defining:
+
+```python
+x = pl.LpVariable('turkey_dinners', lowBound=0, cat='Integer')
+y = pl.LpVariable('tuna_sandwiches', lowBound=0, cat='Integer')
+```
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Meal_Planning", pl.LpMinimize)
+
+    # Decision variables (continuous, non-negative)
+    x = pl.LpVariable('turkey_dinners', lowBound=0)
+    y = pl.LpVariable('tuna_sandwiches', lowBound=0)
+
+    # Objective: minimize total fat (grams)
+    prob += 12 * x + 8 * y
+
+    # Constraints
+    # Protein requirement
+    prob += 20 * x + 18 * y >= 150
+    # Carbohydrate requirement
+    prob += 30 * x + 25 * y >= 200
+    # At most 40% of meals are turkey dinners → 3x ≤ 2y
+    prob += 3 * x <= 2 * y
+
+    # Solve the problem
+    prob.solve()
+
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

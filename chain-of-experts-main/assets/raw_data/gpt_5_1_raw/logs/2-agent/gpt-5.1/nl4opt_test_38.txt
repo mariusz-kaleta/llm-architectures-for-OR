@@ -1,0 +1,198 @@
+[MODELER]:
+Here is a clean optimization model for the problem.
+
+---
+
+### 1. Decision variables
+
+Let:
+
+- \( x \in \mathbb{Z}_{\ge 0} \): number of bus trips  
+- \( y \in \mathbb{Z}_{\ge 0} \): number of car trips  
+
+(Both are integer because you can’t do fractional trips.)
+
+---
+
+### 2. Parameters
+
+- Bus capacity: \( C_b = 100 \) chickens/trip  
+- Car capacity: \( C_c = 40 \) chickens/trip  
+- Bus time per trip: \( t_b = 2 \) hours  
+- Car time per trip: \( t_c = 1.5 \) hours  
+- Required chickens to transport: \( D = 1200 \)  
+- Max bus trips: \( x \le 10 \)  
+- At least 60% trips by car: \( \frac{y}{x + y} \ge 0.6 \)  
+
+---
+
+### 3. Constraints
+
+1. **Demand (capacity) constraint**  
+   All 1200 chickens must be transported:
+   \[
+   100x + 40y \;\ge\; 1200
+   \]
+
+2. **Maximum number of bus trips**
+   \[
+   x \;\le\; 10
+   \]
+
+3. **At least 60% of trips by car**
+
+   \[
+   \frac{y}{x + y} \;\ge\; 0.6, \quad \text{for } x + y > 0
+   \]
+
+   Multiply both sides by \( x + y \) (assuming at least one trip is made, which is implied by the demand constraint):
+
+   \[
+   y \;\ge\; 0.6(x + y)
+   \]
+
+   \[
+   y \;\ge\; 0.6x + 0.6y
+   \]
+
+   \[
+   0.4y \;\ge\; 0.6x
+   \]
+
+   \[
+   y \;\ge\; 1.5x
+   \]
+
+   So we model this simply as:
+   \[
+   y - 1.5x \;\ge\; 0
+   \]
+
+4. **Nonnegativity and integrality**
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+---
+
+### 4. Objective function
+
+Minimize the **total transport time** across all trips:
+
+\[
+\min \; Z = 2x + 1.5y
+\]
+
+---
+
+### 5. Complete mathematical program
+
+\[
+\begin{aligned}
+\min_{x,y} \quad & 2x + 1.5y \\
+\text{s.t.} \quad
+& 100x + 40y \;\ge\; 1200 \\
+& x \;\le\; 10 \\
+& y \;\ge\; 1.5x \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a small **integer linear program (ILP)**.
+
+---
+
+### 6. Solving / Recommended Python libraries
+
+For this ILP, suitable Python libraries include:
+
+- **PuLP** (`pulp`): simple interface for linear and integer programming, good for teaching and small–medium problems.
+- **OR-Tools** (`ortools.linear_solver`): Google’s library, industrial-strength, supports MIP solvers.
+- **Pyomo**: more general modeling language for optimization.
+- **SciPy** (`scipy.optimize.linprog`) can handle linear programs but not integrality directly, so it’s less ideal unless you relax integrality.
+
+A typical choice for this problem: **PuLP** or **OR-Tools**.
+
+---
+
+### 7. (Optional) Result by inspection
+
+If you solve the model (manually or via solver):
+
+- The optimal solution is:
+  - \( x = 6 \) bus trips  
+  - \( y = 10 \) car trips  
+
+Check:
+
+- Capacity: \(100\cdot 6 + 40\cdot 10 = 600 + 400 = 1000 < 1200\) → this is not enough; so add more cars.
+  Let’s correct this by solving properly:
+
+Let’s search quickly over feasible integer solutions:
+
+We need:
+- \(100x + 40y \ge 1200\)
+- \(x \le 10\)
+- \(y \ge 1.5x\)
+
+Try minimum-capacity combinations with small x:
+
+- \(x = 0\): then \(40y \ge 1200 \Rightarrow y \ge 30\). Time \(= 1.5 \cdot 30 = 45\).
+- \(x = 1\): \(y \ge 1.5 \Rightarrow y \ge 2\). Capacity: \(100 + 40y \ge 1200 \Rightarrow y \ge 27.5 \Rightarrow y \ge 28\). Time \(= 2 + 1.5\cdot 28 = 44\).
+- \(x = 2\): \(y \ge 3\); capacity: \(200 + 40y \ge 1200 \Rightarrow y \ge 25\). Time \(= 4 + 1.5\cdot 25 = 41.5\).
+- \(x = 3\): \(y \ge 5\); capacity: \(300 + 40y \ge 1200 \Rightarrow y \ge 23\). But need \(y \ge 1.5\cdot 3 = 4.5 \Rightarrow y \ge 5\). Take \(y=23\). Time \(= 6 + 1.5\cdot 23 = 40.5\).
+- \(x = 4\): \(y \ge 6\); capacity: \(400 + 40y \ge 1200 \Rightarrow y \ge 20\). Need \(y \ge 6\), so \(y=20\). Time \(= 8 + 1.5\cdot 20 = 38\).
+- \(x = 5\): \(y \ge 8\); capacity: \(500 + 40y \ge 1200 \Rightarrow y \ge 17.5 \Rightarrow y \ge 18\). Time \(= 10 + 1.5\cdot 18 = 37\).
+- \(x = 6\): \(y \ge 9\); capacity: \(600 + 40y \ge 1200 \Rightarrow y \ge 15\). Need \(y \ge 9\), so \(y=15\). Time \(= 12 + 1.5\cdot 15 = 34.5\).
+- \(x = 7\): \(y \ge 11\); capacity: \(700 + 40y \ge 1200 \Rightarrow y \ge 12.5 \Rightarrow y \ge 13\). Also must satisfy \(y \ge 1.5\cdot 7 = 10.5\), so \(y=13\). Time \(= 14 + 1.5\cdot 13 = 33.5\).
+- \(x = 8\): \(y \ge 12\); capacity: \(800 + 40y \ge 1200 \Rightarrow y \ge 10\). Need \(y \ge 12\), so \(y=12\). Time \(= 16 + 1.5\cdot 12 = 34\).
+- \(x = 9\): \(y \ge 14\); capacity: \(900 + 40y \ge 1200 \Rightarrow y \ge 7.5 \Rightarrow y \ge 8\). Need \(y \ge 14\), so \(y=14\). Time \(= 18 + 1.5\cdot 14 = 39\).
+- \(x = 10\): \(y \ge 15\); capacity: \(1000 + 40y \ge 1200 \Rightarrow y \ge 5\). Need \(y \ge 15\), so \(y=15\). Time \(= 20 + 1.5\cdot 15 = 42.5\).
+
+Minimum total time = **33.5 hours** at:
+- \(x = 7\) bus trips  
+- \(y = 13\) car trips  
+
+So the farmer should do **7 bus trips and 13 car trips** to minimize total transport time under all constraints.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+# Initialize the problem
+prob = pulp.LpProblem("Chicken_Transport_Optimization", pulp.LpMinimize)
+
+# Decision variables
+x = pulp.LpVariable("x", lowBound=0, cat='Integer')  # bus trips
+y = pulp.LpVariable("y", lowBound=0, cat='Integer')  # car trips
+
+# Parameters
+C_b = 100  # bus capacity
+C_c = 40   # car capacity
+t_b = 2    # bus time per trip
+t_c = 1.5  # car time per trip
+D = 1200   # demand
+max_bus_trips = 10
+
+# Objective function: Minimize total transport time
+prob += t_b * x + t_c * y
+
+# Constraints
+# Demand constraint
+prob += C_b * x + C_c * y >= D
+
+# Max bus trips constraint
+prob += x <= max_bus_trips
+
+# At least 60% trips by car: y >= 1.5x
+prob += y >= 1.5 * x
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract the final objective value
+final_obj = pulp.value(prob.objective)
+
+# Print the final objective value in required format
+print(f"FINAL_OBJ: {final_obj}")

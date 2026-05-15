@@ -1,0 +1,165 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximise total annual profit (interest/return) from the $600,000 investment in apartments and townhouses.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with two decision variables.
+
+3. Main decision variables  
+   Define continuous variables in dollars (or thousands of dollars, if preferred):  
+   - Variable 1: Amount of money invested in apartments.  
+   - Variable 2: Amount of money invested in townhouses.
+
+4. Key constraints to consider  
+
+   a) Budget (total capital available)  
+   - The sum of money invested in apartments and townhouses must equal the total available capital:
+     - Apartments investment + Townhouses investment = 600,000.
+
+   b) Upper bound on apartments investment  
+   - The investment in apartments must not exceed 200,000:
+     - Apartments investment ≤ 200,000.
+
+   c) Relationship between apartments and townhouses investments  
+   - The investment in apartments must be at least half the investment in townhouses:
+     - Apartments investment ≥ 0.5 × Townhouses investment.
+
+   d) Non-negativity  
+   - Both investments must be non-negative:
+     - Apartments investment ≥ 0.  
+     - Townhouses investment ≥ 0.
+
+5. Objective function structure  
+
+   - Profit from apartments: 10% of money invested in apartments.  
+   - Profit from townhouses: 15% of money invested in townhouses.  
+   - Objective: Maximise (0.10 × Apartments investment + 0.15 × Townhouses investment).
+
+6. Modelling/solution strategy  
+
+   - Use 2D graphical LP or a standard LP solver since there are only two variables.  
+   - Represent the feasible region defined by the three main constraints:
+     - Budget line.
+     - Apartments upper bound.
+     - Apartments ≥ 0.5 × Townhouses.  
+   - Identify corner (extreme) points of the feasible region and evaluate the objective function at these points to find the maximum total profit.
+
+---
+
+[MODELER]:
+Below is a clean mathematical optimisation model of your problem, plus how you could solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = amount of money (in dollars) invested in apartments  
+- \(y\) = amount of money (in dollars) invested in townhouses  
+
+Both are continuous, non‑negative variables.
+
+---
+
+## 2. Objective function
+
+Annual profit:
+
+- Apartments earn 10%: \(0.10x\)  
+- Townhouses earn 15%: \(0.15y\)
+
+Maximise total annual profit:
+\[
+\max\; Z = 0.10x + 0.15y
+\]
+
+---
+
+## 3. Constraints
+
+1. **Budget (all money is invested)**  
+   \[
+   x + y = 600{,}000
+   \]
+
+2. **Maximum allowed in apartments**  
+   \[
+   x \le 200{,}000
+   \]
+
+3. **Apartments at least half of townhouses**  
+   \[
+   x \ge 0.5y
+   \]
+
+4. **Non‑negativity**  
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+
+This is a linear programming (LP) problem with two variables.
+
+---
+
+## 4. Model summary
+
+**Maximise**
+\[
+Z = 0.10x + 0.15y
+\]
+
+**subject to**
+\[
+\begin{aligned}
+x + y &= 600{,}000 \\
+x &\le 200{,}000 \\
+x - 0.5y &\ge 0 \\
+x &\ge 0 \\
+y &\ge 0
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+To solve this LP:
+
+- **PuLP** (`pulp`): Very straightforward for teaching/small LPs.
+- **OR-Tools Linear Solver** (`ortools.linear_solver`): Reliable and efficient.
+- **SciPy** (`scipy.optimize.linprog`): Good if you already use SciPy.
+
+Any of these can model the objective and constraints as above and compute the optimal \(x\) and \(y\).
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the LP problem: maximization
+    model = pulp.LpProblem("Investment_Problem", pulp.LpMaximize)
+
+    # Decision variables
+    x = pulp.LpVariable('x', lowBound=0)  # amount in apartments
+    y = pulp.LpVariable('y', lowBound=0)  # amount in townhouses
+
+    # Objective function: Maximize 0.10x + 0.15y
+    model += 0.10 * x + 0.15 * y
+
+    # Constraints
+    model += x + y == 600000        # Budget constraint
+    model += x <= 200000            # Max in apartments
+    model += x - 0.5 * y >= 0       # Apartments at least half of townhouses
+
+    # Solve the model
+    model.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    final_obj = pulp.value(model.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

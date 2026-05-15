@@ -1,0 +1,151 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x1 ≥ 0: number of regular models produced per day
+  - x2 ≥ 0: number of premium models produced per day
+
+- Objective
+  - Maximize total daily profit: maximize Z = 5000 x1 + 8500 x2
+
+- Constraints
+  - Demand limits: x1 ≤ 8, x2 ≤ 6
+  - Production capacity: x1 + x2 ≤ 12
+  - Nonnegativity: x1 ≥ 0, x2 ≥ 0
+
+This is a linear program.
+
+Analytical solution
+- Premium cars give higher profit per unit (8500 > 5000), so produce as many premium cars as demand allows: x2 = 6.
+- Remaining capacity: 12 − 6 = 6, so produce x1 = min(demand 8, remaining capacity 6) = 6.
+- Optimal solution: x1 = 6, x2 = 6.
+- Maximum profit: Z = 5000·6 + 8500·6 = 30,000 + 51,000 = $81,000 per day.
+
+Notes
+- If integer (integrality) is required, the LP solution is already integral here.
+- The problem can be solved with standard LP solvers.
+
+Recommended Python libraries and short examples
+
+1) PuLP (very readable):
+  from pulp import LpProblem, LpMaximize, LpVariable, value
+  prob = LpProblem('CarMix', LpMaximize)
+  x1 = LpVariable('x1', lowBound=0)
+  x2 = LpVariable('x2', lowBound=0)
+  prob += 5000*x1 + 8500*x2
+  prob += x1 <= 8
+  prob += x2 <= 6
+  prob += x1 + x2 <= 12
+  prob.solve()
+  print(value(x1), value(x2), value(prob.objective))
+
+2) scipy.optimize.linprog (minimization form):
+  from scipy.optimize import linprog
+  c = [-5000, -8500]  # negate to convert max -> min
+  A_ub = [[1,0],[0,1],[1,1]]
+  b_ub = [8,6,12]
+  bounds = [(0, None),(0, None)]
+  res = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method='highs')
+  x1, x2 = res.x
+  profit = -res.fun
+
+3) OR-Tools (for LP or integer programming) is also suitable.
+
+Answer: produce 6 regular and 6 premium cars per day for maximum profit $81,000.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the described LP (car mix)
+# Decision variables:
+#   x1 >= 0 (regular), x2 >= 0 (premium)
+# Objective:
+#   maximize 5000*x1 + 8500*x2
+# Constraints:
+#   x1 <= 8
+#   x2 <= 6
+#   x1 + x2 <= 12
+
+# Initialize data
+profit_coeffs = (5000.0, 8500.0)
+bounds = {'x1_min': 0.0, 'x1_max': 8.0, 'x2_min': 0.0, 'x2_max': 6.0}
+capacity_sum = 12.0
+
+# Build equality representations for corner enumeration
+equalities = [
+    ('x1', bounds['x1_min']),
+    ('x1', bounds['x1_max']),
+    ('x2', bounds['x2_min']),
+    ('x2', bounds['x2_max']),
+    ('sum', capacity_sum)
+]
+
+# Generate candidate intersection points from pairs of equalities
+candidates = set()
+n = len(equalities)
+for i in range(n):
+    for j in range(i+1, n):
+        e1 = equalities[i]
+        e2 = equalities[j]
+        x1 = None
+        x2 = None
+        if e1[0] == 'x1' and e2[0] == 'x2':
+            x1 = float(e1[1]); x2 = float(e2[1])
+        elif e1[0] == 'x2' and e2[0] == 'x1':
+            x1 = float(e2[1]); x2 = float(e1[1])
+        elif e1[0] == 'x1' and e2[0] == 'sum':
+            x1 = float(e1[1]); x2 = float(e2[1]) - x1
+        elif e1[0] == 'sum' and e2[0] == 'x1':
+            x1 = float(e2[1]); x2 = float(e1[1]) - x1
+        elif e1[0] == 'x2' and e2[0] == 'sum':
+            x2 = float(e1[1]); x1 = float(e2[1]) - x2
+        elif e1[0] == 'sum' and e2[0] == 'x2':
+            x2 = float(e2[1]); x1 = float(e1[1]) - x2
+        # else both 'x1' or both 'x2' or both 'sum' -> skip (either same or not useful)
+        if x1 is not None and x2 is not None:
+            candidates.add((x1, x2))
+
+# Also include obvious corner (0,0)
+candidates.add((0.0, 0.0))
+
+# Feasibility check and objective evaluation
+def feasible(x1, x2, tol=1e-9):
+    if x1 < bounds['x1_min'] - tol: return False
+    if x1 > bounds['x1_max'] + tol: return False
+    if x2 < bounds['x2_min'] - tol: return False
+    if x2 > bounds['x2_max'] + tol: return False
+    if x1 + x2 > capacity_sum + tol: return False
+    return True
+
+best_obj = None
+best_x = (0.0, 0.0)
+
+for (x1, x2) in candidates:
+    # Due to arithmetic we may get small negative values like -0.0..., clamp tiny negatives to 0
+    x1 = 0.0 if abs(x1) < 1e-12 else x1
+    x2 = 0.0 if abs(x2) < 1e-12 else x2
+    if not feasible(x1, x2):
+        continue
+    obj = profit_coeffs[0]*x1 + profit_coeffs[1]*x2
+    if (best_obj is None) or (obj > best_obj + 1e-9):
+        best_obj = obj
+        best_x = (x1, x2)
+
+# As a fallback (shouldn't be needed), also consider greedy (highest profit per unit first)
+if best_obj is None:
+    # Greedy approach: produce premium first, then regular
+    x2_g = min(bounds['x2_max'], capacity_sum)
+    x1_g = min(bounds['x1_max'], capacity_sum - x2_g)
+    best_x = (x1_g, x2_g)
+    best_obj = profit_coeffs[0]*x1_g + profit_coeffs[1]*x2_g
+
+# Final objective as integer if close to integer
+profit_value = best_obj
+if abs(round(profit_value) - profit_value) < 1e-6:
+    profit_value = int(round(profit_value))
+
+# Print final objective in required format (this must be the last printed line)
+print(f"FINAL_OBJ: {profit_value}")
+```

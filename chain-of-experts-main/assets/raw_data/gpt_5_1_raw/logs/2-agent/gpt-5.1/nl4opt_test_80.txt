@@ -1,0 +1,178 @@
+[MODELER]:
+Below is a complete optimization model for this problem.
+
+---
+
+## 1. Decision Variables
+
+Let
+
+- \( x \): number of color printers produced per day  
+- \( y \): number of black-and-white printers produced per day  
+
+Both must be nonnegative and (in practice) integers:
+- \( x \ge 0, \; y \ge 0 \)
+- Optionally: \( x, y \in \mathbb{Z} \) (integer constraints), though the problem is linear and the optimal solution will be integer anyway.
+
+---
+
+## 2. Objective Function
+
+Profit:
+
+- Color printers: \$200 per unit → total profit from color = \( 200x \)
+- Black-and-white printers: \$70 per unit → total profit from B&W = \( 70y \)
+
+Maximize total daily profit:
+\[
+\text{Maximize } Z = 200x + 70y
+\]
+
+---
+
+## 3. Constraints
+
+1. **Color production capacity**  
+   Color team can produce at most 20 per day:
+   \[
+   x \le 20
+   \]
+
+2. **Black-and-white production capacity**  
+   B&W team can produce at most 30 per day:
+   \[
+   y \le 30
+   \]
+
+3. **Shared paper tray machine capacity**  
+   The tray machine can handle at most 35 printers in total per day:
+   \[
+   x + y \le 35
+   \]
+
+4. **Nonnegativity**  
+   \[
+   x \ge 0, \quad y \ge 0
+   \]
+
+---
+
+## 4. Complete Linear Program
+
+\[
+\begin{aligned}
+\text{Maximize } & Z = 200x + 70y \\
+\text{subject to } 
+& x \le 20 \\
+& y \le 30 \\
+& x + y \le 35 \\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+---
+
+## 5. Solving the Model (Analytical Insight)
+
+Given the profits, color printers are more profitable per unit (\$200 vs \$70).  
+The shared machine is the tightest combined resource: \( x + y \le 35 \).  
+We first try to use as much of this capacity for color printers as allowed:
+
+- Max color \( x = 20 \) (color team limit).
+- Machine limit then allows \( y \le 35 - 20 = 15 \).
+- This satisfies B&W team limit \( y \le 30 \).
+
+So one candidate solution is:
+- \( x = 20, \; y = 15 \)  
+  Profit: \( 200(20) + 70(15) = 4000 + 1050 = \$5050 \)
+
+You can check corner points:
+- \( (x, y) = (20, 15) \): profit = 5050
+- \( (x, y) = (20, 0) \): profit = 4000
+- \( (x, y) = (5, 30) \) (satisfies \( x + y = 35 \)): profit = \( 200(5) + 70(30) = 1000 + 2100 = 3100 \)
+- \( (x, y) = (0, 30) \): profit = 2100
+
+Maximum profit is attained at:
+- **20 color printers and 15 black-and-white printers per day**, profit \$5050.
+
+---
+
+## 6. Suitable Python Libraries
+
+This is a standard linear programming (LP) problem. Any LP solver works:
+
+- **PuLP** (`pulp`): Very easy modeling syntax, pure Python; good for teaching and small/medium problems.
+- **OR-Tools Linear Solver** (`ortools.linear_solver`): Industrial-strength, efficient, supports LP and MIP with several backends.
+- **SciPy** (`scipy.optimize.linprog`): Works for continuous LP (no integrality), also fine here.
+
+For this specific example:
+- **Recommended**: `pulp` or `ortools` for clarity in formulating and solving the LP.
+
+---
+
+## 7. Sample PuLP Formulation (Code Sketch)
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Printer_Production", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('color_printers', lowBound=0, cat='Continuous')
+y = pl.LpVariable('bw_printers', lowBound=0, cat='Continuous')
+
+# Objective
+prob += 200 * x + 70 * y
+
+# Constraints
+prob += x <= 20            # Color capacity
+prob += y <= 30            # B&W capacity
+prob += x + y <= 35        # Machine capacity
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal color printers:", x.value())
+print("Optimal B&W printers:", y.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This should return approximately:
+- `color_printers = 20`
+- `bw_printers = 15`
+- `Max profit = 5050`
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Printer_Production", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('color_printers', lowBound=0, cat='Continuous')
+    y = pl.LpVariable('bw_printers', lowBound=0, cat='Continuous')
+
+    # Objective function
+    prob += 200 * x + 70 * y
+
+    # Constraints
+    prob += x <= 20            # Color capacity
+    prob += y <= 30            # B&W capacity
+    prob += x + y <= 35        # Machine capacity
+
+    # Solve the problem
+    prob.solve()
+
+    # Get objective value
+    obj_value = pl.value(prob.objective)
+
+    # Final required output
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

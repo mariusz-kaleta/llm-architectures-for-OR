@@ -1,0 +1,100 @@
+[MODELER]:
+Formal model (linear program)
+
+Decision variables
+- x ≥ 0 : number of runs of the process WITH catalyst
+- y ≥ 0 : number of runs of the process WITHOUT catalyst
+
+Objective
+Maximize total CO2 produced: Z = 15x + 18y
+
+Resource constraints
+- Wood: 10x + 15y ≤ 300
+- Oxygen: 20x + 12y ≤ 300
+
+Nonnegativity
+- x ≥ 0, y ≥ 0
+
+Solution (continuous variables)
+Solve the two binding constraints simultaneously:
+10x + 15y = 300
+20x + 12y = 300
+
+Solving gives x = 5, y = 50/3 ≈ 16.6667.
+Maximum CO2 = 15(5) + 18(50/3) = 375 units.
+
+Interpretation
+- If fractional runs are allowed, run the catalyst process 5 times and the non-catalyst process 50/3 times, producing 375 units of CO2.
+- If runs must be integer, you need integer programming; nearby integer feasible solutions include:
+  - (x,y) = (4,17) → CO2 = 366 (feasible)
+  - (x,y) = (6,15) → CO2 = 360 (feasible)
+The best integer solution among those is (4,17) with 366 units (you can confirm by solving the integer program).
+
+Recommended Python libraries
+- Continuous LP: scipy.optimize.linprog, PuLP (LpStatus, default continuous), CVXOPT
+- Integer/ mixed-integer: PuLP (with CBC solver), OR-Tools (CP-SAT), Pyomo + commercial solvers (Gurobi, CPLEX)
+- For larger or production problems: Gurobi or CPLEX (via Pyomo or their Python APIs)
+
+Example (PuLP) — continuous and integer variants
+
+Continuous LP:
+from pulp import LpProblem, LpMaximize, LpVariable, lpSum, value
+
+prob = LpProblem("CO2_max", LpMaximize)
+x = LpVariable('x', lowBound=0)
+y = LpVariable('y', lowBound=0)
+prob += 15*x + 18*y
+prob += 10*x + 15*y <= 300
+prob += 20*x + 12*y <= 300
+prob.solve()
+print(value(x), value(y), value(prob.objective))
+
+Integer (if runs must be integer):
+from pulp import LpInteger
+x = LpVariable('x', lowBound=0, cat=LpInteger)
+y = LpVariable('y', lowBound=0, cat=LpInteger)
+# rest same...
+
+If you want, I can (a) run through the integer-program search to find the exact best integer solution, or (b) provide a complete runnable script and its solver output. Which would you prefer?
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import numpy as np
+
+# Define the LP data
+# Maximize Z = 15x + 18y
+# s.t.
+# 10x + 15y <= 300
+# 20x + 12y <= 300
+# x, y >= 0
+
+# Solve continuous optimum by solving the two binding constraints:
+A = np.array([[10.0, 15.0],
+              [20.0, 12.0]])
+b = np.array([300.0, 300.0])
+
+sol = np.linalg.solve(A, b)
+x_cont, y_cont = sol[0], sol[1]
+obj_cont = 15.0 * x_cont + 18.0 * y_cont
+
+# Brute-force integer search for best integer (x,y)
+# Bounds: from constraints, x <= min(300/10, 300/20) = min(30,15) = 15
+#         y <= min(300/15, 300/12) = min(20,25) = 20
+best_int_obj = -1
+best_int_xy = (0, 0)
+for x in range(0, 16):  # 0..15
+    for y in range(0, 21):  # 0..20
+        if 10*x + 15*y <= 300 and 20*x + 12*y <= 300:
+            obj = 15*x + 18*y
+            if obj > best_int_obj:
+                best_int_obj = obj
+                best_int_xy = (x, y)
+
+# Print results (informational)
+print(f"Continuous solution: x = {x_cont:.6f}, y = {y_cont:.6f}, objective = {obj_cont:.6f}")
+print(f"Best integer solution found: x = {best_int_xy[0]}, y = {best_int_xy[1]}, objective = {best_int_obj}")
+
+# Final required output line (must be the very last line)
+final_value = obj_cont  # continuous LP optimum (375.0)
+print(f"FINAL_OBJ: {final_value}")

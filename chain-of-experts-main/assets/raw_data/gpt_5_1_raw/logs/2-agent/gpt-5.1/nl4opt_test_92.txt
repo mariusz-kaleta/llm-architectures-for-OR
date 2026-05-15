@@ -1,0 +1,167 @@
+[MODELER]:
+Let’s turn this into a clear optimization model.
+
+## 1. Decision variables
+
+Let  
+- \(x_Z \ge 0\): number of ads on z-tube  
+- \(x_S \ge 0\): number of ads on soorchle  
+- \(x_W \ge 0\): number of ads on wassa  
+
+These will be **integer** variables in a full model, since you can’t buy a fraction of an ad.
+
+## 2. Objective function (maximize total viewers)
+
+Viewers per ad:
+- z-tube: 400,000 viewers/ad
+- soorchle: 5,000 viewers/ad
+- wassa: 3,000 viewers/ad
+
+Maximize total audience:
+\[
+\max\; V = 400{,}000\,x_Z + 5{,}000\,x_S + 3{,}000\,x_W
+\]
+
+## 3. Constraints
+
+### 3.1 Budget constraint
+
+Costs:
+- z-tube: \$1000/ad
+- soorchle: \$200/ad
+- wassa: \$100/ad
+
+Weekly budget: \$10,000
+
+\[
+1000\,x_Z + 200\,x_S + 100\,x_W \le 10{,}000
+\]
+
+### 3.2 Soorchle upper limit
+
+Soorchle limits a single company to at most 15 ads:
+
+\[
+x_S \le 15
+\]
+
+### 3.3 Balance constraints among media
+
+Let total number of ads be:
+\[
+T = x_Z + x_S + x_W
+\]
+
+#### 3.3.1 At most a third of all ads on wassa
+
+“At most a third of the total number of advertisements should occur on wassa”:
+\[
+x_W \le \frac{1}{3}(x_Z + x_S + x_W)
+\]
+
+Multiply by 3:
+\[
+3x_W \le x_Z + x_S + x_W
+\]
+\[
+2x_W \le x_Z + x_S
+\]
+
+This is a linear constraint.
+
+#### 3.3.2 At least 5% of ads on z-tube
+
+“At least 5% should occur on z-tube”:
+\[
+x_Z \ge 0.05(x_Z + x_S + x_W)
+\]
+
+Rewrite:
+\[
+x_Z \ge 0.05x_Z + 0.05x_S + 0.05x_W
+\]
+\[
+0.95x_Z \ge 0.05x_S + 0.05x_W
+\]
+
+Multiply both sides by 20 to clear decimals:
+\[
+19x_Z \ge x_S + x_W
+\]
+
+Again a linear constraint.
+
+### 3.4 Nonnegativity and integrality
+
+\[
+x_Z, x_S, x_W \ge 0, \quad x_Z, x_S, x_W \in \mathbb{Z}
+\]
+
+(If you treat them as continuous variables, this becomes a linear program; but integer is more realistic.)
+
+## 4. Full mathematical model
+
+\[
+\begin{aligned}
+\text{Maximize}\quad & 400{,}000\,x_Z + 5{,}000\,x_S + 3{,}000\,x_W\\[4pt]
+\text{subject to}\quad
+& 1000\,x_Z + 200\,x_S + 100\,x_W \le 10{,}000 \quad\text{(budget)}\\
+& x_S \le 15 \quad\text{(soorchle limit)}\\
+& 2x_W \le x_Z + x_S \quad\text{(wassa ≤ 1/3 of ads)}\\
+& 19x_Z \ge x_S + x_W \quad\text{(z-tube ≥ 5% of ads)}\\
+& x_Z, x_S, x_W \ge 0,\; x_Z,x_S,x_W \in \mathbb{Z}
+\end{aligned}
+\]
+
+## 5. Suitable Python libraries
+
+This is a small integer linear programming (ILP) problem. Good Python options:
+
+- **PuLP**: Very simple modeling interface; can use CBC solver (bundled).  
+- **OR-Tools (Google)**: `ortools.linear_solver` or `ortools.sat.python.cp_model` for integer linear constraints.  
+- **Pyomo**: More general algebraic modeling, good for larger or more complex models.  
+
+For this problem, **PuLP** or **OR-Tools** are ideal due to simplicity.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def main():
+    # Create the problem: Maximize viewers
+    prob = pulp.LpProblem("Ad_Allocation", pulp.LpMaximize)
+
+    # Decision variables (non-negative integers)
+    x_Z = pulp.LpVariable('x_Z', lowBound=0, cat='Integer')  # z-tube
+    x_S = pulp.LpVariable('x_S', lowBound=0, cat='Integer')  # soorchle
+    x_W = pulp.LpVariable('x_W', lowBound=0, cat='Integer')  # wassa
+
+    # Objective function: maximize total viewers
+    prob += 400000 * x_Z + 5000 * x_S + 3000 * x_W
+
+    # Constraints
+
+    # Budget: 1000 x_Z + 200 x_S + 100 x_W <= 10000
+    prob += 1000 * x_Z + 200 * x_S + 100 * x_W <= 10000
+
+    # Soorchle limit: x_S <= 15
+    prob += x_S <= 15
+
+    # Wassa at most a third of total: 2 x_W <= x_Z + x_S
+    prob += 2 * x_W <= x_Z + x_S
+
+    # Z-tube at least 5% of total: 19 x_Z >= x_S + x_W
+    prob += 19 * x_Z >= x_S + x_W
+
+    # Solve
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Compute final objective value (total viewers)
+    final_obj = pulp.value(prob.objective)
+
+    # Print FINAL_OBJ line as required
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

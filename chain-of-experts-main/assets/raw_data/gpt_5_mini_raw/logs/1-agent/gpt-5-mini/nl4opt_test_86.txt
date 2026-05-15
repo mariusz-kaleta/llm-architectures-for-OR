@@ -1,0 +1,41 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+customers_retail = 200
+customers_outlet = 80
+employees_retail = 6
+employees_outlet = 4
+required_customers = 1200
+available_employees = 50
+
+# Define problem
+prob = pulp.LpProblem("Minimize_Number_of_Stores", pulp.LpMinimize)
+
+# Decision variables: number of retail stores (x) and factory outlets (y)
+x = pulp.LpVariable("retail_stores", lowBound=0, cat='Integer')
+y = pulp.LpVariable("outlet_stores", lowBound=0, cat='Integer')
+
+# Objective: minimize total number of stores
+prob += x + y, "Total_Stores"
+
+# Constraints
+prob += customers_retail * x + customers_outlet * y >= required_customers, "Customer_Requirement"
+prob += employees_retail * x + employees_outlet * y <= available_employees, "Employee_Limit"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+x_val = int(pulp.value(x))
+y_val = int(pulp.value(y))
+obj_val = int(pulp.value(prob.objective))
+
+# Print solution details
+print(f"Retail stores (x): {x_val}")
+print(f"Outlet stores (y): {y_val}")
+print(f"Total customers served: {customers_retail * x_val + customers_outlet * y_val}")
+print(f"Total employees used: {employees_retail * x_val + employees_outlet * y_val}")
+
+# Final objective value (must be the last line)
+print(f"FINAL_OBJ: {obj_val}")

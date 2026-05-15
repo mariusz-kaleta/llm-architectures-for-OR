@@ -1,0 +1,188 @@
+[MODELER]:
+**1. Define decision variables**
+
+Let  
+- \(x \ge 0\): number of loaves of bread produced per year  
+- \(y \ge 0\): number of batches of cookies produced per year  
+
+(If the bakery must produce whole loaves/batches, you can additionally require \(x, y\) to be integers, but it’s typically modeled as continuous in this type of problem.)
+
+---
+
+**2. Resource constraints**
+
+Each machine has at most 3000 hours available per year.
+
+- **Stand mixer time**  
+  - Bread: 1 hour per loaf → total mixer time for bread = \(1x\)  
+  - Cookies: 0.5 hours per batch → total mixer time for cookies = \(0.5y\)  
+  Constraint:  
+  \[
+  1x + 0.5y \le 3000
+  \]
+
+- **Oven time**  
+  - Bread: 3 hours per loaf → total oven time for bread = \(3x\)  
+  - Cookies: 1 hour per batch → total oven time for cookies = \(1y\)  
+  Constraint:  
+  \[
+  3x + 1y \le 3000
+  \]
+
+- **Nonnegativity**  
+  \[
+  x \ge 0,\quad y \ge 0
+  \]
+
+---
+
+**3. Objective function (maximize profit)**
+
+- Profit per loaf of bread: \$5  
+- Profit per batch of cookies: \$3  
+
+Maximize total annual profit:
+\[
+\max \; Z = 5x + 3y
+\]
+
+---
+
+**4. Complete linear programming model**
+
+\[
+\begin{aligned}
+\max \quad & Z = 5x + 3y \\
+\text{s.t.} \quad & x + 0.5y \le 3000 \quad \text{(mixer hours)} \\
+& 3x + y \le 3000 \quad \text{(oven hours)} \\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+---
+
+**5. Solving the model (brief analytical solution)**
+
+Solve the two binding constraints at optimality (assuming both machines are fully used):
+
+\[
+\begin{cases}
+x + 0.5y = 3000 \\
+3x + y = 3000
+\end{cases}
+\]
+
+From the second equation: \(y = 3000 - 3x\).  
+Substitute into the first:
+
+\[
+x + 0.5(3000 - 3x) = 3000
+\]
+\[
+x + 1500 - 1.5x = 3000
+\]
+\[
+-0.5x = 1500 \Rightarrow x = -3000
+\]
+
+This is infeasible (\(x\) cannot be negative), so both constraints **cannot** be tight simultaneously.  
+
+Now check the “corner” points of the feasible region:
+
+1. **All cookies, no bread** (\(x = 0\)):  
+   - Mixer: \(0.5y \le 3000 \Rightarrow y \le 6000\)  
+   - Oven: \(y \le 3000\) → binding → \(y = 3000\)  
+   Profit: \(Z = 5(0) + 3(3000) = 9000\)
+
+2. **All bread, no cookies** (\(y = 0\)):  
+   - Mixer: \(x \le 3000\)  
+   - Oven: \(3x \le 3000 \Rightarrow x \le 1000\) → binding → \(x = 1000\)  
+   Profit: \(Z = 5(1000) + 3(0) = 5000\)
+
+3. **Intersection of mixer constraint and nonnegativity for \(y\)** (\(y = 0\), we already did)  
+   **Intersection of oven constraint and nonnegativity for \(x\)** (\(x = 0\), we already did)
+
+So the best feasible solution is:
+- \(x = 0\) loaves of bread  
+- \(y = 3000\) batches of cookies  
+with maximum profit \(Z = \$9{,}000\).
+
+**Optimal operation:** Use all oven hours making cookies; the stand mixer will have unused capacity.
+
+---
+
+**6. Suitable Python libraries**
+
+To implement and solve this LP in Python, you can use:
+
+- **PuLP** (simple LP modeling, uses open-source solvers like CBC by default)
+- **OR-Tools** (`ortools.linear_solver.pywraplp`) from Google
+- **Pyomo** (more general modeling framework for LP/MILP/NLP)
+- **SciPy** (`scipy.optimize.linprog`) for basic linear programming
+
+---
+
+**7. Example using PuLP**
+
+```python
+import pulp as pl
+
+# Define problem: maximize profit
+prob = pl.LpProblem("Bakery_Production", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('bread_loaves', lowBound=0)
+y = pl.LpVariable('cookie_batches', lowBound=0)
+
+# Objective function
+prob += 5 * x + 3 * y
+
+# Constraints
+prob += x + 0.5 * y <= 3000, "Mixer_hours"
+prob += 3 * x + y <= 3000,   "Oven_hours"
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal loaves of bread:", x.varValue)
+print("Optimal batches of cookies:", y.varValue)
+print("Maximum profit:", pl.value(prob.objective))
+```
+
+This should return approximately:
+- bread_loaves ≈ 0  
+- cookie_batches ≈ 3000  
+- profit ≈ 9000.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the LP problem: maximize profit
+    prob = pl.LpProblem("Bakery_Production", pl.LpMaximize)
+
+    # Decision variables (continuous, non-negative)
+    x = pl.LpVariable('bread_loaves', lowBound=0)
+    y = pl.LpVariable('cookie_batches', lowBound=0)
+
+    # Objective function: Maximize 5x + 3y
+    prob += 5 * x + 3 * y
+
+    # Constraints
+    prob += x + 0.5 * y <= 3000, "Mixer_hours"
+    prob += 3 * x + y <= 3000,   "Oven_hours"
+
+    # Solve the LP
+    prob.solve()
+
+    # Get the objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print required output
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,106 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of desks produced (>= 0)
+  - y = number of drawers produced (>= 0)
+
+- Objective
+  - Maximize profit: maximize Z = 100 x + 90 y
+
+- Constraints
+  - Assembly time: 40 x + 30 y ≤ 4000 (minutes)
+  - Sanding time: 20 x + 10 y ≤ 3500 (minutes)
+  - Nonnegativity: x ≥ 0, y ≥ 0
+  - (If required) Integrality: x, y integers
+
+Comments on structure
+- This is a linear program (LP). If production must be whole units, it becomes an integer linear program (ILP).
+- Compare per-minute profit: drawers give more profit per assembly minute (90/30 = 3 > 100/40 = 2.5) and per sanding minute (9 > 5), so sanding is never the binding constraint in the feasible region; assembly is the limiting resource.
+
+Solving (analytic)
+- The feasible region is bounded by 4x + 3y ≤ 400 (assembly divided by 10) and 2x + y ≤ 350 (sanding divided by 10). For nonnegative x the assembly constraint is always more restrictive, so the optimum puts all capacity into drawers (y) until assembly is exhausted.
+- Continuous solution: y = 4000/30 = 133.333... and x = 0 gives profit 100·0 + 90·133.333... = $12,000.
+- If integer solutions are required: y = floor(4000/30) = 133, x = 0, profit = 90·133 = $11,970. (y = 134 is infeasible because 134·30 = 4020 > 4000.)
+
+Recommended solver libraries
+- pulp (simple modeling + supports integer variables)
+- ortools (CP-SAT for integer optimization or linear solver)
+- scipy.optimize.linprog (for continuous LPs)
+- cvxopt or gurobi/cplex (for larger or commercial needs)
+
+Example (PuLP) — continuous or integer
+- Continuous (relax integrality):
+  - use LpVariable(..., lowBound=0, cat='Continuous')
+- Integer:
+  - use LpVariable(..., lowBound=0, cat='Integer')
+
+Simple PuLP code (integer example)
+from pulp import LpProblem, LpMaximize, LpVariable, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("Desks_Drawers", LpMaximize)
+x = LpVariable('desks', lowBound=0, cat='Integer')
+y = LpVariable('drawers', lowBound=0, cat='Integer')
+
+prob += 100*x + 90*y
+prob += 40*x + 30*y <= 4000
+prob += 20*x + 10*y <= 3500
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print(x.value(), y.value(), "Profit =", (100*x.value() + 90*y.value()))
+
+Answer summary
+- If fractional production allowed: produce 0 desks and 133.333 drawers (profit $12,000).
+- If production must be integer: produce 0 desks and 133 drawers (profit $11,970).
+
+---
+
+[CODER]:
+import math
+
+# Problem data
+profit_x = 100  # profit per desk
+profit_y = 90   # profit per drawer
+
+# Resource limits (minutes)
+assembly_limit = 4000  # 40*x + 30*y <= 4000
+sanding_limit  = 3500  # 20*x + 10*y <= 3500
+
+# Continuous (LP) solution analysis:
+# Assembly constraint: 40x + 30y <= 4000 -> with x=0 gives y = 4000/30
+x_cont = 0.0
+y_cont = assembly_limit / 30.0
+obj_cont = profit_x * x_cont + profit_y * y_cont
+
+print(f"Continuous solution (relax integrality): x = {x_cont}, y = {y_cont:.6f}, Profit = {obj_cont:.6f}")
+
+# Integer (ILP) solution by brute-force enumeration
+best_profit_int = -float('inf')
+best_x_int = None
+best_y_int = None
+
+# Upper bound for x from assembly alone: floor(4000/40)
+x_max = assembly_limit // 40
+
+for x in range(int(x_max) + 1):
+    # For given x, feasible y must satisfy both constraints:
+    # 40x + 30y <= 4000  -> y <= (4000 - 40x) / 30
+    # 20x + 10y <= 3500  -> y <= (3500 - 20x) / 10
+    y_max_assembly = (assembly_limit - 40 * x) // 30
+    y_max_sanding  = (sanding_limit  - 20 * x) // 10
+    y_max = min(y_max_assembly, y_max_sanding)
+    if y_max < 0:
+        continue
+    # Check all integer y from 0..y_max (but profit is increasing in y for fixed x, so only check y_max)
+    y = int(y_max)
+    profit = profit_x * x + profit_y * y
+    if profit > best_profit_int:
+        best_profit_int = profit
+        best_x_int = x
+        best_y_int = y
+
+# Report integer solution
+print(f"Integer solution: x = {best_x_int}, y = {best_y_int}, Profit = {best_profit_int}")
+
+# Final required print statement (must be the last line and in this exact format)
+print(f"FINAL_OBJ: {best_profit_int}")

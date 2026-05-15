@@ -1,0 +1,128 @@
+[MODELER]:
+Model (decision variables)
+- x = number of thin jars produced (nonnegative)
+- y = number of stubby jars produced (nonnegative)
+
+Objective
+- Maximise profit: maximize P = 5x + 9y
+
+Constraints (time availability per week)
+- Shaping time: 50x + 30y ≤ 3000 (minutes)
+- Baking time: 90x + 150y ≤ 4000 (minutes)
+- Nonnegativity: x ≥ 0, y ≥ 0
+
+(If jars must be whole, add integer constraints x, y ∈ Z≥0.)
+
+Solution (continuous LP)
+- Solve the LP maximize 5x+9y subject to the two time constraints and x,y ≥ 0.
+- The feasible region is bounded by the baking constraint 90x+150y ≤ 4000 (this constraint is more restrictive than shaping in the first quadrant), so the LP optimum occurs at the baking intercept on the y-axis:
+  - x = 0, y = 4000/150 = 26 2/3 ≈ 26.6667
+- Profit = 9 * (4000/150) = $240.
+- Thus the continuous LP solution: make 0 thin jars and 26.666... stubby jars (interpreted as “all capacity used for stubby jars”).
+
+Integer (realistic) solution
+- If x and y must be integers, the maximum feasible integer y is 26 (since 27 stubby jars need 27*150 = 4050 minutes of baking > 4000).
+- So the integer-optimal solution is x = 0 thin, y = 26 stubby, profit = 9*26 = $234.
+- Note: shaping time is not the bottleneck here (only 30*26 = 780 minutes used); baking time is the limiting resource.
+
+Recommended Python solvers
+- Continuous LP: scipy.optimize.linprog
+- Pure Python LP / MIP: PuLP (can solve continuous and integer versions)
+- MIP / CP solver: OR-Tools (CP-SAT) or CBC/Gurobi (via PuLP) for integer constraints
+
+Example (PuLP) sketch
+- Continuous:
+  - define variables x = LpVariable('x', lowBound=0), y = LpVariable('y', lowBound=0)
+  - problem = LpProblem(..., LpMaximize); problem += 5*x + 9*y
+  - problem += 50*x + 30*y <= 3000; problem += 90*x + 150*y <= 4000
+  - problem.solve()
+- Integer: same but declare variables as cat='Integer'.
+
+Final recommendation
+- If fractional production is allowed (unlikely), allocate all baking capacity to stubby jars: 26.666 stubby jars (profit $240).
+- If jars must be whole, produce 26 stubby jars and 0 thin jars (profit $234).
+
+---
+
+[CODER]:
+import math
+
+# Data
+profit_x = 5.0   # profit per thin jar
+profit_y = 9.0   # profit per stubby jar
+
+# Constraints (left-hand coefficients and RHS)
+# 50x + 30y <= 3000  (shaping)
+# 90x + 150y <= 4000 (baking)
+
+# Continuous LP solution (analytical evaluation of corner points)
+# Possible corner points in first quadrant:
+# (0,0)
+# intersection with x-axis: y=0 -> x = min(3000/50, 4000/90)
+x_axis_x = min(3000.0/50.0, 4000.0/90.0)
+pt_x_axis = (x_axis_x, 0.0)
+# intersection with y-axis: x=0 -> y = min(3000/30, 4000/150)
+y_axis_y = min(3000.0/30.0, 4000.0/150.0)
+pt_y_axis = (0.0, y_axis_y)
+# intersection of the two constraints (may be outside first quadrant)
+# Solve:
+# 50x + 30y = 3000
+# 90x +150y = 4000
+D = 50.0*150.0 - 30.0*90.0
+if abs(D) > 1e-12:
+    x_inter = (3000.0*150.0 - 30.0*4000.0)/D
+    y_inter = (50.0*4000.0 - 3000.0*90.0)/D
+    pt_inter = (x_inter, y_inter)
+else:
+    pt_inter = None
+
+# Collect feasible corner points (first quadrant)
+candidates = [(0.0, 0.0), pt_x_axis, pt_y_axis]
+if pt_inter is not None and pt_inter[0] >= -1e-9 and pt_inter[1] >= -1e-9:
+    candidates.append(pt_inter)
+
+# Evaluate objective at candidate continuous points
+best_cont_obj = -math.inf
+best_cont_pt = None
+for (x, y) in candidates:
+    # ensure feasibility (allow small numerical tolerance)
+    if x < -1e-9 or y < -1e-9:
+        continue
+    if 50.0*x + 30.0*y - 3000.0 > 1e-6:
+        continue
+    if 90.0*x + 150.0*y - 4000.0 > 1e-6:
+        continue
+    obj = profit_x*x + profit_y*y
+    if obj > best_cont_obj:
+        best_cont_obj = obj
+        best_cont_pt = (x, y)
+
+# Integer (MIP) solution by brute force enumeration
+best_int_obj = -math.inf
+best_int_pt = None
+# Upper bounds for iteration (based on baking constraint primarily)
+max_x = int(math.floor(4000.0 / 90.0))  # conservative upper bound for x
+for xi in range(0, max_x + 1):
+    # compute max feasible yi from both constraints
+    rem_shaping = 3000 - 50*xi
+    rem_baking  = 4000 - 90*xi
+    if rem_shaping < 0 or rem_baking < 0:
+        continue
+    yi_max_shaping = int(math.floor(rem_shaping / 30.0))
+    yi_max_baking  = int(math.floor(rem_baking  / 150.0))
+    yi_max = min(yi_max_shaping, yi_max_baking)
+    if yi_max < 0:
+        continue
+    # check only the maximal feasible yi (objective increases with y since profit_y>0)
+    yi = yi_max
+    obj = profit_x*xi + profit_y*yi
+    if obj > best_int_obj:
+        best_int_obj = obj
+        best_int_pt = (xi, yi)
+
+# Prepare final value string including both continuous and integer results
+cont_obj_rounded = round(best_cont_obj, 6)
+int_obj_int = int(best_int_obj) if best_int_obj != -math.inf else None
+final_value = f"continuous={cont_obj_rounded}, integer={int_obj_int}"
+
+print(f"FINAL_OBJ: {final_value}")

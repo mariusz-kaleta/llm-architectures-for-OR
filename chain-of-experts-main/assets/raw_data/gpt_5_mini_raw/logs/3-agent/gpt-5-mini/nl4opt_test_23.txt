@@ -1,0 +1,80 @@
+[MODELER]:
+Formal integer optimization model
+
+Decision variables
+- v ∈ Z_{\ge 0} = number of vans
+- m ∈ Z_{\ge 0} = number of minibuses
+
+Objective
+- Minimize total pollution:
+  minimize Z = 7 v + 10 m
+
+Constraints
+1. Capacity: 6 v + 10 m ≥ 150 (at least 150 kids transported)
+2. Minibus availability: m ≤ 10
+3. Vans must exceed minibuses: v − m ≥ 1
+4. Integrality and nonnegativity: v, m ∈ Z_{\ge 0}
+
+Notes: constraint (3) enforces v > m since variables are integers.
+
+Solution (small integer search / reasoning)
+For each integer m = 0..10 choose the smallest feasible v = max(m+1, ceil((150 − 10 m)/6)). Evaluating these gives the best pollution value at
+- m = 9 minibuses and v = 10 vans,
+which yields capacity 6·10 + 10·9 = 150 and pollution Z = 7·10 + 10·9 = 160 (units).
+Thus the optimal choice is 10 vans and 9 minibuses (total pollution 160).
+
+Recommended solvers / Python libraries
+- pulp (easy modeling, CBC solver by default)
+- OR-Tools (CP-SAT for integer problems)
+- mip (Python-MIP) or gurobipy (commercial) for larger problems
+- scipy.optimize is not suitable since this is an integer problem
+
+Example (outline) using pulp
+- Define LpVariable v, m as integers ≥0
+- Add constraints: 6*v + 10*m >= 150; m <= 10; v - m >= 1
+- Set objective minimize 7*v + 10*m
+- Solve and read v.value(), m.value()
+
+If you want, I can provide a ready-to-run Python/pulp or OR-Tools script.
+
+---
+
+[CODER]:
+import math
+
+# Problem data
+capacity_needed = 150
+van_capacity = 6
+minibus_capacity = 10
+pollution_v = 7
+pollution_m = 10
+max_minibuses = 10
+
+best_obj = None
+best_v = None
+best_m = None
+
+for m in range(0, max_minibuses + 1):
+    # Minimum vans to satisfy "v - m >= 1"
+    v_min_by_difference = m + 1
+
+    # Minimum vans to satisfy capacity 6*v + 10*m >= 150
+    remaining_capacity = capacity_needed - minibus_capacity * m
+    if remaining_capacity <= 0:
+        v_min_by_capacity = 0
+    else:
+        v_min_by_capacity = math.ceil(remaining_capacity / van_capacity)
+
+    v = max(v_min_by_difference, v_min_by_capacity)
+    if v < 0:
+        continue
+
+    obj = pollution_v * v + pollution_m * m
+
+    if best_obj is None or obj < best_obj:
+        best_obj = obj
+        best_v = v
+        best_m = m
+
+# Print final objective value in required format
+print(f"FINAL_OBJ: {best_obj}")

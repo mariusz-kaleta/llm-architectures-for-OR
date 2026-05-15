@@ -1,0 +1,140 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Maximise weekly profit from producing engineered hardwood and vinyl planks.
+
+2. Suggested model type
+- Model: Linear Programming (continuous LP). (Decision variables are continuous square-foot quantities; a standard simplex or interior-point solver is appropriate — e.g., PuLP/CBC, GLPK, Gurobi, CPLEX.)
+
+3. Main decision variables
+- Hardwood production: weekly square feet of engineered hardwood to produce.
+- Vinyl production: weekly square feet of vinyl planks to produce.
+
+(Also track derived quantity: total weekly square feet shipped = hardwood + vinyl.)
+
+4. Key constraints to include (verbal form)
+- Minimum demand constraints: produce at least 20,000 sq ft of hardwood per week; produce at least 10,000 sq ft of vinyl per week.
+- Shipping contract constraint: total shipped (hardwood + vinyl) must be at least 60,000 sq ft per week.
+- Production capacity (upper bounds): no more than 50,000 sq ft of hardwood per week; no more than 30,000 sq ft of vinyl per week.
+- Nonnegativity: production amounts cannot be negative.
+- Linkage: assume shipped quantity equals produced quantity unless inventory/stocking is explicitly allowed (if inventory is allowed, include inventory balance constraints).
+
+Additional modelling & solution notes for the Modeller
+- Objective function: linear profit with unit profits $2.50 per sq ft for hardwood and $3.00 per sq ft for vinyl.
+- Feasibility check: verify that lower/upper bounds permit meeting the shipping minimum (here max total capacity 80,000 sq ft exceeds the 60,000 shipping minimum).
+- Solve with a linear solver; because objective coefficients are positive, expect optimal solution at upper bounds unless other constraints change. Compute objective and identify binding constraints.
+- Report: optimal production amounts, total profit, which constraints are binding, and simple sensitivity analysis (shadow prices for the capacity and shipping constraints, effect of small changes in unit profit or capacity).
+- Alternative interpretations to confirm with stakeholders before finalising model: whether demand figures are strict minimum sales (lower bounds) or merely forecasts (not enforced), and whether shipping contract requires exactly 60,000 or at least 60,000.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- x_H = weekly square feet of engineered hardwood produced (sq ft).
+- x_V = weekly square feet of vinyl planks produced (sq ft).
+
+Both are continuous and nonnegative:
+x_H >= 0, x_V >= 0
+
+Objective
+Maximise weekly profit:
+Max Z = 2.5 x_H + 3.0 x_V
+
+Constraints
+1. Minimum demand (lower bounds)
+- x_H >= 20,000
+- x_V >= 10,000
+
+2. Shipping contract (total shipped at least)
+- x_H + x_V >= 60,000
+
+3. Production capacity (upper bounds)
+- x_H <= 50,000
+- x_V <= 30,000
+
+Feasibility condition
+- The model is feasible iff the required minimum total shipped ≤ maximum total capacity:
+20,000 + 10,000 = 30,000 ≤ 50,000 + 30,000 = 80,000, and shipping minimum 60,000 ≤ 80,000. So feasible.
+
+Analytic solution (insight)
+- Both unit profits are positive, so producing up to capacity increases profit.
+- Vinyl has the higher unit profit (3.0 > 2.5) but vinyl is capacity-limited to 30,000 sq ft.
+- With both products at their capacity limits (x_H = 50,000; x_V = 30,000) all lower bounds and the shipping minimum are satisfied (total = 80,000 ≥ 60,000).
+- Because producing any additional square foot (if capacity allowed) increases profit, the optimum is at the available upper bounds.
+
+Optimal solution
+- x_H* = 50,000 sq ft (hardwood)
+- x_V* = 30,000 sq ft (vinyl)
+- Total shipped = 80,000 sq ft
+- Maximum weekly profit Z* = 2.5*50,000 + 3*30,000 = 125,000 + 90,000 = $215,000
+
+Binding (active) constraints at optimum
+- Hardwood capacity x_H ≤ 50,000 (binding)
+- Vinyl capacity x_V ≤ 30,000 (binding)
+
+Non-binding constraints (have slack)
+- Hardwood minimum x_H ≥ 20,000 (slack 30,000)
+- Vinyl minimum x_V ≥ 10,000 (slack 20,000)
+- Shipping minimum x_H + x_V ≥ 60,000 (slack 20,000)
+
+Shadow-price / marginal-value interpretation (local sensitivity)
+- Increasing hardwood capacity by 1 sq ft (if feasible) increases maximum profit by about $2.50 (marginal value ≈ 2.5) because you can produce 1 more hardwood unit earning $2.50.
+- Increasing vinyl capacity by 1 sq ft increases profit by about $3.00 (marginal value ≈ 3).
+- The dual values (shadow prices) for the three minimum constraints are zero because they are not binding.
+- Increasing the shipping minimum by up to 20,000 sq ft has no effect; increasing it above an additional 20,000 (i.e., above 80,000 total) makes the problem infeasible (since total max capacity is 80,000).
+
+Simple sensitivity notes
+- Small increases in unit profits (objective coefficients) do not change the optimal production quantities as long as capacities remain binding; they only increase the objective value proportionally to the current production levels.
+- Increasing capacity for a product will (locally) increase profit at a rate equal to that product's unit profit, until another constraint becomes binding.
+- If minima were relaxations (forecasts, not hard lower bounds), you would remove those constraints; that could change the optimum (but here both profits are positive so you’d still use capacity).
+
+Suggested solvers / Python libraries
+- PuLP (open-source, CBC solver) — easy modeling for LPs: pip install pulp
+- OR-Tools (Google) — fast and robust for LP/MIP: pip install ortools
+- scipy.optimize.linprog — for small LPs using simplex/interior-point
+- Commercial solvers if available for large problems: Gurobi, CPLEX (Python APIs)
+
+Example modeling approach (outline)
+- Write LP with variables x_H, x_V, objective as above, add bounds and inequality constraints.
+- Solve with a linear solver (PuLP/CBC or OR-Tools).
+- Report optimal x_H, x_V, Z and examine dual variables / shadow prices (most solvers return duals for constraints).
+
+If you want, I can:
+- Provide a ready-to-run Python script using PuLP or OR-Tools that builds and solves this LP and prints primal and dual results, or
+- Run additional sensitivity scenarios you care about (e.g., treat the demand numbers as forecasts rather than hard minima; require exactly 60,000 shipped; or allow inventory with balance constraints).
+
+---
+
+[CODER]:
+```python
+# Flooring production LP - analytic solution coded
+# Decision variables (weekly sq ft)
+# x_H = engineered hardwood, x_V = vinyl planks
+
+# Data initialized directly
+profit_H = 2.5   # $ per sq ft for hardwood
+profit_V = 3.0   # $ per sq ft for vinyl
+
+min_H = 20000    # minimum hardwood
+min_V = 10000    # minimum vinyl
+min_total = 60000
+
+cap_H = 50000    # capacity hardwood
+cap_V = 30000    # capacity vinyl
+
+# Analytic optimal decision: produce up to capacity for both products
+x_H = cap_H
+x_V = cap_V
+
+# Feasibility check (should be feasible as per model)
+total_shipped = x_H + x_V
+if not (x_H >= min_H and x_V >= min_V and total_shipped >= min_total):
+    raise RuntimeError("Chosen solution does not satisfy minima/contract constraints.")
+
+# Objective value
+value = profit_H * x_H + profit_V * x_V
+
+# Final required output line (no other text on this line)
+print(f"FINAL_OBJ: {value}")
+```

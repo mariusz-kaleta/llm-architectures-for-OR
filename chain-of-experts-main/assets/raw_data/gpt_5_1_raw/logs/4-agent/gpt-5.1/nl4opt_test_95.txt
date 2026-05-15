@@ -1,0 +1,248 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- **Goal:** Minimise total meat used to produce small and large bones.
+
+2. **Suggested model type**
+
+- **Model:** Linear Programming (LP)
+- Single-period, production planning–type model.
+
+3. **Main decision variables**
+
+Define nonnegative decision variables such as:
+
+- \(x_s\): number of **small bones** produced  
+- \(x_l\): number of **large bones** produced  
+
+(If needed, you can also introduce a variable for total bones to express the 50% requirement more flexibly, e.g. \(T = x_s + x_l\), but this is optional since the ratio constraint can be expressed directly.)
+
+4. **Objective function structure**
+
+- Each small bone uses 12 units of meat.  
+- Each large bone uses 15 units of meat.
+
+Total meat used:  
+- \(12 \cdot x_s + 15 \cdot x_l\).
+
+**Objective:** Minimise \(12 x_s + 15 x_l\).
+
+5. **Key constraints to consider**
+
+a) **Tooth medication availability**
+
+- Total tooth medication used cannot exceed 2000 units.
+- Each small bone uses 10 units of tooth medication.
+- Each large bone uses 15 units of tooth medication.
+- Constraint structure:  
+  - Tooth-medication-use from small + large ≤ 2000.
+
+b) **Minimum proportion of small bones**
+
+- At least 50% of all bones produced must be small.
+- This is a ratio constraint linking \(x_s\) and \(x_l\).
+- Structure:  
+  - \(x_s\) ≥ 0.5 × (total bones).  
+  - Total bones = \(x_s + x_l\).  
+  - Rearranged to a linear inequality relating \(x_s\) and \(x_l\).
+
+c) **Minimum number of large bones**
+
+- Hospital must make at least 30 large bones.
+- Constraint:  
+  - \(x_l\) ≥ 30.
+
+d) **Nonnegativity and integrality considerations**
+
+- \(x_s, x_l\) ≥ 0.
+- The problem is naturally integer (numbers of bones), but:
+  - First model as an LP with continuous variables.
+  - If the solution needs to be integer, either:
+    - Round and check feasibility/cost, or
+    - Formulate it explicitly as an Integer Linear Program (ILP).
+
+6. **Modelling guidance / simplifications**
+
+- There is no explicit upper bound on meat; meat is minimized implicitly.
+- Tooth medication is the only hard capacity constraint.
+- No upper bound on total bones except what is imposed by tooth medication.
+- Check corner/feasible-region logic:  
+  - Expect the tooth medication constraint and either the proportion constraint or the minimum-large-bones constraint to be binding at optimum.
+- Once the model is formulated, solve via standard LP solver, then:
+  - Verify that all constraints are satisfied (especially the 50% small-bone rule).
+  - Confirm meat usage is minimized.
+
+This structure gives a compact LP:  
+- 2 decision variables  
+- 3 main constraints (resource capacity, proportion requirement, minimum large bones) + nonnegativity.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model for the problem.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_s \ge 0\): number of small bones produced  
+- \(x_l \ge 0\): number of large bones produced  
+
+(If integer counts are required, add \(x_s, x_l \in \mathbb{Z}\).)
+
+---
+
+## 2. Objective function
+
+Each bone uses meat:
+
+- Small bone: 12 units of meat  
+- Large bone: 15 units of meat  
+
+Total meat used:
+\[
+M = 12x_s + 15x_l
+\]
+
+**Objective:**  
+\[
+\min\; 12x_s + 15x_l
+\]
+
+---
+
+## 3. Constraints
+
+### a) Tooth medication capacity
+
+Total tooth medication available: 2000 units.
+
+- Small bone uses 10 units  
+- Large bone uses 15 units  
+
+So:
+\[
+10x_s + 15x_l \le 2000
+\]
+
+---
+
+### b) At least 50% of bones must be small
+
+Small bones must be at least half of all bones:
+
+\[
+x_s \ge 0.5(x_s + x_l)
+\]
+
+Rearrange to a linear form:
+
+\[
+x_s \ge \frac{1}{2}x_s + \frac{1}{2}x_l
+\]
+
+\[
+x_s - \frac{1}{2}x_s \ge \frac{1}{2}x_l
+\]
+
+\[
+\frac{1}{2}x_s \ge \frac{1}{2}x_l
+\]
+
+\[
+x_s \ge x_l
+\]
+
+So you can use simply:
+\[
+x_s \ge x_l
+\]
+
+---
+
+### c) Minimum number of large bones
+
+At least 30 large bones must be made:
+
+\[
+x_l \ge 30
+\]
+
+---
+
+### d) Nonnegativity
+
+\[
+x_s \ge 0,\quad x_l \ge 0
+\]
+
+(Optionally, integrality: \(x_s, x_l \in \mathbb{Z}_{\ge 0}\).)
+
+---
+
+## 4. Full model (LP form)
+
+\[
+\begin{aligned}
+\min\quad & 12x_s + 15x_l \\
+\text{s.t.}\quad
+& 10x_s + 15x_l \le 2000 \\
+& x_s \ge x_l \\
+& x_l \ge 30 \\
+& x_s \ge 0,\; x_l \ge 0
+\end{aligned}
+\]
+
+If integer solutions are needed, add \(x_s, x_l \in \mathbb{Z}\).
+
+---
+
+## 5. Suitable Python libraries
+
+This is a small linear (or integer linear) program. Good choices:
+
+- **PuLP**: simple LP/ILP modeling, works with CBC (default), GLPK, etc.
+- **OR-Tools (Google)**: `ortools.linear_solver` for LP/MIP.
+- **SciPy**: `scipy.optimize.linprog` for continuous LP (no integrality).
+- **Pyomo**: more general modeling, supports many solvers.
+
+For integer counts, prefer **PuLP**, **OR-Tools**, or **Pyomo** with a MILP solver (CBC, GLPK, Gurobi, CPLEX, etc.).
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: minimize objective
+    prob = pulp.LpProblem("Bone_Production", pulp.LpMinimize)
+
+    # Decision variables (integer, nonnegative)
+    x_s = pulp.LpVariable('x_s', lowBound=0, cat='Integer')  # small bones
+    x_l = pulp.LpVariable('x_l', lowBound=0, cat='Integer')  # large bones
+
+    # Objective function: minimize meat usage
+    prob += 12 * x_s + 15 * x_l
+
+    # Constraints
+    # Tooth medication capacity
+    prob += 10 * x_s + 15 * x_l <= 2000
+
+    # At least 50% of bones must be small: x_s >= x_l
+    prob += x_s >= x_l
+
+    # Minimum number of large bones
+    prob += x_l >= 30
+
+    # Solve
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

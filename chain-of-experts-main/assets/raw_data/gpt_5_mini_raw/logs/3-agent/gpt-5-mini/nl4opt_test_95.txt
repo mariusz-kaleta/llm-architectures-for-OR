@@ -1,0 +1,130 @@
+[MODELER]:
+Model
+
+Decision variables
+- x = number of small bones produced (≥ 0, integer)
+- y = number of large bones produced (≥ 0, integer)
+
+Parameters
+- Medication available: 2000 units
+- Small bone uses 10 units medication, 12 units meat
+- Large bone uses 15 units medication, 15 units meat
+- At least 50% of bones must be small → x ≥ 0.5(x + y) ⇔ x ≥ y
+- At least 30 large bones → y ≥ 30
+
+Objective
+- Minimize total meat used: minimize Z = 12x + 15y
+
+Constraints (standard reading of the text — medication is available up to 2000 units)
+1) Medication capacity: 10x + 15y ≤ 2000
+2) Small-bone proportion: x ≥ y
+3) Minimum large bones: y ≥ 30
+4) x, y ≥ 0 and integer (if production must be whole bones)
+
+Note: If the problem intends that the hospital will use all 2000 units of medication, replace constraint (1) by the equality 10x + 15y = 2000.
+
+Solution reasoning
+
+Case A — medication need not all be used (10x + 15y ≤ 2000):
+- Since the objective coefficients are positive, the meat is minimized by producing the minimum feasible numbers of bones.
+- Feasible minimum satisfying x ≥ y and y ≥ 30 is x = 30, y = 30.
+- Meat used = 12·30 + 15·30 = 27·30 = 810 units.
+- This is feasible because medication used = 10·30 + 15·30 = 750 ≤ 2000.
+
+Case B — hospital must use all medication (10x + 15y = 2000):
+- Substitute x from 2x + 3y = 400 → x = (400 − 3y)/2.
+- Objective becomes Z(y) = 2400 − 3y, which is decreasing in y.
+- y is constrained by 30 ≤ y ≤ 80 (from x ≥ y and x ≥ 0), so maximize y → y = 80.
+- Then x = (400 − 3·80)/2 = 80.
+- Meat used = 12·80 + 15·80 = 27·80 = 2160 units.
+- Medication used = 10·80 + 15·80 = 2000 (all used).
+
+Recommended solvers / Python libraries
+- For continuous or integer LP: PuLP (easy to model, supports CBC, GLPK), OR-Tools (good performance, CP-SAT for integer), or Gurobi/CPLEX if available.
+- For continuous LP only: scipy.optimize.linprog.
+- If integrality is required, use PuLP or OR-Tools CP-SAT.
+
+If you want, I can write a short PuLP or OR-Tools script that solves both variants (≤2000 and =2000) and reports the optimal (integer) solution. Which interpretation should I code (use-all-medication or use-at-most-medication)?
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the integer production problem for both interpretations:
+# - medication used at most 2000 (10x + 15y <= 2000)
+# - medication used exactly 2000 (10x + 15y == 2000)
+#
+# Decision variables:
+# x = number of small bones (integer >= 0)
+# y = number of large bones (integer >= 0)
+#
+# Constraints:
+# x >= y
+# y >= 30
+# medication constraint as per interpretation
+#
+# Objective: minimize meat = 12*x + 15*y
+
+def find_optima():
+    max_x = 200  # safe upper bound since 10*x <= 2000 -> x <= 200
+    max_y = 200  # safe upper bound (15*y <= 2000 -> y <= 133, but 200 is safe)
+    best_at_most = None  # tuple (meat, x, y)
+    best_equal = None
+
+    for x in range(0, max_x + 1):
+        for y in range(30, max_y + 1):  # y >= 30
+            if x < y:
+                continue  # must satisfy x >= y
+            med = 10 * x + 15 * y
+            meat = 12 * x + 15 * y
+            # at most case
+            if med <= 2000:
+                if (best_at_most is None) or (meat < best_at_most[0]):
+                    best_at_most = (meat, x, y, med)
+            # equal case
+            if med == 2000:
+                if (best_equal is None) or (meat < best_equal[0]):
+                    best_equal = (meat, x, y, med)
+
+    return best_at_most, best_equal
+
+def main():
+    best_at_most, best_equal = find_optima()
+
+    # Prepare results dictionary
+    results = {}
+
+    if best_at_most is not None:
+        meat, x, y, med = best_at_most
+        results['at_most'] = {'objective_meat': meat, 'x': x, 'y': y, 'medication_used': med}
+    else:
+        results['at_most'] = None
+
+    if best_equal is not None:
+        meat, x, y, med = best_equal
+        results['equal'] = {'objective_meat': meat, 'x': x, 'y': y, 'medication_used': med}
+    else:
+        results['equal'] = None
+
+    # Print human-readable summary (optional)
+    print("Solution summary:")
+    if results['at_most'] is not None:
+        am = results['at_most']
+        print(f" - Medication at most 2000: min meat = {am['objective_meat']} at x={am['x']}, y={am['y']} (medication used={am['medication_used']})")
+    else:
+        print(" - Medication at most 2000: no feasible solution found.")
+
+    if results['equal'] is not None:
+        eq = results['equal']
+        print(f" - Medication exactly 2000: min meat = {eq['objective_meat']} at x={eq['x']}, y={eq['y']} (medication used={eq['medication_used']})")
+    else:
+        print(" - Medication exactly 2000: no feasible solution found.")
+
+    # Final required print (must be the very last line)
+    # Print the results dictionary as the "final objective value"
+    print(f"FINAL_OBJ: {results}")
+
+if __name__ == "__main__":
+    main()
+```

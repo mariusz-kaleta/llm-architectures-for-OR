@@ -1,0 +1,108 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Maximise the total number of patients seen (total swabs = throat swabs + nasal swabs) within the available clinic time.
+
+2. Suggested model type
+- Model: Integer Linear Programming (ILP). You can first solve the LP relaxation (continuous variables) to get insight, then enforce integrality (counts must be whole numbers).
+
+3. Main decision variables
+- Let T = number of throat swabs performed (nonnegative integer).
+- Let N = number of nasal swabs performed (nonnegative integer).
+
+4. Key constraints to consider (description form)
+- Time budget: The total time consumed by all swabs cannot exceed 20,000 minutes. (A throat swab uses 5 minutes each; a nasal swab uses 3 minutes each.)
+- Minimum nasal requirement: At least 30 nasal swabs must be performed (N ≥ 30).
+- Ratio requirement: At least four times as many throat swabs as nasal swabs must be done (T ≥ 4 × N).
+- Integrality and nonnegativity: T and N must be nonnegative integers.
+
+5. Modelling/solution guidance (how to solve)
+- Objective: Maximise T + N subject to the constraints above.
+- Observational simplification: Because throat swabs take more time per patient (5 vs 3 minutes) but count equally in the objective, at an optimal solution you should not do more throat swabs than necessary. Therefore expect T = 4 × N (the ratio constraint active).
+- Substitute that relation into the time constraint to reduce to a single variable problem: this yields an upper bound on N. Solve for the largest integer N that satisfies the time limit, then set T = 4 × N.
+- Check feasibility of the minimum nasal requirement after that (N ≥ 30). If infeasible, report infeasibility.
+
+6. Expected optimal numeric result (from applying the above)
+- Using T = 4N, total time per N is 5·(4N) + 3·N = 23N. The largest integer N with 23N ≤ 20,000 is N = floor(20000 / 23) = 869. Then T = 4 × 869 = 3,476.
+- Total patients = T + N = 3,476 + 869 = 4,345.
+- This satisfies the N ≥ 30 requirement.
+
+7. Additional checks / notes for the modeller
+- Verify integrality and that all constraints are satisfied.
+- If the clinic allowed fractional “patients” (not realistic), the LP relaxation gives N = 20000/23 ≈ 869.565 and T = 4×N; round-down is required for integer counts.
+- If other practical constraints exist (e.g., staffing limits, batching, or maximum per-day of a type), include those as extra constraints.
+
+---
+
+[MODELER]:
+Below is a clear mathematical model, reasoning, and solution.
+
+Decision variables
+- T ∈ Z≥0 : number of throat swabs.
+- N ∈ Z≥0 : number of nasal swabs.
+
+Objective
+- Maximise total patients: maximize Z = T + N.
+
+Constraints
+1. Time budget: 5T + 3N ≤ 20 000.
+2. Minimum nasal: N ≥ 30.
+3. Ratio requirement: T ≥ 4N.
+4. Integrality/nonnegativity: T,N ∈ Z≥0.
+
+Remarks and simplification
+- Because a nasal swab uses less time per patient (3 minutes) than a throat swab (5 minutes), for any feasible N it is never beneficial to increase T above its required minimum T = 4N (extra throat swabs consume more time per counted patient than nasals). Hence at optimality we can set T = 4N and reduce the problem to one integer variable N.
+
+Substitute T = 4N into the time constraint:
+5(4N) + 3N = 23N ≤ 20 000 ⇒ N ≤ 20000/23 ≈ 869.565.
+
+With integer N, the maximum feasible N is N = floor(20000/23) = 869 (also satisfies N ≥ 30). Then
+- N = 869 (nasal swabs),
+- T = 4 × 869 = 3 476 (throat swabs),
+- Total patients = T + N = 3 476 + 869 = 4 345.
+
+LP relaxation note
+- The LP relaxation gives N = 20000/23 ≈ 869.565, T = 4N; rounding down N to 869 yields the integer optimal above.
+
+Suggested solvers / Python libraries
+- pulp (uses CBC by default) — straightforward for ILP.
+- OR-Tools CP-SAT (high-performance integer solver).
+- gurobipy or cplex (if licensed) for faster solving on larger problems.
+- scipy.optimize.linprog or cvxpy for the LP relaxation only.
+
+If you want, I can provide a short Python/pulp or OR-Tools script that implements and solves this ILP.
+
+---
+
+[CODER]:
+# Integer optimization by direct enumeration (self-contained, no external solvers)
+# Problem:
+# Maximise Z = T + N
+# subject to
+#   5T + 3N <= 20000
+#   N >= 30
+#   T >= 4N
+#   T, N integers >= 0
+
+best_obj = -1
+best_T = None
+best_N = None
+
+# N must be at least 30. Upper bound: when T=0, 3N <= 20000 -> N <= 6666, but T>=4N so feasible N will be much smaller.
+for N in range(30, 20001):
+    # maximum feasible T for given N given time constraint
+    if 3 * N > 20000:
+        break
+    T_max = (20000 - 3 * N) // 5  # floor division
+    T_min = 4 * N
+    if T_max < T_min:
+        continue  # no feasible T for this N
+    # For fixed N, objective T+N is increasing in T, so choose T = T_max
+    T = T_max
+    obj = T + N
+    if obj > best_obj:
+        best_obj = obj
+        best_T = T
+        best_N = N
+
+# final objective value printed exactly as required
+print(f"FINAL_OBJ: {best_obj}")

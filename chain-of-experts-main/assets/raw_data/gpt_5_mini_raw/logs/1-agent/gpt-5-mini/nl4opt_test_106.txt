@@ -1,0 +1,40 @@
+[MONOLITH]:
+import pulp
+
+# Define the LP problem
+prob = pulp.LpProblem("Mark_Farm_Profit_Maximization", pulp.LpMaximize)
+
+# Decision variables: acres of potatoes (x) and cucumbers (y)
+# Lower bounds from contracts: x >= 12, y >= 15
+x = pulp.LpVariable('potatoes_acres', lowBound=12, cat='Continuous')
+y = pulp.LpVariable('cucumbers_acres', lowBound=15, cat='Continuous')
+
+# Objective: maximize profit = 500*x + 650*y
+prob += 500 * x + 650 * y, "Total_Profit"
+
+# Constraints:
+prob += x + y <= 50, "Total_Land"
+prob += y <= 2 * x, "Cucumbers_at_most_twice_potatoes"
+prob += y >= x, "Prefer_more_cucumbers_than_potatoes"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+x_val = pulp.value(x)
+y_val = pulp.value(y)
+obj_val = pulp.value(prob.objective)
+
+# Print results
+print(f"Acres of potatoes: {x_val}")
+print(f"Acres of cucumbers: {y_val}")
+print(f"Total profit: {obj_val}")
+
+# Ensure final print is exactly the required format.
+# If objective is effectively integer, print as integer; otherwise print as float.
+if abs(obj_val - round(obj_val)) < 1e-6:
+    final_obj = int(round(obj_val))
+else:
+    final_obj = float(obj_val)
+
+print(f"FINAL_OBJ: {final_obj}")

@@ -1,0 +1,132 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Minimise the total number of wagons used (total wagons = number of small wagons + number of large wagons) while transporting at least 2000 units of ore.
+
+2. Suggested model type
+- Model: Integer Linear Programming (ILP). All decision variables are integer counts (nonnegative integers). For this small problem you can also solve by simple integer enumeration over one variable.
+
+3. Main decision variables
+- S = number of small wagons (each holds 20 units)
+- L = number of large wagons (each holds 50 units)
+
+(Objective expressed in words: minimise S + L.)
+
+4. Key constraints to include (described conceptually)
+- Capacity constraint: the combined capacity of small and large wagons must be at least 2000 units (20 units per small, 50 per large).
+- Ramp ratio constraint: number of small wagons must be at least twice the number of large wagons (S >= 2 * L).
+- Minimum large wagons: at least 10 large wagons must be used (L >= 10).
+- Integrality and nonnegativity: S and L are nonnegative integers.
+
+5. Practical modelling notes / simplifications (for the modeller)
+- Because S must be at least 2L and adding extra small wagons only increases the objective, in optimal solutions S will be as small as possible given L. So you can set S = 2L + extra_nonneg_integer (and expect extra to be zero unless capacity forces more small wagons).
+- This allows reduction to a single integer search over L: for each integer L >= 10, set S = max(2L, minimal S needed to meet capacity) and compute total wagons; select L that minimises S+L.
+- Compute a quick lower bound via relaxation (treat variables continuous) to check search range; an initial feasibility check is recommended.
+- Solver suggestions: a simple loop over integer L (branching from 10 upward until capacity is met and objective starts increasing) is sufficient. Alternatively use any ILP solver (branch-and-bound).
+
+6. Output / verification
+- Return the optimal integer pair (S, L), the minimum total number of wagons, and verify the capacity and all constraints hold.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- S ∈ Z_+, number of small wagons (each holds 20 units).
+- L ∈ Z_+, number of large wagons (each holds 50 units).
+
+Objective
+- Minimize total wagons: minimize Z = S + L.
+
+Constraints
+1. Capacity: 20 S + 50 L ≥ 2000.
+2. Ramp ratio: S ≥ 2 L.
+3. Minimum large wagons: L ≥ 10.
+4. Integrality and nonnegativity: S, L ∈ Z_+, (integers ≥ 0).
+
+Notes / reformulation
+- Because increasing S only increases the objective and S must be at least 2L, for any fixed L the optimal S is the smallest integer satisfying both S ≥ 2L and 20S ≥ 2000 − 50L. Hence
+  S(L) = max( 2L, ceil((2000 − 50L)/20, 0) ).
+- Therefore the problem reduces to a single integer search over L ≥ 10: compute S(L) and pick L minimizing Z(L)=S(L)+L.
+
+Practical search bounds
+- Upper bound for L: using only large wagons would need L ≥ ceil(2000/50)=40, so search L ∈ {10,...,40}. In practice the optimal L is much smaller (see below).
+- LP relaxation gives a lower bound: substitute S=2L (tight because increasing S is bad) ⇒ 90L ≥ 2000 ⇒ L ≥ 2000/90 ≈ 22.222, so continuous optimum yields objective ≈ 66.667 (L ≈ 22.222, S ≈ 44.444). Thus an integer optimum must be ≥ 67.
+
+Solution by enumeration (small loop)
+- For L from 10 to 40:
+  - required_small_by_capacity = max(0, ceil((2000 − 50L)/20))
+  - S = max(2L, required_small_by_capacity)
+  - record Z = S + L and pick minimal Z.
+
+Optimal solution (exact)
+- By enumeration (or simple reasoning) the optimal integer pair is:
+  - L* = 22 large wagons
+  - S* = 45 small wagons
+  - Total wagons Z* = 67
+- Verification:
+  - Capacity: 20·45 + 50·22 = 900 + 1100 = 2000 (meets requirement exactly).
+  - Ramp ratio: 45 ≥ 2·22 = 44 (satisfied).
+  - L ≥ 10 satisfied.
+
+Recommended solvers / Python libraries
+- For this tiny problem a simple Python loop is sufficient (no external solver needed).
+- For an ILP formulation:
+  - pulp (uses CBC by default) — easy to model and solve.
+  - OR-Tools CP-SAT (google ortools) — very fast for integer problems.
+  - mip (python-mip) or gurobipy/Cplex (if licensed) — for larger industrial problems.
+- If you prefer continuous relaxations or nonlinear work, use scipy.optimize for LP relaxations.
+
+Example outline (pseudo-Python, no heavy formatting)
+- Simple enumeration:
+  best = None
+  for L in range(10,41):
+      req_small = max(0, math.ceil((2000 - 50*L)/20))
+      S = max(2*L, req_small)
+      Z = S + L
+      if best is None or Z < best.Z:
+          best = (S,L,Z)
+  -> best is (45,22,67)
+
+If you want, I can provide a ready-to-run Python snippet using pulp or OR-Tools that builds and solves the ILP and prints the optimal (S,L).
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data
+capacity_need = 2000
+cap_small = 20
+cap_large = 50
+min_large = 10
+
+# Search bounds for L
+L_min = min_large
+L_max = math.ceil(capacity_need / cap_large)  # 40
+
+best = None  # tuple (Z, S, L)
+
+for L in range(L_min, L_max + 1):
+    # small wagons required by capacity (non-negative)
+    remaining = capacity_need - cap_large * L
+    req_small_by_capacity = max(0, math.ceil(remaining / cap_small))
+    # enforce ramp ratio S >= 2L
+    S = max(2 * L, req_small_by_capacity)
+    Z = S + L
+    if best is None or Z < best[0]:
+        best = (Z, S, L)
+
+# Unpack best solution
+best_Z, best_S, best_L = best
+
+# Sanity checks
+assert best_L >= min_large
+assert best_S >= 2 * best_L
+assert cap_small * best_S + cap_large * best_L >= capacity_need
+assert isinstance(best_Z, int)
+
+print(f"FINAL_OBJ: {best_Z}")
+```

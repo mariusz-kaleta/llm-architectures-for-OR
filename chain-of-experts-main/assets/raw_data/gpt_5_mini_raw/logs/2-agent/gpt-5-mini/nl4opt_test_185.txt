@@ -1,0 +1,137 @@
+[MODELER]:
+Below is a concise mathematical model, solution and solver suggestions.
+
+1) Decision variables
+- W = number of wraps produced (≥ 0; integer in practice)
+- P = number of platters produced (≥ 0; integer in practice)
+
+2) Objective
+Minimize total production time T:
+T = 10 W + 8 P  (minutes)
+
+3) Constraints
+- Meat requirement: 5 W + 7 P ≥ 3000
+- Rice requirement: 3 W + 5 P ≥ 2500
+- Wrap-to-platter ratio: W ≥ 3 P
+- Nonnegativity: W ≥ 0, P ≥ 0
+- (Optionally) integrality: W, P ∈ Z≥0
+
+4) Continuous LP solution (relax integrality)
+Solve the linear program:
+minimize 10W + 8P
+s.t. 5W + 7P ≥ 3000
+     3W + 5P ≥ 2500
+     W − 3P ≥ 0
+     W,P ≥ 0
+
+The active constraints at the optimum are W = 3P and 3W + 5P = 2500. Solving gives
+P* = 2500/14 ≈ 178.5714
+W* = 3P* ≈ 535.7143
+
+Minimum continuous time T* = 10W* + 8P* = 6785.7143 minutes.
+
+5) Practical (integer) solution
+Because counts must be whole numbers, solve the integer version. A short integer search or an integer LP solver yields the best integer solution:
+
+P = 178 platters
+W = 537 wraps
+
+This satisfies
+5·537 + 7·178 = 3931 ≥ 3000 (meat)
+3·537 + 5·178 = 2501 ≥ 2500 (rice)
+537 ≥ 3·178 = 534 (ratio)
+
+Total time = 10·537 + 8·178 = 6794 minutes.
+(Other nearby integer combinations give slightly larger total time.)
+
+6) Recommended solvers / Python libraries
+- Continuous LP: scipy.optimize.linprog, PuLP (with CBC), CVXOPT
+- Integer / MILP: PuLP (CBC, GLPK, or commercial solvers), OR-Tools CP-SAT, Gurobi / CPLEX (if available)
+- If you prefer a simple integer search for small domains, pure Python is sufficient.
+
+Example outline using PuLP (continuous or integer):
+- define LpProblem(minimize)
+- define W, P as LpVariable(..., cat='Integer') for integer or cat='Continuous'
+- add constraints (>= form)
+- set objective 10*W + 8*P
+- solve and read values W.value(), P.value()
+
+If you want, I can provide a ready-to-run Python code snippet for the continuous LP and the integer MILP with PuLP or an OR-Tools model.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+import math
+
+# Problem data
+# Decision variables: W (wraps), P (platters)
+# Objective: minimize T = 10*W + 8*P
+# Constraints:
+# 5W + 7P >= 3000   (meat)
+# 3W + 5P >= 2500   (rice)
+# W >= 3P
+
+# 1) Continuous (relaxed) solution using the active equalities:
+#    W - 3P = 0
+#    3W + 5P = 2500
+# Solve analytically:
+# From first: W = 3P
+# Substitute: 3*(3P) + 5P = 2500 -> 14P = 2500 -> P = 2500/14
+P_cont = 2500.0 / 14.0
+W_cont = 3.0 * P_cont
+T_cont = 10.0 * W_cont + 8.0 * P_cont
+
+print(f"Continuous solution (relax integrality): P = {P_cont:.7f}, W = {W_cont:.7f}, T = {T_cont:.7f}")
+
+# 2) Integer solution by efficient search over integer P values
+# We derive minimal required integer W for each integer P:
+# W >= ceil((3000 - 7P)/5)
+# W >= ceil((2500 - 5P)/3)
+# W >= 3P
+# W >= 0
+# For each P (integer), compute the minimal feasible integer W and the objective.
+
+best_obj = None
+best_W = None
+best_P = None
+
+# We'll search over a reasonable range for P.
+# A safe upper bound: 1000 (very conservative), but practically the optimal P will be small.
+P_max = 1000
+
+for P in range(0, P_max + 1):
+    # Compute the lower bounds for W from each constraint
+    lb_meat = (3000 - 7 * P) / 5.0
+    lb_rice = (2500 - 5 * P) / 3.0
+    lb_ratio = 3 * P
+    # Ceil the real-valued lower bounds to get integer W
+    W_min = max(0, math.ceil(lb_meat), math.ceil(lb_rice), lb_ratio)
+
+    # If W_min is ridiculously large relative to search needs, we can skip, but objective check will handle it
+    # Compute objective
+    obj = 10 * W_min + 8 * P
+
+    # Verify feasibility explicitly (safety check)
+    meat_ok = (5 * W_min + 7 * P) >= 3000
+    rice_ok = (3 * W_min + 5 * P) >= 2500
+    ratio_ok = W_min >= 3 * P
+    feasible = meat_ok and rice_ok and ratio_ok
+
+    if not feasible:
+        continue
+
+    if (best_obj is None) or (obj < best_obj):
+        best_obj = obj
+        best_W = W_min
+        best_P = P
+
+# Print integer solution found
+if best_obj is None:
+    print("No feasible integer solution found in search range.")
+else:
+    print(f"Integer solution found: P = {best_P}, W = {best_W}, T = {best_obj}")
+
+# Final required print (must be the very last line in this exact format)
+print(f"FINAL_OBJ: {best_obj}")
+```

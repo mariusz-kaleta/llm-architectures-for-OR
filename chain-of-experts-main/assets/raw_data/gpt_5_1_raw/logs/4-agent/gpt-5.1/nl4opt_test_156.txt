@@ -1,0 +1,367 @@
+[PLANNER]:
+1. **Key optimisation goal**  
+   - Goal: Minimize the total cost of annotating at least 10,000 images, subject to time/rate and minimum allocation constraints.
+
+2. **Suggested model type**  
+   - Model: Linear Programming (LP), with the option to treat hours or number of images as the primary decision variables.  
+   - The problem is small enough that it can also be solved analytically, but should still be structured as an LP for clarity and extensibility (e.g., if adding more constraints later).
+
+3. **Main decision variables**  
+   You can structure the model in either of two equivalent ways. Pick one and keep it consistent.
+
+   **Option A – Hours allocated (time-based variables)**  
+   - Let:
+     - `h_s` = number of hours contracted with the specialized company  
+     - `h_c` = number of hours contracted with the common company  
+
+   - Implied images annotated:
+     - Images by specialized company = `60 * h_s`  
+     - Images by common company = `40 * h_c`  
+
+   **Option B – Images annotated (output-based variables)**  
+   - Let:
+     - `x_s` = number of images annotated by the specialized company  
+     - `x_c` = number of images annotated by the common company  
+
+   - Implied hours required:
+     - Hours specialized = `x_s / 60`  
+     - Hours common = `x_c / 40`  
+
+   Choose Option B if the researcher thinks primarily in terms of assigning image counts; choose Option A if contracting is naturally in hours.
+
+4. **Objective function strategy**  
+
+   **If using hours (Option A):**  
+   - Total cost = `100 * h_s + 72 * h_c`  
+   - Objective: Minimize `100 * h_s + 72 * h_c`
+
+   **If using images (Option B):**  
+   - Cost per image:
+     - Specialized: `100 / 60` dollars per image  
+     - Common: `72 / 40` dollars per image  
+   - Total cost = `(100/60) * x_s + (72/40) * x_c`  
+   - Objective: Minimize `(100/60) * x_s + (72/40) * x_c`
+
+5. **Key constraints to include**
+
+   Regardless of formulation, these constraints must be represented:
+
+   1. **Total output requirement (dataset size)**  
+      - At least 10,000 images must be annotated:
+        - Option A (hours): `60 * h_s + 40 * h_c ≥ 10,000`  
+        - Option B (images): `x_s + x_c ≥ 10,000`
+
+   2. **Minimum share for specialized company (at least one-third of work)**  
+      “At least a third of work must be allocated to the specialized company” can be interpreted as at least one-third of *images* (most natural and aligns with “special images” requirement). Formulate as:
+
+      - Option A (hours → images):  
+        - Images by specialized ≥ one-third of total images:  
+          `60 * h_s ≥ (1/3) * (60 * h_s + 40 * h_c)`
+
+      - Option B (images):  
+        - `x_s ≥ (1/3) * (x_s + x_c)`
+
+      This ensures at least one-third of the annotated images come from the specialized provider, matching the requirement that special images only they can do must be covered and that their share is sufficiently large.
+
+   3. **Non-negativity constraints**  
+      - Hours or images assigned cannot be negative:  
+        - Option A: `h_s ≥ 0`, `h_c ≥ 0`  
+        - Option B: `x_s ≥ 0`, `x_c ≥ 0`
+
+   4. **(Optional) Integer constraints (if needed)**  
+      - If annotation must be in whole images, you can impose integer constraints on `x_s` and `x_c`.  
+      - Typically not needed for a large problem size (10,000 images) because fractional solutions will be very close to feasible integers and can be rounded with negligible impact.
+
+   5. **(Optional) Time / deadline constraints**  
+      - If a maximum elapsed time or calendar deadline is provided later, include:  
+        - Option A: `h_s ≤ H_s_max`, `h_c ≤ H_c_max`, and possibly `h_s + h_c ≤ H_total_max`  
+        - Option B: translate those into maximum allowable hours via `x_s/60` and `x_c/40`.
+
+6. **Solution structure / qualitative guidance for the Modeller**  
+
+   - Compute cost per image for both companies:
+     - Specialized: `100 / 60`  
+     - Common: `72 / 40`  
+   - Since the common company’s cost per image is likely lower, the optimal strategy will:
+     - Assign the minimum allowable fraction (one-third of all images) to the specialized company, to satisfy the constraint.
+     - Assign the remaining images to the cheaper common company, while still satisfying the total ≥ 10,000 images requirement.
+
+   - Concretely, after solving the LP:
+     - Ensure `x_s` is exactly one-third of the total images (at optimum you expect this constraint to be tight, unless costs are equal).  
+     - Check total images are exactly 10,000 at the solution (the “at least” constraint is usually binding in a cost-minimization setting).
+
+7. **Model extension hooks (for future needs)**  
+
+   Leave room for the Modeller to easily add:  
+   - Different annotation types with different rates and per-type minimums for specialized.  
+   - Quality constraints (e.g., a fraction that must be double-annotated).  
+   - Budget caps.  
+   - Multiple specialized providers with different rates and speeds.
+
+The Modeller should now build an LP with the variables and constraints above, solve for the optimal allocation, and then interpret the solution as “X images (or hours) to the specialized company and Y images (or hours) to the common company” to achieve minimum total cost.
+
+---
+
+[MODELER]:
+Below is a formal optimization model for the problem, followed by suggestions for Python libraries to solve it and the resulting optimal allocation.
+
+---
+
+## 1. Modelling choice
+
+We model in terms of **number of images** (Option B in the plan), since “work” is naturally measured as images annotated.
+
+### Decision variables
+
+- \(x_s \ge 0\): number of images annotated by the specialized company  
+- \(x_c \ge 0\): number of images annotated by the common company  
+
+Units: images.
+
+---
+
+## 2. Parameters
+
+From the problem:
+
+- Specialized company:
+  - Rate: \(60\) images/hour  
+  - Cost: \(\$100\) per hour  
+  - Cost per image:  
+    \[
+    c_s = \frac{100}{60} \;\text{dollars per image}
+    \]
+
+- Common company:
+  - Rate: \(40\) images/hour  
+  - Cost: \(\$72\) per hour  
+  - Cost per image:  
+    \[
+    c_c = \frac{72}{40} \;\text{dollars per image}
+    \]
+
+- Total required images: at least \(10{,}000\)
+- At least one-third of images must be handled by specialized company.
+
+---
+
+## 3. Constraints
+
+1. **Total images requirement**  
+   At least 10,000 images must be annotated:
+   \[
+   x_s + x_c \;\ge\; 10{,}000
+   \]
+
+2. **Minimum share for specialized company**  
+   At least one-third of annotated images are done by specialized:
+   \[
+   x_s \;\ge\; \frac{1}{3}(x_s + x_c)
+   \]
+
+   This can be rewritten (if desired) as:
+   \[
+   3x_s \;\ge\; x_s + x_c \;\Rightarrow\; 2x_s \;\ge\; x_c
+   \]
+
+3. **Non-negativity**:
+   \[
+   x_s \ge 0, \quad x_c \ge 0
+   \]
+
+4. **(Optional) Integrality**:  
+   If you insist on integer numbers of images:
+   \[
+   x_s, x_c \in \mathbb{Z}_{\ge 0}
+   \]
+   For 10,000 images this is not critical—LP relaxation is typically fine.
+
+---
+
+## 4. Objective function
+
+Minimize total annotation cost:
+
+\[
+\min \; Z = c_s x_s + c_c x_c
+     = \frac{100}{60} x_s + \frac{72}{40} x_c
+\]
+
+Explicitly:
+
+- \(\frac{100}{60} \approx 1.6667\) dollars per image (specialized)
+- \(\frac{72}{40} = 1.8\) dollars per image (common)
+
+So specialized is actually *cheaper per image* than the common company.
+
+---
+
+## 5. Structure of the optimal solution
+
+Since specialized has **lower cost per image** than common, the cost-minimizing strategy is:
+
+- Use the **specialized company for all possible work**, subject only to constraints.
+- Here, there is **no upper bound** on how much specialized can do, only a minimum share; so the minimum-cost solution will assign:
+  - \(x_c = 0\) (no common images)
+  - \(x_s = 10{,}000\) images (all work to specialized)
+
+Check constraints:
+
+1. Total images:  
+   \[
+   x_s + x_c = 10{,}000 + 0 = 10{,}000 \ge 10{,}000 \;\checkmark
+   \]
+
+2. Minimum 1/3 specialized:  
+   \[
+   x_s = 10{,}000 \ge \frac{1}{3}(10{,}000 + 0) = 3{,}333.\overline{3} \;\checkmark
+   \]
+
+3. Non-negativity: \(x_s, x_c \ge 0\) holds.
+
+Total cost:
+
+- Hours needed for specialized:  
+  \[
+  \frac{x_s}{60} = \frac{10{,}000}{60} \approx 166.67\ \text{hours}
+  \]
+- Total cost:
+  \[
+  100 \times 166.67 \approx \$16{,}666.67
+  \]
+  or equivalently:
+  \[
+  10{,}000 \times \frac{100}{60} \approx \$16{,}666.67
+  \]
+
+Thus, the optimal allocation is:
+
+- Specialized company: **10,000 images**
+- Common company: **0 images**
+
+---
+
+## 6. Equivalent hours-based (Option A) formulation
+
+If you prefer hours as decision variables:
+
+- Variables:
+  - \(h_s \ge 0\): hours purchased from specialized
+  - \(h_c \ge 0\): hours purchased from common
+
+- Implied images:
+  - Specialized: \(60 h_s\)
+  - Common: \(40 h_c\)
+
+- Objective:
+  \[
+  \min \; 100 h_s + 72 h_c
+  \]
+
+- Constraints:
+  1. Total images:
+     \[
+     60 h_s + 40 h_c \ge 10{,}000
+     \]
+  2. At least 1/3 of images by specialized:
+     \[
+     60 h_s \ge \frac{1}{3} (60 h_s + 40 h_c)
+     \]
+  3. Non-negativity:
+     \[
+     h_s, h_c \ge 0
+     \]
+
+The optimal solution in this formulation is:
+
+- \(h_c = 0\)
+- \(60 h_s = 10{,}000 \Rightarrow h_s = 10{,}000 / 60 \approx 166.67\) hours.
+
+---
+
+## 7. Python implementation suggestions
+
+You can solve this LP using several libraries:
+
+- **PuLP** (simple, pure Python, works with many solvers)
+- **OR-Tools (Linear Solver)** (Google Optimization Tools)
+- **SciPy (`scipy.optimize.linprog`)** (for continuous LPs, not integer)
+
+### Example with PuLP (image-based formulation)
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Image_Annotation_Cost_Min", pl.LpMinimize)
+
+# Decision variables
+x_s = pl.LpVariable("x_s", lowBound=0)  # specialized images
+x_c = pl.LpVariable("x_c", lowBound=0)  # common images
+
+# Parameters (cost per image)
+c_s = 100.0 / 60.0
+c_c = 72.0 / 40.0
+
+# Objective
+prob += c_s * x_s + c_c * x_c, "Total_Cost"
+
+# Constraints
+prob += x_s + x_c >= 10000, "Total_images_requirement"
+prob += x_s >= (1.0/3.0) * (x_s + x_c), "Min_share_specialized"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("x_s (specialized images) =", x_s.value())
+print("x_c (common images)      =", x_c.value())
+print("Total cost               =", pl.value(prob.objective))
+```
+
+This will return approximately:
+
+- `x_s = 10000`
+- `x_c = 0`
+- total cost ≈ `16666.67`
+
+You can analogously implement the hours-based version by defining \(h_s, h_c\) instead of \(x_s, x_c\).
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create LP problem: minimize total cost
+    prob = pl.LpProblem("Image_Annotation_Cost_Min", pl.LpMinimize)
+
+    # Decision variables: number of images by specialized and common companies
+    x_s = pl.LpVariable("x_s", lowBound=0)  # specialized images
+    x_c = pl.LpVariable("x_c", lowBound=0)  # common images
+
+    # Parameters (cost per image)
+    c_s = 100.0 / 60.0  # specialized cost per image
+    c_c = 72.0 / 40.0   # common cost per image
+
+    # Objective function: minimize total cost
+    prob += c_s * x_s + c_c * x_c, "Total_Cost"
+
+    # Constraints
+    # 1) Total images requirement
+    prob += x_s + x_c >= 10000, "Total_images_requirement"
+
+    # 2) At least one-third of annotated images must be handled by specialized company
+    prob += x_s >= (1.0 / 3.0) * (x_s + x_c), "Min_share_specialized"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print strictly in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

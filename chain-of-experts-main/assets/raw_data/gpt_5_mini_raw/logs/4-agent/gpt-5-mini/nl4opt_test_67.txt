@@ -1,0 +1,116 @@
+[PLANNER]:
+1) Key optimisation goal:
+- Minimise the total preparation time for the lawn (total effective time contributed by units of fertilizer and seeds).
+
+2) Suggested model type:
+- Linear Programming (LP) — continuous two-variable LP. Because the objective and constraints are linear and there are only two variables, the optimum lies at a corner of the feasible region. You can solve with a simple LP solver or by evaluating corner points analytically.
+
+3) Main decision variables:
+- Fertilizer units (F): number of fertilizer units to add (nonnegative, continuous or integer if units must be integer).
+- Seed units (S): number of seed units to add (nonnegative, continuous or integer if required).
+
+4) Key constraints to consider (described verbally):
+- Total-unit limit: The combined number of units of fertilizer and seeds cannot exceed 300.
+- Minimum fertilizer requirement: At least 50 units of fertilizer must be added.
+- Relative-limit on fertilizer vs seeds: Fertilizer cannot exceed twice the amount of seeds (i.e., the amount of fertilizer is at most two times the amount of seeds).
+- Nonnegativity: Both F and S must be nonnegative (and integer if units are indivisible).
+
+Objective function (description, not formal equation):
+- Minimise total time = time per fertilizer unit times F plus time per seed unit times S (given times: fertilizer 0.5 min/unit, seeds 1.5 min/unit).
+
+Suggested solution approach and checks:
+- Because the fertilizer is faster per unit than seed, you will tend to push F as high as allowed by the F ≤ 2S and total-capacity constraints. Solve the two-variable LP by inspecting the feasible polygon corners (intersections of active constraints) or use a standard LP solver.
+- Verify feasibility (the constraints allow some solution).
+- If units must be integers, solve as a small integer program (but the continuous optimum will typically be integral here).
+- Report the optimal F and S, the active/binding constraints at optimum, and the resulting total time. Also report sensitivity: how the solution changes if the total-unit limit or the minimum fertilizer requirement changes.
+- Clarify any ambiguity before modelling: confirm that times are additive (total time equals sum of unit times) rather than e.g. tasks being run in parallel or overlapping.
+
+(Analytical hint for the modeller: expect the optimum where the fertilizer/seed ratio constraint and the total-unit cap bind. This yields a corner solution to check first.)
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- F ≥ 0 : units of fertilizer added.
+- S ≥ 0 : units of seeds added.
+(If units must be integral, add F, S ∈ Z≥0. The continuous solution below is integral.)
+
+Constraints
+1. Total-unit limit: F + S ≤ 300.
+2. Minimum fertilizer: F ≥ 50.
+3. Relative limit (fertilizer at most twice seeds): F ≤ 2 S.
+4. Nonnegativity: F ≥ 0, S ≥ 0.
+
+Objective
+Minimise total effective preparation time
+T(F,S) = 0.5·F + 1.5·S.
+
+Summary of the LP
+minimise T = 0.5 F + 1.5 S
+subject to
+- F + S ≤ 300
+- F ≥ 50
+- F − 2 S ≤ 0
+- F, S ≥ 0
+
+Analytical solution (two-variable LP)
+Because seeds cost more time per unit (1.5) than fertilizer (0.5), we want as much fertilizer and as little seeds as allowed by the constraints. From F ≤ 2S we get S ≥ F/2. For any feasible F the best (time-minimising) S is the smallest feasible S, i.e. S = F/2 (provided the total-capacity constraint allows it). Substituting S = F/2 into the objective gives T = 0.5F + 1.5(F/2) = 1.25 F, which is increasing in F. Thus we minimise T by taking F as small as allowed by constraints, i.e. F = 50, and then S = F/2 = 25.
+
+Feasible-checks:
+- Total units = F + S = 50 + 25 = 75 ≤ 300 (total-capacity not binding).
+- All constraints satisfied.
+
+Optimal solution
+- F* = 50 units of fertilizer
+- S* = 25 units of seeds
+- Minimum total time T* = 0.5·50 + 1.5·25 = 25 + 37.5 = 62.5 minutes
+
+Active (binding) constraints at optimum
+- F ≥ 50 (minimum fertilizer) binds.
+- F ≤ 2S binds (F = 2S).
+- Total-capacity F + S ≤ 300 is not binding (only 75 used).
+
+Feasibility and sensitivity observations
+- The minimum total units implied by constraints is 1.5·F_min (because S ≥ F/2). With F_min = 50 this is 75, so the total-capacity must be at least 75 for feasibility. If the cap < 75 the problem is infeasible.
+- If the minimum fertilizer requirement changed to f0, and f0 ≤ 200, the same reasoning gives the optimal solution F* = f0, S* = f0/2, with objective T* = 1.25·f0. If f0 > 200 the problem is infeasible (because F ≤ 2S and S ≤ 300−F together imply F ≤ 200).
+- Changing the total-capacity has no effect on the solution as long as the cap ≥ 1.5·F_min (here ≥ 75). If the cap is reduced below that threshold the problem becomes infeasible.
+- If the per-unit times changed (e.g. seeds become faster than fertilizer), the optimal corner will change; you would then re-evaluate the polygon corners.
+
+Suggested solvers / libraries
+- For a quick analytical solution no solver is needed.
+- For numerical / programmatic solving:
+  - pulp (Python) — easy LP modeling, uses CBC by default.
+  - scipy.optimize.linprog — good for continuous LPs.
+  - ortools.linear_solver or ortools.sat (CP-SAT) — for LP or integer variants.
+If you want, I can provide a short Python example using pulp or linprog.
+
+---
+
+[CODER]:
+```python
+# Self-contained script to solve the given LP analytically
+
+# Problem data (directly initialised)
+total_capacity = 300       # upper bound: F + S <= total_capacity
+min_fertilizer = 50        # F >= min_fertilizer
+
+# From constraint F <= 2 S we get S >= F/2.
+# To minimise T = 0.5 F + 1.5 S we choose the smallest feasible S for given F, i.e. S = F/2.
+# Substitute: T(F) = 0.5 F + 1.5*(F/2) = 1.25 * F, which is increasing in F.
+# So choose the smallest allowed F, i.e. F = min_fertilizer, and S = F/2.
+
+F_opt = float(min_fertilizer)
+S_opt = F_opt / 2.0
+
+# Feasibility check: total capacity must allow F + S
+if F_opt + S_opt > total_capacity + 1e-9:
+    raise ValueError("Problem infeasible with given total_capacity and min_fertilizer.")
+
+# Objective value
+T_opt = 0.5 * F_opt + 1.5 * S_opt
+
+# Final required output format
+print(f"FINAL_OBJ: {T_opt}")
+```

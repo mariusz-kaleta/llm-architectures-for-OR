@@ -1,0 +1,93 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x ∈ Z≥0 : number of small buses (capacity 20 students)
+- y ∈ Z≥0 : number of large buses (capacity 50 students)
+
+Objective
+- Minimize total number of buses: minimize Z = x + y
+
+Constraints
+1. Capacity requirement: 20x + 50y ≥ 500
+2. At most 20% of buses are large:
+   y ≤ 0.2(x + y)
+   This is linearized as: 0.8y ≤ 0.2x  ⇒  y ≤ 0.25 x
+3. Integer and nonnegativity: x, y ∈ Z≥0
+
+Solution (analysis)
+- Given y ≤ 0.25x, the maximum allowable y for given x is y = floor(0.25 x). For a given total number of buses n = x + y, the maximum capacity occurs when y = floor(0.2 n), so the capacity is 20n + 30·floor(0.2 n).
+- Testing n values shows the smallest n that meets the 500‑student requirement is n = 20. For n = 20, floor(0.2·20) = 4, so y = 4 large buses and x = 16 small buses.
+- Check: capacity = 16·20 + 4·50 = 320 + 200 = 520 ≥ 500.
+
+Optimal solution
+- Hire 16 small buses and 4 large buses.
+- Minimum total buses = 20.
+
+Recommended solvers/libraries
+- For coding and solving: PuLP (CBC default), OR‑Tools CP‑SAT, Pyomo (with CBC/GLPK/Gurobi), or mip (Python-MIP).
+- SciPy is not suitable because this is an integer (discrete) optimization.
+
+Example (PuLP) — minimal code sketch
+- Define integer variables x,y, objective x+y, add constraints 20*x+50*y>=500 and y <= 0.25*x, solve with CBC.
+
+If you want, I can provide a ready-to-run Python code example (PuLP or OR-Tools) that implements this model and prints the optimal solution.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+# Brute-force solver for the bus minimization problem described.
+# Decision variables:
+#   x >= 0 integer: number of small buses (capacity 20)
+#   y >= 0 integer: number of large buses (capacity 50)
+# Objective: minimize x + y
+# Constraints:
+#   20*x + 50*y >= 500
+#   y <= 0.25 * x  <=> 4*y <= x
+# The script searches integer (x,y) pairs and finds the optimal solution.
+
+def main():
+    required_students = 500
+    max_search = 500  # safe upper bound for search on x and y
+
+    best_n = None
+    best_x = None
+    best_y = None
+    best_capacity = None
+
+    for x in range(0, max_search + 1):
+        # given x, y must satisfy 4*y <= x -> y <= x//4
+        y_max = x // 4
+        # but also we can cap y by max_search to avoid unnecessary loops (y_max <= max_search anyway)
+        for y in range(0, min(y_max, max_search) + 1):
+            capacity = 20 * x + 50 * y
+            if capacity >= required_students:
+                n = x + y
+                # update best if smaller n found, or tie-break arbitrarily by larger capacity
+                if best_n is None or n < best_n or (n == best_n and capacity > best_capacity):
+                    best_n = n
+                    best_x = x
+                    best_y = y
+                    best_capacity = capacity
+
+    # If not found (shouldn't happen), handle gracefully
+    if best_n is None:
+        print("No feasible solution found within search bounds.")
+        # Still must print FINAL_OBJ line; use -1 to indicate infeasible
+        print(f"FINAL_OBJ: {-1}")
+        return
+
+    # Output details (optional)
+    print(f"Optimal small buses x = {best_x}")
+    print(f"Optimal large buses y = {best_y}")
+    print(f"Total buses (objective) = {best_n}")
+    print(f"Total capacity provided = {best_capacity}")
+
+    # Final required line (strict format)
+    print(f"FINAL_OBJ: {best_n}")
+
+if __name__ == "__main__":
+    main()
+```

@@ -1,0 +1,92 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x ∈ Z≥0 = number of bus trips
+  - y ∈ Z≥0 = number of car trips
+
+- Parameters
+  - bus capacity = 100 chickens/trip
+  - car capacity = 40 chickens/trip
+  - bus time = 2 hours/trip
+  - car time = 1.5 hours/trip
+  - required chickens = 1200
+  - max bus trips = 10
+  - at least 60% of trips must be by car
+
+- Constraints (linear)
+  1. Capacity: 100x + 40y ≥ 1200
+  2. Bus trip limit: x ≤ 10
+  3. Car-trip fraction: y ≥ 0.6(x + y)  which is equivalent to 0.4y ≥ 0.6x or y ≥ 1.5 x
+  4. Integrality and nonnegativity: x, y ∈ Z≥0
+
+- Objective
+  Minimize total time T = 2x + 1.5y  (hours)
+
+Solution reasoning (small integer program)
+For each integer x = 0..10 compute the smallest integer y satisfying both y ≥ 1.5x and 100x + 40y ≥ 1200, then evaluate T = 2x + 1.5y. This yields the best solution:
+
+- Optimal solution: x = 7 bus trips, y = 13 car trips
+- Chickens transported: 7·100 + 13·40 = 1220 ≥ 1200
+- Car-trip percentage: 13/(7+13) = 65% ≥ 60%
+- Minimum total time: T = 2·7 + 1.5·13 = 33.5 hours
+
+Suggested solvers / Python libraries
+- For integer linear programming: PuLP (with CBC), OR-Tools (CP-SAT), or Pyomo (with a suitable MILP solver).
+- If you wanted to solve the relaxed linear program first: scipy.optimize.linprog (but it doesn't enforce integrality).
+
+Example (sketch) using PuLP
+- Define integer variables x,y
+- Add the three linear constraints above
+- Set objective to minimize 2*x + 1.5*y
+- Solve with the default CBC solver
+
+If you want, I can provide a short complete Python script using PuLP or OR-Tools that constructs and solves this model.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Parameters
+bus_capacity = 100
+car_capacity = 40
+bus_time = 2.0
+car_time = 1.5
+required_chickens = 1200
+max_bus_trips = 10
+
+best_obj = float('inf')
+best_x = None
+best_y = None
+
+for x in range(0, max_bus_trips + 1):
+    # Constraint y >= 1.5 * x
+    y_min_frac = math.ceil(1.5 * x)
+    # Capacity constraint: 100x + 40y >= 1200  -> y >= (1200 - 100x)/40
+    remaining = required_chickens - bus_capacity * x
+    if remaining <= 0:
+        y_min_cap = 0
+    else:
+        y_min_cap = math.ceil(remaining / car_capacity)
+    y = max(0, y_min_frac, y_min_cap)
+    # Verify constraints (redundant safety checks)
+    if y < 0:
+        continue
+    if bus_capacity * x + car_capacity * y < required_chickens:
+        continue
+    if y < 1.5 * x - 1e-9:
+        continue
+    # Objective
+    T = bus_time * x + car_time * y
+    if T < best_obj - 1e-9:
+        best_obj = T
+        best_x = x
+        best_y = y
+
+# If no feasible solution found, best_obj remains inf. Handle that (though problem has a feasible solution).
+if best_x is None:
+    best_obj = float('inf')
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {best_obj}")

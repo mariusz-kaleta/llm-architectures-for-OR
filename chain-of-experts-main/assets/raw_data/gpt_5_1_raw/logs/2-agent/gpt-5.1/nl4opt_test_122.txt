@@ -1,0 +1,112 @@
+[MODELER]:
+Here is a clear linear programming (LP) formulation of Mrs. Watson’s investment problem.
+
+**Decision variables**
+
+Let  
+- \(x_1\) = dollars invested in condos  
+- \(x_2\) = dollars invested in detached houses  
+
+Both are continuous and nonnegative:
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+**Objective function (maximize total profit)**
+
+Each dollar in condos yields \$0.50 profit; each dollar in detached houses yields \$1 profit.  
+Maximize:
+\[
+\max\ Z = 0.5x_1 + 1.0x_2
+\]
+
+**Constraints**
+
+1. **Budget constraint** (total investment cannot exceed \$760,000):
+\[
+x_1 + x_2 \le 760000
+\]
+
+2. **Minimum proportion in condos** (at least 20% of total investment in condos):
+
+\[
+x_1 \ge 0.2(x_1 + x_2)
+\]
+
+This can be rearranged to a standard linear form:
+\[
+x_1 \ge 0.2x_1 + 0.2x_2  
+\Rightarrow 0.8x_1 \ge 0.2x_2  
+\Rightarrow 4x_1 \ge x_2
+\]
+
+3. **Minimum investment in detached houses** (at least \$20,000 in detached houses):
+\[
+x_2 \ge 20000
+\]
+
+4. **Nonnegativity**:
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+---
+
+**Complete LP model**
+
+\[
+\begin{aligned}
+\text{Maximize}\quad & Z = 0.5x_1 + 1.0x_2 \\
+\text{subject to}\quad
+& x_1 + x_2 \le 760000, \\
+& x_1 \ge 0.2(x_1 + x_2), \\
+& x_2 \ge 20000, \\
+& x_1 \ge 0,\ x_2 \ge 0.
+\end{aligned}
+\]
+
+(or use the equivalent linear constraint \(4x_1 \ge x_2\) instead of \(x_1 \ge 0.2(x_1 + x_2)\)).
+
+---
+
+**Python libraries suitable for solving this LP**
+
+You can model and solve this LP efficiently with any of the following:
+
+- `PuLP` (pure Python, easy syntax; works with CBC, GLPK, etc.)
+- `scipy.optimize.linprog` (SciPy’s linear programming solver)
+- `OR-Tools` (`ortools.linear_solver.pywraplp` from Google OR-Tools)
+- `Pyomo` (flexible modeling language for optimization)
+
+For a simple LP like this, `PuLP` or `scipy.optimize.linprog` would be the most straightforward choices.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import numpy as np
+from scipy.optimize import linprog
+
+# Coefficients for the objective function (we will minimize the negative to maximize)
+c = np.array([-0.5, -1.0])
+
+# Inequality constraints (A_ub x <= b_ub)
+# 1) x1 + x2 <= 760000
+# 2) -4x1 + x2 <= 0  (from 4x1 >= x2)
+A_ub = np.array([
+    [1, 1],
+    [-4, 1]
+])
+b_ub = np.array([760000, 0])
+
+# Bounds for x1, x2
+# x1 >= 0, x2 >= 20000
+bounds = [(0, None), (20000, None)]
+
+# Solve the linear program
+res = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method='highs')
+
+# Extract solution and compute objective value (maximization)
+x1, x2 = res.x
+final_obj = 0.5 * x1 + 1.0 * x2
+
+print(f"FINAL_OBJ: {final_obj}")

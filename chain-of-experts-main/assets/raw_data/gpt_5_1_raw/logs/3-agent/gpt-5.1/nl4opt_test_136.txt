@@ -1,0 +1,127 @@
+[MODELER]:
+Here’s a clear mathematical model of the problem.
+
+### Decision variables
+Let  
+- \(x\) = number of **seasonal** volunteers (integer, \(x \ge 0\))  
+- \(y\) = number of **full-time** volunteers (integer, \(y \ge 0\))
+
+### Objective
+Maximize the total number of gifts delivered.
+
+Each seasonal volunteer delivers 5 gifts, each full-time volunteer delivers 8 gifts, so:
+
+\[
+\text{Maximize } Z = 5x + 8y
+\]
+
+### Constraints
+
+1. **Points budget (max 200 points)**  
+   Seasonal: 2 points each  
+   Full-time: 5 points each  
+
+   \[
+   2x + 5y \le 200
+   \]
+
+2. **At most 30% of volunteers are seasonal**  
+
+   \[
+   x \le 0.3(x + y)
+   \]
+
+   This can be rewritten in a linear form:
+
+   \[
+   x \le 0.3x + 0.3y  
+   \Rightarrow 0.7x \le 0.3y  
+   \Rightarrow 7x \le 3y
+   \]
+
+3. **At least 10 full-time volunteers**
+
+   \[
+   y \ge 10
+   \]
+
+4. **Non-negativity and integrality**
+
+   \[
+   x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+   \]
+
+---
+
+### Suitable Python libraries
+
+This is a small integer linear programming (ILP) problem. Appropriate libraries include:
+
+- **PuLP** (`pulp`) – very convenient modeling interface for LP/ILP.
+- **OR-Tools** (`ortools.linear_solver.pywraplp`) – Google’s OR-Tools has excellent MILP solvers.
+- **Pyomo** – more general algebraic modeling language for optimization.
+- **SciPy** is *not* ideal here because it doesn’t natively handle integer constraints.
+
+For this specific problem, **PuLP** or **OR-Tools** is recommended.
+
+---
+
+### Example PuLP formulation (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Volunteer_Gift_Delivery", pl.LpMaximize)
+
+# Variables
+x = pl.LpVariable('seasonal', lowBound=0, cat='Integer')
+y = pl.LpVariable('full_time', lowBound=10, cat='Integer')  # y >= 10
+
+# Objective
+prob += 5 * x + 8 * y
+
+# Constraints
+prob += 2 * x + 5 * y <= 200           # Points constraint
+prob += 7 * x <= 3 * y                 # Max 30% seasonal
+
+# Solve
+prob.solve()
+print("Seasonal volunteers:", x.value())
+print("Full-time volunteers:", y.value())
+print("Max gifts:", 5 * x.value() + 8 * y.value())
+```
+
+This code directly encodes the model above and will return the optimal numbers of seasonal and full-time volunteers.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Volunteer_Gift_Delivery", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('seasonal', lowBound=0, cat='Integer')   # seasonal volunteers
+    y = pl.LpVariable('full_time', lowBound=10, cat='Integer') # full-time volunteers, y >= 10
+
+    # Objective: Maximize total gifts 5x + 8y
+    prob += 5 * x + 8 * y
+
+    # Constraints
+    prob += 2 * x + 5 * y <= 200        # Points budget
+    prob += 7 * x <= 3 * y              # At most 30% seasonal
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute objective value
+    obj_value = 5 * x.value() + 8 * y.value()
+
+    # Final required print
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

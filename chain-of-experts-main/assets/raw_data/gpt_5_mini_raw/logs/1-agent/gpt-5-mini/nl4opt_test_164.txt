@@ -1,0 +1,44 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+mover_minutes_available = 20000
+setup_minutes_available = 13000
+
+# Times per unit (in minutes)
+mover_per_refrigerator = 60
+setup_per_refrigerator = 20
+
+mover_per_stove = 45
+setup_per_stove = 25
+
+# Profits
+profit_refrigerator = 400
+profit_stove = 260
+
+# Define the problem
+prob = pulp.LpProblem("Appliance_Profit_Maximization", pulp.LpMaximize)
+
+# Decision variables (integer number of appliances)
+R = pulp.LpVariable("Refrigerators", lowBound=0, cat="Integer")
+S = pulp.LpVariable("Stoves", lowBound=0, cat="Integer")
+
+# Objective: maximize profit
+prob += profit_refrigerator * R + profit_stove * S
+
+# Constraints
+prob += mover_per_refrigerator * R + mover_per_stove * S <= mover_minutes_available, "Mover_Time"
+prob += setup_per_refrigerator * R + setup_per_stove * S <= setup_minutes_available, "Setup_Time"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Results
+num_refrigerators = int(pulp.value(R))
+num_stoves = int(pulp.value(S))
+objective_value = pulp.value(prob.objective)
+
+print(f"Number of refrigerators: {num_refrigerators}")
+print(f"Number of stoves: {num_stoves}")
+print(f"Objective (profit): {objective_value}")
+print(f"FINAL_OBJ: {objective_value}")

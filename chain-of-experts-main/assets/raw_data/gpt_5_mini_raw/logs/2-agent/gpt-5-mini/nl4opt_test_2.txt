@@ -1,0 +1,88 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- F ∈ Z_{\ge 0}: number of full‑time workers (one shift each).
+- P ∈ Z_{\ge 0}: number of part‑time workers (one shift each).
+
+Objective
+- Minimise the total number of workers: minimize Z = F + P.
+
+Constraints
+- Hour requirement: 8F + 4P ≥ 500.
+- Budget limit: 300F + 100P ≤ 15,000.
+- Integrality and nonnegativity: F, P integers ≥ 0.
+
+You can simplify the constraints by dividing:
+- Hours: 2F + P ≥ 125 (divide by 4).
+- Budget: 3F + P ≤ 150 (divide by 100).
+
+Analytic solution
+From the simplified constraints:
+2F + P ≥ 125  => P ≥ 125 − 2F
+3F + P ≤ 150  => P ≤ 150 − 3F
+
+Feasibility requires 125 − 2F ≤ 150 − 3F → F ≤ 25. To minimise Z = F + P we should take P as small as possible for each F, so P = 125 − 2F. Then Z = F + (125 − 2F) = 125 − F, which is decreasing in F. Thus take the largest feasible F, F = 25. Then
+P = 125 − 2·25 = 75.
+
+Check:
+- Hours: 8·25 + 4·75 = 200 + 300 = 500 (satisfies requirement exactly).
+- Budget: 300·25 + 100·75 = 7500 + 7500 = 15000 (uses full budget).
+
+Optimal solution: F = 25 full‑time workers and P = 75 part‑time workers. Total workers = 100.
+
+Suggested solvers / Python libraries
+- pulp (with default CBC) — easy modelling for small integer linear programs.
+- OR‑Tools CP‑SAT — fast integer solver from Google.
+- scipy.optimize — not appropriate directly because of integrality; use only for continuous relaxations.
+- Commercial solvers (Gurobi, CPLEX) if available for larger problems.
+
+Example (pulp) snippet
+- Use this to verify/solve programmatically:
+
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpInteger, value
+
+prob = LpProblem("staffing", LpMinimize)
+F = LpVariable('F', lowBound=0, cat=LpInteger)
+P = LpVariable('P', lowBound=0, cat=LpInteger)
+prob += F + P
+prob += 8*F + 4*P >= 500
+prob += 300*F + 100*P <= 15000
+prob.solve()
+print(value(F), value(P), value(F)+value(P))
+
+This will return F=25, P=75.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import sys
+
+# Brute-force search over integer decision variables F (full-time) and P (part-time)
+best_obj = None
+best_solution = None
+
+# Bounds from simple reasoning:
+# Budget: 300F + 100P <= 15000  => F <= 15000/300 = 50, P <= 150
+max_F = 50
+max_P = 150
+
+for F in range(0, max_F + 1):
+    for P in range(0, max_P + 1):
+        # Constraints
+        if 8 * F + 4 * P < 500:
+            continue
+        if 300 * F + 100 * P > 15000:
+            continue
+        # Objective
+        obj = F + P
+        if best_obj is None or obj < best_obj:
+            best_obj = obj
+            best_solution = (F, P)
+
+# best_solution should be (25, 75) and best_obj = 100
+if best_obj is None:
+    # No feasible solution found (should not happen for this problem)
+    print(f"FINAL_OBJ: None")
+else:
+    print(f"FINAL_OBJ: {best_obj}")

@@ -1,0 +1,119 @@
+[MODELER]:
+**1. Decision variables**
+
+Let  
+- \(x \ge 0\): dollars invested in condos  
+- \(y \ge 0\): dollars invested in detached houses  
+
+**2. Objective function**
+
+Each dollar in condos yields \$0.50 profit, and each dollar in detached houses yields \$1 profit.  
+Maximize total profit:
+
+\[
+\max \; Z = 0.5x + 1.0y
+\]
+
+**3. Constraints**
+
+1. **Total budget limit** (cannot exceed \$760,000):
+
+\[
+x + y \le 760{,}000
+\]
+
+2. **Minimum proportion in condos** (at least 20% of *total invested* must be in condos):
+
+\[
+x \;\ge\; 0.2(x + y)
+\]
+
+This can also be rewritten (if you want it simplified) as:
+
+\[
+0.8x \ge 0.2y \quad \Leftrightarrow \quad 4x \ge y
+\]
+
+3. **Minimum amount in detached houses** (at least \$20,000):
+
+\[
+y \ge 20{,}000
+\]
+
+4. **Nonnegativity**:
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+**Complete LP model**
+
+\[
+\begin{aligned}
+\max\;& Z = 0.5x + y \\
+\text{s.t. } 
+& x + y \le 760{,}000, \\
+& x \ge 0.2(x + y), \\
+& y \ge 20{,}000, \\
+& x \ge 0,\; y \ge 0.
+\end{aligned}
+\]
+
+Optionally, using the simplified condo-share constraint \(4x \ge y\):
+
+\[
+\begin{aligned}
+\max\;& Z = 0.5x + y \\
+\text{s.t. } 
+& x + y \le 760{,}000, \\
+& 4x \ge y, \\
+& y \ge 20{,}000, \\
+& x \ge 0,\; y \ge 0.
+\end{aligned}
+\]
+
+**4. Suitable Python libraries**
+
+To solve this LP numerically in Python, good choices include:
+
+- `PuLP` – simple syntax for LPs, integrates with CBC and other solvers.
+- `scipy.optimize.linprog` – suitable for small/medium LPs, part of SciPy.
+- `ortools.linear_solver` (Google OR-Tools) – industrial-strength solver interface.
+- `cvxpy` – more general convex-optimization modeling language that also handles LPs.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the LP problem
+    prob = pulp.LpProblem("Real_Estate_Investment", pulp.LpMaximize)
+
+    # Decision variables: dollars invested in condos (x) and detached houses (y)
+    x = pulp.LpVariable('x', lowBound=0)
+    y = pulp.LpVariable('y', lowBound=0)
+
+    # Objective function: Maximize 0.5x + y
+    prob += 0.5 * x + 1.0 * y
+
+    # Constraints
+    # 1) Total budget limit: x + y <= 760000
+    prob += x + y <= 760000
+
+    # 2) Minimum proportion in condos: x >= 0.2(x + y)  ->  4x >= y
+    prob += 4 * x >= y
+
+    # 3) Minimum amount in detached houses: y >= 20000
+    prob += y >= 20000
+
+    # Solve the LP
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

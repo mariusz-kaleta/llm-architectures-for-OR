@@ -1,0 +1,124 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Maximise total profit from planting blueberries and raspberries on the 300‑acre farm.
+
+2) Suggested model type
+- Model: Linear Programming (LP).  
+  Note: If acres must be whole numbers (integer acres), use a Mixed Integer LP (MIP). Otherwise treat acreage as continuous.
+
+3) Main decision variables (define clearly)
+- Variable B = number of acres planted with blueberries (acres).
+- Variable R = number of acres planted with raspberries (acres).
+
+4) Components of the objective (to be encoded by the modeller)
+- Total profit = (profit per acre of blueberries × B) + (profit per acre of raspberries × R).
+  (Use the given per‑acre profits: blueberries $56/acre, raspberries $75/acre.)
+
+5) Key constraints to include (describe in words)
+- Land availability: The sum of acres planted with blueberries and raspberries cannot exceed 300 acres.
+- Watering budget: Total watering cost (watering cost per acre × acres planted for each crop, summed across crops) cannot exceed $10,000.
+  (Use the given watering costs: blueberries $22/acre, raspberries $25/acre.)
+- Labor availability: Total labor days required (labor days per acre × acres planted for each crop, summed) cannot exceed 575 days.
+  (Use the given labor requirements: blueberries 6 days/acre, raspberries 3 days/acre.)
+- Non‑negativity: Acres planted with each crop must be >= 0.
+- (Optional) Integrality/bounds: If required by practical considerations, enforce that B and R be integers or that each crop meets any minimum/maximum acreage limits (e.g., whole‑acre planting, crop rotation limits, market constraints).
+
+6) Additional modelling notes and recommendations
+- Units: keep consistent units (acres, dollars, days).
+- Solver choice: standard LP solvers (simplex or interior point) for continuous LP; branch‑and‑bound for integer variants.
+- Post‑solution checks: compute shadow prices/dual values for resources (land, water budget, labor) to understand which resource is binding and the marginal value of relaxing resources. Perform sensitivity analysis on profits, resource availability, and per‑acre costs.
+- If discrete planting or other business rules apply (e.g., minimum blocks, crop rotation), convert to a MIP and add corresponding constraints.
+- Output to report: optimal acres for each crop, total profit, resource usage and slack for each constraint, and sensitivity ranges.
+
+This is the full structure the modeller should implement to produce the LP formulation and solve it.
+
+---
+
+[MODELER]:
+Below is a clear mathematical LP formulation, plus notes on integer variants, matrix form, and solver/library suggestions (with a short example using PuLP).
+
+Decision variables
+- B = acres planted with blueberries (acres, continuous ≥ 0)
+- R = acres planted with raspberries (acres, continuous ≥ 0)
+
+Objective
+- Maximise total profit: maximize Z = 56 B + 75 R
+
+Constraints
+1. Land availability: B + R ≤ 300
+2. Watering budget: 22 B + 25 R ≤ 10,000
+3. Labor availability: 6 B + 3 R ≤ 575
+4. Non‑negativity: B ≥ 0, R ≥ 0
+
+(Optional) Integrality: if acres must be whole numbers, add B, R ∈ Z≥0 (MIP).
+
+Standard matrix form
+- Let x = [B, R]^T
+- c = [56, 75]^T
+- A = [[1, 1],
+       [22, 25],
+       [6, 3]]
+- b = [300, 10000, 575]^T
+- Problem: maximize c^T x subject to A x ≤ b, x ≥ 0 (or x ∈ Z≥0 for MIP).
+
+Modeling/solution recommendations
+- Continuous LP: solve with simplex or interior-point methods.
+- Integer acres or additional discrete business rules: use a MIP solver (branch-and-bound).
+- To get shadow prices / dual values use solvers that report duals (GLPK, CPLEX, Gurobi, OSI, or cvxpy interfacing solvers). For sensitivity analysis, vary resource bounds or profit coefficients and re-solve or inspect dual ranges from the solver.
+
+Suggested Python libraries
+- PuLP (open-source, uses CBC by default) — easy modeling and good for teaching/quick solves.
+- SciPy (scipy.optimize.linprog) — for continuous LPs.
+- OR-Tools (Google) — good for both LP and MIP.
+- CVXPY — expressive; returns dual variables when supported solver provides them.
+- Pyomo — flexible modeling framework; use GLPK/CPLEX/Gurobi as backend.
+- Commercial: Gurobi or CPLEX for large/production problems (very fast and provide full dual/sensitivity features).
+
+Optional: small PuLP example (continuous LP)
+from pulp import LpProblem, LpMaximize, LpVariable, value
+
+prob = LpProblem("berry", LpMaximize)
+B = LpVariable("B", lowBound=0)
+R = LpVariable("R", lowBound=0)
+
+prob += 56*B + 75*R                 # objective
+prob += B + R <= 300                # land
+prob += 22*B + 25*R <= 10000        # watering
+prob += 6*B + 3*R <= 575            # labor
+
+prob.solve()
+print("B =", value(B), "R =", value(R), "Profit =", value(prob.objective))
+
+Notes
+- If you need the optimal numeric solution and dual values, tell me whether you want a continuous LP or integer acres and I can run a solve (or give exact expected optimal point analytically).
+
+---
+
+[CODER]:
+```python
+import pulp
+
+# Define the LP problem (maximize)
+prob = pulp.LpProblem("berry_farm", pulp.LpMaximize)
+
+# Decision variables: acres of blueberries (B) and raspberries (R)
+B = pulp.LpVariable("B", lowBound=0, cat="Continuous")
+R = pulp.LpVariable("R", lowBound=0, cat="Continuous")
+
+# Objective: maximize profit 56*B + 75*R
+prob += 56 * B + 75 * R
+
+# Constraints
+prob += B + R <= 300            # land availability
+prob += 22 * B + 25 * R <= 10000  # watering budget
+prob += 6 * B + 3 * R <= 575    # labor availability
+
+# Solve using the default CBC solver (quiet)
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract objective value into variable named `value` as required
+value = pulp.value(prob.objective)
+
+# Final required output line
+print(f"FINAL_OBJ: {value}")
+```

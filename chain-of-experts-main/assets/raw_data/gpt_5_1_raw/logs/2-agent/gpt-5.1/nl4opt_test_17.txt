@@ -1,0 +1,159 @@
+[MODELER]:
+Here is a clean mathematical model of the problem and how you would solve it.
+
+---
+
+### 1. Define decision variables
+
+Let  
+- \( x \) = units of cleansing chemical used  
+- \( y \) = units of odor-removing chemical used  
+
+Both must be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+### 2. Objective function (minimize total time)
+
+Each unit of cleansing chemical takes 4 minutes to be effective.  
+Each unit of odor-removing chemical takes 6 minutes to be effective.
+
+Assume the total "time cost" is linear in the amount used (this is the usual assumption in such problems):
+
+\[
+\text{Total time} = 4x + 6y
+\]
+
+We want to **minimize**:
+\[
+\min \; Z = 4x + 6y
+\]
+
+---
+
+### 3. Constraints
+
+1. **At least 100 units of cleansing chemical**:
+   \[
+   x \ge 100
+   \]
+
+2. **At least 300 total units of chemicals** (the statement “at least 300 units of chemicals can be used per house” is somewhat awkward English, but this is typically interpreted as “the total used must be at least 300 units”):
+   \[
+   x + y \ge 300
+   \]
+
+3. **Cleansing chemical at most twice the odor-removing chemical**:
+   \[
+   x \le 2y
+   \]
+
+4. **Nonnegativity**:
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+   (implied by other constraints but good to state explicitly)
+
+---
+
+### 4. Problem type
+
+This is a **linear programming (LP)** problem:
+
+- Linear objective: \(4x + 6y\)
+- Linear constraints: \(x \ge 100\), \(x + y \ge 300\), \(x \le 2y\), \(x,y \ge 0\)
+
+---
+
+### 5. Solving analytically (outline)
+
+Because this is a 2‑variable LP, the optimum will lie at a corner (intersection of constraint boundaries). You can find it by:
+
+1. Converting to “≤” form or systematically checking intersections of:
+   - \(x = 100\)
+   - \(x + y = 300\)
+   - \(x = 2y\)
+   - And checking feasibility against all constraints.
+2. Evaluating \(4x + 6y\) at feasible corners.
+3. Choosing the point with minimum objective value.
+
+(You didn’t ask for the numeric answer explicitly, so I’m focusing on the model itself; but this model is ready to solve.)
+
+---
+
+### 6. Suitable Python libraries
+
+To implement and solve this LP in Python, good choices include:
+
+- **PuLP**: very simple interface for LPs and MILPs.
+- **SciPy**: `scipy.optimize.linprog` for continuous linear programs.
+- **OR-Tools** (Google OR-Tools): `pywraplp.Solver` with `GLOP` or `CBC` for LP/MILP.
+
+---
+
+### 7. Example model in PuLP
+
+```python
+import pulp as pl
+
+# Define problem: minimize
+prob = pl.LpProblem("CleaningTimeMinimization", pl.LpMinimize)
+
+# Decision variables (continuous, nonnegative)
+x = pl.LpVariable('x', lowBound=0)  # units of cleansing chemical
+y = pl.LpVariable('y', lowBound=0)  # units of odor-removing chemical
+
+# Objective function
+prob += 4 * x + 6 * y, "TotalTime"
+
+# Constraints
+prob += x >= 100, "MinCleansing"
+prob += x + y >= 300, "MinTotalChemicals"
+prob += x <= 2 * y, "StrengthLimit"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal x (cleansing units):", x.value())
+print("Optimal y (odor-removing units):", y.value())
+print("Minimum total time:", pl.value(prob.objective))
+```
+
+This directly encodes the model described above and will return the optimal amounts \(x\) and \(y\) that minimize total time.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define problem: minimize
+    prob = pl.LpProblem("CleaningTimeMinimization", pl.LpMinimize)
+
+    # Decision variables (continuous, nonnegative)
+    x = pl.LpVariable('x', lowBound=0)  # units of cleansing chemical
+    y = pl.LpVariable('y', lowBound=0)  # units of odor-removing chemical
+
+    # Objective function: minimize total time
+    prob += 4 * x + 6 * y, "TotalTime"
+
+    # Constraints
+    prob += x >= 100, "MinCleansing"
+    prob += x + y >= 300, "MinTotalChemicals"
+    prob += x <= 2 * y, "StrengthLimit"
+
+    # Solve using CBC (default PuLP solver)
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(prob.objective)
+
+    # Final required print
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

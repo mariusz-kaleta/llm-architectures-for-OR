@@ -1,0 +1,111 @@
+[MODELER]:
+Here is a clean mathematical model of the problem.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of pill vaccines administered  
+- \(y\) = number of shot vaccines administered  
+
+Both must be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+(If only whole patients make sense, we will later add \(x, y \in \mathbb{Z}_{\ge 0}\).)
+
+## 2. Objective
+
+Maximize the total number of vaccinated patients (one vaccine per patient):
+\[
+\text{Maximize } Z = x + y
+\]
+
+## 3. Constraints
+
+### a) Time (capacity) constraint  
+Each pill takes 10 minutes, each shot takes 20 minutes. The total time cannot exceed 10,000 minutes:
+\[
+10x + 20y \le 10000
+\]
+
+### b) Ratio of shots to pills  
+The clinic must deliver at least 3 times as many shots as pills:
+\[
+y \ge 3x
+\]
+
+### c) Minimum number of pills  
+At least 30 pill vaccines must be administered:
+\[
+x \ge 30
+\]
+
+### d) Nonnegativity (and integrality if required)
+\[
+x \ge 0,\; y \ge 0,\quad \text{and typically } x, y \in \mathbb{Z}
+\]
+
+## 4. Full mathematical program
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = x + y \\
+\text{subject to} \quad
+& 10x + 20y \le 10000 \\
+& y \ge 3x \\
+& x \ge 30 \\
+& x, y \ge 0 \\
+& x, y \in \mathbb{Z}
+\end{aligned}
+\]
+
+This is a (small) integer linear programming (ILP) problem; if fractional vaccines/patients were acceptable, it would be a linear program (LP).
+
+## 5. Suitable Python libraries
+
+You can model and solve this using any of these:
+
+- **PuLP**  
+  - Easy syntax, pure Python, works well for teaching and small/medium LP/ILP.
+  - `pulp.LpProblem`, `pulp.LpVariable`, etc.
+
+- **OR-Tools (Google)**  
+  - Very good for integer programming and combinatorial problems.
+  - Use `ortools.linear_solver.pywraplp.Solver` with `CBC_MIXED_INTEGER_PROGRAMMING`.
+
+- **Pyomo**  
+  - More general algebraic modeling language, good if you want to scale to more complex models.
+
+- **scipy.optimize**  
+  - `scipy.optimize.linprog` can solve the *continuous* LP version (no integer restriction); not ideal if you require integrality.
+
+If you want a quick, simple solver with integer support, **PuLP** or **OR-Tools** are the most straightforward choices.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+from pulp import LpProblem, LpMaximize, LpVariable, LpInteger, value
+
+# Create the problem
+prob = LpProblem("Vaccine_Allocation", LpMaximize)
+
+# Decision variables: x = pills, y = shots
+x = LpVariable('x', lowBound=0, cat=LpInteger)
+y = LpVariable('y', lowBound=0, cat=LpInteger)
+
+# Objective: maximize total vaccinated patients
+prob += x + y
+
+# Constraints
+prob += 10 * x + 20 * y <= 10000      # Time constraint
+prob += y >= 3 * x                    # Ratio constraint
+prob += x >= 30                       # Minimum pills constraint
+
+# Solve
+prob.solve()
+
+# Get objective value
+final_obj = value(prob.objective)
+
+print(f"FINAL_OBJ: {final_obj}")

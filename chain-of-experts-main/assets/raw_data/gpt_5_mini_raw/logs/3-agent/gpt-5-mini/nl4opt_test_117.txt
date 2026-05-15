@@ -1,0 +1,134 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x ≥ 0 = number of times you use beaker 1 (batches)
+  - y ≥ 0 = number of times you use beaker 2 (batches)
+  (If you require integer numbers of batches set x,y integer; otherwise continuous is acceptable.)
+
+- Objective
+  Maximise total slime produced: maximize Z = 5x + 3y
+
+- Constraints
+  - Flour: 4x + 6y ≤ 150
+  - Special liquid: 6x + 3y ≤ 100
+  - Waste: 4x + 2y ≤ 30
+  - Nonnegativity: x ≥ 0, y ≥ 0
+
+Summary in standard LP form:
+Maximize Z = 5x + 3y
+subject to
+4x + 6y ≤ 150
+6x + 3y ≤ 100
+4x + 2y ≤ 30
+x, y ≥ 0
+
+Solution (analysis)
+- The waste constraint is the most restrictive: dividing by 2 gives 2x + y ≤ 15, which implies the liquid constraint (2x + y ≤ 33.33) and the flour constraint are not binding on the feasible region.
+- Evaluate corner points: (0,0), (7.5,0) from 2x + y = 15 with y=0, and (0,15) with x=0.
+- Objective values: Z(0,0)=0, Z(7.5,0)=37.5, Z(0,15)=45.
+
+Optimal solution: x = 0, y = 15 (use beaker 1 zero times and beaker 2 fifteen times), yielding maximum slime = 45 units. This uses waste = 4*0 + 2*15 = 30 (the waste limit), flour = 6*15 = 90 ≤ 150, liquid = 3*15 = 45 ≤ 100.
+
+Interpretation: Beaker 2 gives more slime per unit waste (1.5 slime/waste) than beaker 1 (1.25 slime/waste), so with the waste cap binding it is optimal to use only beaker 2.
+
+Suggested Python solvers
+- pulp (simple to model LP / MILP)
+- scipy.optimize.linprog (for continuous LPs)
+- OR-Tools linear solver (good for LP and integer programming)
+- cvxpy (for convex optimization, LPs included)
+
+Optional small pulp example
+- (If you want, I can provide a short script using pulp to solve the LP/MIP and verify the result.)
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the given 2-variable LP
+# Maximize Z = 5x + 3y
+# subject to:
+# 4x + 6y <= 150
+# 6x + 3y <= 100
+# 4x + 2y <= 30
+# x, y >= 0
+
+def solve_2x2(A, b):
+    # Solve 2x2 linear system A x = b
+    (a11, a12), (a21, a22) = A
+    det = a11 * a22 - a12 * a21
+    if abs(det) < 1e-12:
+        return None
+    x = (b[0] * a22 - a12 * b[1]) / det
+    y = (a11 * b[1] - b[0] * a21) / det
+    return (x, y)
+
+# Constraints in form coeffs * (x,y) <= rhs
+constraints = [
+    ((4.0, 6.0), 150.0),  # flour
+    ((6.0, 3.0), 100.0),  # special liquid
+    ((4.0, 2.0), 30.0),   # waste
+]
+
+# Objective coefficients
+obj = (5.0, 3.0)
+
+tol = 1e-9
+
+candidates = []
+
+# Add origin
+candidates.append((0.0, 0.0))
+
+# Intersections with axes (x>=0,y=0) and (x=0,y>=0)
+for (a, b), rhs in constraints:
+    # y = 0 -> x = rhs / a if a != 0
+    if abs(a) > 1e-12:
+        candidates.append((rhs / a, 0.0))
+    # x = 0 -> y = rhs / b if b != 0
+    if abs(b) > 1e-12:
+        candidates.append((0.0, rhs / b))
+
+# Pairwise intersections of constraint boundaries
+n = len(constraints)
+for i in range(n):
+    for j in range(i+1, n):
+        A = (constraints[i][0], constraints[j][0])
+        b = (constraints[i][1], constraints[j][1])
+        pt = solve_2x2(A, b)
+        if pt is not None:
+            candidates.append(pt)
+
+# Filter feasible points and compute objective
+feasible_points = []
+best_obj = None
+best_point = None
+
+for x, y in candidates:
+    # Check nonnegativity
+    if x < -tol or y < -tol:
+        continue
+    # Check all constraints
+    ok = True
+    for (a, b), rhs in constraints:
+        if a * x + b * y > rhs + 1e-7:
+            ok = False
+            break
+    if not ok:
+        continue
+    # Compute objective
+    value = obj[0] * x + obj[1] * y
+    feasible_points.append((x, y, value))
+    if (best_obj is None) or (value > best_obj + 1e-12):
+        best_obj = value
+        best_point = (x, y)
+
+# As a fallback (shouldn't be needed), if no feasible point found, set to 0
+if best_obj is None:
+    best_obj = 0.0
+    best_point = (0.0, 0.0)
+
+# Final output must be exactly this line (and it must be the last printed line)
+print(f"FINAL_OBJ: {best_obj}")
+```

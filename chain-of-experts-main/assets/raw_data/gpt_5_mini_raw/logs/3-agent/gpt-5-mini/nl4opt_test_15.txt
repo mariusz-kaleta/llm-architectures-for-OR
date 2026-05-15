@@ -1,0 +1,89 @@
+[MODELER]:
+Summary answer (optimal integer schedule)
+- Type II ambulances (a): 8 shifts
+- Hospital vans (v): 11 shifts
+- Total capacity = 20*8 + 15*11 = 325 patients (meets 320)
+- Total daily cost = 820*8 + 550*11 = $12,610
+
+Model (mixed-integer linear program)
+- Decision variables:
+  - a ∈ Z_{\ge 0} = number of type II ambulance shifts
+  - v ∈ Z_{\ge 0} = number of hospital van shifts
+
+- Objective (minimize total cost):
+  minimize Z = 820 a + 550 v
+
+- Constraints:
+  1) Capacity requirement: 20 a + 15 v ≥ 320
+  2) Union limit on share of vans: v ≤ 0.6 (a + v)
+     (equivalently 0.4 v ≤ 0.6 a → v ≤ 1.5 a)
+  3) a, v are nonnegative integers
+
+Notes
+- Because cost per patient is lower for vans (550/15 ≈ 36.67 $/patient) than for ambulances (820/20 = 41 $/patient), the solver will use as many vans as allowed by the union constraint. The integer solution satisfying the constraints with minimum cost is a = 8, v = 11.
+
+Suggested Python libraries to solve this
+- pulp (simple, pure-Python MILP solver interface; can use CBC solver bundled with pulp)
+- ortools (Google OR-Tools CP-SAT or linear solver, very fast for integer programs)
+- gurobipy or cplex (commercial solvers, if available, give faster results for large problems)
+- scipy.optimize is not suitable for integer constraints (only continuous optimization).
+
+Minimal example with pulp
+(from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpInteger, PULP_CBC_CMD)
+- Formulate variables a and v as integer nonnegatives
+- Add constraints: 20*a + 15*v >= 320 and v <= 0.6*(a+v) (or v <= 1.5*a)
+- Solve and report a, v and total cost
+
+If you want, I can provide the full ready-to-run Python code using pulp or OR-Tools.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the ambulance/van scheduling MILP using PuLP
+
+from pulp import LpProblem, LpMinimize, LpVariable, LpInteger, PULP_CBC_CMD, value
+
+# Data
+cost_a = 820  # cost per Type II ambulance shift
+cost_v = 550  # cost per hospital van shift
+
+cap_a = 20    # patients per ambulance shift
+cap_v = 15    # patients per van shift
+
+required_capacity = 320
+
+# Build the problem
+prob = LpProblem("Ambulance_Van_Scheduling", LpMinimize)
+
+# Decision variables: number of shifts (nonnegative integers)
+a = LpVariable("a", lowBound=0, cat=LpInteger)  # type II ambulances
+v = LpVariable("v", lowBound=0, cat=LpInteger)  # hospital vans
+
+# Objective: minimize total cost
+prob += cost_a * a + cost_v * v
+
+# Constraints
+prob += cap_a * a + cap_v * v >= required_capacity  # capacity requirement
+# Union share constraint: v <= 0.6*(a + v)  -> equivalent to v <= 1.5*a
+prob += v <= 1.5 * a
+
+# Solve with the default CBC solver (silenced)
+solver = PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract integer solutions
+a_val = int(a.varValue + 0.0)
+v_val = int(v.varValue + 0.0)
+total_cost = int(value(prob.objective) + 0.0)
+
+# (Optional) Print solution details
+print(f"a (ambulance shifts) = {a_val}")
+print(f"v (van shifts)       = {v_val}")
+print(f"Total capacity       = {cap_a * a_val + cap_v * v_val}")
+print(f"Total daily cost     = ${total_cost}")
+
+# Final required output line (exact format)
+print(f"FINAL_OBJ: {total_cost}")
+```

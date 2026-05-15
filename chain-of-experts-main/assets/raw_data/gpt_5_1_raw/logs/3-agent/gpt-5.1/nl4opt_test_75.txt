@@ -1,0 +1,123 @@
+[MODELER]:
+Let’s model this as an integer optimization problem.
+
+### Decision variables
+Let  
+- \( v \in \mathbb{Z}_{\ge 0} \): number of vans used  
+- \( t \in \mathbb{Z}_{\ge 0} \): number of trucks used  
+
+### Data
+- Each van carries 50 pairs of shoes.  
+- Each truck carries 100 pairs of shoes.  
+- At least 2000 pairs must be delivered.  
+- Number of trucks cannot exceed number of vans: \( t \le v \).  
+
+### Constraints
+
+1. **Capacity constraint (must deliver at least 2000 pairs):**
+\[
+50v + 100t \;\ge\; 2000
+\]
+2. **Truck–van relation:**
+\[
+t \;\le\; v
+\]
+3. **Non-negativity and integrality:**
+\[
+v, t \in \mathbb{Z}_{\ge 0}
+\]
+
+### Objective
+
+Minimize the number of vans:
+\[
+\min v
+\]
+
+(We don’t care how many trucks as long as constraints are satisfied and vans are minimized.)
+
+### Solving analytically
+
+From \( t \le v \) and \( t \ge 0 \):
+
+- For fixed \( v \), the LHS of capacity constraint is largest when \( t = v \):
+
+  \[
+  50v + 100t \le 50v + 100v = 150v
+  \]
+
+  To possibly satisfy the capacity constraint, we need:
+
+  \[
+  150v \ge 2000 \;\Rightarrow\; v \ge \frac{2000}{150} \approx 13.33
+  \]
+
+  So \( v \) must be at least 14.
+
+- Now check \( v = 14 \). Maximum capacity (when \( t = v = 14 \)):
+
+  \[
+  50(14) + 100(14) = 150(14) = 2100 \ge 2000
+  \]
+
+  So \( v = 14, t = 14 \) is feasible and satisfies all constraints.  
+- Check \( v = 13 \): Maximum capacity = \(150 \cdot 13 = 1950 < 2000\), so no feasible \(t\) for \(v = 13\).
+
+Therefore, the **minimum number of vans** is:
+\[
+\boxed{14}
+\]
+
+### Suitable Python libraries
+
+This is a small integer linear program (ILP). Any MILP-capable library is suitable:
+
+- `pulp` – very simple for teaching and small ILPs.
+- `ortools.linear_solver` (from Google OR-Tools) – powerful and free.
+- `scipy.optimize` (e.g., `linprog`) handles linear programs but not integer constraints directly; for exact integer solutions, prefer `pulp` or OR-Tools.
+
+Example choice: use `pulp` or OR-Tools’ `pywraplp.Solver` with integer variables \(v\) and \(t\), constraints above, and objective `minimize v`.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: minimize number of vans
+    prob = pulp.LpProblem("Vans_and_Trucks", pulp.LpMinimize)
+
+    # Decision variables (non-negative integers)
+    v = pulp.LpVariable('v', lowBound=0, cat='Integer')  # number of vans
+    t = pulp.LpVariable('t', lowBound=0, cat='Integer')  # number of trucks
+
+    # Objective: minimize number of vans
+    prob += v
+
+    # Constraints
+    # Capacity: 50v + 100t >= 2000
+    prob += 50 * v + 100 * t >= 2000, "CapacityConstraint"
+
+    # Truck–van relation: t <= v
+    prob += t <= v, "TruckVanRelation"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    v_val = int(pulp.value(v))
+    t_val = int(pulp.value(t))
+
+    # Compute objective value explicitly (here it's just v)
+    final_obj = v_val
+
+    # Optional: ensure feasibility (not printed, just a sanity check)
+    assert 50 * v_val + 100 * t_val >= 2000
+    assert t_val <= v_val
+    assert v_val >= 0 and t_val >= 0
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

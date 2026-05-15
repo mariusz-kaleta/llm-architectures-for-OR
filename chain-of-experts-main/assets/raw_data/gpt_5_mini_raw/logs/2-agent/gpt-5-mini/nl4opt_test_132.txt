@@ -1,0 +1,139 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of desks produced (>= 0)
+  - y = number of drawers produced (>= 0)
+
+- Objective
+  - Maximise profit: maximize Z = 100 x + 90 y
+
+- Constraints (resource limits)
+  - Assembly time: 40 x + 30 y ≤ 4000  (minutes)
+  - Sanding time: 20 x + 10 y ≤ 3500   (minutes)
+  - x, y ≥ 0 (and integer if you require whole items)
+
+Observations / solution
+
+1. Continuous LP (allow fractional items)
+   - Solve the two assembly/sanding equations simultaneously to check which constraint binds:
+     40x + 30y = 4000
+     20x + 10y = 3500
+     Solving gives x = 325, y = −300 (infeasible), so the sanding line does not cut the feasible region in the positive quadrant. The feasible polygon is bounded by the assembly constraint and the axes.
+   - The two relevant vertices are:
+     - (x,y) = (100, 0) (assembly limit for desks): profit = 100*100 = $10,000
+     - (x,y) = (0, 4000/30 ≈ 133.333) (assembly limit for drawers): profit = 90*(4000/30) = $12,000
+   - Continuous optimum: make only drawers, y = 4000/30 ≈ 133.333, x = 0, profit = $12,000.
+
+2. Integer (whole items) solution
+   - You cannot produce fractional items, so take the largest integer y that satisfies assembly: y = floor(4000/30) = 133, x = 0.
+   - Profit = 90 * 133 = $11,970.
+   - (No combination with some desks gives a higher integer profit because drawers give higher profit per assembly minute: 90/30 = 3 vs desks 100/40 = 2.5.)
+
+Recommended solvers / Python libraries
+- For continuous LP: scipy.optimize.linprog, PuLP (default continuous), CVXOPT
+- For integer/ MILP: PuLP (with CBC or other backends), OR-Tools (CP-SAT / MIP), Gurobi / CPLEX (commercial, faster for large problems)
+
+Example (PuLP) — integer version
+- Define a maximisation problem, integer variables x,y, add the two constraints and solve. PuLP or OR-Tools will return x=0, y=133.
+
+If you want, I can provide the exact PuLP or OR-Tools code to solve this (continuous and integer) and print the optimal plan and profit.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the described LP/MIP for desks (x) and drawers (y).
+
+import math
+
+# Problem data
+c_x = 100  # profit per desk
+c_y = 90   # profit per drawer
+
+# Constraints coefficients (left-hand side matrices)
+# Assembly: 40x + 30y <= 4000
+A1_x, A1_y, b1 = 40.0, 30.0, 4000.0
+
+# Sanding: 20x + 10y <= 3500
+A2_x, A2_y, b2 = 20.0, 10.0, 3500.0
+
+# Helper: check feasibility with a tolerance
+def feasible(x, y, tol=1e-9):
+    if x < -tol or y < -tol:
+        return False
+    if A1_x * x + A1_y * y > b1 + tol:
+        return False
+    if A2_x * x + A2_y * y > b2 + tol:
+        return False
+    return True
+
+# 1) Continuous LP: candidate vertices are intersections of constraint lines with axes and with each other
+candidates = []
+
+# axes intersections for assembly
+candidates.append((0.0, b1 / A1_y))  # assembly with x=0 -> y = b1/A1_y
+candidates.append((b1 / A1_x, 0.0))  # assembly with y=0 -> x = b1/A1_x
+
+# axes intersections for sanding
+candidates.append((0.0, b2 / A2_y))  # sanding with x=0
+candidates.append((b2 / A2_x, 0.0))  # sanding with y=0
+
+# intersection of assembly and sanding (solve 2x2)
+# 40x + 30y = 4000
+# 20x + 10y = 3500
+det = A1_x * A2_y - A2_x * A1_y
+if abs(det) > 1e-12:
+    xi = (b1 * A2_y - b2 * A1_y) / det
+    yi = (A1_x * b2 - A2_x * b1) / det
+    candidates.append((xi, yi))
+
+# include origin
+candidates.append((0.0, 0.0))
+
+# filter feasible candidates and evaluate objective
+feasible_vertices = []
+for (xv, yv) in candidates:
+    if feasible(xv, yv):
+        z = c_x * xv + c_y * yv
+        feasible_vertices.append(((xv, yv), z))
+
+# If feasible_vertices somehow empty (shouldn't happen), include trivial feasible point (0,0)
+if not feasible_vertices:
+    feasible_vertices.append(((0.0, 0.0), 0.0))
+
+# find best continuous solution
+best_cont_point, best_cont_obj = max(feasible_vertices, key=lambda t: t[1])
+
+# 2) Integer solution: enumerate feasible integer (x,y)
+# bounds for enumeration (use assembly per-variable maxima)
+max_x = int(math.floor(b1 / A1_x))  # floor(4000/40) = 100
+max_y = int(math.floor(b1 / A1_y))  # floor(4000/30) = 133
+
+best_int_obj = -1.0
+best_int_point = (0, 0)
+for xi in range(0, max_x + 1):
+    # For speed, compute maximum possible y for assembly and sanding and iterate up to min
+    # Assembly: 40x + 30y <= 4000 -> y <= (4000 - 40x)/30
+    y_asm_max = math.floor((b1 - A1_x * xi) / A1_y) if b1 - A1_x * xi >= 0 else -1
+    # Sanding: 20x + 10y <= 3500 -> y <= (3500 - 20x)/10
+    y_sand_max = math.floor((b2 - A2_x * xi) / A2_y) if b2 - A2_x * xi >= 0 else -1
+    y_max = min(y_asm_max, y_sand_max, max_y)
+    if y_max < 0:
+        continue
+    # since profit per assembly minute favors drawers, we could check only upper y, but we'll enumerate to be safe
+    for yi in range(0, y_max + 1):
+        if feasible(xi, yi):
+            z = c_x * xi + c_y * yi
+            if z > best_int_obj:
+                best_int_obj = z
+                best_int_point = (xi, yi)
+
+# Print some summary (optional), then final objective as required.
+print(f"Continuous optimum (may be fractional): x={best_cont_point[0]:.6f}, y={best_cont_point[1]:.6f}, Z={best_cont_obj:.6f}")
+print(f"Integer optimum: x={best_int_point[0]}, y={best_int_point[1]}, Z={best_int_obj:.0f}")
+
+# Final required line (must be the last line and exact format)
+print(f"FINAL_OBJ: {int(best_int_obj)}")
+```

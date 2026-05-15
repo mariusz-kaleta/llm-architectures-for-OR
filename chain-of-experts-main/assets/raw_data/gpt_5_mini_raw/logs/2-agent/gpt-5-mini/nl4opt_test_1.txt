@@ -1,0 +1,78 @@
+[MODELER]:
+Below is a concise mathematical formulation, reasoning, and solver suggestions.
+
+Decision variables
+- L = number of large pills (integer, L ≥ 0)
+- S = number of small pills (integer, S ≥ 0)
+
+Objective
+- Minimise total filler used: minimize F = 2L + 1·S
+
+Constraints
+1. Medicinal ingredient availability: 3L + 2S ≤ 1000
+2. Minimum large pills: L ≥ 100
+3. Popularity constraint (at least 60% small pills):
+   S / (L + S) ≥ 0.60  ⇔  S ≥ 1.5·L  (equivalent when L+S>0)
+4. Integrality and nonnegativity: L, S ∈ Z, L ≥ 0, S ≥ 0
+
+Discussion / algebraic solution
+- The objective is linear and increasing in both L and S, so to minimize filler we want the smallest feasible L and S that satisfy constraints.
+- Constraint (3) gives S ≥ 1.5L. To minimize S for a given L we set S = 1.5L.
+- Then filler F = 2L + S = 2L + 1.5L = 3.5L, which is increasing in L, so choose the minimum feasible L.
+- Minimum L from constraint (2) is L = 100. Then S ≥ 1.5·100 = 150.
+- Check medicinal constraint: 3·100 + 2·150 = 300 + 300 = 600 ≤ 1000, so feasible.
+- Therefore the optimal (integer) solution is L = 100, S = 150 with total filler F = 2·100 + 150 = 350 units.
+
+Notes
+- The continuous (relaxed) LP gives the same solution here because the derived optimal values are integers.
+- If there were an upper limit on filler or other resources, the solution would need re-evaluation.
+
+Suggested Python libraries for solving / verifying
+- pulp (simple MILP, default CBC solver) — good for small LP/MILP problems
+- OR-Tools (CP-SAT or linear solver) — powerful and fast for integer problems
+- scipy.optimize.linprog — for continuous LP relaxation (not integer)
+- cvxpy — convenient modeling for LPs (with integer extension via a suitable solver)
+
+Example (very short) using pulp
+- Model: minimize 2*L + S
+- Subject to: 3*L + 2*S <= 1000, L >= 100, S >= 1.5*L, L,S integer >= 0
+- Solver will return L=100, S=150.
+
+Result
+- Make 100 large pills and 150 small pills. Total filler required = 350 units.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained script to find integer L, S minimizing filler F = 2L + S
+# subject to:
+#   3L + 2S <= 1000
+#   L >= 100
+#   S >= ceil(1.5 * L)
+# Uses direct integer search (no external libraries required).
+
+def find_optimal():
+    medic = 1000
+    min_L = 100
+    max_L = medic // 3  # since 3L <= medic when S >= 0
+    best_obj = None
+    best_solution = None
+
+    for L in range(min_L, max_L + 1):
+        # S must be at least ceil(1.5 * L) = ceil(3L/2) = (3L + 1)//2
+        S_min = (3 * L + 1) // 2
+        # Check medicinal ingredient constraint
+        if 3 * L + 2 * S_min <= medic:
+            obj = 2 * L + S_min
+            if (best_obj is None) or (obj < best_obj):
+                best_obj = obj
+                best_solution = (L, S_min)
+
+    return best_obj, best_solution
+
+if __name__ == "__main__":
+    best_obj, best_solution = find_optimal()
+    # Final required print line (exact format)
+    print(f"FINAL_OBJ: {best_obj}")
+```

@@ -1,0 +1,49 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+# Production rates (grams per hour)
+inj_north = 800    # injections from northern factory per hour (g)
+cream_north = 700  # cream from northern factory per hour (g)
+
+inj_west = 650     # injections from western factory per hour (g)
+cream_west = 750   # cream from western factory per hour (g)
+
+# Resource usage
+plastic_north = 40  # units of plastic per hour at northern factory
+plastic_west = 35   # units of plastic per hour at western factory
+plastic_total = 60000  # total units of plastic available
+
+# Demand requirements (grams)
+inj_required = 800000
+cream_required = 700000
+
+# Decision variables: hours to run northern and western factories
+prob = pulp.LpProblem("Minimize_Total_Hours", pulp.LpMinimize)
+north_hours = pulp.LpVariable("north_hours", lowBound=0, cat="Continuous")
+west_hours = pulp.LpVariable("west_hours", lowBound=0, cat="Continuous")
+
+# Objective: minimize total hours run (sum of hours of both factories)
+prob += north_hours + west_hours, "Total_Hours"
+
+# Constraints
+prob += inj_north * north_hours + inj_west * west_hours >= inj_required, "Injections_requirement"
+prob += cream_north * north_hours + cream_west * west_hours >= cream_required, "Cream_requirement"
+prob += plastic_north * north_hours + plastic_west * west_hours <= plastic_total, "Plastic_capacity"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract results
+north_val = pulp.value(north_hours)
+west_val = pulp.value(west_hours)
+objective_val = pulp.value(prob.objective)
+
+# Print results
+print(f"north_hours = {north_val}")
+print(f"west_hours = {west_val}")
+print(f"Objective (total hours) = {objective_val}")
+
+# Final required print format
+print(f"FINAL_OBJ: {objective_val}")

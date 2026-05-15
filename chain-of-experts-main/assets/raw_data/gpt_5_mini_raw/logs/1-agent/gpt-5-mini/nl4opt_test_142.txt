@@ -1,0 +1,49 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization from the problem statement
+paint_available = 100
+glitter_available = 50
+glue_available = 70
+
+# Resource usage per piece
+paint_large = 4
+glitter_large = 3
+glue_large = 5
+
+paint_small = 2
+glitter_small = 1
+glue_small = 2
+
+# Profits
+profit_large = 30
+profit_small = 15
+
+# Problem definition: maximize profit
+prob = pulp.LpProblem("Art_Production", pulp.LpMaximize)
+
+# Decision variables: number of large and small pieces (integers), at least 5 each
+Large = pulp.LpVariable("Large", lowBound=5, cat=pulp.LpInteger)
+Small = pulp.LpVariable("Small", lowBound=5, cat=pulp.LpInteger)
+
+# Objective
+prob += profit_large * Large + profit_small * Small
+
+# Resource constraints
+prob += paint_large * Large + paint_small * Small <= paint_available, "PaintConstraint"
+prob += glitter_large * Large + glitter_small * Small <= glitter_available, "GlitterConstraint"
+prob += glue_large * Large + glue_small * Small <= glue_available, "GlueConstraint"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+large_opt = int(pulp.value(Large))
+small_opt = int(pulp.value(Small))
+value = pulp.value(prob.objective)
+
+# Print results (final line must be the FINAL_OBJ line)
+print(f"Optimal number of large pieces: {large_opt}")
+print(f"Optimal number of small pieces: {small_opt}")
+print(f"Total profit: ${value}")
+print(f"FINAL_OBJ: {value}")

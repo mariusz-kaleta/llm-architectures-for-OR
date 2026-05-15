@@ -1,0 +1,47 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+total_money = 100000.0
+
+# Bets: basketball, horse, soccer
+bets = ['basketball', 'horse', 'soccer']
+loss_prob = {'basketball': 0.50, 'horse': 0.25, 'soccer': 0.10}   # probability of losing the stake
+payout = {'basketball': 1.2, 'horse': 0.5, 'soccer': 0.1}         # payout per dollar when winning
+
+# Convert to expected payout per dollar: win_prob * payout
+expected_per_dollar = {b: (1.0 - loss_prob[b]) * payout[b] for b in bets}
+
+# Maximum allowed average chance of losing money (as a fraction)
+max_avg_loss = 0.30
+
+# Build LP: maximize expected payout subject to budget and average loss constraint
+prob = pulp.LpProblem("Gambling_Allocation", pulp.LpMaximize)
+
+# Decision variables: amount to place on each bet (continuous, >=0)
+x = {b: pulp.LpVariable(f"x_{b}", lowBound=0, cat='Continuous') for b in bets}
+
+# Objective: maximize expected total payout
+prob += pulp.lpSum([expected_per_dollar[b] * x[b] for b in bets])
+
+# Budget constraint: invest all money
+prob += pulp.lpSum([x[b] for b in bets]) == total_money
+
+# Average loss constraint: weighted average loss probability <= max_avg_loss
+# Sum(loss_prob[b] * x[b]) / total_money <= max_avg_loss  => Sum(loss_prob[b]*x[b]) <= max_avg_loss * total_money
+prob += pulp.lpSum([loss_prob[b] * x[b] for b in bets]) <= max_avg_loss * total_money
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+allocations = {b: x[b].varValue for b in bets}
+objective_value = pulp.value(prob.objective)
+
+# Print allocations and expected payout
+for b in bets:
+    print(f"Allocate to {b}: ${allocations[b]:,.2f}")
+print(f"Expected total payout (objective): ${objective_value:,.2f}")
+
+# Final required print (must be last)
+print(f"FINAL_OBJ: {objective_value}")

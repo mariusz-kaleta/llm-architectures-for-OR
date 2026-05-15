@@ -1,0 +1,87 @@
+[MODELER]:
+Model
+
+Decision variables
+- T = number of truck trips (integer, T ≥ 0)
+- C = number of car trips   (integer, C ≥ 0)
+
+Objective
+- Minimize total gas: minimize G = 20 T + 15 C  (liters)
+
+Constraints
+1. Package demand: 50 T + 30 C ≥ 500
+2. Truck trip limit: T ≤ 5
+3. At least 30% of all trips by car:
+   C ≥ 0.30 (T + C)  ⇔  7 C − 3 T ≥ 0  (equivalently C ≥ (3/7) T)
+4. Integrality and nonnegativity: T, C ∈ Z≥0
+
+Remarks on continuous relaxation
+- If fractional trips were allowed (continuous variables), the LP optimum is:
+  T = 5, C = 250/30 ≈ 8.3333, G = 100 + 125 = 225 liters.
+- But trips are discrete in reality, so we require integer T and C.
+
+Solving the integer problem (small search)
+- Because T is small (0..5), you can enumerate T and compute the smallest integer C satisfying both the package and car-share constraints:
+  C ≥ max( ceil((500 − 50T)/30), ceil((3/7)T), 0 ).
+
+Enumeration yields:
+- T=0 → C=17 → G=255
+- T=1 → C=15 → G=245
+- T=2 → C=14 → G=250
+- T=3 → C=12 → G=240
+- T=4 → C=10 → G=230  ← minimum
+- T=5 → C=9  → G=235
+
+Optimal integer solution
+- Use 4 truck trips and 10 car trips.
+- Total packages transported = 4·50 + 10·30 = 200 + 300 = 500 (meets requirement).
+- Total gas consumed = 4·20 + 10·15 = 80 + 150 = 230 liters (minimum under integer trips).
+
+Recommended solvers / libraries
+- For integer linear programming: PuLP (with CBC default), OR-Tools CP-SAT, or commercial solvers (Gurobi, CPLEX).
+- For continuous LP: scipy.optimize.linprog.
+- Example: use PuLP or OR-Tools to model T and C as integer variables and solve the MILP.
+
+Example (PuLP) snippet
+- Use PuLP with integer variables T and C, objective minimize 20*T+15*C, and the constraints above. (PuLP will call the CBC solver by default.)
+
+If you want, I can provide a ready-to-run Python snippet using PuLP or OR-Tools that solves this MILP and prints the optimal solution.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+import math
+
+# Data / parameters
+package_per_truck = 50
+package_per_car = 30
+gas_per_truck = 20
+gas_per_car = 15
+package_demand = 500
+truck_limit = 5
+
+best_obj = None
+best_T = None
+best_C = None
+
+for T in range(truck_limit + 1):  # T = 0..5
+    # Constraint 1: package demand -> C >= ceil((500 - 50T)/30)
+    remaining_packages = package_demand - package_per_truck * T
+    if remaining_packages <= 0:
+        c_req_packages = 0
+    else:
+        c_req_packages = math.ceil(remaining_packages / package_per_car)
+    # Constraint 3: car-share -> C >= ceil((3/7) * T)  equivalently ceil(3*T/7)
+    c_req_carshare = math.ceil(3 * T / 7)
+    C_min = max(c_req_packages, c_req_carshare, 0)
+    C = C_min  # since gas cost coefficients are positive, the smallest feasible C is optimal for given T
+    G = gas_per_truck * T + gas_per_car * C
+    if (best_obj is None) or (G < best_obj):
+        best_obj = G
+        best_T = T
+        best_C = C
+
+# Final objective printed in required format
+print(f"FINAL_OBJ: {best_obj}")
+```

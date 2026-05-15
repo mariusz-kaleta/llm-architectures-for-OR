@@ -1,0 +1,89 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - r = number of regular sandwiches (>= 0, integer)
+  - s = number of special sandwiches (>= 0, integer)
+
+- Objective
+  - Maximize profit: maximize Z = 3r + 4s
+
+- Constraints
+  - Eggs: 2r + 3s <= 40
+  - Bacon: 3r + 5s <= 70
+  - Nonnegativity and integrality: r >= 0, s >= 0 and integer (if fractional sandwiches are not allowed)
+
+Linear program (relaxing integrality)
+  maximize 3r + 4s
+  subject to
+    2r + 3s <= 40
+    3r + 5s <= 70
+    r, s >= 0
+
+Solution (analysis)
+- Solve graphically / by corner points. Intersection of the two resource constraints is at r = −10, s = 20 (infeasible because r < 0).
+- Check axis-intercepts / feasible corners:
+  - r = 0 => from eggs s <= 40/3 ≈ 13.333 (bacon allows up to 14)
+    profit = 4 * 13.333 = 53.333 (if fractional allowed)
+  - s = 0 => from eggs r <= 20 (bacon allows up to ≈23.33)
+    profit = 3 * 20 = 60
+- The bacon constraint is nonbinding/redundant here because any (r,s) satisfying 2r+3s <= 40 automatically uses ≤ 70 bacon slices.
+- Best allocation is to use all eggs on regular sandwiches: r = 20, s = 0. Profit = $60.
+
+If you want to solve programmatically
+- Suitable Python libraries: PuLP, OR-Tools (cp-sat or linear solver), scipy.optimize.linprog (for LP relaxation), cvxpy.
+- Example with PuLP (LP / IP):
+  from pulp import LpMaximize, LpProblem, LpVariable, lpSum, LpInteger
+  prob = LpProblem('sandwich', LpMaximize)
+  r = LpVariable('r', lowBound=0, cat=LpInteger)
+  s = LpVariable('s', lowBound=0, cat=LpInteger)
+  prob += 3*r + 4*s
+  prob += 2*r + 3*s <= 40
+  prob += 3*r + 5*s <= 70
+  prob.solve()
+  print(r.value(), s.value(), 'profit', 3*r.value() + 4*s.value())
+
+Answer
+- Make 20 regular sandwiches and 0 special sandwiches for maximum profit $60.
+
+---
+
+[CODER]:
+#!/usr/bin/env python3
+import math
+
+# Problem data
+# Maximize 3r + 4s
+# Subject to:
+# 2r + 3s <= 40
+# 3r + 5s <= 70
+# r, s >= 0 and integer
+
+coef_r = 3
+coef_s = 4
+
+# Compute integer bounds for brute-force search
+r_max = min(40 // 2, 70 // 3)  # floor bounds from each constraint
+s_max = min(40 // 3, 70 // 5)
+
+best_profit = None
+best_r = None
+best_s = None
+
+for r in range(r_max + 1):
+    for s in range(s_max + 1):
+        if 2 * r + 3 * s <= 40 and 3 * r + 5 * s <= 70:
+            profit = coef_r * r + coef_s * s
+            if (best_profit is None) or (profit > best_profit):
+                best_profit = profit
+                best_r = r
+                best_s = s
+
+# If no feasible solution found (should not happen), set to 0
+if best_profit is None:
+    best_profit = 0
+    best_r = 0
+    best_s = 0
+
+# Final output (must be the last printed line in the exact format)
+print(f"FINAL_OBJ: {best_profit}")

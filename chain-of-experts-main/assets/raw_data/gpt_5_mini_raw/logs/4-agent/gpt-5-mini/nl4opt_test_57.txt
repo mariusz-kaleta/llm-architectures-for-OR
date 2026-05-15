@@ -1,0 +1,136 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Maximise the total number of hands that can be cleaned by the produced sanitizers.
+
+2) Suggested model type
+- Model: Integer Linear Programming (ILP / MILP).  
+  Rationale: decision variables are counts of products (discrete), objective and constraints are linear. Because there are only two product types and a small upper bound on liquid units, a simple enumeration or integer-program solver will be fast.
+
+3) Main decision variables (names and meanings)
+- L = number of liquid hand sanitizers produced (non‑negative integer).
+- F = number of foam hand sanitizers produced (non‑negative integer).
+
+4) Objective (description, not formal equation)
+- Maximise total hands cleaned = (hands cleaned per liquid) * L + (hands cleaned per foam) * F.
+  (Use 30 hands per liquid and 20 hands per foam.)
+
+5) Key constraints to include (described qualitatively)
+- Water availability: total water consumed by L and F cannot exceed 2000 units. (Liquid uses 40 units each; foam uses 60 units each.)
+- Alcohol availability: total alcohol consumed by L and F cannot exceed 2100 units. (Liquid uses 50 units each; foam uses 40 units each.)
+- Foam must exceed liquid: enforce F strictly greater than L. In a linear/integer model this is implemented as F ≥ L + 1.
+- Upper bound on liquid production: L ≤ 30.
+- Nonnegativity and integrality: L and F must be integers ≥ 0 (or specify continuous relaxation only if fractional products are allowed).
+
+6) Modelling/solution advice and small-scale solving shortcut
+- Because there are only two integer variables and L has a small upper bound (0..30), an easy exact approach is to enumerate integer L from 0 to 30, for each L compute the maximum feasible F (from resource constraints and F ≥ L+1), and evaluate the objective. Choose the L,F pair with maximum objective. This avoids needing a solver and guarantees integer solutions.
+- If using a solver, set up as MILP and use any MILP solver (CBC, GLPK, Gurobi, CP-SAT etc.). If integrality is not required/allowed, an LP relaxation is possible but remember to enforce the strict inequality as F ≥ L + 1 (and handle fractional counts appropriately).
+
+7) Feasibility checks and edge cases to test
+- Verify feasibility of the constraint F ≥ L + 1 with resource bounds and L ≤ 30 (there may be no feasible solution for some L values).
+- Check whether the optimal solution hits resource constraints or the L ≤ 30 limit.
+- If multiple optimal solutions exist, decide a tie-breaker policy (e.g., prefer integer solution with more foam, or prefer fewer liquids).
+
+Deliverable expected from the Modeller
+- Implement the ILP with variables L and F, the listed constraints, and the objective; solve with an MILP solver or the suggested enumeration; report the optimal integer values of L and F and the maximum number of hands that can be cleaned. Include feasibility confirmation and brief reasoning why the solution is optimal.
+
+---
+
+[MODELER]:
+Below I (1) give a compact formal model, (2) show how to solve it (analytically / by quick enumeration), (3) give the optimal integer solution and verify feasibility, and (4) list solver libraries you can use.
+
+1) Formal model (MILP)
+- Decision variables
+  - L ∈ Z, 0 ≤ L ≤ 30 — number of liquid sanitizers produced.
+  - F ∈ Z, F ≥ 0 — number of foam sanitizers produced.
+
+- Objective
+  Maximise total hands cleaned:
+  maximize H = 30·L + 20·F
+
+- Constraints
+  1) Water: 40·L + 60·F ≤ 2000
+  2) Alcohol: 50·L + 40·F ≤ 2100
+  3) Foam must exceed liquid: F ≥ L + 1
+  4) Upper bound on liquids: L ≤ 30
+  5) Integrality: L, F integers (nonnegativity included above)
+
+2) Quick solution approach (enumeration / reasoning)
+Because there are only two integer variables and L is bounded 0..30, an explicit enumeration for L (0..30) is trivial and fast. For a given L, the best F (since objective coefficient for F is positive) is the maximum feasible F:
+  F_max(L) = min( floor((2000 − 40L)/60), floor((2100 − 50L)/40) ).
+Feasibility requires F_max(L) ≥ L + 1. Evaluate H(L) = 30·L + 20·F_max(L) for feasible L and pick the L giving largest H.
+
+Analytical observation: water is the binding resource for relevant L (0..30). From the water feasibility inequality for F ≥ L+1,
+2000 − 40L ≥ 60(L+1) → L ≤ 19.399 → L ≤ 19.
+Thus the largest feasible L is 19. For L = 19:
+  F_max = floor((2000 − 40·19)/60) = floor(1240/60) = 20 (alcohol allows even more).
+Objective H = 30·19 + 20·20 = 570 + 400 = 970.
+
+Test neighboring L:
+- L = 20 is infeasible because water gives F_max = 20 but we would need F ≥ 21.
+- Lower L produce strictly smaller objective because the linear combination 30L + 20F (with F chosen at its resource-limited maximum) increases with L in the feasible range. (One can verify by computing H(L) for L = 0..19.)
+
+3) Optimal integer solution and verification
+- Optimal production plan: L = 19 liquid sanitizers, F = 20 foam sanitizers.
+- Total hands cleaned: 970.
+- Resource usage check:
+  - Water: 40·19 + 60·20 = 760 + 1200 = 1960 ≤ 2000
+  - Alcohol: 50·19 + 40·20 = 950 + 800 = 1750 ≤ 2100
+  - F ≥ L + 1: 20 ≥ 20 (satisfies as equality)
+  - L ≤ 30: satisfied
+Feasibility confirmed. Because the objective is linear and water is the limiting resource in the feasible region, and L cannot be increased beyond 19 without violating F ≥ L+1, the solution (19,20) is optimal.
+
+4) Suggested solver libraries / implementation notes
+- Simple enumeration: use plain Python (for L in range(31) compute F_max and H).
+- MILP solvers (if you prefer modelling): pulp (CBC), OR-Tools (CP-SAT), mip (CBC/Gurobi), Pyomo + solver.
+- SciPy is not ideal because integrality is required; use MILP or enumeration instead.
+
+Example (sketch) of a tiny Python enumeration (pure Python, no solver required):
+- For L in 0..30:
+    compute F_w = floor((2000-40*L)/60)
+    compute F_a = floor((2100-50*L)/40)
+    F_max = min(F_w, F_a)
+    if F_max >= L+1:
+       H = 30*L + 20*F_max
+       track max H and corresponding (L,F_max)
+This returns (L=19, F=20, H=970).
+
+If you want, I can provide a short runnable Python snippet using pulp or OR-Tools that implements and solves the MILP.
+
+---
+
+[CODER]:
+```python
+# Self-contained script to solve the MILP by enumeration as described
+# Decision variables:
+#   L in {0,...,30}
+#   F >= 0 integer
+# Objective: maximize H = 30*L + 20*F
+# Constraints:
+#   40*L + 60*F <= 2000
+#   50*L + 40*F <= 2100
+#   F >= L + 1
+
+best_H = -1
+best_L = None
+best_F = None
+
+for L in range(0, 31):  # 0..30 inclusive
+    # compute max feasible F given resources (floor division safe here)
+    F_w = (2000 - 40 * L) // 60
+    F_a = (2100 - 50 * L) // 40
+    F_max = min(F_w, F_a)
+    if F_max < 0:
+        continue
+    # must satisfy foam must exceed liquid by at least 1
+    if F_max >= L + 1:
+        F = F_max
+        H = 30 * L + 20 * F
+        if H > best_H:
+            best_H = H
+            best_L = L
+            best_F = F
+
+# As per the problem statement, the optimal solution should be L=19, F=20, H=970
+# Final required print line (exact format)
+print(f"FINAL_OBJ: {best_H}")
+```

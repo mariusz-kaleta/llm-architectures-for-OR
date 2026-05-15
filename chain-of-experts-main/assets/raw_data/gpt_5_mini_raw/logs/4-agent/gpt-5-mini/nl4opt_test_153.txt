@@ -1,0 +1,189 @@
+[PLANNER]:
+1. Key optimisation goal:
+- Maximise daily profit of the bakery from producing strawberry and sugar cookies.
+
+2. Suggested model type:
+- Linear Programming (continuous LP). (Integer variables optional if you require whole-cookie counts, but continuous LP is appropriate here.)
+
+3. Main decision variables:
+- x1: number of strawberry cookies to produce per day.
+- x2: number of sugar cookies to produce per day.
+
+4. Key constraints to consider (described qualitatively):
+- Strawberry demand limit: cannot sell more than 100 strawberry cookies per day.
+- Sugar demand limit: cannot sell more than 80 sugar cookies per day.
+- Production capacity (staffing) limit: total cookies produced (strawberry plus sugar) cannot exceed 100 per day.
+- Non-negativity: both production quantities must be zero or positive.
+
+Additional modelling notes for the Modeller:
+- Objective coefficients: profit per unit is $5.50 for each strawberry cookie and $12.00 for each sugar cookie.
+- Because this is a small two-variable LP, solve by inspection or by checking extreme points (or use simplex solver). Compare profit-per-unit to guide priority: sugar cookies yield higher profit per unit than strawberry cookies.
+- Expected optimal policy (direct result of the constraints and profits): produce the maximum feasible number of sugar cookies (limited by sugar demand of 80), then use remaining production capacity for strawberry cookies (remaining capacity 20). That yields x1 = 20, x2 = 80 and total daily profit $1,070.
+- If integer-only solutions are required, verify integrality (here the optimal solution is integer). Consider sensitivity analysis if demand or capacity changes.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- x1 ≥ 0 : number of strawberry cookies produced per day
+- x2 ≥ 0 : number of sugar cookies produced per day
+
+Objective
+- Maximize daily profit: maximize Z = 5.5 x1 + 12 x2
+
+Constraints
+1. Strawberry demand limit: x1 ≤ 100
+2. Sugar demand limit: x2 ≤ 80
+3. Production capacity (staffing): x1 + x2 ≤ 100
+4. Non-negativity: x1 ≥ 0, x2 ≥ 0
+
+Mathematical formulation
+Maximize Z = 5.5 x1 + 12 x2
+subject to
+x1 ≤ 100
+x2 ≤ 80
+x1 + x2 ≤ 100
+x1, x2 ≥ 0
+
+Solution (by inspection / checking extreme points)
+Feasible corner points to check: (0,0), (100,0), (0,80), intersection of x2=80 and x1+x2=100 → (20,80).
+Evaluate profit:
+- (0,0): Z = 0
+- (100,0): Z = 5.5·100 = 550
+- (0,80): Z = 12·80 = 960
+- (20,80): Z = 5.5·20 + 12·80 = 110 + 960 = 1,070
+
+Optimal solution: x1 = 20 strawberry cookies, x2 = 80 sugar cookies. Maximum daily profit = $1,070.
+
+Notes
+- This is a continuous linear program. If integer counts are required, formulate as an integer linear program; here the LP optimum is integral so the integer requirement does not change the solution.
+- Intuition: each cookie consumes one unit of the scarce capacity. Sugar cookies yield higher profit per unit (12 > 5.5), so produce sugar cookies up to their demand (80), then use remaining capacity (20) for strawberry cookies.
+- For sensitivity analysis, vary profit coefficients, demands, or capacity and resolve; because it’s a small LP, extreme-point checks or a solver sensitivity output suffice.
+
+Suggested Python solvers / libraries
+- pulp (with CBC solver) — straightforward LP/MIP modeling in Python
+- ortools (CP-SAT or linear solver) — fast MIP solvers from Google
+- scipy.optimize.linprog — for continuous LPs (simplex/interior-point)
+- cvxpy — higher-level convex optimization modeling
+
+Example (pulp) code snippet
+import pulp
+x1 = pulp.LpVariable('x1', lowBound=0)
+x2 = pulp.LpVariable('x2', lowBound=0)
+prob = pulp.LpProblem('Bakery', pulp.LpMaximize)
+prob += 5.5*x1 + 12*x2
+prob += x1 <= 100
+prob += x2 <= 80
+prob += x1 + x2 <= 100
+prob.solve()
+print(x1.value(), x2.value(), pulp.value(prob.objective))
+
+This will produce x1=20, x2=80, objective=1070.
+
+---
+
+[CODER]:
+import math
+
+# Problem data
+profit = (5.5, 12.0)  # coefficients for x1, x2
+bounds = {
+    'x1_min': 0.0,
+    'x2_min': 0.0,
+    'x1_max': 100.0,
+    'x2_max': 80.0,
+    'capacity': 100.0  # x1 + x2 <= capacity
+}
+
+# Define boundary lines
+lines = ['x1=0', 'x2=0', 'x1=100', 'x2=80', 'x1+x2=100']
+
+def intersect(line1, line2):
+    # Return (x1, x2) intersection of two boundary lines
+    if line1 == line2:
+        return None
+    L = {line1, line2}
+    if 'x1=0' in L and 'x2=0' in L:
+        return (0.0, 0.0)
+    if 'x1=0' in L and 'x1=100' in L:
+        return None
+    if 'x2=0' in L and 'x2=80' in L:
+        return None
+    if 'x1=0' in L and 'x1+x2=100' in L:
+        return (0.0, 100.0)
+    if 'x2=0' in L and 'x1+x2=100' in L:
+        return (100.0, 0.0)
+    if 'x1=100' in L and 'x2=0' in L:
+        return (100.0, 0.0)
+    if 'x2=80' in L and 'x1=0' in L:
+        return (0.0, 80.0)
+    if 'x1=100' in L and 'x2=80' in L:
+        # inconsistent (100,80) violates x1+x2<=100 but still an intersection of those lines
+        return (100.0, 80.0)
+    if 'x1=100' in L and 'x1+x2=100' in L:
+        # x1=100 => x2=0
+        return (100.0, 0.0)
+    if 'x2=80' in L and 'x1+x2=100' in L:
+        # x2=80 => x1=20
+        return (20.0, 80.0)
+    if 'x1=0' in L and 'x2=0' in L:
+        return (0.0, 0.0)
+    if 'x1=100' in L and 'x2=0' in L:
+        return (100.0, 0.0)
+    if 'x2=80' in L and 'x1=100' in L:
+        return (100.0, 80.0)
+    # fallback: no valid intersection computed
+    return None
+
+# Collect candidate corner points by intersecting boundary pairs
+candidates = []
+for i in range(len(lines)):
+    for j in range(i+1, len(lines)):
+        pt = intersect(lines[i], lines[j])
+        if pt is not None:
+            candidates.append(pt)
+
+# Also ensure inclusion of obvious corners
+candidates.extend([
+    (0.0, 0.0),
+    (100.0, 0.0),
+    (0.0, 80.0),
+    (20.0, 80.0)
+])
+
+# Filter feasible points
+feasible = []
+tol = 1e-9
+for x1, x2 in candidates:
+    if x1 is None or x2 is None:
+        continue
+    if (x1 >= bounds['x1_min'] - tol and
+        x2 >= bounds['x2_min'] - tol and
+        x1 <= bounds['x1_max'] + tol and
+        x2 <= bounds['x2_max'] + tol and
+        x1 + x2 <= bounds['capacity'] + tol):
+        # round small numerical noise
+        x1r = 0.0 if abs(x1) < tol else x1
+        x2r = 0.0 if abs(x2) < tol else x2
+        feasible.append((round(x1r,10), round(x2r,10)))
+
+# Remove duplicates
+feasible = list(dict.fromkeys(feasible))
+
+# Evaluate objective
+best_obj = -math.inf
+best_point = None
+for x1, x2 in feasible:
+    obj = profit[0]*x1 + profit[1]*x2
+    if obj > best_obj + 1e-9:
+        best_obj = obj
+        best_point = (x1, x2)
+
+# If objective is very near integer, cast to int
+if abs(best_obj - round(best_obj)) < 1e-9:
+    best_obj = int(round(best_obj))
+
+value = best_obj
+print(f"FINAL_OBJ: {value}")

@@ -1,0 +1,208 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximize the total amount of snow that can be transported by choosing how many small and large trucks to use.
+
+2. Suggested model type  
+   - Model: Integer Linear Programming (ILP) with two integer decision variables (numbers of trucks of each type).
+
+3. Main decision variables  
+   - Let:
+     - SmallTrucks = number of small trucks used (nonnegative integer).
+     - LargeTrucks = number of large trucks used (nonnegative integer).
+
+4. Objective function (conceptual)  
+   - Each small truck carries 30 units of snow.  
+   - Each large truck carries 50 units of snow.  
+   - Objective: Maximize total snow transported = 30 × SmallTrucks + 50 × LargeTrucks.
+
+5. Key constraints to consider  
+
+   a) Manpower (shoveling personnel) constraint  
+   - Each small truck needs 2 people.  
+   - Each large truck needs 4 people.  
+   - Total available people = 30.  
+   - Constraint: Total people assigned to trucks cannot exceed 30.  
+     - 2 × SmallTrucks + 4 × LargeTrucks ≤ 30.
+
+   b) Minimum number of small trucks  
+   - At least 10 small trucks required because of neighborhood restrictions.  
+   - Constraint: SmallTrucks ≥ 10.
+
+   c) Minimum number of large trucks  
+   - There must be at least 3 large trucks.  
+   - Constraint: LargeTrucks ≥ 3.
+
+   d) Relationship between small and large trucks  
+   - The number of small trucks must be twice the number of large trucks.  
+   - Constraint: SmallTrucks = 2 × LargeTrucks.  
+   - This is an equality relation tying the two decision variables; it will heavily reduce the feasible region.
+
+   e) Integrality  
+   - SmallTrucks and LargeTrucks must both be nonnegative integers.
+
+6. Modeling strategy / notes to the Modeller  
+
+   - Since there are only two decision variables and the relationship SmallTrucks = 2 × LargeTrucks is present, the problem’s feasible set is very small and could even be checked by enumeration; however, you should still formulate it as an ILP to follow standard practice.  
+   - Use the relationship constraint to reduce the problem to a single variable if desired (substitute SmallTrucks in terms of LargeTrucks) to simplify analysis, but keep the original two-variable form in the formal ILP if clarity is preferred.  
+   - After building the model:
+     - Verify that all constraints (people availability, minimum counts, ratio constraint) are satisfied for the optimal integer solution.  
+     - Confirm the total snow transported under the optimal solution and check that no nearby integer solutions with the same ratio (Small = 2 × Large) and within the people limit do better.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by how you might solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x_s \in \mathbb{Z}_{\ge 0}\): number of small trucks used  
+- \(x_l \in \mathbb{Z}_{\ge 0}\): number of large trucks used  
+
+(Both must be nonnegative integers.)
+
+---
+
+## 2. Objective function
+
+Each small truck carries 30 units of snow; each large truck carries 50 units.
+
+Maximize the total snow transported:
+\[
+\max\; Z = 30x_s + 50x_l
+\]
+
+---
+
+## 3. Constraints
+
+1. **Manpower / Shoveling personnel constraint**
+
+Each small truck uses 2 people; each large truck uses 4 people. Total available people: 30.
+
+\[
+2x_s + 4x_l \le 30
+\]
+
+2. **Minimum number of small trucks**
+
+At least 10 small trucks:
+
+\[
+x_s \ge 10
+\]
+
+3. **Minimum number of large trucks**
+
+At least 3 large trucks:
+
+\[
+x_l \ge 3
+\]
+
+4. **Relationship between small and large trucks**
+
+Number of small trucks must be exactly twice the number of large trucks:
+
+\[
+x_s = 2x_l
+\]
+
+5. **Integrality**
+
+\[
+x_s, x_l \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Model type
+
+This is a small **Integer Linear Programming (ILP)** problem with:
+
+- 2 integer decision variables \((x_s, x_l)\)
+- Linear objective
+- Linear constraints
+
+Because of the equality \(x_s = 2x_l\), the feasible region is essentially 1‑dimensional, but it is still natural to express it as an ILP.
+
+(Optional simplification: substitute \(x_s = 2x_l\) to express everything in terms of a single integer variable \(x_l\); this becomes a single‑variable integer linear program.)
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard MILP / LP solver library is more than adequate:
+
+- **PuLP**: Simple to use, pure Python modeling layer; can use CBC (bundled), GLPK, Gurobi, CPLEX, etc.
+- **OR‑Tools (Google OR‑Tools)**: `ortools.linear_solver` or `ortools.sat.python.cp_model` (for integer/CP-SAT).
+- **Pyomo**: More general algebraic modeling language (overkill here but also fine).
+
+For this tiny ILP, **PuLP** or **OR‑Tools** is ideal.
+
+---
+
+## 6. Example model in Python with PuLP
+
+```python
+import pulp as pl
+
+# Create problem: maximize total snow
+prob = pl.LpProblem("Snow_Removal", pl.LpMaximize)
+
+# Decision variables (nonnegative integers)
+x_s = pl.LpVariable("SmallTrucks", lowBound=0, cat="Integer")
+x_l = pl.LpVariable("LargeTrucks", lowBound=0, cat="Integer")
+
+# Objective: maximize 30*x_s + 50*x_l
+prob += 30 * x_s + 50 * x_l
+
+# Constraints
+prob += 2 * x_s + 4 * x_l <= 30       # manpower
+prob += x_s >= 10                     # min small trucks
+prob += x_l >= 3                      # min large trucks
+prob += x_s == 2 * x_l                # ratio
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Small trucks:", pl.value(x_s))
+print("Large trucks:", pl.value(x_l))
+print("Max total snow:", pl.value(prob.objective))
+```
+
+This code directly encodes the ILP described above and will give you the optimal numbers of small and large trucks and the corresponding maximum total snow transported.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create problem: maximize total snow
+    prob = pl.LpProblem("Snow_Removal", pl.LpMaximize)
+
+    # Decision variables (nonnegative integers)
+    x_s = pl.LpVariable("SmallTrucks", lowBound=0, cat="Integer")
+    x_l = pl.LpVariable("LargeTrucks", lowBound=0, cat="Integer")
+
+    # Objective: maximize 30*x_s + 50*x_l
+    prob += 30 * x_s + 50 * x_l
+
+    # Constraints
+    prob += 2 * x_s + 4 * x_l <= 30       # manpower
+    prob += x_s >= 10                     # min small trucks
+    prob += x_l >= 3                      # min large trucks
+    prob += x_s == 2 * x_l                # ratio
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    final_obj = pl.value(prob.objective)
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

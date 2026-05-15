@@ -1,0 +1,140 @@
+[MODELER]:
+Model
+
+Decision variables
+- x = number of regular handbags produced/sold per month (nonnegative integer)
+- y = number of premium handbags produced/sold per month (nonnegative integer)
+
+Objective
+- Maximize total monthly profit: maximize Z = 30x + 180y
+
+Constraints
+- Manufacturing budget: 200x + 447y ≤ 250000
+- Sales capacity (at most 475 handbags total): x + y ≤ 475
+- Integrality / nonnegativity: x, y ∈ Z≥0 (or x,y ≥ 0 if you allow continuous relaxation)
+
+Mathematical formulation
+Maximize Z = 30x + 180y
+subject to
+200x + 447y ≤ 250000
+x + y ≤ 475
+x, y ∈ Z≥0
+
+Analysis and solution
+Compare profit per unit of budget:
+- Regular: 30 / 200 = 0.15 profit per dollar
+- Premium: 180 / 447 ≈ 0.4027 profit per dollar
+
+Premium handbags give higher profit per dollar, so the optimal plan uses as many premium handbags as allowed by the sales cap. The sales cap is x + y ≤ 475, and the budget allows up to 250000 / 447 ≈ 559 premium units, so the budget is not the limiting factor for premium handbags. Therefore the optimum is:
+- x = 0 regular handbags
+- y = 475 premium handbags
+
+Maximum monthly profit = 180 * 475 = $85,500.
+
+Solvers / libraries
+- For integer linear programming: PuLP (with CBC), OR-Tools (CP-SAT), or Gurobi/Cplex if available.
+- For continuous LP relaxation: scipy.optimize.linprog or PuLP (continuous).
+
+Example (PuLP) Python code
+(continuous or integer version — set cat='Integer' for integer solution)
+
+from pulp import LpProblem, LpMaximize, LpVariable, LpInteger, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("Handbags", LpMaximize)
+x = LpVariable('x', lowBound=0, cat=LpInteger)   # regular
+y = LpVariable('y', lowBound=0, cat=LpInteger)   # premium
+
+prob += 30*x + 180*y
+prob += 200*x + 447*y <= 250000
+prob += x + y <= 475
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print("x =", int(x.value()), "regular; y =", int(y.value()), "premium")
+print("Max profit = $", 30*int(x.value()) + 180*int(y.value()))
+
+Result: x = 0, y = 475, Max profit = $85,500.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+# Complete, self-contained solver for the handbag production integer program.
+# It will try to use PuLP if available; otherwise it falls back to an exhaustive integer search.
+
+from math import floor
+
+# Problem data (initialized directly)
+profit_x = 30    # profit per regular handbag
+profit_y = 180   # profit per premium handbag
+
+cost_x = 200     # manufacturing cost per regular handbag
+cost_y = 447     # manufacturing cost per premium handbag
+
+budget = 250000  # manufacturing budget limit
+capacity = 475   # sales capacity: total handbags
+
+# Decision variables domain: nonnegative integers
+best_solution = None  # tuple (x, y, obj)
+
+# Try to use PuLP if available for an exact integer solve
+try:
+    from pulp import LpProblem, LpMaximize, LpVariable, LpInteger, PULP_CBC_CMD
+
+    prob = LpProblem("Handbags", LpMaximize)
+    x = LpVariable("x", lowBound=0, cat=LpInteger)
+    y = LpVariable("y", lowBound=0, cat=LpInteger)
+
+    # Objective
+    prob += profit_x * x + profit_y * y
+
+    # Constraints
+    prob += cost_x * x + cost_y * y <= budget
+    prob += x + y <= capacity
+
+    # Solve quietly
+    prob.solve(PULP_CBC_CMD(msg=False))
+
+    # Extract integer values (convert floats to ints)
+    x_val = int(round(x.value()))
+    y_val = int(round(y.value()))
+    obj = profit_x * x_val + profit_y * y_val
+
+    best_solution = (x_val, y_val, obj)
+
+except Exception:
+    # Fallback exhaustive integer search (small search space)
+    best_obj = -10**18
+    best_x = 0
+    best_y = 0
+    # y can't exceed capacity; also budget may allow more but capacity caps at 475
+    for y_cand in range(0, capacity + 1):
+        # budget remaining for x
+        remaining_budget = budget - cost_y * y_cand
+        if remaining_budget < 0:
+            continue
+        max_x_by_budget = remaining_budget // cost_x
+        max_x_by_capacity = capacity - y_cand
+        max_x = min(max_x_by_budget, max_x_by_capacity)
+        if max_x < 0:
+            continue
+        # Since profit_x is positive, best x for this y is max_x
+        x_cand = max_x
+        obj_cand = profit_x * x_cand + profit_y * y_cand
+        if obj_cand > best_obj:
+            best_obj = obj_cand
+            best_x = x_cand
+            best_y = y_cand
+
+    best_solution = (best_x, best_y, best_obj)
+
+# Unpack best solution
+x_opt, y_opt, final_obj = best_solution
+
+# Optional: print the solution details (not the final objective line)
+print(f"x = {x_opt} regular handbags; y = {y_opt} premium handbags")
+print(f"Max profit = ${final_obj}")
+
+# Final required line (exact format)
+print(f"FINAL_OBJ: {final_obj}")
+```

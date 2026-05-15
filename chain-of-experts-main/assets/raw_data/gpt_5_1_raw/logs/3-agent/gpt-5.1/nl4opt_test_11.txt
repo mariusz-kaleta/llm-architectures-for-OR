@@ -1,0 +1,142 @@
+[MODELER]:
+We can model this as a small integer linear optimization problem.
+
+### 1. Decision variables
+
+Let  
+- \(b \in \mathbb{Z}_{\ge 0}\): number of bikes  
+- \(c \in \mathbb{Z}_{\ge 0}\): number of cars  
+
+### 2. Constraints
+
+1. **Capacity (transport at least 500 people)**  
+   Each bike carries 3 people, each car 5 people:
+   \[
+   3b + 5c \;\ge\; 500
+   \]
+
+2. **Car fraction (at most 40% of vehicles are cars)**  
+   At most 40% of the total vehicles are cars:
+   \[
+   c \;\le\; 0.4(b + c)
+   \]
+   Rearranging:
+   \[
+   c \le 0.4b + 0.4c
+   \]
+   \[
+   0.6c \le 0.4b
+   \]
+   \[
+   3c \le 2b
+   \]
+   or
+   \[
+   2b - 3c \;\ge\; 0
+   \]
+
+3. **Integrality and nonnegativity**  
+   \[
+   b, c \in \mathbb{Z}_{\ge 0}
+   \]
+
+### 3. Objective
+
+The problem text: “how many of each vehicle should be used to minimize the total number of bikes needed?”  
+
+This means:
+\[
+\min \; b
+\]
+subject to the above constraints.
+
+(If you wanted instead to minimize the *total number of vehicles*, you would use \(\min (b + c)\), but that is not what is asked.)
+
+### 4. Complete mathematical model
+
+\[
+\begin{aligned}
+\min \quad & b \\
+\text{s.t.} \quad
+& 3b + 5c \;\ge\; 500 \\
+& 2b - 3c \;\ge\; 0 \\
+& b, c \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+### 5. Solving in Python
+
+This is a small integer linear program. Suitable Python libraries:
+
+- `PuLP` (simple to use, good for LP/ILP teaching and small problems)  
+- `ortools.linear_solver` from Google OR-Tools (powerful industrial-grade)  
+- `pymprog` or `pyomo` (more modeling-oriented)  
+
+Example outline with PuLP:
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("TransportProblem", pl.LpMinimize)
+
+# Decision variables
+b = pl.LpVariable("bikes", lowBound=0, cat="Integer")
+c = pl.LpVariable("cars", lowBound=0, cat="Integer")
+
+# Objective: minimize number of bikes
+prob += b
+
+# Constraints
+prob += 3*b + 5*c >= 500      # capacity
+prob += 2*b - 3*c >= 0        # at most 40% cars
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Bikes:", pl.value(b))
+print("Cars:", pl.value(c))
+print("Total people:", 3*pl.value(b) + 5*pl.value(c))
+print("Car share:", pl.value(c) / (pl.value(b) + pl.value(c)))
+```
+
+This model fully captures the problem and can be solved instantly by any standard ILP solver.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem: minimize number of bikes
+    prob = pl.LpProblem("TransportProblem", pl.LpMinimize)
+
+    # Decision variables: nonnegative integers
+    b = pl.LpVariable("bikes", lowBound=0, cat="Integer")
+    c = pl.LpVariable("cars", lowBound=0, cat="Integer")
+
+    # Objective: minimize number of bikes
+    prob += b
+
+    # Constraints
+    prob += 3 * b + 5 * c >= 500      # capacity constraint
+    prob += 2 * b - 3 * c >= 0        # car fraction constraint
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract the optimal objective value (minimum number of bikes)
+    optimal_bikes = pl.value(b)
+
+    # Print detailed solution (optional for inspection)
+    # (Not required by the instructions, but harmless)
+    # print("Status:", pl.LpStatus[prob.status])
+    # print("Bikes:", pl.value(b))
+    # print("Cars:", pl.value(c))
+    # print("Total people transported:", 3 * pl.value(b) + 5 * pl.value(c))
+
+    # Final required output
+    print(f"FINAL_OBJ: {optimal_bikes}")
+
+if __name__ == "__main__":
+    main()

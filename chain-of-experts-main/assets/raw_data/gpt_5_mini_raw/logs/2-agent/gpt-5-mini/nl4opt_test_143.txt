@@ -1,0 +1,108 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of camel caravans (integer, x ≥ 0)
+  - y = number of desert trucks (integer, y ≥ 0)
+
+- Parameters
+  - camel capacity = 50 units/trip, camel time = 12 hours
+  - truck capacity = 150 units/trip, truck time = 5 hours
+  - demand = 1500 units
+
+- Capacity constraint
+  - 50x + 150y ≥ 1500  (all demand must be delivered)
+  - dividing by 50: x + 3y ≥ 30
+
+- Preference constraint (two reasonable interpretations)
+  - Weak preference (at least as many camels as trucks): x ≥ y
+  - Strict preference (more camels than trucks): x ≥ y + 1
+
+- Objective
+  - Minimize total hours used: minimize Z = 12x + 5y
+    (sum of hours consumed by all vehicles)
+
+This is an integer linear program (ILP).
+
+Analytical solution
+
+Because 50x + 150y ≥ 1500 ⇔ x + 3y ≥ 30, write x = y + k with k ≥ 0 (k integer). Then capacity becomes (y + k) + 3y = 4y + k ≥ 30 and the objective is
+Z = 12x + 5y = 12(y + k) + 5y = 17y + 12k.
+
+For fixed y, increasing k only increases Z, so k should be as small as allowed by the preference constraint. Thus:
+
+- If preference interpreted weakly (x ≥ y), take k = 0 (x = y). Then 4y ≥ 30 ⇒ y ≥ 7.5 ⇒ smallest integer y = 8, so x = 8. Total hours Z = 12·8 + 5·8 = 136 hours. Capacity delivered = 8·50 + 8·150 = 1600 units.
+
+- If preference interpreted strictly (x ≥ y + 1), take k = 1 (x = y + 1). Then 4y + 1 ≥ 30 ⇒ y ≥ 29/4 = 7.25 ⇒ y = 8 (smallest integer), x = 9. Total hours Z = 12·9 + 5·8 = 148 hours. Capacity delivered = 9·50 + 8·150 = 1650 units.
+
+Recommended solvers / libraries
+- pulp (simple MILP modeling and CBC/GLPK solvers)
+- OR-Tools CP-SAT (very fast integer/CP solver)
+- gurobipy or CPLEX (commercial but fast)
+(Scipy.optimize is not appropriate for integer programs.)
+
+Example (sketch) using pulp
+- Define integer variables x,y ≥ 0
+- Add 50*x + 150*y >= 1500
+- Add x >= y (or x >= y + 1 for strict preference)
+- Minimize 12*x + 5*y
+- Solve and read x,y
+
+Conclusion / recommendation
+- If the company requires at least as many camel caravans as trucks (x ≥ y): choose 8 camel caravans and 8 trucks (136 total hours).
+- If the company requires strictly more camel caravans than trucks (x > y): choose 9 camel caravans and 8 trucks (148 total hours).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+#!/usr/bin/env python3
+# Self-contained script to solve the ILP described in the problem statement.
+# Decision variables: x = number of camel caravans (int >=0), y = number of desert trucks (int >=0)
+# Objective: minimize Z = 12*x + 5*y
+# Capacity: 50*x + 150*y >= 1500  <=> x + 3y >= 30
+# Two preference interpretations:
+#  - weak: x >= y
+#  - strict: x >= y + 1
+
+# Initialize parameters
+camel_capacity = 50
+truck_capacity = 150
+camel_time = 12
+truck_time = 5
+demand = 1500
+
+# Derived constraint form: x + 3y >= 30
+min_sum = demand // camel_capacity  # not used directly but kept for clarity
+
+# Search bounds (reasonable)
+MAX_VEHICLES = 100  # generous upper bound for search
+
+def solve(preference='weak'):
+    best = None  # tuple (Z, x, y)
+    for x in range(0, MAX_VEHICLES+1):
+        for y in range(0, MAX_VEHICLES+1):
+            # capacity constraint
+            if camel_capacity * x + truck_capacity * y < demand:
+                continue
+            # preference constraint
+            if preference == 'weak':
+                if x < y:
+                    continue
+            elif preference == 'strict':
+                if x < y + 1:
+                    continue
+            else:
+                raise ValueError("Unknown preference")
+            Z = camel_time * x + truck_time * y
+            if best is None or Z < best[0] or (Z == best[0] and (x < best[1] or (x == best[1] and y < best[2]))):
+                best = (Z, x, y)
+    return best
+
+# Solve both interpretations
+weak_solution = solve('weak')    # expected (136, 8, 8)
+strict_solution = solve('strict')  # expected (148, 9, 8)
+
+# Choose the recommended (weak) interpretation as final
+final_obj = weak_solution[0]
+
+print(f"FINAL_OBJ: {final_obj}")

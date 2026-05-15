@@ -1,0 +1,170 @@
+[MODELER]:
+Here is a clean mathematical model of the problem.
+
+### 1. Decision variables
+
+Let  
+- \(x_s \in \mathbb{Z}_{\ge 0}\): number of small trucks  
+- \(x_l \in \mathbb{Z}_{\ge 0}\): number of large trucks  
+
+### 2. Objective
+
+Maximize the total amount of snow transported.
+
+- Each small truck carries 30 units  
+- Each large truck carries 50 units  
+
+So the objective function is:
+\[
+\max Z = 30 x_s + 50 x_l
+\]
+
+### 3. Constraints
+
+1. **People constraint (shovelers available)**  
+   - Small truck uses 2 people  
+   - Large truck uses 4 people  
+   - Total people available = 30  
+
+   \[
+   2 x_s + 4 x_l \le 30
+   \]
+
+2. **Minimum number of small trucks**
+
+   \[
+   x_s \ge 10
+   \]
+
+3. **Minimum number of large trucks**
+
+   \[
+   x_l \ge 3
+   \]
+
+4. **Ratio of small to large trucks**
+
+   “The number of small trucks must be twice as much as the number of large trucks”:
+
+   \[
+   x_s = 2 x_l
+   \]
+
+5. **Integrality**
+
+   \[
+   x_s, x_l \in \mathbb{Z}_{\ge 0}
+   \]
+
+### 4. Solving analytically (check feasibility and optimal solution)
+
+Use the ratio constraint \(x_s = 2x_l\) to simplify.
+
+Substitute into the people constraint:
+\[
+2(2x_l) + 4x_l \le 30 \Rightarrow 4x_l + 4x_l \le 30 \Rightarrow 8x_l \le 30
+\Rightarrow x_l \le 3.75
+\]
+
+Since \(x_l\) must be an integer and \(x_l \ge 3\), possible integer values are:
+\[
+x_l \in \{3\}
+\]
+
+Check \(x_l = 3\):
+
+- Then \(x_s = 2x_l = 2 \cdot 3 = 6\)
+
+Now check constraints:
+
+- People: \(2x_s + 4x_l = 2\cdot 6 + 4\cdot 3 = 12 + 12 = 24 \le 30\) ✓  
+- Small trucks: \(x_s = 6 \ge 10\) ✗ (violated)  
+
+So the condition “at least 10 small trucks” conflicts with the ratio and people constraints.  
+There is **no feasible solution** that satisfies *all* of:
+
+- \(2x_s + 4x_l \le 30\)  
+- \(x_s \ge 10\)  
+- \(x_l \ge 3\)  
+- \(x_s = 2x_l\)  
+- integrality
+
+The model is thus **infeasible** as stated.
+
+If this were a real application, you’d need to relax or change one of the conditions (e.g., allow more people, change the ratio, or adjust the minimum counts).
+
+### 5. Suitable Python libraries
+
+To implement and detect this infeasibility in Python as an optimization model, you could use:
+
+- **PuLP** (`pulp`) – simple linear/integer programming in pure Python
+- **OR-Tools** (`ortools.linear_solver`) – very efficient for integer/linear problems
+- **Pyomo** – more general modeling framework, works with many solvers
+- **SciPy** (`scipy.optimize.linprog`) – linear programming only (no integer by default), less convenient for integrality here unless you relax integrality for analysis
+
+For this integer linear program, **PuLP** or **OR-Tools** are ideal.  
+Example sketch using PuLP:
+
+```python
+import pulp as pl
+
+# Model
+model = pl.LpProblem("Snow_Removal", pl.LpMaximize)
+
+# Variables
+x_s = pl.LpVariable("small_trucks", lowBound=0, cat="Integer")
+x_l = pl.LpVariable("large_trucks", lowBound=0, cat="Integer")
+
+# Objective
+model += 30 * x_s + 50 * x_l
+
+# Constraints
+model += 2 * x_s + 4 * x_l <= 30
+model += x_s >= 10
+model += x_l >= 3
+model += x_s == 2 * x_l
+
+# Solve
+status = model.solve()
+print("Status:", pl.LpStatus[status])
+print("x_s =", x_s.value(), "x_l =", x_l.value())
+```
+
+This will report an **infeasible** status, confirming that the mathematical model has no solution under the given conditions.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Create the optimization problem
+    model = pl.LpProblem("Snow_Removal", pl.LpMaximize)
+
+    # Decision variables
+    x_s = pl.LpVariable("small_trucks", lowBound=0, cat="Integer")
+    x_l = pl.LpVariable("large_trucks", lowBound=0, cat="Integer")
+
+    # Objective function: Maximize total snow transported
+    model += 30 * x_s + 50 * x_l
+
+    # Constraints
+    model += 2 * x_s + 4 * x_l <= 30      # People constraint
+    model += x_s >= 10                    # Minimum small trucks
+    model += x_l >= 3                     # Minimum large trucks
+    model += x_s == 2 * x_l               # Ratio constraint
+
+    # Solve the model
+    status = model.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Check feasibility and compute objective value
+    if pl.LpStatus[status] != 'Optimal':
+        # Infeasible or otherwise not optimal; problem statement shows infeasible
+        final_obj = float('-inf')
+    else:
+        final_obj = pl.value(model.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

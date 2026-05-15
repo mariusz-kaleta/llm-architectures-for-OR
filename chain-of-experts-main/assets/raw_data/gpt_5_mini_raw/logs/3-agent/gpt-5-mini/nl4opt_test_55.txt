@@ -1,0 +1,138 @@
+[MODELER]:
+Variables
+- x = acres planted with blueberries (nonnegative)
+- y = acres planted with raspberries (nonnegative)
+
+Objective
+- Maximize profit: 56x + 75y
+
+Constraints
+- Land: x + y ≤ 300 (total acres)
+- Labor: 6x + 3y ≤ 575 (days of labor)
+- Watering budget: 22x + 25y ≤ 10000 (dollars)
+- Nonnegativity: x ≥ 0, y ≥ 0
+
+Complete LP
+Maximize: 56x + 75y
+subject to:
+  x + y ≤ 300
+  6x + 3y ≤ 575
+  22x + 25y ≤ 10000
+  x, y ≥ 0
+
+Notes / quick analysis
+- The labor constraint can be simplified: 2x + y ≤ 575/3 ≈ 191.6667.
+- Given the numbers, the labor constraint is the most restrictive (it makes the land constraint redundant) and the water constraint is not binding at the labor-feasible extremes.
+- The optimal solution is therefore to plant only raspberries:
+  x* = 0 acres, y* = 575/3 ≈ 191.6667 acres,
+  maximum profit = 75 * (575/3) = 14,375.
+
+Suggested Python libraries to solve this LP
+- PuLP (easy modeling, uses CBC by default)
+- scipy.optimize.linprog (numerical solver)
+- OR-Tools (high-performance solver from Google)
+
+Example (PuLP) code sketch
+from pulp import LpProblem, LpMaximize, LpVariable, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("Berry_Farm", LpMaximize)
+x = LpVariable('blueberries', lowBound=0)
+y = LpVariable('raspberries', lowBound=0)
+
+prob += 56*x + 75*y  # objective
+prob += x + y <= 300
+prob += 6*x + 3*y <= 575
+prob += 22*x + 25*y <= 10000
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print(x.value(), y.value(), "profit =", prob.objective.value())
+
+You can similarly use scipy.optimize.linprog or OR-Tools if you prefer.
+
+---
+
+[CODER]:
+```python
+from fractions import Fraction
+import itertools
+
+# Define the linear equations (ax + by = c) representing boundaries:
+# x = 0  -> 1*x + 0*y = 0
+# y = 0  -> 0*x + 1*y = 0
+# x + y = 300
+# 6x + 3y = 575
+# 22x + 25y = 10000
+equations = [
+    (Fraction(1), Fraction(0), Fraction(0)),      # x = 0
+    (Fraction(0), Fraction(1), Fraction(0)),      # y = 0
+    (Fraction(1), Fraction(1), Fraction(300)),    # x + y = 300
+    (Fraction(6), Fraction(3), Fraction(575)),    # 6x + 3y = 575
+    (Fraction(22), Fraction(25), Fraction(10000)) # 22x + 25y = 10000
+]
+
+def solve_pair(eq1, eq2):
+    a1, b1, c1 = eq1
+    a2, b2, c2 = eq2
+    det = a1 * b2 - a2 * b1
+    if det == 0:
+        return None  # parallel or same line; no unique intersection
+    x = (c1 * b2 - c2 * b1) / det
+    y = (a1 * c2 - a2 * c1) / det
+    return (x, y)
+
+# Constraints as inequalities:
+# x + y <= 300
+# 6x + 3y <= 575
+# 22x + 25y <= 10000
+def feasible(x, y):
+    if x < 0 or y < 0:
+        return False
+    if x + y > Fraction(300):
+        return False
+    if 6*x + 3*y > Fraction(575):
+        return False
+    if 22*x + 25*y > Fraction(10000):
+        return False
+    return True
+
+# Collect candidate corner points: intersections of any two boundary lines
+candidates = []
+for eq1, eq2 in itertools.combinations(equations, 2):
+    sol = solve_pair(eq1, eq2)
+    if sol is not None:
+        x, y = sol
+        if feasible(x, y):
+            candidates.append((x, y))
+
+# Also consider obvious corner points at origin and axis intersections explicitly
+# (these are already included via equations but keep for completeness)
+extra_points = [
+    (Fraction(0), Fraction(0)),
+]
+for p in extra_points:
+    if feasible(*p):
+        candidates.append(p)
+
+# Remove duplicates (fractions comparable)
+candidates = list(dict.fromkeys(candidates))
+
+# Objective: Maximize 56x + 75y
+best_val = None
+best_point = None
+for x, y in candidates:
+    val = Fraction(56) * x + Fraction(75) * y
+    if (best_val is None) or (val > best_val):
+        best_val = val
+        best_point = (x, y)
+
+# Convert best_val to int if exact, else float
+if best_val is None:
+    final_value = 0
+else:
+    if best_val.denominator == 1:
+        final_value = best_val.numerator  # int
+    else:
+        final_value = float(best_val)
+
+print(f"FINAL_OBJ: {final_value}")
+```

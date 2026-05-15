@@ -1,0 +1,169 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Maximise total daily profit from making regular and special sandwiches.
+
+2) Suggested model type
+- Model: Linear Programming (LP).  
+  (If you require whole sandwiches only, solve as an Integer LP (ILP) or solve the LP and round/check integer feasibility — here LP relaxation will suffice for analysis and can be solved graphically or with the simplex method.)
+
+3) Main decision variables
+- Let R = number of regular sandwiches to produce.
+- Let S = number of special sandwiches to produce.
+(Both variables represent production quantities for the planning period; include non-negativity and optionally integer restrictions.)
+
+4) Key constraints to include
+- Eggs constraint: total eggs used by R and S cannot exceed available eggs. (Use coefficients: 2 eggs per regular, 3 eggs per special, total available = 40.)
+- Bacon constraint: total bacon slices used by R and S cannot exceed available bacon. (Use coefficients: 3 bacon slices per regular, 5 per special, total available = 70.)
+- Non-negativity: R >= 0, S >= 0.
+- Optional integrality: R and S integer (if fractional sandwiches are not allowed).
+
+5) Objective function (description)
+- Maximise total profit: profit contribution from regular and special sandwiches. (Use coefficients: $3 profit per regular, $4 per special.)
+
+6) Solution approach and checks for the Modeller
+- Solve the LP (graphical method is sufficient since there are two variables), evaluate corner (extreme) points of the feasible region.
+- Check binding resources at the optimum and verify whether integer solutions are required/alter the result.
+- Report optimal R and S, total profit, and which constraints are binding; perform a sensitivity check (e.g., how much profit would change if eggs or bacon availability changed).
+
+---
+
+[MODELER]:
+Below is a clear mathematical model, the solved optimum, and solver suggestions.
+
+1) Decision variables
+- R >= 0 : number of regular sandwiches produced (optionally integer).
+- S >= 0 : number of special sandwiches produced (optionally integer).
+
+2) Constraints
+- Eggs: 2R + 3S <= 40
+- Bacon: 3R + 5S <= 70
+- Nonnegativity: R >= 0, S >= 0
+- Optional integrality: R, S integer (if fractional sandwiches are not allowed).
+
+3) Objective
+Maximise total profit:
+Max Z = 3R + 4S
+
+4) LP formulation (compact)
+Maximise Z = 3R + 4S
+subject to
+2R + 3S <= 40
+3R + 5S <= 70
+R >= 0, S >= 0
+
+(If integrality required, add R,S ∈ Z≥0 and solve as an ILP.)
+
+5) Solve the LP (analysis and result)
+Evaluate the feasible-region corner points:
+- R = 0 => S <= min(40/3, 70/5) = min(13.333..., 14) = 13.333... => profit = 4 * 13.333... = 53.333...
+- S = 0 => R <= min(40/2, 70/3) = min(20, 23.333...) = 20 => profit = 3 * 20 = 60
+- Intersection of 2R+3S = 40 and 3R+5S = 70 gives S = 20, R = -10 (infeasible).
+
+Thus the optimum (LP relaxation) is at R = 20, S = 0 with maximum profit Z = $60. This solution is integer, so it also solves the ILP if integer sandwiches are required.
+
+6) Binding/slack and economic interpretation
+- Eggs constraint is binding: 2*20 + 3*0 = 40 (all eggs used).
+- Bacon slack: 3*20 + 5*0 = 60 used of 70 => 10 slices unused.
+- Dual / shadow price: the marginal profit per extra egg (dual value) = 1.5 (i.e., one additional egg increases maximum profit by $1.50, for small increases while basis remains the same). Shadow price for bacon = 0 (since bacon is not binding).
+
+7) Solver recommendations (Python)
+- For straightforward LP/ILP: PuLP (simple API), OR-Tools (CP-SAT for integer), or CVXOPT/cvxpy for convex problems.
+- For pure LP: scipy.optimize.linprog is fine.
+- For integer programming: PuLP (with CBC, GLPK, or commercial solvers), OR-Tools CP-SAT, or Gurobi/Cplex if available.
+
+Example (PuLP) skeleton:
+- Define LpProblem, LpVariables R,S (cat='Integer' if integer required).
+- Add constraints 2*R + 3*S <= 40, 3*R + 5*S <= 70.
+- Set objective 3*R + 4*S to maximize.
+- Solve and report R,S,Z.
+
+If you want, I can provide a ready-to-run PuLP (or OR-Tools) script, plot the feasible region, or perform sensitivity analysis on eggs and bacon availability.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data
+# Maximize Z = 3R + 4S
+# s.t.
+# 2R + 3S <= 40
+# 3R + 5S <= 70
+# R >= 0, S >= 0
+
+constraints = [
+    (2.0, 3.0, 40.0),  # 2R + 3S <= 40
+    (3.0, 5.0, 70.0),  # 3R + 5S <= 70
+]
+
+# Include the non-negativity boundary lines as equalities for corner computation:
+# R = 0 -> 1*R + 0*S = 0
+# S = 0 -> 0*R + 1*S = 0
+lines = constraints + [
+    (1.0, 0.0, 0.0),  # R = 0
+    (0.0, 1.0, 0.0),  # S = 0
+]
+
+tol = 1e-9
+points = []
+
+# Compute intersections of every pair of lines (as equalities)
+n = len(lines)
+for i in range(n):
+    a1, b1, c1 = lines[i]
+    for j in range(i + 1, n):
+        a2, b2, c2 = lines[j]
+        det = a1 * b2 - a2 * b1
+        if abs(det) < tol:
+            continue  # parallel or coincident
+        R = (c1 * b2 - c2 * b1) / det
+        S = (a1 * c2 - a2 * c1) / det
+        # Check feasibility: nonnegativity and all inequality constraints
+        if R >= -tol and S >= -tol:
+            feasible = True
+            for (a, b, c) in constraints:
+                if a * R + b * S > c + 1e-7:
+                    feasible = False
+                    break
+            if feasible:
+                # Round tiny negatives to zero
+                R = 0.0 if abs(R) < 1e-9 else R
+                S = 0.0 if abs(S) < 1e-9 else S
+                points.append((R, S))
+
+# Also include origin explicitly (in case not captured)
+points.append((0.0, 0.0))
+
+# Remove duplicates (within tolerance)
+unique_points = []
+for p in points:
+    found = False
+    for q in unique_points:
+        if abs(p[0] - q[0]) < 1e-7 and abs(p[1] - q[1]) < 1e-7:
+            found = True
+            break
+    if not found:
+        unique_points.append(p)
+
+# Evaluate objective at feasible corner points
+best_Z = -math.inf
+best_point = None
+for (R, S) in unique_points:
+    Z = 3.0 * R + 4.0 * S
+    if Z > best_Z + 1e-9:
+        best_Z = Z
+        best_point = (R, S)
+
+# Ensure numeric neatness: if very close to integer, snap
+def neat(x):
+    if abs(x - round(x)) < 1e-9:
+        return int(round(x))
+    return float(x)
+
+best_Z = neat(best_Z)
+
+# Final required print
+print(f"FINAL_OBJ: {best_Z}")
+```

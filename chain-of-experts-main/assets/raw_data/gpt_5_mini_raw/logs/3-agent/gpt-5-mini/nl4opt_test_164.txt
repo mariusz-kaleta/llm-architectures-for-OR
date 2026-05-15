@@ -1,0 +1,107 @@
+[MODELER]:
+Model formulation
+
+Decision variables
+- R = number of refrigerators to sell/install (integer, ≥ 0)
+- S = number of stoves to sell/install (integer, ≥ 0)
+
+Objective
+- Maximize profit: maximize Z = 400 R + 260 S
+
+Constraints
+- Mover time: 60 R + 45 S ≤ 20,000 (minutes)
+- Setup time: 20 R + 25 S ≤ 13,000 (minutes)
+- Integrality & nonnegativity: R, S ∈ Z≥0
+
+Continuous LP (for quick analysis)
+- If R and S are allowed to be continuous, the feasible region is:
+  12 R + 9 S ≤ 4,000  (divide mover constraint by 5)
+  4 R + 5 S ≤ 2,600   (divide setup constraint by 5)
+- Corner points of the nonnegative feasible region are:
+  (R,S) = (0,0), (333.333..., 0), (0, 444.444...)
+- Evaluate objective:
+  Z(333.333,0) = 400·333.333... = 133,333.33
+  Z(0,444.444...) = 260·444.444... = 115,555.56
+- The continuous LP optimum is at R = 333.333..., S = 0.
+
+Integer solution
+- R must be integer. R = 333, S = 0 is feasible:
+  60·333 = 19,980 ≤ 20,000 and 20·333 = 6,660 ≤ 13,000.
+- R = 334 would violate mover time (60·334 = 20,040 > 20,000).
+- Therefore the optimal integer solution is:
+  R = 333 refrigerators, S = 0 stoves, giving profit = 400·333 = $133,200.
+
+Recommended solvers / Python libraries
+- For integer linear programming: pulp (CBC), OR-Tools (CP-SAT), or commercial solvers (Gurobi, CPLEX).
+- For continuous LP relaxation: scipy.optimize.linprog.
+- Example (pulp):
+  from pulp import LpMaximize, LpProblem, LpVariable, lpSum, PULP_CBC_CMD
+
+  prob = LpProblem("Appliances", LpMaximize)
+  R = LpVariable("R", lowBound=0, cat="Integer")
+  S = LpVariable("S", lowBound=0, cat="Integer")
+  prob += 400*R + 260*S
+  prob += 60*R + 45*S <= 20000
+  prob += 20*R + 25*S <= 13000
+  prob.solve(PULP_CBC_CMD(msg=False))
+  print(R.varValue, S.varValue, "Profit =", 400*R.varValue + 260*S.varValue)
+
+Summary answer: Sell/install 333 refrigerators and 0 stoves for a maximum profit of $133,200.
+
+---
+
+[CODER]:
+import math
+
+# Data
+profit_R = 400
+profit_S = 260
+
+# Constraints (left-hand coefficients and right-hand side)
+# 60 R + 45 S <= 20000
+# 20 R + 25 S <= 13000
+max_mover = 20000
+max_setup = 13000
+
+# Upper bounds for brute-force search based on mover constraint
+R_max = max_mover // 60  # floor(20000/60) = 333
+S_max = max_mover // 45  # floor(20000/45) = 444
+
+best_obj = None
+best_R = None
+best_S = None
+
+for R in range(R_max + 1):
+    # For given R, we can tighten S range by both constraints
+    # From mover time: 45 S <= max_mover - 60 R -> S <= floor((max_mover - 60R)/45)
+    rem_mover = max_mover - 60 * R
+    if rem_mover < 0:
+        continue
+    S_upper_mover = rem_mover // 45
+
+    # From setup time: 25 S <= max_setup - 20 R -> S <= floor((max_setup - 20R)/25)
+    rem_setup = max_setup - 20 * R
+    if rem_setup < 0:
+        continue
+    S_upper_setup = rem_setup // 25
+
+    S_upper = min(S_upper_mover, S_upper_setup, S_max)
+
+    for S in range(S_upper + 1):
+        # constraints already enforced by S range, but check for safety
+        if 60 * R + 45 * S > max_mover:
+            continue
+        if 20 * R + 25 * S > max_setup:
+            continue
+
+        obj = profit_R * R + profit_S * S
+        if (best_obj is None) or (obj > best_obj):
+            best_obj = obj
+            best_R = R
+            best_S = S
+
+# Final objective value (integer)
+if best_obj is None:
+    best_obj = 0
+
+print(f"FINAL_OBJ: {best_obj}")

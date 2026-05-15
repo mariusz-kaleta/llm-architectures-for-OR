@@ -1,0 +1,78 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - T ∈ Z_{≥0}: number of tractors used.
+  - C ∈ Z_{≥0}: number of cars used.
+
+- Objective
+  - Minimize total vehicles: minimize Z = T + C.
+
+- Constraints
+  1. Capacity requirement: 40T + 20C ≥ 500.
+  2. Cars at least twice tractors: C ≥ 2T.
+  3. Integrality and nonnegativity: T, C ∈ Z_{≥0}.
+
+Notes / simplification
+- Divide the capacity constraint by 20: 2T + C ≥ 25.
+- For any integer T, the minimal C that meets both constraints is
+  C = max(2T, ceil(25 − 2T)).
+  Hence total vehicles as a function of T is
+  N(T) = T + max(2T, ceil(25 − 2T)) = max(3T, T + ceil(25 − 2T)).
+- Evaluate T = 0,1,... up to the point where 2T ≥ 25 − 2T (i.e. T ≥ 6.25 → T ≥ 7). For T ≥ 7, C = 2T already satisfies capacity and N = 3T; the smallest such T is 7 giving N = 21.
+- Check smaller T (0..6) by computing C = ceil(25 − 2T):
+  - T=0 → C=25 → N=25
+  - T=1 → C=23 → N=24
+  - T=2 → C=21 → N=23
+  - T=3 → C=19 → N=22
+  - T=4 → C=17 → N=21
+  - T=5 → C=15 → N=20
+  - T=6 → C=13 → N=19
+
+Optimal solution
+- T = 6 tractors, C = 13 cars, total vehicles = 19.
+- Check: capacity = 6·40 + 13·20 = 240 + 260 = 500; C = 13 ≥ 2·6 = 12.
+
+Suggested solvers / Python libraries
+- For small integer linear programs (this problem): PuLP (with CBC), OR-Tools CP-SAT, or Pyomo (with an MILP solver).
+- For exact enumeration or a simple analytic approach you can use plain Python (math.ceil).
+- If you have commercial solvers available: Gurobi or CPLEX.
+
+Example (PuLP) code outline
+- Create integer variables T, C.
+- Add constraints 40*T + 20*C >= 500 and C >= 2*T.
+- Minimize T + C.
+- Solve (CBC or another solver) and read T.value(), C.value().
+
+If you want, I can provide a ready-to-run Python snippet using PuLP or OR-Tools.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+import math
+
+# Problem data implicitly initialized:
+# Capacity: 40*T + 20*C >= 500  ->  2*T + C >= 25
+# Cars at least twice tractors: C >= 2*T
+# T, C are nonnegative integers. Minimize N = T + C.
+
+best_N = None
+best_T = None
+best_C = None
+
+# Search over a reasonable range for T (0..100)
+for T in range(0, 101):
+    # Minimum C to satisfy capacity (2T + C >= 25)
+    C_capacity = max(0, math.ceil(25 - 2 * T))
+    # Also must satisfy C >= 2T
+    C = max(2 * T, C_capacity)
+    N = T + C
+    if best_N is None or N < best_N:
+        best_N = N
+        best_T = T
+        best_C = C
+
+# Final objective value
+print(f"FINAL_OBJ: {best_N}")
+```

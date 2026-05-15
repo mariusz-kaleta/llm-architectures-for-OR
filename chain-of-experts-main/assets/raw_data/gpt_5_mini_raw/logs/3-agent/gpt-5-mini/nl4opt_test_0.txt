@@ -1,0 +1,99 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- b ∈ Z_{\ge 0}: number of boat trips.
+- c ∈ Z_{\ge 0}: number of canoe trips.
+
+Objective
+Minimize total time spent by all trips (minutes):
+minimize T = 20 b + 40 c
+
+Constraints
+1. Capacity: 10 b + 8 c ≥ 300 (at least 300 ducks transported).
+2. Boat trip limit: b ≤ 12.
+3. At least 60% of trips are by canoe:
+   c ≥ 0.60 (b + c). This is equivalent to 0.4 c ≥ 0.6 b → c ≥ 1.5 b.
+4. Integrality and nonnegativity: b, c integers ≥ 0.
+
+(If you intended the ratio constraint only when there is at least one trip, add b + c ≥ 1. The algebraic form above already implies that when b>0 it forces c ≥ 1.5 b.)
+
+Solution approach (small integer problem)
+Because b is bounded 0..12, you can enumerate b = 0..12, for each b set
+c_min = max( ceil(1.5 b), ceil( max(0, (300 - 10 b))/8 ) )
+and compute T(b,c_min) = 20 b + 40 c_min. Pick b giving smallest T.
+
+Simple analytic enumeration (calculation):
+- For b = 12, c_min = max( ceil(1.5·12)=18, ceil((300-120)/8)=ceil(180/8)=23 ) = 23.
+- Objective T = 20·12 + 40·23 = 240 + 920 = 1160 minutes.
+
+No other b (0..11) yields a smaller total time. Therefore the optimal integer solution is
+- b = 12 boat trips
+- c = 23 canoe trips
+Total time = 1160 minutes = 19 hours 20 minutes.
+Capacity check: 10·12 + 8·23 = 120 + 184 = 304 ≥ 300. Ratio check: 23/(12+23) ≈ 0.657 ≥ 0.60.
+
+Notes
+- If trips were allowed fractional (relax integrality), the LP optimum is b = 12, c = 22.5 with T = 1140 minutes; the integer constraint increases the time to 1160.
+- If the problem instead asked to minimize makespan (the elapsed time until all ducks are ashore, assuming trips run in parallel on many boats/canoes), the model would be different (scheduling/min-max), and the result would change.
+
+Solvers / libraries
+- For small enumeration or simple logic: plain Python (for-loop).
+- Integer programming libraries: PuLP (CBC), OR-Tools CP-SAT, mip (with CBC/Gurobi), or scipy.optimize (for continuous relaxations).
+- OR-Tools CP-SAT is recommended if you want a robust integer solver; PuLP is easy to prototype.
+
+Example (outline) with PuLP
+- Define integer variables b, c.
+- Add constraints 10 b + 8 c ≥ 300, b ≤ 12, c ≥ 1.5 b.
+- Minimize 20 b + 40 c.
+- Solve and read b.value(), c.value().
+
+If you want, I can provide the exact PuLP or OR-Tools code to solve this instance.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data
+capacity_required = 300
+boat_capacity = 10
+canoe_capacity = 8
+time_per_boat = 20
+time_per_canoe = 40
+boat_limit = 12
+
+best_T = None
+best_b = None
+best_c = None
+
+candidates = []
+for b in range(0, boat_limit + 1):
+    # ratio constraint: c >= 1.5 * b
+    c_ratio_min = math.ceil(1.5 * b)
+    # capacity constraint: 10 b + 8 c >= 300  -> c >= (300 - 10 b)/8
+    remaining = capacity_required - boat_capacity * b
+    c_capacity_min = math.ceil(max(0, remaining) / canoe_capacity)
+    c_min = max(c_ratio_min, c_capacity_min)
+    # c must be nonnegative integer
+    if c_min < 0:
+        c_min = 0
+    T = time_per_boat * b + time_per_canoe * c_min
+    candidates.append((b, c_min, T))
+    if (best_T is None) or (T < best_T):
+        best_T = T
+        best_b = b
+        best_c = c_min
+
+# Optional: print all feasible candidates (comment out if not desired)
+print("Feasible (b, c, T):")
+for b, c, T in candidates:
+    print(f"  b={b:2d}, c={c:2d}, T={T}")
+
+print(f"Selected optimal integer solution: b={best_b}, c={best_c}, T={best_T}")
+
+# Final required line (must be the last line printed)
+print(f"FINAL_OBJ: {best_T}")
+```

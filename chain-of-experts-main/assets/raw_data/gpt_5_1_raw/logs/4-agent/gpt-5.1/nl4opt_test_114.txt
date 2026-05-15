@@ -1,0 +1,246 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximise the total number of patients swabbed (each patient receives either a throat or a nasal swab).
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) or Integer Linear Programming (ILP)  
+   - Since swab counts must be whole numbers, an ILP is more accurate, but the problem is small and likely integral at optimum, so an LP relaxation may suffice.
+
+3. Main decision variables  
+   - Let:
+     - T = number of throat swabs performed  
+     - N = number of nasal swabs performed  
+
+4. Key constraints to consider  
+
+   a) Time capacity constraint  
+   - Each throat swab takes 5 minutes.  
+   - Each nasal swab takes 3 minutes.  
+   - Total available operational time: 20,000 minutes.  
+   - Constraint: Total swab time cannot exceed 20,000 minutes.  
+
+   b) Minimum nasal swabs requirement  
+   - The clinic must administer at least 30 nasal swabs.  
+   - Constraint: N ≥ 30.  
+
+   c) Discomfort-based ratio constraint  
+   - Because nasal swabs are more uncomfortable, the number of throat swabs must be at least 4 times the number of nasal swabs.  
+   - Constraint: T ≥ 4N.  
+
+   d) Non-negativity and integrality  
+   - Cannot perform a negative number of swabs; must be whole numbers.  
+   - Constraints:  
+     - T ≥ 0, N ≥ 0  
+     - T, N should be integers (if using ILP).  
+
+5. Objective function (conceptual description)  
+   - Objective: Maximise the total number of patients seen.  
+   - Since each patient gets exactly one swab (throat or nasal), total patients = T + N.  
+   - Strategy: Use the time capacity as fully as possible while respecting the minimum nasal count and the “4 times as many throat as nasal” rule.  
+
+6. Modelling notes / solution strategy  
+   - Express the time capacity in terms of T and N using the 5 and 3 minute durations.  
+   - The ratio constraint T ≥ 4N strongly pushes the optimal solution to have many more throat swabs than nasal swabs; check whether this binds at optimum (likely T = 4N at optimum).  
+   - Combine the time constraint with T = 4N to reduce to a single-variable problem (in N), making it easy to find the maximum feasible N (and therefore corresponding T).  
+   - Verify N also respects the minimum N ≥ 30.  
+   - Finally, compute T and N that satisfy all constraints and yield the maximum T + N.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem and how to solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(T \in \mathbb{Z}_{\ge 0}\): number of throat swabs  
+- \(N \in \mathbb{Z}_{\ge 0}\): number of nasal swabs  
+
+(Each patient receives exactly one swab, so total patients = \(T + N\).)
+
+---
+
+## 2. Objective
+
+Maximize the total number of patients seen:
+
+\[
+\max \; Z = T + N
+\]
+
+---
+
+## 3. Constraints
+
+1. **Time capacity (20,000 minutes total)**  
+   - Throat swab: 5 minutes each  
+   - Nasal swab: 3 minutes each  
+
+   \[
+   5T + 3N \le 20000
+   \]
+
+2. **Minimum nasal swabs**
+
+   \[
+   N \ge 30
+   \]
+
+3. **Discomfort-based ratio (at least 4 times as many throat as nasal)**
+
+   \[
+   T \ge 4N
+   \]
+
+4. **Non-negativity and integrality**
+
+   \[
+   T \ge 0,\; N \ge 0,\; T,N \in \mathbb{Z}
+   \]
+
+---
+
+## 4. Structure and reduction
+
+Because the objective is to *increase* \(T\) and \(N\) and time is limited, at optimum the time constraint will be tight (fully used) and the ratio will typically be tight too (otherwise we could increase \(N\) and \(T\) and see more patients).
+
+Assume the ratio constraint binds: \(T = 4N\). Substitute into the time constraint:
+
+\[
+5(4N) + 3N \le 20000
+\]
+\[
+20N + 3N \le 20000
+\]
+\[
+23N \le 20000
+\]
+\[
+N \le \frac{20000}{23} \approx 869.565
+\]
+
+Since \(N\) must be integer, \(N \le 869\).
+
+We also require \(N \ge 30\), and 869 satisfies this, so the maximum feasible \(N\) is:
+
+\[
+N^\* = 869
+\]
+
+Then
+
+\[
+T^\* = 4N^\* = 4 \times 869 = 3476
+\]
+
+Check time usage:
+
+\[
+5T^\* + 3N^\* = 5(3476) + 3(869) = 17380 + 2607 = 19987 \le 20000
+\]
+
+This is feasible. The time is not exactly full, but if we try to increase \(N\) to 870:
+
+- From the ratio constraint: \(T \ge 4 \times 870 = 3480\)
+- Time used: \(5(3480) + 3(870) = 17400 + 2610 = 20010 > 20000\), which is infeasible.
+
+So \((T^\*,N^\*) = (3476, 869)\) is optimal.
+
+Total patients:
+
+\[
+T^\* + N^\* = 3476 + 869 = 4345
+\]
+
+---
+
+## 5. Final answer
+
+- Throat swabs: **3476**  
+- Nasal swabs: **869**  
+- Maximum patients seen: **4345**
+
+---
+
+## 6. Suitable Python libraries
+
+To implement and solve this ILP in Python, you can use:
+
+- **PuLP** (`pulp`) – very simple modeling interface, uses CBC by default.
+- **OR-Tools Linear Solver** (`ortools.linear_solver.pywraplp`) – efficient and well-maintained.
+- **Pyomo** – more general algebraic modeling, good for larger/complex models.
+
+Example using PuLP:
+
+```python
+import pulp as pl
+
+# Model
+model = pl.LpProblem("Swab_Optimization", pl.LpMaximize)
+
+# Variables
+T = pl.LpVariable("T", lowBound=0, cat="Integer")
+N = pl.LpVariable("N", lowBound=0, cat="Integer")
+
+# Objective
+model += T + N
+
+# Constraints
+model += 5*T + 3*N <= 20000          # time
+model += N >= 30                     # min nasal
+model += T >= 4*N                    # ratio
+
+# Solve
+model.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[model.status])
+print("T (throat) =", pl.value(T))
+print("N (nasal)  =", pl.value(N))
+print("Total patients =", pl.value(T + N))
+```
+
+This will return \(T = 3476\), \(N = 869\).
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the model
+    model = pl.LpProblem("Swab_Optimization", pl.LpMaximize)
+
+    # Decision variables
+    T = pl.LpVariable("T", lowBound=0, cat="Integer")  # Throat swabs
+    N = pl.LpVariable("N", lowBound=0, cat="Integer")  # Nasal swabs
+
+    # Objective: maximize total patients
+    model += T + N
+
+    # Constraints
+    model += 5 * T + 3 * N <= 20000    # Time capacity
+    model += N >= 30                  # Minimum nasal swabs
+    model += T >= 4 * N               # Ratio constraint
+
+    # Solve
+    solver = pl.PULP_CBC_CMD(msg=False)
+    model.solve(solver)
+
+    # Extract solution
+    T_val = pl.value(T)
+    N_val = pl.value(N)
+    total_patients = pl.value(T + N)
+
+    # Optional intermediate prints (can be removed if not desired)
+    # print(f"T (throat) = {T_val}")
+    # print(f"N (nasal)  = {N_val}")
+    # print(f"Total patients = {total_patients}")
+
+    # Final required output
+    print(f"FINAL_OBJ: {int(total_patients)}")
+
+if __name__ == "__main__":
+    main()

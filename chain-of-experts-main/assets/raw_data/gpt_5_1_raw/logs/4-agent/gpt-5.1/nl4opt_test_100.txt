@@ -1,0 +1,223 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximize total profit from selling model trains and planes.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with two decision variables and linear constraints.
+
+3. Main decision variables  
+   - Let:
+     - Number of model trains to produce.
+     - Number of model planes to produce.
+   - Both variables should be:
+     - Non-negative.
+     - Typically integer (since you can’t make a fraction of a model), but the core LP can first be solved in continuous form; if needed, add integrality later (MILP).
+
+4. Objective function components  
+   - Profit contribution per unit:
+     - Each train: $8.
+     - Each plane: $10.
+   - Objective: Maximize total profit = (profit per train × number of trains) + (profit per plane × number of planes).
+
+5. Key constraints to consider  
+
+   a) Wood availability  
+   - Resource consumption:
+     - Each train uses 3 units of wood.
+     - Each plane uses 4 units of wood.
+   - Total wood used by all trains and planes cannot exceed 120 units.
+
+   b) Paint availability  
+   - Resource consumption:
+     - Each train uses 3 units of paint.
+     - Each plane uses 2 units of paint.
+   - Total paint used by all trains and planes cannot exceed 90 units.
+
+   c) Non-negativity and integrality  
+   - Number of trains ≥ 0.
+   - Number of planes ≥ 0.
+   - Optionally enforce that both are integers.
+
+6. Modelling strategy / solution approach  
+
+   - Step 1: Formulate the LP:
+     - Define the two decision variables.
+     - Write the profit-maximization objective.
+     - Add the two resource constraints (wood, paint) plus non-negativity.
+
+   - Step 2: Solve the continuous LP:
+     - With only two variables, you can:
+       - Use graphical method: plot the wood and paint constraints, identify the feasible region, and evaluate profit at each corner point.
+       - Or use a standard LP solver.
+
+   - Step 3: Check integrality:
+     - Since the LP has very simple constraints, the optimal solution is likely to be integral already. If not, examine nearby integer points to find the best integer solution.
+
+   - Step 4: Interpret the result:
+     - Report:
+       - Optimal number of trains.
+       - Optimal number of planes.
+       - Maximum achievable profit.
+     - Verify that resource usage for both wood and paint does not exceed availability at this solution.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by suggestions for solving it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+
+- \( x \) = number of model trains to produce  
+- \( y \) = number of model planes to produce  
+
+Domain:
+
+- \( x \ge 0 \)  
+- \( y \ge 0 \)  
+- If integrality is enforced: \( x, y \in \mathbb{Z}_{\ge 0} \)
+
+---
+
+## 2. Objective function (maximize profit)
+
+Profit contributions:
+
+- Train: \$8 per unit  
+- Plane: \$10 per unit  
+
+Maximize total profit:
+
+\[
+\max \; Z = 8x + 10y
+\]
+
+---
+
+## 3. Constraints
+
+### (a) Wood availability
+
+Each unit requires:
+
+- Train: 3 units of wood  
+- Plane: 4 units of wood  
+
+Total available wood: 120 units
+
+\[
+3x + 4y \le 120
+\]
+
+---
+
+### (b) Paint availability
+
+Each unit requires:
+
+- Train: 3 units of paint  
+- Plane: 2 units of paint  
+
+Total available paint: 90 units
+
+\[
+3x + 2y \le 90
+\]
+
+---
+
+### (c) Non-negativity (and optional integrality)
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+If you require integer numbers of items:
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Model summary
+
+**Linear Program (LP):**
+
+\[
+\begin{aligned}
+\max \quad & 8x + 10y \\
+\text{s.t.} \quad
+& 3x + 4y \le 120 \quad &\text{(wood)}\\
+& 3x + 2y \le 90  \quad &\text{(paint)}\\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+**Mixed-Integer Linear Program (MILP)** if integrality is enforced on \(x\) and \(y\).
+
+---
+
+## 5. Python tools to solve this
+
+You can model and solve this in several standard Python optimization libraries:
+
+- **PuLP**  
+  - Very suitable for teaching and small LP/MILP models.  
+  - Easy syntax for defining variables, constraints, and objective.  
+  - Can use CBC (default), GLPK, or commercial solvers if installed.
+
+- **OR-Tools (Google)**  
+  - `ortools.linear_solver` for LP / MILP.  
+  - `ortools.sat.python.cp_model` also handles integer programming well.
+
+- **SciPy (`scipy.optimize.linprog`)**  
+  - Good for *continuous* LP (no integrality).  
+  - If you only need the LP relaxation, this is straightforward.  
+  - Does not directly support integer variables; for integrality, use PuLP or OR-Tools.
+
+For this problem:
+
+- If you accept fractional solutions (LP relaxation):  
+  - `scipy.optimize.linprog` or PuLP.
+
+- If you need integer counts of trains and planes:  
+  - PuLP or OR-Tools (MILP).
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: maximize profit
+    prob = pulp.LpProblem("Model_Trains_and_Planes", pulp.LpMaximize)
+
+    # Decision variables (non-negative integers)
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # number of trains
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # number of planes
+
+    # Objective function: Maximize 8x + 10y
+    prob += 8 * x + 10 * y
+
+    # Constraints
+    # Wood: 3x + 4y <= 120
+    prob += 3 * x + 4 * y <= 120
+
+    # Paint: 3x + 2y <= 90
+    prob += 3 * x + 2 * y <= 90
+
+    # Solve the problem using the default solver (CBC)
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the final objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print the final objective in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

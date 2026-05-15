@@ -1,0 +1,89 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - T = number of throat swabs (integer, >= 0)
+  - N = number of nasal swabs (integer, >= 0)
+
+- Objective
+  - Maximize total patients seen: maximize P = T + N
+
+- Constraints
+  1. Time: 5T + 3N ≤ 20000 (minutes available)
+  2. Throat-to-nasal ratio: T ≥ 4N
+  3. Minimum nasals: N ≥ 30
+  4. Integrality: T, N ∈ Z (nonnegative integers)
+
+Solution (analytic)
+
+For a fixed N, to maximize P = T + N you should take T as large as allowed by the time constraint:
+  T = floor((20000 − 3N) / 5),
+subject to T ≥ 4N. Feasibility requires 4N ≤ (20000 − 3N)/5 ⇔ 23N ≤ 20000 ⇔ N ≤ 20000/23 ≈ 869.565.
+
+Because P(N) = N + (20000 − 3N)/5 = 4000 + 0.4N (in the continuous relaxation), P increases with N on the feasible range. Thus choose the largest integer feasible N: N = 869.
+
+Then T = floor((20000 − 3·869)/5) = floor(17393/5) = 3478.
+
+Check:
+- T ≥ 4N: 3478 ≥ 4·869 = 3476 ✓
+- Time: 5·3478 + 3·869 = 19997 ≤ 20000 ✓
+- N ≥ 30 ✓
+
+Total patients = T + N = 3478 + 869 = 4347.
+
+So the clinic should perform 3478 throat swabs and 869 nasal swabs, serving 4347 patients (3 minutes unused).
+
+Recommended solvers / libraries
+
+- For integer linear programming (recommended): PuLP (with CBC), OR-Tools CP-SAT, or mip (Python-MIP).
+- For continuous LP relaxation: scipy.optimize.linprog.
+- Example: use PuLP or OR-Tools to enforce integrality and solve the model exactly.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the integer optimization problem described.
+
+# Data initialization
+total_time = 20000  # minutes available
+time_T = 5          # minutes per throat swab
+time_N = 3          # minutes per nasal swab
+ratio_T_per_N = 4   # T >= 4N
+min_N = 30          # minimum nasal swabs
+
+# Feasible range for N derived from constraint 4N <= (total_time - 3N)/5 -> 23N <= total_time
+N_max = total_time // 23
+
+best_obj = None
+best_T = None
+best_N = None
+
+for N in range(min_N, N_max + 1):
+    remaining_time = total_time - time_N * N
+    if remaining_time < 0:
+        continue
+    T_max = remaining_time // time_T
+    if T_max < 0:
+        continue
+    if T_max < ratio_T_per_N * N:
+        # Even the maximum T allowed by time doesn't meet the ratio constraint
+        continue
+    # We can choose T = T_max (to maximize T+N)
+    T = T_max
+    obj = T + N
+    if (best_obj is None) or (obj > best_obj):
+        best_obj = obj
+        best_T = T
+        best_N = N
+
+# As a fallback (shouldn't be needed), handle case no feasible solution found
+if best_obj is None:
+    best_obj = 0
+    best_T = 0
+    best_N = 0
+
+# Final output as required
+print(f"FINAL_OBJ: {best_obj}")
+```

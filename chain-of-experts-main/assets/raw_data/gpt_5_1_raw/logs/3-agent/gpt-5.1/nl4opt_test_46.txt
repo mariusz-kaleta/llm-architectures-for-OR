@@ -1,0 +1,214 @@
+[MODELER]:
+Let’s turn the problem into a precise optimization model.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of acres harvested using the **traditional** machine  
+- \(y\) = number of acres harvested using the **modern** machine  
+
+Both must be nonnegative:
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+## 2. Objective function
+
+We want to **maximize** the total amount of tea leaves picked.
+
+- Traditional machine: 30 kg/acre → \(30x\) kg  
+- Modern machine: 40 kg/acre → \(40y\) kg  
+
+Total tea leaves picked:
+
+\[
+\text{Maximize } Z = 30x + 40y
+\]
+
+---
+
+## 3. Constraints
+
+### (a) Land constraint (500 acres total)
+
+Total acres used cannot exceed available land:
+
+\[
+x + y \le 500
+\]
+
+---
+
+### (b) Fuel constraint (9000 liters available)
+
+- Traditional: 20 liters/acre → \(20x\) liters  
+- Modern: 15 liters/acre → \(15y\) liters  
+
+Total fuel use:
+
+\[
+20x + 15y \le 9000
+\]
+
+---
+
+### (c) Waste constraint (≤ 6000 kg)
+
+- Traditional: 10 kg/acre → \(10x\) kg  
+- Modern: 15 kg/acre → \(15y\) kg  
+
+Total waste:
+
+\[
+10x + 15y \le 6000
+\]
+
+---
+
+### (d) Non-negativity
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+## 4. Final linear programming model
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 30x + 40y \\
+\text{subject to} \quad 
+& x + y \le 500 \quad \text{(land)} \\
+& 20x + 15y \le 9000 \quad \text{(fuel)} \\
+& 10x + 15y \le 6000 \quad \text{(waste)} \\
+& x \ge 0,\ y \ge 0
+\end{aligned}
+\]
+
+---
+
+## 5. Solution (by hand analysis)
+
+The waste constraint is quite restrictive. Check the intersection of the fuel and waste constraints:
+
+\[
+\begin{cases}
+20x + 15y = 9000 \\
+10x + 15y = 6000
+\end{cases}
+\]
+
+Subtract the second from the first:
+
+\[
+(20x - 10x) + (15y - 15y) = 9000 - 6000 \\
+10x = 3000 \Rightarrow x = 300
+\]
+
+Substitute into \(10x + 15y = 6000\):
+
+\[
+10(300) + 15y = 6000 \Rightarrow 3000 + 15y = 6000 \Rightarrow 15y = 3000 \Rightarrow y = 200
+\]
+
+Check land:
+
+\[
+x + y = 300 + 200 = 500 \le 500 \quad \text{(exactly uses all land)}
+\]
+
+Objective value:
+
+\[
+Z = 30(300) + 40(200) = 9000 + 8000 = 17000 \text{ kg}
+\]
+
+This point \((x, y) = (300, 200)\) is feasible and uses all three resource limits (land, fuel, waste). Checking corner points would confirm it is optimal for this LP.
+
+**Answer:**  
+- Use the traditional machine on **300 acres**.  
+- Use the modern machine on **200 acres**.  
+This maximizes tea leaves picked at **17,000 kg**.
+
+---
+
+## 6. Suitable Python libraries
+
+To solve this model programmatically in Python, you can use any standard linear programming library, for example:
+
+- `PuLP` – very straightforward for small LPs, works well with CBC solver.
+- `OR-Tools` (`ortools.linear_solver`) – Google’s optimization suite; supports LP and MILP.
+- `scipy.optimize.linprog` – suitable for continuous LPs (no integer restrictions).
+- `Pyomo` – more general optimization modeling language in Python.
+
+For this problem, `PuLP` or `scipy.optimize.linprog` are both very easy to use.
+
+Example with PuLP (outline):
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("TeaHarvest", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('x', lowBound=0)  # traditional acres
+y = pl.LpVariable('y', lowBound=0)  # modern acres
+
+# Objective
+prob += 30*x + 40*y
+
+# Constraints
+prob += x + y <= 500          # land
+prob += 20*x + 15*y <= 9000   # fuel
+prob += 10*x + 15*y <= 6000   # waste
+
+# Solve
+prob.solve()
+print("x =", x.value(), "y =", y.value())
+```
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("TeaHarvest", pl.LpMaximize)
+
+    # Decision variables: acres for traditional (x) and modern (y) machines
+    x = pl.LpVariable('x', lowBound=0)
+    y = pl.LpVariable('y', lowBound=0)
+
+    # Objective: maximize total tea leaves (kg)
+    prob += 30 * x + 40 * y
+
+    # Constraints
+    prob += x + y <= 500          # Land constraint
+    prob += 20 * x + 15 * y <= 9000  # Fuel constraint
+    prob += 10 * x + 15 * y <= 6000  # Waste constraint
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print detailed solution (optional)
+    print(f"x (traditional acres) = {x.value()}")
+    print(f"y (modern acres) = {y.value()}")
+    print(f"Total tea leaves (kg) = {final_obj}")
+
+    # Required final line
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

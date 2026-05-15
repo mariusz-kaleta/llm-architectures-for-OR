@@ -1,0 +1,164 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Minimise the total number of light changes over a decade.
+
+2. Suggested model type
+- Model: Mixed-Integer Linear Program (MILP). The problem is linear with small integer decision variables (counts of fixtures), so a MILP solver or simple integer enumeration is appropriate.
+
+3. Main decision variables
+- L = number of LED fixtures to install (integer, ≥ 0).
+- F = number of fluorescent fixtures to install (integer, ≥ 0).
+(Optionally define N = total fixtures = L + F for convenience.)
+
+4. Objective (description for modeller)
+- Minimise total changes over a decade = (changes per LED) * L + (changes per fluorescent) * F.
+  - LED changes = 3 per decade.
+  - Fluorescent changes = 4 per decade.
+  So objective is to minimise 3*L + 4*F (express as a linear objective).
+
+5. Key constraints to include
+- Minimum total fixtures: L + F ≥ 300 (customer requirement).
+- Electricity use limit: 5*L + 8*F ≤ 2000 (electricity units per hour cap).
+- Minimum fluorescence share: F ≥ 0.30*(L + F) (at least 30% of implemented lights must be fluorescence).
+- Integrality and non-negativity: L, F are integer and ≥ 0.
+- Practical variable bounds (useful for solver efficiency):
+  - L ≤ floor(2000/5) = 400 (electricity cap alone).
+  - F ≤ floor(2000/8) = 250.
+
+6. Feasibility check and modelling hints
+- Check feasibility before solving: ensure there exists (L,F) satisfying all constraints. For the minimum total of 300 fixtures, the minimum allowed fluorescents are 0.30*300 = 90; check electricity with that mix.
+- Since objective coefficients are positive, the solver will prefer fewer total fixtures; therefore the minimum total fixtures constraint will bind (choose N = 300) unless electricity/proportion constraints force a higher N. You can therefore first fix N = 300 and solve for L and F to simplify (still keep integrality).
+- Because LEDs have lower change rate and lower electricity use, the objective will push to maximize L subject to the fluorescence proportion and electricity cap. Expect an optimal solution at the minimum allowed F (from the 30% rule) provided the electricity cap is not violated by that choice.
+
+7. Solution method recommendation
+- Use an MILP solver (CBC, Gurobi, CPLEX, GLPK) to get an exact integer solution. For this 2-variable problem, an explicit analytical check or simple enumeration over feasible integer F values is also trivial and quick.
+- Return optimal counts (L, F), objective value (total changes per decade), and verify constraints.
+
+8. Output to report
+- Optimal L and F (integer counts).
+- Total fixtures N.
+- Total electricity consumption (5L + 8F).
+- Total number of changes over a decade (3L + 4F).
+- Confirmation that proportion and other constraints are satisfied.
+
+Notes/Extensions (optional)
+- If you later want to trade off number of changes versus energy cost or purchase cost, extend the objective to a weighted sum of changes and energy or life-cycle cost.
+- If decimals of fixtures are allowed (unlikely), relax integrality to obtain an LP solution first, then round carefully and re-check constraints.
+
+---
+
+[MODELER]:
+Below I (1) give a formal mathematical model (variables, objective, constraints), (2) show a short analytic simplification that yields the optimal integer solution, (3) give the numeric solution and constraint checks, and (4) recommend solver libraries and a short example using PuLP.
+
+1) Formal model
+- Decision variables
+  - L ∈ Z≥0 : number of LED fixtures
+  - F ∈ Z≥0 : number of fluorescent fixtures
+  - optionally N = L + F (total fixtures)
+
+- Objective
+  Minimize total light-changes per decade:
+  minimize Z = 3L + 4F
+
+- Constraints
+  1. Minimum total fixtures: L + F ≥ 300
+  2. Electricity cap: 5L + 8F ≤ 2000
+  3. Fluorescent share ≥ 30%: F ≥ 0.30 (L + F)
+     (equivalently 0.7F ≥ 0.3L  or  F ≥ (3/7) L  or L ≤ (7/3)F)
+  4. Integrality and non-negativity: L, F ∈ Z≥0
+
+- Practical bounds (solver efficiency, optional)
+  - L ≤ floor(2000/5) = 400
+  - F ≤ floor(2000/8) = 250
+
+2) Analytic simplification (quick reasoning)
+Let N = L + F. Then objective Z = 3L + 4F = 3(L + F) + F = 3N + F.
+- Because coefficients are positive, minimizing Z first favors the smallest feasible N (N ≥ 300), so N = 300 unless other constraints force N larger.
+- For fixed N, Z = 3N + F, so with N fixed we minimize F subject to F ≥ 0.30 N. Thus choose F = ceil(0.30 N).
+- For N = 300: F_min = ceil(0.30·300) = 90 and L = 210. Check electricity: 5·210 + 8·90 = 1770 ≤ 2000. So this choice is feasible.
+- Increasing N increases 3N and increases the minimal F (0.3N), so Z grows. Therefore N = 300 with minimal F is optimal.
+
+3) Optimal solution and checks
+- Optimal counts: L = 210 (LED), F = 90 (fluorescent)
+- Total fixtures N = 300
+- Electricity consumption: 5·210 + 8·90 = 1770 units/hour (≤ 2000)
+- Fluorescent share: 90/300 = 30% (meets requirement)
+- Total changes per decade: Z = 3·210 + 4·90 = 990 changes
+
+4) Solver recommendations and example
+- For this tiny MILP you can solve analytically (above) or use any MILP solver:
+  - Python libraries: PuLP (CBC), OR-Tools CP-SAT, scipy.optimize (for LP relaxations), or commercial solvers Gurobi/CPLEX.
+- Example PuLP model (sketch):
+  - Define integer variables L, F
+  - Add constraints: L+F >= 300; 5L+8F <= 2000; F >= 0.3*(L+F)
+  - Minimize 3*L + 4*F
+  - Solve with CBC (default) or another backend
+
+If you want, I can paste a runnable Python script (PuLP or OR-Tools) that builds and solves the MILP and prints L, F, N, electricity, and total changes.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the MILP described:
+# Minimize Z = 3L + 4F
+# subject to:
+#   L + F >= 300
+#   5L + 8F <= 2000
+#   F >= 0.30*(L+F)  <=>  7F >= 3L
+#   L, F integers >= 0
+#
+# Brute-force search over practical bounds L <= 400, F <= 250.
+
+def main():
+    L_bound = 400
+    F_bound = 250
+
+    best_obj = None
+    best_solutions = []
+
+    for F in range(F_bound + 1):
+        # For given F, L must be at least max(0, 300 - F) to meet N>=300
+        L_min = max(0, 300 - F)
+        # and at most L_bound
+        for L in range(L_min, L_bound + 1):
+            # Electricity constraint
+            if 5 * L + 8 * F > 2000:
+                continue
+            # Fluorescent share: 7F >= 3L
+            if 7 * F < 3 * L:
+                continue
+            # All constraints satisfied; compute objective
+            Z = 3 * L + 4 * F
+            if (best_obj is None) or (Z < best_obj):
+                best_obj = Z
+                best_solutions = [(L, F)]
+            elif Z == best_obj:
+                best_solutions.append((L, F))
+
+    if best_obj is None:
+        print("No feasible solution found.")
+        value = None
+    else:
+        # Choose the first best solution for reporting
+        L_opt, F_opt = best_solutions[0]
+        N_opt = L_opt + F_opt
+        electricity = 5 * L_opt + 8 * F_opt
+        fluorescent_share = F_opt / N_opt if N_opt > 0 else 0.0
+
+        print(f"Optimal solutions (may be multiple). Best objective Z = {best_obj}")
+        print("Example optimal solution:")
+        print(f"  L (LED fixtures)        = {L_opt}")
+        print(f"  F (Fluorescent fixtures)= {F_opt}")
+        print(f"  Total fixtures N        = {N_opt}")
+        print(f"  Electricity consumption = {electricity} (<= 2000)")
+        print(f"  Fluorescent share       = {fluorescent_share:.4f} (>= 0.30)")
+        value = best_obj
+
+    # Final required line (must be the last line printed)
+    print(f"FINAL_OBJ: {value}")
+
+if __name__ == "__main__":
+    main()
+```

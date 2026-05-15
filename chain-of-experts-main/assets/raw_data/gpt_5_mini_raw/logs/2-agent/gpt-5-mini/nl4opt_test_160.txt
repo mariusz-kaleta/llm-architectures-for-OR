@@ -1,0 +1,92 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - M ∈ Z≥0 : number of medium factories
+  - S ∈ Z≥0 : number of small factories
+
+- Objective
+  - Minimize total number of factories: minimize Z = M + S
+
+- Constraints
+  1. Production requirement: 50 M + 35 S ≥ 250
+  2. Operator availability: 3 M + 2 S ≤ 16
+  3. Integrality and nonnegativity: M, S ∈ Z≥0
+
+Compact formulation
+  minimize   Z = M + S
+  subject to 50 M + 35 S ≥ 250
+             3 M + 2 S ≤ 16
+             M, S ∈ Z≥0
+
+Solution (analysis)
+- The feasible integer pairs with 0 ≤ M ≤ 5 (from 3M ≤ 16) can be checked quickly.
+- M = 5, S = 0 satisfies 50·5 + 35·0 = 250 and 3·5 + 2·0 = 15 ≤ 16, giving Z = 5.
+- For other feasible integer combinations (for example M=4,S=2; M=3,S=3; M=0,S=8) the total number of factories is ≥ 6.
+Therefore the optimal integer solution is:
+  M = 5 medium factories, S = 0 small factories (minimum total factories = 5).
+
+Recommended solvers / Python libraries
+- pulp (simple LP/MIP modeling with CBC solver): pip install pulp
+- OR-Tools CP-SAT (powerful for integer problems): pip install ortools
+- mip (python-mip, interfaces CBC/Gurobi): pip install mip
+Any of these will solve the small ILP quickly.
+
+Example (pulp)
+  from pulp import LpProblem, LpMinimize, LpVariable, LpInteger, lpSum, value
+
+  prob = LpProblem("factories", LpMinimize)
+  M = LpVariable("M", lowBound=0, cat=LpInteger)
+  S = LpVariable("S", lowBound=0, cat=LpInteger)
+
+  prob += M + S                          # objective
+  prob += 50*M + 35*S >= 250            # production
+  prob += 3*M + 2*S <= 16               # operators
+
+  prob.solve()
+  print("M =", int(M.varValue), "S =", int(S.varValue), "Total =", int(value(prob.objective)))
+
+This will return M = 5, S = 0.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained script to solve the integer problem by enumeration
+
+# Problem data
+prod_req = 250            # 50*M + 35*S >= 250
+coeff_M_prod = 50
+coeff_S_prod = 35
+
+op_limit = 16             # 3*M + 2*S <= 16
+coeff_M_op = 3
+coeff_S_op = 2
+
+# bounds (from operator constraint 3M <= 16 -> M <= 5; 2S <= 16 -> S <= 8)
+M_max = op_limit // coeff_M_op
+S_max = op_limit // coeff_S_op
+
+best_obj = None
+best_solutions = []
+
+for M in range(M_max + 1):
+    for S in range(S_max + 1):
+        if coeff_M_prod * M + coeff_S_prod * S >= prod_req and coeff_M_op * M + coeff_S_op * S <= op_limit:
+            obj = M + S
+            if best_obj is None or obj < best_obj:
+                best_obj = obj
+                best_solutions = [(M, S)]
+            elif obj == best_obj:
+                best_solutions.append((M, S))
+
+# Print one optimal solution (for reference)
+if best_obj is not None:
+    best_M, best_S = best_solutions[0]
+    print(f"Optimal solution found: M = {best_M}, S = {best_S}, Total = {best_obj}")
+else:
+    print("No feasible integer solution found.")
+
+# Final required output line (must be the very last line)
+print(f"FINAL_OBJ: {best_obj}")
+```

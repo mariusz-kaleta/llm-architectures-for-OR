@@ -1,0 +1,153 @@
+[MODELER]:
+Here is a precise optimization model for your problem.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of small wagons (integer, \(x \ge 0\))  
+- \(y\) = number of large wagons (integer, \(y \ge 0\))
+
+---
+
+## 2. Objective
+
+Minimize the total number of wagons:
+
+\[
+\min \; x + y
+\]
+
+---
+
+## 3. Constraints
+
+1. **Ore capacity requirement (must carry at least 2000 units):**
+
+Each small wagon carries 20 units, each large wagon 50 units:
+
+\[
+20x + 50y \ge 2000
+\]
+
+2. **Relative number of wagons (small at least twice large):**
+
+\[
+x \ge 2y
+\]
+
+3. **Minimum number of large wagons (at least 10):**
+
+\[
+y \ge 10
+\]
+
+4. **Integrality and non-negativity:**
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Nature of the model
+
+This is a small **integer linear programming (ILP)** problem:
+
+- Linear objective function.
+- Linear constraints.
+- Integer decision variables.
+
+Because coefficients are small, this is very easy for standard MILP solvers.
+
+---
+
+## 5. Suitable Python libraries
+
+You can solve this model using any standard MILP library, for example:
+
+- **PuLP**  
+  - Simple modeling interface in pure Python.  
+  - Works with CBC (default) or external solvers (GLPK, Gurobi, CPLEX).
+- **OR-Tools (from Google)**  
+  - `ortools.linear_solver` for MILP.  
+  - Efficient and well-maintained.
+- **Pyomo**  
+  - More general modeling framework, supports many solvers.
+
+For this specific size and simplicity, **PuLP** or **OR-Tools** are very convenient choices.
+
+---
+
+## 6. Example in PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Wagon_Problem", pl.LpMinimize)
+
+# Variables
+x = pl.LpVariable('x_small', lowBound=0, cat='Integer')
+y = pl.LpVariable('y_large', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of wagons
+prob += x + y
+
+# Constraints
+prob += 20*x + 50*y >= 2000, "OreRequirement"
+prob += x >= 2*y, "SmallAtLeastTwiceLarge"
+prob += y >= 10, "MinLarge"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Small wagons (x):", x.value())
+print("Large wagons (y):", y.value())
+print("Total wagons:", x.value() + y.value())
+print("Total ore carried:", 20*x.value() + 50*y.value())
+```
+
+This implements exactly the model described above.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def solve_wagon_problem():
+    # Define the problem
+    prob = pl.LpProblem("Wagon_Problem", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('x_small', lowBound=0, cat='Integer')
+    y = pl.LpVariable('y_large', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of wagons
+    prob += x + y
+
+    # Constraints
+    prob += 20 * x + 50 * y >= 2000, "OreRequirement"
+    prob += x >= 2 * y, "SmallAtLeastTwiceLarge"
+    prob += y >= 10, "MinLarge"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    x_val = x.value()
+    y_val = y.value()
+    total_wagons = x_val + y_val
+
+    # For completeness (though not requested), we could ensure feasibility:
+    # assert 20 * x_val + 50 * y_val >= 2000
+    # assert x_val >= 2 * y_val
+    # assert y_val >= 10
+
+    return total_wagons
+
+if __name__ == "__main__":
+    objective_value = solve_wagon_problem()
+    print(f"FINAL_OBJ: {objective_value}")

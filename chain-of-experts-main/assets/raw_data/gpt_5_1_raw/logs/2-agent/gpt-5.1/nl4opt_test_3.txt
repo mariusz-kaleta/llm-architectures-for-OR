@@ -1,0 +1,143 @@
+[MODELER]:
+Here is a clean mathematical model of the problem as an optimization problem, plus notes on how to solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of counter-top machines to buy (integer, \(x \ge 0\))
+- \(y\) = number of fridge-sized machines to buy (integer, \(y \ge 0\))
+
+We assume you can only buy a whole number of machines.
+
+---
+
+## 2. Objective
+
+Minimize the total number of machines:
+
+\[
+\min\; x + y
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Production capacity (ice cream cones)
+
+Each counter-top machine produces 80 cones/day, each fridge-sized machine produces 150 cones/day, and the store must produce at least 1000 cones/day:
+
+\[
+80x + 150y \;\ge\; 1000
+\]
+
+### 3.2 Heat output limit
+
+Each counter-top machine outputs 50 units of heat, each fridge-sized machine outputs 70 units of heat, and the store can output at most 500 units of heat per day:
+
+\[
+50x + 70y \;\le\; 500
+\]
+
+### 3.3 Integrality and nonnegativity
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Full mathematical programming formulation
+
+\[
+\begin{aligned}
+\text{Minimize}\quad & x + y \\
+\text{subject to}\quad
+& 80x + 150y \;\ge\; 1000, \\
+& 50x + 70y \;\le\; 500, \\
+& x, y \in \mathbb{Z}_{\ge 0}.
+\end{aligned}
+\]
+
+---
+
+## 5. Solving this with Python
+
+This is a small **integer linear programming** (ILP) problem. Suitable Python libraries:
+
+- `PuLP` (simple and pure Python, good for teaching and small ILPs)
+- `ortools.linear_solver` from Google OR-Tools (powerful, free)
+- `mip` or `pyomo` (more advanced modeling frameworks)
+
+Here is a minimal PuLP example:
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("IceCreamMachines", pl.LpMinimize)
+
+# Variables
+x = pl.LpVariable("counter_top", lowBound=0, cat="Integer")
+y = pl.LpVariable("fridge_sized", lowBound=0, cat="Integer")
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 80*x + 150*y >= 1000, "ProductionRequirement"
+prob += 50*x + 70*y <= 500, "HeatLimit"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Counter-top machines (x):", x.value())
+print("Fridge-sized machines (y):", y.value())
+print("Total machines:", (x.value() + y.value()))
+```
+
+This will find the combination \((x, y)\) that minimizes the total number of machines while satisfying both production and heat constraints.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("IceCreamMachines", pl.LpMinimize)
+
+    # Variables
+    x = pl.LpVariable("counter_top", lowBound=0, cat="Integer")
+    y = pl.LpVariable("fridge_sized", lowBound=0, cat="Integer")
+
+    # Objective: minimize total number of machines
+    prob += x + y
+
+    # Constraints
+    prob += 80 * x + 150 * y >= 1000, "ProductionRequirement"
+    prob += 50 * x + 70 * y <= 500, "HeatLimit"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    x_val = x.value()
+    y_val = y.value()
+    total_machines = x_val + y_val
+
+    # Print results (intermediate, optional)
+    print("Status:", pl.LpStatus[prob.status])
+    print("Counter-top machines (x):", x_val)
+    print("Fridge-sized machines (y):", y_val)
+    print("Total machines:", total_machines)
+
+    # Final required output
+    print(f"FINAL_OBJ: {total_machines}")
+
+if __name__ == "__main__":
+    main()

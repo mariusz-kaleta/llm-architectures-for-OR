@@ -1,0 +1,130 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Minimise total gelatine used in producing the two vaccine doses.
+
+2) Suggested model type
+- Model: Linear Programming. Require integer (discrete) decision variables because vaccines are whole units, so formulate as a Mixed Integer Linear Program (MILP) or solve by simple arithmetic logic then round if needed.
+
+3) Main decision variables (describe in words)
+- Number of first‑dose vaccines to produce (integer, nonnegative).
+- Number of second‑dose vaccines to produce (integer, nonnegative).
+
+4) Objective description (no formal equation)
+- Minimise total gelatine consumption computed as: gelatine per first dose (20 mg) times number of first doses plus gelatine per second dose (60 mg) times number of second doses.
+
+5) Key constraints to include (described)
+- Antibiotics availability constraint: total antibiotics consumed by both dose types (30 units per first dose and 65 units per second dose) must not exceed 35,000 units available.
+- Precedence constraint: the number of first doses produced must be greater than the number of second doses (interpretation decision: strict ">" versus nonstrict "≥"; if strict, enforce first-dose >= second-dose + 1).
+- Minimum production requirement: at least 40 second‑dose vaccines must be produced.
+- Integrality and nonnegativity: both decision variables are integers and ≥ 0.
+
+6) Solution approach hints for the modeller
+- Observe that second doses consume much more gelatine per unit than first doses, so to minimise gelatine you should make the minimum allowed number of second doses (i.e., 40) and allocate remaining antibiotics to first doses subject to the antibiotics limit and the precedence constraint.
+- Compute the maximal feasible number of first doses given the antibiotics remaining after committing to the minimum second doses, and ensure the precedence constraint is satisfied.
+- Use a simple arithmetic check or an MILP solver to confirm optimality and integrality; if the precedence constraint is strict, verify the final first‑dose count exceeds second‑dose count by at least one.
+
+7) Expected optimal candidate (for quick verification)
+- If second doses are set to the minimum 40, allocate remaining antibiotics to first doses. This yields a candidate solution of 1,080 first doses and 40 second doses (this satisfies precedence and antibiotics limits and minimises gelatine). The modeller should verify feasibility and optimality with the chosen solver and the chosen interpretation of the precedence constraint.
+
+---
+
+[MODELER]:
+Formal model (MILP)
+
+Decision variables
+- x ∈ Z≥0: number of first‑dose vaccines produced.
+- y ∈ Z≥0: number of second‑dose vaccines produced.
+
+Objective
+- Minimise total gelatine (in mg):
+  minimize Z = 20x + 60y
+
+Constraints
+1. Antibiotics availability:
+   30x + 65y ≤ 35000
+2. Precedence (first‑dose must be strictly greater than second‑dose):
+   x ≥ y + 1
+   (If you prefer non‑strict interpretation, use x ≥ y.)
+3. Minimum second doses:
+   y ≥ 40
+4. Integrality and nonnegativity:
+   x, y ∈ Z, x ≥ 0, y ≥ 0
+
+Analysis and closed‑form solution
+- For a fixed y, the antibiotics constraint gives the maximum feasible x:
+  x ≤ (35000 − 65y)/30, so x_max(y) = floor((35000 − 65y)/30).
+- The continuous relaxation (ignore integrality) gives x = (35000 − 65y)/30 and the objective
+  Z(y) = 20*((35000 − 65y)/30) + 60y = 23333.333... + (50/3) y ≈ 23333.33 + 16.6667 y.
+  This is strictly increasing in y, so to minimise Z we should choose the smallest feasible y.
+- The problem requires y ≥ 40, so set y = 40.
+- With y = 40, antibiotics used by seconds = 65*40 = 2600, remaining = 32400.
+  x_max = floor(32400/30) = 1080. Precedence x ≥ y + 1 requires x ≥ 41; 1080 ≥ 41 so feasible.
+- Therefore optimal (and integral) solution is:
+  x* = 1080 (first doses), y* = 40 (second doses).
+- Total gelatine = 20*1080 + 60*40 = 21600 + 2400 = 24000 mg.
+
+Recommended solver libraries
+- For MILP: PuLP (CBC solver), OR‑Tools (CP‑SAT or linear solver), python-mip (CBC/Gurobi), Pyomo (with a backend solver).
+- If you have commercial solvers available: Gurobi or CPLEX via their Python APIs.
+- For this small problem a direct arithmetic calculation suffices; otherwise use PuLP or OR‑Tools.
+
+Optional PuLP example (outline)
+- Define integer variables x, y >= 0.
+- Add constraints 30*x + 65*y <= 35000, x >= y + 1, y >= 40.
+- Minimise 20*x + 60*y and solve with the default CBC solver.
+This will return x = 1080, y = 40.
+
+Notes
+- If the precedence constraint were interpreted non‑strictly (x ≥ y) the same optimal solution remains because y is driven to its minimum 40 and x is maximised by the antibiotics limit.
+- The reasoning above proves optimality because the objective increases with y when antibiotics are used optimally for x.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the MILP described in the prompt.
+
+from math import floor
+
+# Data
+ANTIBIOTICS_LIMIT = 35000
+ANTIBIOTICS_FIRST = 30
+ANTIBIOTICS_SECOND = 65
+GEL_FIRST = 20
+GEL_SECOND = 60
+
+# Bounds for search
+y_min = 40
+y_max = ANTIBIOTICS_LIMIT // ANTIBIOTICS_SECOND  # crude upper bound for y
+
+best_obj = None
+best_x = None
+best_y = None
+
+for y in range(y_min, y_max + 1):
+    # x must satisfy precedence x >= y + 1
+    x_lower = y + 1
+    # antibiotics constraint gives upper bound
+    remaining = ANTIBIOTICS_LIMIT - ANTIBIOTICS_SECOND * y
+    if remaining < 0:
+        continue
+    x_upper = remaining // ANTIBIOTICS_FIRST
+    if x_lower > x_upper:
+        continue
+    # To minimize objective 20*x + 60*y, for fixed y choose smallest feasible x (x_lower)
+    x = x_lower
+    obj = GEL_FIRST * x + GEL_SECOND * y
+    if best_obj is None or obj < best_obj:
+        best_obj = obj
+        best_x = x
+        best_y = y
+
+# As a sanity check, ensure we found a feasible solution
+if best_obj is None:
+    raise RuntimeError("No feasible solution found.")
+
+# (Optional) we could print best_x, best_y but final line must be exactly as required.
+# Final required output:
+print(f"FINAL_OBJ: {best_obj}")
+```

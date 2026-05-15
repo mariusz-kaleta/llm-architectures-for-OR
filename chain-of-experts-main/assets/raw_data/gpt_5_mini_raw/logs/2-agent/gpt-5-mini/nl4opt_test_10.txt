@@ -1,0 +1,72 @@
+[MODELER]:
+Formulation (integer linear program)
+
+Decision variables
+- p ∈ Z≥0 : number of carrier pigeons
+- o ∈ Z≥0 : number of owls
+
+Objective
+- Maximize total letters L = 2p + 5o
+
+Constraints
+1. Treat budget: 3p + 5o ≤ 1000
+2. At most 40% of the birds are owls: o/(p+o) ≤ 0.4, equivalently 0.6 o ≤ 0.4 p which simplifies to o ≤ (2/3) p
+   (and when p+o = 0 this is vacuous; we will have p ≥ 20 anyway)
+3. At least 20 pigeons: p ≥ 20
+4. Integrality and nonnegativity: p, o ∈ Z≥0
+
+Remarks: the owl-fraction constraint can be written as o ≤ floor((2/3) p) when enforcing integrality.
+
+Solution reasoning (short)
+- Owls give 5 letters for 5 treats (1 letter/treat); pigeons give 2 letters for 3 treats (≈0.667 letter/treat). Owls are more treat-efficient, so we want as many owls as allowed by the owl-fraction and treat budget constraints.
+- For each p, the maximum feasible o is o = min( floor((2/3) p), floor((1000 − 3p)/5) ). Checking integer values shows that the global optimum occurs at
+  p = 158 pigeons and o = 105 owls.
+- This uses 3·158 + 5·105 = 474 + 525 = 999 treats (≤1000), respects o ≤ (2/3)p because 105 ≤ (2/3)·158 ≈105.33, and p ≥ 20. Total letters = 2·158 + 5·105 = 316 + 525 = 841.
+
+Answer
+- Use 158 carrier pigeons and 105 owls. This sends 841 letters (using 999 treats) and satisfies all constraints.
+
+Suggested Python libraries to solve this
+- pulp (for integer linear programming, easy to write)
+- OR-Tools CP-SAT (powerful integer solver)
+- scipy.optimize is not suitable for integer constraints directly (use for continuous relaxation only)
+
+Example (pulp) sketch
+- Define integer variables p and o.
+- Maximize 2*p + 5*o subject to 3*p + 5*o <= 1000, o <= (2/3)*p, p >= 20, p,o >= 0 and integer.
+- Solve with pulp.PULP_CBC_CMD() (default solver). The code will return p=158, o=105 and objective 841.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Brute-force integer search for optimal (p, o)
+best_L = -1
+best_p = None
+best_o = None
+
+# p lower bound is 20, upper bound from budget when o=0: 3p <= 1000 -> p <= 333
+for p in range(20, 334):
+    # owl-fraction constraint: o <= floor((2/3) * p)
+    o_max_frac = (2 * p) // 3
+    # budget constraint: 3p + 5o <= 1000 -> o <= floor((1000 - 3p) / 5)
+    remaining_treats = 1000 - 3 * p
+    if remaining_treats < 0:
+        continue
+    o_max_budget = remaining_treats // 5
+    o_max = min(o_max_frac, o_max_budget)
+    if o_max < 0:
+        continue
+    # owls are more efficient, so best o for given p is o_max
+    o = o_max
+    L = 2 * p + 5 * o
+    if L > best_L:
+        best_L = L
+        best_p = p
+        best_o = o
+
+# Optionally verify known solution
+# Expected: p=158, o=105, L=841
+# Print final objective value as required (must be the last printed line)
+print(f"FINAL_OBJ: {best_L}")

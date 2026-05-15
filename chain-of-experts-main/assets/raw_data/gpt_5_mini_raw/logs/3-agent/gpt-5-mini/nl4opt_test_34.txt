@@ -1,0 +1,83 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - c ∈ Z≥0 : number of carts
+  - t ∈ Z≥0 : number of trolleys
+
+- Objective
+  - Minimize total workers W = 2c + 4t
+
+- Constraints
+  1. Capacity requirement: 5c + 7t ≥ 100
+  2. Minimum trolleys: t ≥ 12
+  3. At most 40% of transported weight by trolleys:
+     7t ≤ 0.4(5c + 7t)  ⇔  c ≥ 2.1 t.
+     To keep the model integer-linear, this can be written as 10c ≥ 21 t (equivalent).
+
+- Integrality: c and t must be integers.
+
+Analysis and optimal solution
+
+- Carts require 2 workers for 5 kg/min → 0.4 workers per (kg/min).
+- Trolleys require 4 workers for 7 kg/min → ≈0.5714 workers per (kg/min).
+
+Since carts are strictly more worker-efficient, the solver will use the minimum allowed number of trolleys (t = 12). Then the 40% constraint forces
+c ≥ ceil(2.1 · 12) = ceil(25.2) = 26.
+Check capacity: 5·26 + 7·12 = 130 + 84 = 214 ≥ 100.
+
+Total workers = 2·26 + 4·12 = 52 + 48 = 100.
+
+Therefore the optimal solution is:
+- Use 26 carts and 12 trolleys, requiring 100 workers.
+
+Suggested solvers / Python libraries
+- For a small MILP: PuLP (with CBC), OR-Tools CP-SAT, mip (Python MIP), or Pyomo with a MILP solver.
+- If you wanted to solve the relaxed LP (not necessary here): scipy.optimize.linprog.
+
+Example PuLP formulation (sketch)
+- Define integer variables c, t.
+- Minimize 2*c + 4*t.
+- Add constraints: 5*c + 7*t >= 100; t >= 12; 10*c >= 21*t.
+- Solve with the default CBC solver.
+
+If you want, I can provide the full runnable PuLP or OR-Tools code.
+
+---
+
+[CODER]:
+import math
+
+# Data (from model)
+capacity_needed = 100
+workers_per_cart = 2
+workers_per_trolley = 4
+cap_per_cart = 5
+cap_per_trolley = 7
+
+# Integer linear constraint equivalent: 10*c >= 21*t  (c >= 2.1 t)
+# Minimum trolleys:
+t_min = 12
+
+best_obj = None
+best_c = None
+best_t = None
+
+# Reasonable upper bound for search: t up to 200 (far beyond likely optimum)
+for t in range(t_min, 201):
+    # c must satisfy 10*c >= 21*t  -> c >= ceil(21*t / 10)
+    c_from_ratio = math.ceil(21 * t / 10)
+    # c must satisfy capacity: 5*c + 7*t >= 100 -> c >= ceil((100 - 7*t)/5) if positive
+    remaining = capacity_needed - cap_per_trolley * t
+    c_from_capacity = math.ceil(remaining / cap_per_cart) if remaining > 0 else 0
+    c = max(c_from_ratio, c_from_capacity, 0)
+    # Verify constraints (safety)
+    if (cap_per_cart * c + cap_per_trolley * t) >= capacity_needed and 10 * c >= 21 * t and t >= t_min:
+        obj = workers_per_cart * c + workers_per_trolley * t
+        if best_obj is None or obj < best_obj:
+            best_obj = obj
+            best_c = c
+            best_t = t
+
+# Print final objective value in required format
+print(f"FINAL_OBJ: {best_obj}")

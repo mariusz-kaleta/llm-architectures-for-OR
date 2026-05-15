@@ -1,0 +1,142 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Maximise the total number of gifts delivered.
+
+2. Suggested model type
+- Model: Integer Linear Programming (ILP) / Mixed-Integer Linear Programming (MILP). (Two integer decision variables; linear objective and linear constraints.)
+
+3. Main decision variables (describe, not formal symbols)
+- Number of seasonal volunteers (nonnegative integer).
+- Number of full-time volunteers (nonnegative integer).
+
+4. Key components and constraints to include (described so modeller can implement directly)
+- Points budget: each seasonal volunteer consumes 2 points and each full-time volunteer consumes 5 points; total points used cannot exceed 200.
+- Proportion limit on seasonal volunteers: seasonal volunteers may constitute at most 30% of the total volunteer count. Implement this as a linear constraint (it can be rearranged to a linear inequality relating seasonal and full-time counts).
+- Minimum full-time requirement: at least 10 full-time volunteers must be employed.
+- Nonnegativity and integrality: both volunteer counts must be integer and ≥ 0.
+- Practical upper bounds (useful for solver/bounds): from the points budget, seasonal count cannot exceed 100 and full-time cannot exceed 40; these can be added as explicit bounds to tighten the model.
+
+5. Objective function (description)
+- Maximise total gifts delivered: each seasonal volunteer delivers 5 gifts; each full-time volunteer delivers 8 gifts. The objective is the weighted sum of the two volunteer counts with these gift rates.
+
+6. Numerical/solution notes and recommended solving approach
+- Linearize the 30% constraint as indicated above so the whole model remains linear.
+- Solve as an ILP. Because counts are small and tightly bounded, either a standard MILP solver (CPLEX/Gurobi/GLPK) or a quick brute-force enumeration (loop full-time from its minimum to its upper bound and compute the feasible maximum seasonal for each) will be fast and reliable.
+- Suggested computational workflow:
+  1. Implement the ILP with the variables, objective and constraints listed.
+  2. Solve the LP relaxation to identify candidate active constraints.
+  3. Solve the ILP with a solver or by enumerating feasible full-time counts (10..40) and for each computing the integer feasible seasonal count limited by both the points budget and the 30% rule; pick the combination giving maximum gifts.
+  4. Verify integrality and check sensitivity (what constraints are binding, how many points remain unused).
+
+7. Expected deliverables for the modeller
+- Final recommended counts: number of seasonal and number of full-time volunteers that maximise gifts, and the corresponding total gifts and points used.
+- Indication of which constraints are binding at the optimum.
+- (Optional) A short sensitivity note: how the solution changes if point budget or the 30% cap is relaxed/tightened.
+
+That is the complete modelling plan to implement and solve this optimisation problem.
+
+---
+
+[MODELER]:
+Below I translate the planner text into a precise mathematical ILP, give the linearization needed for the 30% rule, recommend solvers/libraries and a simple exact enumeration method, and report the optimal integer solution.
+
+1) Decision variables
+- s ∈ Z≥0 : number of seasonal volunteers
+- f ∈ Z≥0 : number of full-time volunteers
+
+(You may also add explicit bounds for solver tightening:
+0 ≤ s ≤ 100, 10 ≤ f ≤ 40. The f ≥ 10 bound was given; the 100/40 bounds come from the points budget.)
+
+2) Objective
+Maximise total gifts delivered:
+Maximize Z = 5 s + 8 f
+
+3) Constraints
+- Points budget: 2 s + 5 f ≤ 200
+- At most 30% seasonal (linearized): s ≤ 0.3 (s + f)
+  Linearize to avoid a fractional/implicit constraint:
+    s ≤ 0.3 s + 0.3 f  ⇔  0.7 s ≤ 0.3 f  ⇔  7 s ≤ 3 f
+  So use: 7 s − 3 f ≤ 0
+- Minimum full-time: f ≥ 10
+- Integrality/nonnegativity: s, f ∈ Z, s ≥ 0, f ≥ 0
+- Optional practical bounds (tighten search): s ≤ 100, f ≤ 40
+
+4) Full formal ILP
+Maximize Z = 5 s + 8 f
+subject to
+  2 s + 5 f ≤ 200
+  7 s − 3 f ≤ 0
+  f ≥ 10
+  0 ≤ s ≤ 100, 10 ≤ f ≤ 40
+  s, f integer
+
+5) Recommended solvers / Python libraries
+- For ILP: pulp (GLPK/COIN-OR), OR-Tools (CBC or SCIP), or commercial solvers Gurobi / CPLEX if available.
+- For small-scale exact search: plain Python enumeration is trivial and faster to code.
+- For analysis of LP relaxation: scipy.optimize.linprog or pulp without integrality.
+
+6) Fast exact solution method (enumeration)
+Because f is constrained to a small integer range (10..40) you can enumerate f and for each compute the maximum feasible integer s:
+- s_max_proportion = floor( (3/7) · f )  (from 7 s ≤ 3 f)
+- s_max_points = floor( (200 − 5 f) / 2 )  (from points budget)
+- s_feasible = min(s_max_proportion, s_max_points, 100)  (and ≥ 0)
+Compute Z = 5 s_feasible + 8 f and pick f giving maximum Z.
+
+7) Numerical solution (exact)
+Running the enumeration (or an ILP solver) gives the optimal integer solution:
+- Seasonal volunteers s* = 14
+- Full-time volunteers f* = 34
+- Total gifts delivered Z* = 5·14 + 8·34 = 70 + 272 = 342
+- Points used = 2·14 + 5·34 = 28 + 170 = 198 (2 points unused)
+
+8) Binding / slack at optimum
+- 2 s + 5 f ≤ 200 : slack = 200 − 198 = 2 (not exactly binding)
+- 7 s − 3 f ≤ 0 : left side = 7·14 − 3·34 = 98 − 102 = −4 (slack 4) (not binding)
+- f ≥ 10 : slack (34 − 10) = 24 (not binding)
+So none of the listed constraints are exactly tight at the integer optimum; the solution is the best lattice point in the feasible region (continuous optimum is at the intersection of the 2s+5f and 7s−3f lines, but that point is non-integer: f ≈ 34.146, s ≈ 14.634).
+
+9) Quick sensitivity notes
+- Because seasonal volunteers deliver more gifts per point (2.5 gifts/point) than full-time volunteers (1.6 gifts/point), the model tries to use as many seasonals as allowed by the 30% rule. Increasing the points budget will sometimes increase total gifts, but you also need sufficient f to allow more s (since the seasonal cap is proportional to f). For example, to increase s from 14 to 15 you need enough f so 7·15 ≤ 3 f ⇒ f ≥ 35, and then points would need to support that extra staff. So small increases in point budget alone do not always change the optimal s unless proportion constraints or f change accordingly.
+- Relaxing the 30% cap (increasing the 0.3 factor) will allow more seasonals and, because they are more efficient in gifts/point, will increase total gifts until the points budget becomes the only limiting factor.
+
+10) How to implement quickly in Python
+- Enumeration: simple loop f = 10..40 computing s_feasible as above.
+- ILP: use pulp.LpProblem with LpInteger variables for s,f, add the linear constraints including 7*s <= 3*f, and solve with pulp.PULP_CBC_CMD() or another solver.
+
+If you want, I can provide a short ready-to-run Python snippet: either the brute-force enumerator or a pulp ILP model. Which would you prefer?
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data / bounds
+POINTS_BUDGET = 200
+MIN_F = 10
+MAX_F = 40
+MAX_S = 100
+
+best_obj = None
+best_s = None
+best_f = None
+
+for f in range(MIN_F, MAX_F + 1):
+    # From 7*s <= 3*f  -> s <= floor(3*f / 7)
+    s_max_proportion = (3 * f) // 7
+    # From 2*s + 5*f <= 200 -> s <= floor((200 - 5*f) / 2)
+    s_max_points = (POINTS_BUDGET - 5 * f) // 2
+    s_candidate = min(s_max_proportion, s_max_points, MAX_S)
+    if s_candidate < 0:
+        continue
+    s = s_candidate
+    obj = 5 * s + 8 * f
+    if (best_obj is None) or (obj > best_obj):
+        best_obj = obj
+        best_s = s
+        best_f = f
+
+# Final objective value (required output line)
+print(f"FINAL_OBJ: {int(best_obj)}")
+```

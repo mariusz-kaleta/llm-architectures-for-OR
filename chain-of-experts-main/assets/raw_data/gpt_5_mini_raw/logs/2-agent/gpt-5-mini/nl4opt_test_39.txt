@@ -1,0 +1,221 @@
+[MODELER]:
+Step 1 — define decision variables
+- x = gallons of chocolate ice cream produced in the week
+- y = gallons of vanilla ice cream produced in the week
+
+Both x and y are continuous and nonnegative.
+
+Step 2 — objective
+Maximise weekly profit:
+Maximise Z = 200 x + 300 y
+
+Step 3 — constraints
+From the problem text we get the following linear constraints:
+
+1. Minimum production requirements
+- x >= 5
+- y >= 5
+
+2. Maximum production capacities
+- x <= 10
+- y <= 8
+
+3. Production time (resource) constraint
+- 1 hour per gallon chocolate and 2 hours per gallon vanilla, with 30 hours available:
+- x + 2 y <= 30
+
+Note about the worker sentence: "In addition at least 6 workers are needed with 1 working on the chocolate ice cream and 2 on the vanilla ice cream at any time." This phrase is ambiguous as stated (it either states a staffing requirement that is not an upper bound, or it was intended to limit available workers). Under the natural reading that it is a staffing requirement (i.e. you must have at least 6 workers on staff, including at least one assigned to chocolate and two to vanilla), it does not impose an additional algebraic bound on x and y beyond those already listed. If instead the problem intended a limit on available workers (e.g. at most 6 workers available and each gallon requires a certain number of workers simultaneously) the modelling would change — please tell me if you intended a different interpretation and I will update the model.
+
+Step 4 — full LP
+Maximise Z = 200 x + 300 y
+subject to:
+- x + 2 y <= 30
+- 5 <= x <= 10
+- 5 <= y <= 8
+- x, y >= 0
+
+Step 5 — solution (analysis)
+Because this is a small LP, examine feasible corners. Profit per hour: chocolate gives $200 per hour (200/1) and vanilla gives $150 per hour (300/2). Chocolate is more profitable per hour, so you want as much chocolate as allowed while respecting other constraints.
+
+Check upper bounds: x = 10 and y = 8 is feasible because 10 + 2*8 = 26 <= 30 and satisfies all bounds. Profit at (x,y) = (10,8) is
+Z = 200*10 + 300*8 = 2000 + 2400 = $4,400.
+
+No other feasible corner yields a higher profit, so the optimal production plan is:
+- Produce 10 gallons of chocolate
+- Produce 8 gallons of vanilla
+with maximum weekly profit $4,400.
+
+Step 6 — recommended solvers / libraries
+You can solve this LP with any standard LP solver. Python options:
+- pulp (simple, pure Python LP modeling, interfaces CBC by default)
+- scipy.optimize.linprog (good for small LPs)
+- OR-Tools (Google's solver; fast, supports LP/MIP)
+- CVXOPT or Pyomo (for larger/more complex models)
+
+Example (pulp) code snippet
+(If you want, I can provide runnable code; tell me which solver you prefer and I’ll include it.)
+
+If you intended a different interpretation of the worker constraint (for example an upper bound on available workers that couples with production), tell me the intended meaning and I will update the mathematical model and re-solve.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the LP described in the prompt.
+# Decision variables:
+#  x = gallons of chocolate (continuous)
+#  y = gallons of vanilla (continuous)
+#
+# Maximize Z = 200 x + 300 y
+# subject to:
+#   x + 2 y <= 30
+#   5 <= x <= 10
+#   5 <= y <= 8
+
+import math
+
+# Define bounds and resource
+x_min, x_max = 5.0, 10.0
+y_min, y_max = 5.0, 8.0
+# resource: x + 2y <= 30
+resource_a, resource_b, resource_c = 1.0, 2.0, 30.0
+
+tol = 1e-9
+
+# Define constraint equations to consider for intersections:
+# Represented as tuples: ('x', value) or ('y', value) or ('lin', a, b, c) for a*x + b*y = c
+equations = [
+    ('x', x_min),
+    ('x', x_max),
+    ('y', y_min),
+    ('y', y_max),
+    ('lin', resource_a, resource_b, resource_c),
+]
+
+# Function to solve intersection of two equations
+def intersect(eq1, eq2):
+    # returns (x,y) or None if no unique intersection
+    if eq1[0] == 'x' and eq2[0] == 'y':
+        return (float(eq1[1]), float(eq2[1]))
+    if eq1[0] == 'y' and eq2[0] == 'x':
+        return (float(eq2[1]), float(eq1[1]))
+    if eq1[0] == 'x' and eq2[0] == 'x':
+        # x = val1 and x = val2 -> if equal, infinite; else none
+        if abs(eq1[1] - eq2[1]) < tol:
+            return (float(eq1[1]), None)  # degenerate
+        return None
+    if eq1[0] == 'y' and eq2[0] == 'y':
+        if abs(eq1[1] - eq2[1]) < tol:
+            return (None, float(eq1[1]))
+        return None
+    if eq1[0] == 'lin' and eq2[0] == 'lin':
+        # Solve 2x2 linear system:
+        a1, b1, c1 = eq1[1], eq1[2], eq1[3]
+        a2, b2, c2 = eq2[1], eq2[2], eq2[3]
+        det = a1*b2 - a2*b1
+        if abs(det) < tol:
+            return None
+        x = (c1*b2 - c2*b1)/det
+        y = (a1*c2 - a2*c1)/det
+        return (x, y)
+    # one lin and one var
+    if eq1[0] == 'lin' and eq2[0] == 'x':
+        a, b, c = eq1[1], eq1[2], eq1[3]
+        x = float(eq2[1])
+        if abs(b) < tol:
+            # then a*x = c must hold, else no intersection or infinite
+            if abs(a*x - c) < tol:
+                return (x, None)
+            return None
+        y = (c - a*x)/b
+        return (x, y)
+    if eq1[0] == 'lin' and eq2[0] == 'y':
+        a, b, c = eq1[1], eq1[2], eq1[3]
+        y = float(eq2[1])
+        if abs(a) < tol:
+            if abs(b*y - c) < tol:
+                return (None, y)
+            return None
+        x = (c - b*y)/a
+        return (x, y)
+    if eq1[0] == 'x' and eq2[0] == 'lin':
+        return intersect(eq2, eq1)
+    if eq1[0] == 'y' and eq2[0] == 'lin':
+        return intersect(eq2, eq1)
+    return None
+
+# Collect candidate corner points from intersections
+candidates = []
+
+# Add rectangle corners explicitly
+candidates.append((x_min, y_min))
+candidates.append((x_min, y_max))
+candidates.append((x_max, y_min))
+candidates.append((x_max, y_max))
+
+# Add intersections of every pair of equations
+n = len(equations)
+for i in range(n):
+    for j in range(i+1, n):
+        pt = intersect(equations[i], equations[j])
+        if pt is None:
+            continue
+        x, y = pt
+        # If one coordinate is None (degenerate infinite), skip
+        if x is None or y is None:
+            continue
+        candidates.append((float(x), float(y)))
+
+# Filter feasible candidates: must satisfy bounds and resource constraint (<=)
+feasible = []
+for (x, y) in candidates:
+    # check bounds with tolerance
+    if x + tol < x_min or x - tol > x_max:
+        continue
+    if y + tol < y_min or y - tol > y_max:
+        continue
+    if (x + 2.0*y) - resource_c > tol:
+        continue
+    feasible.append((x, y))
+
+# Remove duplicates (within tol)
+unique_feasible = []
+for (x,y) in feasible:
+    found = False
+    for (ux,uy) in unique_feasible:
+        if abs(x-ux) < 1e-7 and abs(y-uy) < 1e-7:
+            found = True
+            break
+    if not found:
+        unique_feasible.append((x,y))
+
+# Evaluate objective Z = 200 x + 300 y and find maximum
+best = None
+best_pt = None
+for (x,y) in unique_feasible:
+    z = 200.0*x + 300.0*y
+    if (best is None) or (z > best + 1e-9):
+        best = z
+        best_pt = (x, y)
+
+# Prepare output
+if best is None:
+    # No feasible solution found (should not happen with given data)
+    x_opt = None
+    y_opt = None
+    obj_opt = float('nan')
+else:
+    x_opt, y_opt = best_pt
+    obj_opt = best
+
+# For neatness, if objective is effectively integer, convert to int
+if obj_opt is not None and not math.isnan(obj_opt) and abs(round(obj_opt) - obj_opt) < 1e-7:
+    obj_print = int(round(obj_opt))
+else:
+    obj_print = float(obj_opt)
+
+# Print summary (optional) then final required line
+print(f"Optimal solution found: x = {x_opt}, y = {y_opt}, Z = {obj_print}")
+print(f"FINAL_OBJ: {obj_print}")
+```

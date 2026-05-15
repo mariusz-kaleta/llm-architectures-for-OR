@@ -1,0 +1,145 @@
+[MODELER]:
+Here is a clear mathematical model of the problem.
+
+We want to decide how many **retail stores** and **factory outlets** to open so that:
+- daily customers ≥ 1200  
+- total employees used ≤ 50  
+- the **number of stores opened is minimized**
+
+---
+
+## Decision variables
+
+Let  
+- \( x \) = number of retail stores to open (integer, \( x \ge 0 \))  
+- \( y \) = number of factory outlet stores to open (integer, \( y \ge 0 \))
+
+---
+
+## Parameters
+
+- Each retail store:
+  - brings in 200 customers/day  
+  - uses 6 employees  
+
+- Each factory outlet:
+  - brings in 80 customers/day  
+  - uses 4 employees  
+
+- Required minimum customers: 1200 per day  
+- Maximum employees available: 50  
+
+---
+
+## Objective
+
+Minimize the total number of stores:
+\[
+\min \; Z = x + y
+\]
+
+---
+
+## Constraints
+
+1. **Customer requirement (at least 1200 per day):**
+   \[
+   200x + 80y \ge 1200
+   \]
+
+2. **Employee availability (no more than 50 employees):**
+   \[
+   6x + 4y \le 50
+   \]
+
+3. **Non-negativity and integrality:**
+   \[
+   x \ge 0,\quad y \ge 0,\quad x,y \in \mathbb{Z}
+   \]
+
+This is a **mixed-integer linear programming (MILP)** problem (actually pure integer linear programming).
+
+---
+
+## Solving the model in Python
+
+You can use any standard MILP solver. Good choices:
+
+- `PuLP` (easy to use, pure Python; can use CBC solver)
+- `ortools.linear_solver` from Google OR-Tools  
+- `pymprog` or `mip` (Python-MIP)
+- `scipy.optimize` is less suited here because it doesn’t handle integer constraints directly.
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Store_Planning", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('retail_stores', lowBound=0, cat='Integer')
+y = pl.LpVariable('factory_outlets', lowBound=0, cat='Integer')
+
+# Objective
+prob += x + y, "Minimize_number_of_stores"
+
+# Constraints
+prob += 200*x + 80*y >= 1200, "Customer_requirement"
+prob += 6*x + 4*y <= 50,      "Employee_limit"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Retail stores (x):", x.value())
+print("Factory outlets (y):", y.value())
+print("Total stores:", x.value() + y.value())
+print("Total customers:", 200*x.value() + 80*y.value())
+print("Total employees:", 6*x.value() + 4*y.value())
+```
+
+This will give you the optimal distribution of retail stores and factory outlets that minimizes the number of stores while satisfying customer and employee constraints.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Problem definition
+    prob = pl.LpProblem("Store_Planning", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('retail_stores', lowBound=0, cat='Integer')
+    y = pl.LpVariable('factory_outlets', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of stores
+    prob += x + y, "Minimize_number_of_stores"
+
+    # Constraints
+    prob += 200 * x + 80 * y >= 1200, "Customer_requirement"
+    prob += 6 * x + 4 * y <= 50, "Employee_limit"
+
+    # Solve using CBC
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get solution values
+    x_val = pl.value(x)
+    y_val = pl.value(y)
+    total_stores = x_val + y_val
+
+    # (Optional) Print detailed results
+    print("Status:", pl.LpStatus[prob.status])
+    print("Retail stores (x):", x_val)
+    print("Factory outlets (y):", y_val)
+    print("Total stores:", total_stores)
+    print("Total customers:", 200 * x_val + 80 * y_val)
+    print("Total employees:", 6 * x_val + 4 * y_val)
+
+    # Final required output
+    print(f"FINAL_OBJ: {total_stores}")
+
+if __name__ == "__main__":
+    main()

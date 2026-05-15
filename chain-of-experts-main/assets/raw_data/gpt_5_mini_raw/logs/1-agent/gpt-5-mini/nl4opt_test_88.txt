@@ -1,0 +1,33 @@
+[MONOLITH]:
+import pulp
+
+# Define the LP problem (minimize total probes)
+prob = pulp.LpProblem("Minimize_Probes", pulp.LpMinimize)
+
+# Decision variables
+# S = number of salinity tests (integer)
+# P = number of pH tests (integer)
+S = pulp.LpVariable('S', lowBound=0, cat='Integer')
+P = pulp.LpVariable('P', lowBound=0, cat='Integer')
+
+# Objective: minimize total probes (3 per salinity, 2 per pH)
+prob += 3 * S + 2 * P
+
+# Constraints (from the problem statement)
+prob += P >= 250                # at least 250 pH tests
+prob += S + P >= 400            # at least 400 tests in total
+prob += 2 * P <= 3 * S          # P <= 1.5 * S  (avoid float coefficients)
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract solution
+S_val = int(pulp.value(S))
+P_val = int(pulp.value(P))
+value = pulp.value(prob.objective)
+
+# Print results
+print(f"Salinity tests (S): {S_val}")
+print(f"pH tests (P): {P_val}")
+print(f"Total probes used: {int(value)}")
+print(f"FINAL_OBJ: {value}")

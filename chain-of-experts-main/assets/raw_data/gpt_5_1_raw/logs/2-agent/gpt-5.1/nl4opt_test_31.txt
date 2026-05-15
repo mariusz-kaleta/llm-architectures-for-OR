@@ -1,0 +1,178 @@
+[MODELER]:
+Formulate this as a linear programming (LP) problem.
+
+### Decision variables
+Let  
+- \(x \ge 0\): number of times we use the **catalyst** process  
+- \(y \ge 0\): number of times we use the **non‑catalyst** process  
+
+(You can also think of \(x\) and \(y\) as “batches” or “runs” of each process.)
+
+### Objective
+Maximize total carbon dioxide produced.
+
+- Catalyst process: 15 units CO₂ per run  
+- Non‑catalyst process: 18 units CO₂ per run  
+
+Objective function:
+\[
+\max Z = 15x + 18y
+\]
+
+### Constraints
+
+**Wood constraint**
+
+- Catalyst: 10 units wood per run  
+- Non‑catalyst: 15 units wood per run  
+- Available wood: 300 units  
+
+\[
+10x + 15y \le 300
+\]
+
+**Oxygen constraint**
+
+- Catalyst: 20 units oxygen per run  
+- Non‑catalyst: 12 units oxygen per run  
+- Available oxygen: 300 units  
+
+\[
+20x + 12y \le 300
+\]
+
+**Non-negativity**
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+### Solve the LP analytically
+
+1. Wood:  
+   \[
+   10x + 15y \le 300 \Rightarrow 2x + 3y \le 60
+   \]
+
+2. Oxygen:  
+   \[
+   20x + 12y \le 300 \Rightarrow 5x + 3y \le 75
+   \]
+
+Check corner points of the feasible region:
+
+1. **Intersection with axes**
+
+   - If \(x = 0\):  
+     From wood: \(3y \le 60 \Rightarrow y \le 20\)  
+     From oxygen: \(3y \le 75 \Rightarrow y \le 25\)  
+     So \(y \le 20\).  
+     Point: \((0, 20)\), objective: \(Z = 15(0) + 18(20) = 360\).
+
+   - If \(y = 0\):  
+     From wood: \(2x \le 60 \Rightarrow x \le 30\)  
+     From oxygen: \(5x \le 75 \Rightarrow x \le 15\)  
+     So \(x \le 15\).  
+     Point: \((15, 0)\), objective: \(Z = 15(15) + 18(0) = 225\).
+
+2. **Intersection of the two constraints**
+
+   Solve:
+   \[
+   \begin{cases}
+   2x + 3y = 60 \\
+   5x + 3y = 75
+   \end{cases}
+   \]
+
+   Subtract first from second:
+
+   \[
+   (5x + 3y) - (2x + 3y) = 75 - 60 \Rightarrow 3x = 15 \Rightarrow x = 5
+   \]
+
+   Substitute into \(2x + 3y = 60\):
+
+   \[
+   2(5) + 3y = 60 \Rightarrow 10 + 3y = 60 \Rightarrow 3y = 50 \Rightarrow y = \frac{50}{3} \approx 16.67
+   \]
+
+   Objective at \((x,y) = (5, 50/3)\):
+
+   \[
+   Z = 15(5) + 18\left(\frac{50}{3}\right)
+     = 75 + 18 \cdot \frac{50}{3}
+     = 75 + 6 \cdot 50
+     = 75 + 300
+     = 375
+   \]
+
+Compare objective values:
+
+- \((0, 20)\): \(Z = 360\)
+- \((15, 0)\): \(Z = 225\)
+- \((5, 50/3)\): \(Z = 375\) (largest)
+
+So the LP optimum is:
+
+- \(x^* = 5\) runs with catalyst  
+- \(y^* = \frac{50}{3} \approx 16.67\) runs without catalyst  
+- Maximum CO₂: \(Z^* = 375\) units  
+
+If you **must** have integer numbers of runs, you’d add integer constraints \(x, y \in \mathbb{Z}_{\ge 0}\) and then solve an integer program; the best integer solutions near \((5, 16.67)\) can be checked or found with a MILP solver.
+
+### Summary of the mathematical model
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 15x + 18y \\
+\text{subject to} \quad 
+& 10x + 15y \le 300 \quad \text{(wood)}\\
+& 20x + 12y \le 300 \quad \text{(oxygen)}\\
+& x \ge 0, \; y \ge 0
+\end{aligned}
+\]
+
+Optimal continuous solution: \(x = 5, y = 50/3\), producing \(375\) units of CO₂.
+
+### Python libraries suitable for solving this
+
+For this LP (and variants):
+
+- `PuLP` – simple interface for linear and integer programming.
+- `scipy.optimize.linprog` – good for continuous linear programs.
+- `OR-Tools` (`ortools.linear_solver`) – powerful LP/MIP solver.
+- `Pyomo` – more general algebraic modeling language for optimization.
+
+Any of these can model and solve the above LP efficiently.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+# Define the LP problem: maximize Z
+problem = pulp.LpProblem("CO2_Production", pulp.LpMaximize)
+
+# Decision variables: x, y >= 0
+x = pulp.LpVariable('x', lowBound=0, cat='Continuous')
+y = pulp.LpVariable('y', lowBound=0, cat='Continuous')
+
+# Objective function: 15x + 18y
+problem += 15 * x + 18 * y, "Total_CO2"
+
+# Constraints
+# Wood: 10x + 15y <= 300
+problem += 10 * x + 15 * y <= 300, "Wood"
+
+# Oxygen: 20x + 12y <= 300
+problem += 20 * x + 12 * y <= 300, "Oxygen"
+
+# Solve the problem
+problem.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Get the optimal objective value
+final_obj = pulp.value(problem.objective)
+
+# Print final objective value in required format
+print(f"FINAL_OBJ: {final_obj}")

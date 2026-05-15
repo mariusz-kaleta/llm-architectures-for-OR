@@ -1,0 +1,117 @@
+[MODELER]:
+Below I convert the text into a clear mathematical optimization model, show how to solve it, and give the optimal solution.
+
+Decision variables
+- c = number of circular tables (nonnegative integer)
+- r = number of rectangular tables (nonnegative integer)
+
+Objective
+- Maximise the number of guests catered:
+  maximize G = 8c + 12r
+
+Constraints
+- Participants capacity: 5c + 4r >= 500
+- Poster boards capacity: 4c + 4r >= 300  (equivalently c + r >= 75)
+- Space available: 15c + 20r <= 1900
+- Integrality and nonnegativity: c, r ∈ Z_{\ge 0}
+
+(Observation: the participants constraint implies c + r >= 100 in any feasible solution, so the poster-boards constraint c + r >= 75 is redundant — participants requirement is the stronger requirement.)
+
+Continuous relaxation (linear program) analysis
+- Convert poster constraint to redundant form and work with:
+    5c + 4r >= 500
+    3c + 4r <= 380  (space divided by 5)
+- The LP optimum occurs where the participants constraint and the space constraint both bind:
+    Solve 5c + 4r = 500 and 3c + 4r = 380
+    ⇒ subtract: 2c = 120 ⇒ c = 60, then r = 50.
+- This point (c=60, r=50) is integer and feasible, so it is also optimal for the integer problem.
+
+Optimal solution
+- c = 60 circular tables
+- r = 50 rectangular tables
+- Guests catered = 8*60 + 12*50 = 1080
+- Space used = 15*60 + 20*50 = 1900 (uses all available space)
+- Participants capacity = 5*60 + 4*50 = 500 (meets requirement exactly)
+- Poster boards = 4*(60+50) = 440 ≥ 300
+
+Recommended solver libraries
+- For a small integer linear program like this:
+  - PuLP (with CBC, default) — easy to model and solve in pure Python
+  - OR-Tools CP-SAT or linear solver — robust, fast for integer problems
+  - Pyomo (with a suitable MILP solver like CBC, CPLEX, Gurobi) — more heavy-weight modeling
+- If you only need the LP relaxation, scipy.optimize.linprog or CVXPY can be used (not for integer constraints).
+
+If you want, I can provide a short PuLP or OR-Tools Python script that models and solves this exact problem.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the table allocation integer program.
+# Maximises G = 8c + 12r
+# subject to:
+#   5c + 4r >= 500
+#   4c + 4r >= 300  (redundant)
+#   15c + 20r <= 1900
+#   c, r integer >= 0
+#
+# At the end prints the final objective value in the exact required format:
+# print(f"FINAL_OBJ: {value}")
+
+from math import floor
+
+# Try using PuLP if available; otherwise fall back to brute-force enumeration.
+try:
+    import pulp
+
+    # Define problem
+    prob = pulp.LpProblem("Tables", pulp.LpMaximize)
+
+    # Decision variables
+    c = pulp.LpVariable("c", lowBound=0, cat=pulp.LpInteger)
+    r = pulp.LpVariable("r", lowBound=0, cat=pulp.LpInteger)
+
+    # Objective
+    prob += 8 * c + 12 * r
+
+    # Constraints
+    prob += 5 * c + 4 * r >= 500
+    prob += 4 * c + 4 * r >= 300
+    prob += 15 * c + 20 * r <= 1900
+
+    # Solve (suppress solver output)
+    solver = pulp.PULP_CBC_CMD(msg=False)
+    prob.solve(solver)
+
+    # Extract objective value
+    obj_val = pulp.value(prob.objective)
+    # Ensure integer formatting
+    final_value = int(round(obj_val))
+
+except Exception:
+    # Fallback brute-force search (small integer ranges)
+    best = None
+    best_c = 0
+    best_r = 0
+    # Upper bounds from space constraint:
+    max_c = floor(1900 / 15)  # 126
+    max_r = floor(1900 / 20)  # 95
+    for ci in range(max_c + 1):
+        # quick prune: if 15*ci > 1900 break (already bounded by loop)
+        for ri in range(max_r + 1):
+            if 15 * ci + 20 * ri > 1900:
+                continue
+            if 5 * ci + 4 * ri < 500:
+                continue
+            if 4 * ci + 4 * ri < 300:
+                continue
+            guests = 8 * ci + 12 * ri
+            if best is None or guests > best:
+                best = guests
+                best_c = ci
+                best_r = ri
+    final_value = int(best if best is not None else 0)
+
+print(f"FINAL_OBJ: {final_value}")
+```

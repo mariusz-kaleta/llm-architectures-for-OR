@@ -1,0 +1,238 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximize total number of guests that can be catered by choosing how many circular and rectangular tables to set up, subject to space and minimum requirement constraints.
+
+2. Suggested model type  
+   - Model: Integer Linear Programming (ILP)  
+     - Linear objective and constraints, but the decision variables are counts of tables, so they must be non‑negative integers.
+
+3. Main decision variables  
+   Define two primary decision variables:
+   - \(C\): Number of circular tables to set up  
+   - \(R\): Number of rectangular tables to set up  
+
+   (Both must be integers ≥ 0.)
+
+4. Objective function (conceptual)  
+   - Each circular table caters to 8 guests.  
+   - Each rectangular table caters to 12 guests.  
+   - Objective: Maximize total catered guests = (guests per circular) × C + (guests per rectangular) × R.  
+
+5. Key constraints to consider  
+
+   a) Participant capacity requirement  
+   - Each circular table accommodates 5 participants.  
+   - Each rectangular table accommodates 4 participants.  
+   - The fair must be able to fit at least 500 participants.  
+   - Constraint: total participant capacity from all tables ≥ 500.
+
+   b) Poster board capacity requirement  
+   - Both table types hold 4 poster boards each.  
+   - The fair needs to accommodate at least 300 poster boards.  
+   - Constraint: total poster capacity from all tables ≥ 300.
+
+   c) Space limitation  
+   - Each circular table uses 15 units of space.  
+   - Each rectangular table uses 20 units of space.  
+   - Total available space is 1900 units.  
+   - Constraint: total space used by all tables ≤ 1900.
+
+   d) Non‑negativity and integrality  
+   - Number of tables cannot be negative.  
+   - Tables come in whole units.  
+   - Constraints: C ≥ 0, R ≥ 0, both integer.
+
+6. Modelling notes / strategy hints for the Modeller  
+
+   - Check which constraints are likely to be binding:
+     - Poster board and participant requirements yield minimum total table counts.
+     - Space is an upper bound that might be tight when maximizing guests.
+   - Consider feasibility:
+     - Verify that it is possible to meet both the minimum participants and posters under the space limit.
+   - Since it is an ILP with only two integer variables, one could:
+     - Either solve analytically/graphically (treating as LP then checking integer points), or  
+     - Use a standard ILP solver; the model is very small.  
+   - After solving, confirm:
+     - All minimum requirements for participants and posters are satisfied.  
+     - Total space does not exceed 1900 units.  
+     - The solution uses integer values of C and R.
+
+---
+
+[MODELER]:
+Here is a clean mathematical/algorithmic model of the problem and how you would implement it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(C \in \mathbb{Z}_{\ge 0}\): number of circular tables  
+- \(R \in \mathbb{Z}_{\ge 0}\): number of rectangular tables  
+
+These are the quantities we want to choose.
+
+---
+
+## 2. Objective function
+
+Each table type caters a certain number of guests:
+
+- Circular table: 8 guests  
+- Rectangular table: 12 guests  
+
+We want to **maximize the total number of guests catered**:
+
+\[
+\max \; Z = 8C + 12R
+\]
+
+---
+
+## 3. Constraints
+
+### a) Participant capacity
+
+Each table supports a certain number of participants:
+
+- Circular: 5 participants per table  
+- Rectangular: 4 participants per table  
+
+The fair must be able to fit **at least 500 participants**:
+
+\[
+5C + 4R \;\ge\; 500
+\]
+
+### b) Poster board capacity
+
+Each table supports:
+
+- 4 poster boards per table (both types).
+
+The fair must be able to fit **at least 300 poster boards**:
+
+\[
+4C + 4R \;\ge\; 300
+\quad\Longleftrightarrow\quad
+C + R \;\ge\; 75
+\]
+
+### c) Space constraint
+
+Space consumed by each type:
+
+- Circular: 15 units  
+- Rectangular: 20 units  
+
+Total available space: **1900 units**:
+
+\[
+15C + 20R \;\le\; 1900
+\]
+
+### d) Non-negativity and integrality
+
+\[
+C \ge 0,\quad R \ge 0,\quad C,R \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full ILP model
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 8C + 12R \\
+\text{subject to} \quad
+& 5C + 4R \;\ge\; 500 \quad \text{(participants)} \\
+& 4C + 4R \;\ge\; 300 \quad \text{(posters)} \\
+& 15C + 20R \;\le\; 1900 \quad \text{(space)} \\
+& C,R \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a small integer linear programming (ILP) problem.
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard ILP/LP solver is appropriate. For this scale, all of these are more than sufficient:
+
+- `PuLP` (pure Python, easy syntax; can use CBC solver by default)
+- `ortools.linear_solver` from Google OR-Tools (very efficient and modern)
+- `Pyomo` (more general algebraic modeling environment)
+- `scipy.optimize.linprog` (only for LP; you’d relax integrality and then round/check integers manually)
+
+For a straightforward ILP, I recommend:
+
+- **PuLP** for simplicity, or  
+- **OR-Tools** if you already use Google’s optimization tools.
+
+---
+
+## 6. Example implementation sketch (PuLP)
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Science_Fair_Tables", pl.LpMaximize)
+
+# Decision variables
+C = pl.LpVariable('C', lowBound=0, cat=pl.LpInteger)  # circular tables
+R = pl.LpVariable('R', lowBound=0, cat=pl.LpInteger)  # rectangular tables
+
+# Objective: maximize guests
+prob += 8*C + 12*R, "Total_Guests"
+
+# Constraints
+prob += 5*C + 4*R >= 500, "Participants"
+prob += 4*C + 4*R >= 300, "Posters"
+prob += 15*C + 20*R <= 1900, "Space"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Circular tables (C):", pl.value(C))
+print("Rectangular tables (R):", pl.value(R))
+print("Max guests:", pl.value(8*C + 12*R))
+```
+
+This code directly encodes the model specified above and will return the optimal number of circular and rectangular tables and the maximum number of guests catered.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the ILP problem
+    prob = pl.LpProblem("Science_Fair_Tables", pl.LpMaximize)
+
+    # Decision variables: number of circular (C) and rectangular (R) tables
+    C = pl.LpVariable('C', lowBound=0, cat=pl.LpInteger)
+    R = pl.LpVariable('R', lowBound=0, cat=pl.LpInteger)
+
+    # Objective: maximize total guests
+    prob += 8 * C + 12 * R, "Total_Guests"
+
+    # Constraints
+    prob += 5 * C + 4 * R >= 500, "Participants"
+    prob += 4 * C + 4 * R >= 300, "Posters"
+    prob += 15 * C + 20 * R <= 1900, "Space"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute final objective value
+    final_obj = pl.value(8 * C + 12 * R)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

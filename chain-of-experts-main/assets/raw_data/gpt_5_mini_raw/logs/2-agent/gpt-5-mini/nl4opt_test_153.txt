@@ -1,0 +1,78 @@
+[MODELER]:
+Model (linear program)
+
+- Decision variables
+  - x1 ≥ 0 : number of strawberry cookies to make
+  - x2 ≥ 0 : number of sugar cookies to make
+
+- Objective
+  - Maximize profit: maximize P = 5.5 x1 + 12 x2
+
+- Constraints
+  - Demand limits: x1 ≤ 100, x2 ≤ 80
+  - Production capacity (short-staffed): x1 + x2 ≤ 100
+  - Nonnegativity: x1 ≥ 0, x2 ≥ 0
+
+Solution reasoning
+- This is a small LP. Because profits are positive, an optimal solution lies on the boundary. Sugar cookies give higher profit per cookie (12 > 5.5), so fill sugar cookie demand first: set x2 = min(demand, capacity) = 80. Remaining capacity = 100 − 80 = 20, so produce x1 = 20 (subject to its demand 100, which is larger than 20).
+- Optimal solution: x1 = 20, x2 = 80.
+- Maximum profit: P = 5.5·20 + 12·80 = 110 + 960 = $1,070.
+
+Note on interpretation
+- I interpreted "can make a maximum of 100 cookies of either type per day" as a combined capacity x1 + x2 ≤ 100. If instead the intent was "at most 100 of each type" then the capacity constraint would be x1 ≤ 100, x2 ≤ 100 (redundant here because demand already limits x2 to 80), and the optimal would be x1 = 0, x2 = 80 (since you would then produce only the higher-profit sugar cookies).
+
+Suggested Python libraries to solve this
+- pulp (open-source LP, default CBC solver)
+- ortools.linear_solver (Google OR-Tools)
+- scipy.optimize.linprog (simple LP solver)
+- cvxpy (convex optimization modeling)
+- commercial solvers if available: Gurobi, CPLEX
+
+Example using PuLP (minimal)
+```python
+import pulp
+
+# model
+prob = pulp.LpProblem("ZetaBakery", pulp.LpMaximize)
+x1 = pulp.LpVariable('x1', lowBound=0)
+x2 = pulp.LpVariable('x2', lowBound=0)
+
+# objective
+prob += 5.5*x1 + 12*x2
+
+# constraints
+prob += x1 <= 100
+prob += x2 <= 80
+prob += x1 + x2 <= 100
+
+prob.solve()
+print(x1.value(), x2.value(), pulp.value(prob.objective))
+# Expected output: 20.0 80.0 1070.0
+```
+
+If you want, I can provide the same example using scipy.optimize.linprog or OR-Tools.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data
+profit_x1 = 5.5  # profit per strawberry cookie
+profit_x2 = 12.0  # profit per sugar cookie
+demand_x1 = 100
+demand_x2 = 80
+capacity_total = 100
+
+# Greedy logic (produce higher-profit item first subject to demand and total capacity)
+x2 = min(demand_x2, capacity_total)              # produce sugar cookies first
+x1 = min(demand_x1, capacity_total - x2)         # remaining capacity for strawberry cookies
+# Ensure nonnegativity
+x1 = max(0.0, x1)
+x2 = max(0.0, x2)
+
+# Objective
+objective = profit_x1 * x1 + profit_x2 * x2
+
+# Final required print
+print(f"FINAL_OBJ: {objective}")

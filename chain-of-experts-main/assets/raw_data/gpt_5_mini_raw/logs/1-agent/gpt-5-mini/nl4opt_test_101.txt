@@ -1,0 +1,39 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Minimize_Water", pulp.LpMinimize)
+
+# Decision variables: number of bags of topsoil (T) and subsoil (S)
+# They must be nonnegative integers
+T = pulp.LpVariable('Topsoil_bags', lowBound=0, cat='Integer')
+S = pulp.LpVariable('Subsoil_bags', lowBound=0, cat='Integer')
+
+# Objective: minimize total water = 6*T + 10*S
+prob += 6 * T + 10 * S, "Total_Water"
+
+# Constraints based on the problem statement:
+# 1) The farmer has available 150 bags combined (use all): T + S = 150
+prob += T + S == 150, "Total_Bags_150"
+
+# 2) At least 10 bags of topsoil must be used: T >= 10
+prob += T >= 10, "Min_Topsoil_10"
+
+# 3) At most 30% of all bags can be topsoil: T <= 0.3*(T+S)
+#    Rearranged to integer-friendly form: 7*T <= 3*S  (since T <= 0.3T + 0.3S -> 0.7T <= 0.3S -> 7T <= 3S)
+prob += 7 * T <= 3 * S, "Topsoil_Max_30_percent"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve solution values
+topsoil_bags = int(pulp.value(T))
+subsoil_bags = int(pulp.value(S))
+objective_value = pulp.value(prob.objective)
+
+# Print solution (optional additional info)
+print(f"Topsoil bags: {topsoil_bags}")
+print(f"Subsoil bags: {subsoil_bags}")
+
+# Final required print in exact format
+print(f"FINAL_OBJ: {objective_value}")

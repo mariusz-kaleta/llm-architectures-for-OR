@@ -1,0 +1,167 @@
+[MODELER]:
+Formulate this as a linear optimization (linear programming) problem.
+
+## Decision variables
+
+Let  
+- \(x\) = number of bananas  
+- \(y\) = number of mangoes  
+
+Both must be nonnegative:
+- \(x \ge 0\)
+- \(y \ge 0\)
+
+## Parameters (per unit)
+
+- Banana:
+  - Calories: 80
+  - Potassium: 20 g
+  - Sugar: 10 g
+
+- Mango:
+  - Calories: 100
+  - Potassium: 15 g
+  - Sugar: 8 g
+
+Requirements:
+- At least 4000 calories
+- At least 150 g potassium  
+Preference:
+- At most 33% of total fruits can be mangoes
+
+## Objective function
+
+Minimize total sugar:
+
+\[
+\min\, Z = 10x + 8y
+\]
+
+## Constraints
+
+### 1. Calorie requirement
+
+At least 4000 calories:
+
+\[
+80x + 100y \ge 4000
+\]
+
+### 2. Potassium requirement
+
+At least 150 g potassium:
+
+\[
+20x + 15y \ge 150
+\]
+
+### 3. Mango proportion constraint
+
+At most 33% of the fruits are mangoes:
+
+\[
+\frac{y}{x + y} \le 0.33, \quad \text{with } x + y > 0
+\]
+
+This can be linearized (assuming \(x+y>0\)):
+
+\[
+y \le 0.33(x + y)
+\]
+
+\[
+y - 0.33y \le 0.33x
+\]
+
+\[
+0.67y \le 0.33x
+\]
+
+\[
+y \le \frac{0.33}{0.67}x \approx 0.492537x
+\]
+
+Equivalently, multiplying by 1000 to avoid decimals if desired:
+
+\[
+670y \le 330x
+\]
+
+or simplified:
+
+\[
+67y \le 33x
+\]
+
+### 4. Nonnegativity
+
+\[
+x \ge 0, \quad y \ge 0
+\]
+
+## Complete LP model
+
+\[
+\begin{aligned}
+\min_{x,y} \quad & 10x + 8y \\
+\text{s.t.} \quad 
+& 80x + 100y \ge 4000 \\
+& 20x + 15y \ge 150 \\
+& 67y \le 33x \\
+& x \ge 0,\ y \ge 0
+\end{aligned}
+\]
+
+If you require integer numbers of fruits, add:
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+## Suitable Python libraries
+
+This is a small linear (or integer linear) program. Good choices:
+
+- `PuLP` – simple, pure Python LP modeling; works with CBC (default) or other solvers.
+- `ortools.linear_solver` (from Google OR-Tools) – efficient for LP/MIP.
+- `scipy.optimize.linprog` – can solve the continuous LP version (without integrality).
+
+If you want integer solutions, prefer `PuLP` or OR-Tools.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def main():
+    # Create the LP problem: minimize total sugar
+    prob = pulp.LpProblem("Fruit_Sugar_Minimization", pulp.LpMinimize)
+
+    # Decision variables: number of bananas (x) and mangoes (y), nonnegative and integer
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')
+
+    # Objective function: minimize total sugar = 10x + 8y
+    prob += 10 * x + 8 * y, "Total_Sugar"
+
+    # Constraints
+
+    # 1. Calorie requirement: 80x + 100y >= 4000
+    prob += 80 * x + 100 * y >= 4000, "Calorie_Requirement"
+
+    # 2. Potassium requirement: 20x + 15y >= 150
+    prob += 20 * x + 15 * y >= 150, "Potassium_Requirement"
+
+    # 3. Mango proportion constraint: 67y <= 33x
+    prob += 67 * y <= 33 * x, "Mango_Proportion"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print the final objective value in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

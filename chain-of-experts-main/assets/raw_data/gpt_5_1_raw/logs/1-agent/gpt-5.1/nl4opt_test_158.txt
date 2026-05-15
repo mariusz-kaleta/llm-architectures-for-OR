@@ -1,0 +1,42 @@
+[MONOLITH]:
+import pulp
+
+# Create the problem
+prob = pulp.LpProblem("Aquarium_Show_Optimization", pulp.LpMaximize)
+
+# Decision variables
+# x: number of otters
+# y: number of dolphins
+x = pulp.LpVariable('otters', lowBound=0, cat='Integer')
+y = pulp.LpVariable('dolphins', lowBound=0, cat='Integer')
+
+# Objective: maximize total number of tricks
+# Otter: 3 tricks, Dolphin: 1 trick
+prob += 3 * x + 1 * y, "Total_Tricks"
+
+# Constraints
+
+# Treats constraint: 3 treats per otter, 5 treats per dolphin, total <= 200
+prob += 3 * x + 5 * y <= 200, "Treats_Limit"
+
+# At least 10 dolphins
+prob += y >= 10, "Min_Dolphins"
+
+# At most 30% of performers can be otters:
+# x <= 0.3 * (x + y)  ->  0.7x <= 0.3y  ->  7x <= 3y
+prob += 7 * x <= 3 * y, "Otter_Percentage_Limit"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract objective value
+final_obj = pulp.value(prob.objective)
+
+# Print results (optional detailed output)
+print("Status:", pulp.LpStatus[prob.status])
+print("Number of otters:", pulp.value(x))
+print("Number of dolphins:", pulp.value(y))
+print("Total tricks:", final_obj)
+
+# Required final objective print
+print(f"FINAL_OBJ: {final_obj}")

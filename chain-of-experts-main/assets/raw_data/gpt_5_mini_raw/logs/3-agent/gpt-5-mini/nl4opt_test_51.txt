@@ -1,0 +1,99 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of reams of graph paper produced (reams, ≥ 0)
+  - y = number of reams of music paper produced (reams, ≥ 0)
+
+- Objective
+  - Maximize profit P = 4x + 2.5y
+
+- Constraints (machine time per day)
+  - Printing time: 3x + 1.5y ≤ 350  (minutes)
+  - Scanning time: 5.5x + 3y ≤ 350  (minutes)
+  - x ≥ 0, y ≥ 0
+
+Solve (continuous LP)
+
+This is a 2-variable LP. Evaluate corner points of the feasible region:
+- (0,0) → P = 0
+- intersection with x = 0: y = min(350/1.5, 350/3) = 350/3 = 116.6667 → P = 2.5·116.6667 = 291.6667
+- intersection with y = 0: x = min(350/3, 350/5.5) = 350/5.5 = 63.63636 → P = 4·63.63636 = 254.54545
+
+The best corner is x = 0, y = 116.6667 reams (i.e., 116 2/3 reams of music paper), giving maximum profit P = $291.6667 (≈ $291.67).
+
+Notes on integrality
+- If reams must be integer, the feasible integer solution with maximal profit is x = 0, y = 116 (since y = 117 violates the scanning time); profit = 2.5·116 = $290.
+
+Recommended Python libraries to solve this
+- pulp (easy LP modeling and solving)
+- scipy.optimize.linprog (numerical solver)
+- OR-Tools linear solver (for larger/more complex LP/IP)
+- cvxpy (convex optimization modeling)
+- If integer variables required: pulp (CBC/GUROBI), OR-Tools (MIP), or mip (python-mip)
+
+Example (pseudocode using pulp)
+- Define LpProblem(maximize)
+- Define variables x = LpVariable('x', lowBound=0), y = LpVariable('y', lowBound=0)
+- Add constraints 3*x + 1.5*y <= 350, 5.5*x + 3*y <= 350
+- Set objective 4*x + 2.5*y
+- Call prob.solve() and read x.value(), y.value(), value(prob.objective)
+
+Final answer
+- Produce 0 reams of graph paper and 116.6667 reams of music paper (continuous case).
+- Maximum profit = $291.67 (approx).
+- If integer reams required: produce 0 graph, 116 music; profit = $290.
+
+---
+
+[CODER]:
+import numpy as np
+
+# Define data
+c = np.array([4.0, 2.5])   # objective coefficients (maximize)
+A = np.array([[3.0, 1.5],
+              [5.5, 3.0]])
+b = np.array([350.0, 350.0])
+
+# Candidate corner points:
+corners = []
+
+# (0,0)
+corners.append(np.array([0.0, 0.0]))
+
+# x = 0 -> find max feasible y (must satisfy both constraints)
+y_max_x0 = min(b[0] / A[0,1], b[1] / A[1,1])
+corners.append(np.array([0.0, y_max_x0]))
+
+# y = 0 -> find max feasible x (must satisfy both constraints)
+x_max_y0 = min(b[0] / A[0,0], b[1] / A[1,0])
+corners.append(np.array([x_max_y0, 0.0]))
+
+# Intersection of the two constraint lines (if exists)
+try:
+    inter = np.linalg.solve(A, b)
+    corners.append(inter)
+except np.linalg.LinAlgError:
+    pass
+
+# Filter feasible corners (nonnegative and satisfy constraints within tolerance)
+feasible = []
+tol = 1e-8
+for pt in corners:
+    if (pt >= -tol).all():
+        if (A.dot(pt) <= b + tol).all():
+            feasible.append(pt)
+
+# Evaluate objective at feasible points and select maximum
+best_pt = None
+best_val = -np.inf
+for pt in feasible:
+    val = c.dot(pt)
+    if val > best_val + 1e-12:
+        best_val = val
+        best_pt = pt.copy()
+
+# Final objective value
+value = float(best_val)
+
+print(f"FINAL_OBJ: {value}")

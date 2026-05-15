@@ -1,0 +1,108 @@
+[MODELER]:
+Model
+
+Decision variables
+- x1 ≥ 0: hours to run factory 1
+- x2 ≥ 0: hours to run factory 2
+
+Parameters (given)
+- Factory 1 production rates (per hour): A1 = 20 allergy, F1 = 15 fever
+- Factory 2 production rates (per hour): A2 = 10 allergy, F2 = 30 fever
+- Compound consumption per hour: C1 = 20 (factory 1), C2 = 30 (factory 2)
+- Available compound: Cmax = 1000
+- Demand minima: A_req = 700 allergy, F_req = 600 fever
+
+Objective
+- Minimize total time T = x1 + x2
+
+Constraints
+1. Allergy production: A1*x1 + A2*x2 ≥ A_req  => 20 x1 + 10 x2 ≥ 700
+2. Fever production: F1*x1 + F2*x2 ≥ F_req    => 15 x1 + 30 x2 ≥ 600
+3. Compound availability: C1*x1 + C2*x2 ≤ Cmax => 20 x1 + 30 x2 ≤ 1000
+4. Nonnegativity: x1 ≥ 0, x2 ≥ 0
+
+This is a linear program (LP).
+
+Analytic solution (two-variable LP)
+Solve at vertices. The optimal solution occurs where the two production constraints are active:
+2 x1 + x2 = 70  (from allergy constraint dividing by 10)
+x1 + 2 x2 = 40  (from fever constraint dividing by 15)
+
+Solving gives:
+x1 = 100/3 ≈ 33.333... hours (33 hours 20 minutes)
+x2 = 10/3  ≈ 3.333... hours (3 hours 20 minutes)
+
+Check:
+- Allergy: 20*(100/3) + 10*(10/3) = 700 (exact)
+- Fever:   15*(100/3) + 30*(10/3) = 600 (exact)
+- Compound used: 20*(100/3) + 30*(10/3) = 2300/3 ≈ 766.67 ≤ 1000 (not binding)
+
+So the minimal total time T = x1 + x2 = 110/3 ≈ 36.6667 hours.
+
+Notes
+- Hours are treated continuous. If hours must be integer (whole-hour scheduling), the problem becomes an integer linear program; the optimal integer solution should be found separately.
+- The compound constraint is not binding at the optimum (some compound remains unused).
+
+Suggested Python libraries to solve
+- pulp (straightforward LP formulation and solver)
+- scipy.optimize.linprog (for small LPs)
+- OR-Tools (linear solver for larger/industrial problems)
+- cvxpy (convex optimization modeling)
+
+Example using pulp
+(from pulp import LpProblem, LpMinimize, LpVariable, lpSum, value)
+
+prob = LpProblem("pill_scheduling", LpMinimize)
+x1 = LpVariable('x1', lowBound=0)
+x2 = LpVariable('x2', lowBound=0)
+prob += x1 + x2
+prob += 20*x1 + 10*x2 >= 700
+prob += 15*x1 + 30*x2 >= 600
+prob += 20*x1 + 30*x2 <= 1000
+prob.solve()
+print(value(x1), value(x2), value(prob.objective))
+
+This will return x1 = 100/3, x2 = 10/3 (or floating-point equivalents).
+
+Final answer
+Run factory 1 for 100/3 ≈ 33.33 hours (33 h 20 min) and factory 2 for 10/3 ≈ 3.33 hours (3 h 20 min). Total time ≈ 36.67 hours.
+
+---
+
+[CODER]:
+import numpy as np
+
+# Parameters
+A1, F1 = 20.0, 15.0  # factory 1 rates per hour
+A2, F2 = 10.0, 30.0  # factory 2 rates per hour
+C1, C2 = 20.0, 30.0  # compound consumption per hour
+Cmax = 1000.0
+A_req = 700.0
+F_req = 600.0
+
+# Solve the two binding production constraints:
+# 20*x1 + 10*x2 = 700
+# 15*x1 + 30*x2 = 600
+A = np.array([[A1, A2],
+              [F1, F2]], dtype=float)
+b = np.array([A_req, F_req], dtype=float)
+
+x = np.linalg.solve(A, b)
+x1, x2 = x[0], x[1]
+
+# Validate feasibility
+compound_used = C1 * x1 + C2 * x2
+allergy_prod = A1 * x1 + A2 * x2
+fever_prod = F1 * x1 + F2 * x2
+
+# Ensure nonnegativity and constraints (allow tiny numerical tolerance)
+tol = 1e-8
+if x1 < -tol or x2 < -tol:
+    raise ValueError("Negative solution encountered.")
+if allergy_prod + tol < A_req or fever_prod + tol < F_req or compound_used - tol > Cmax:
+    raise ValueError("Solution is infeasible with given constraints.")
+
+total_time = x1 + x2
+value = float(total_time)
+
+print(f"FINAL_OBJ: {value}")

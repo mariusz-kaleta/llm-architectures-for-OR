@@ -1,0 +1,191 @@
+[MODELER]:
+Here is a clear optimization model for the problem.
+
+---
+
+## 1. Define decision variables
+
+Let
+
+- \(x\) = number of units of fertilizer  
+- \(y\) = number of units of seeds  
+
+Assume \(x, y \ge 0\) and can be real (continuous) values unless the problem explicitly requires integer units.
+
+---
+
+## 2. Objective function
+
+Each unit of fertilizer takes 0.5 minutes, and each unit of seeds takes 1.5 minutes to be effective.  
+Total time until the lawn is ready is:
+
+\[
+T = 0.5x + 1.5y
+\]
+
+We want to **minimize** this total time:
+
+\[
+\min \; Z = 0.5x + 1.5y
+\]
+
+---
+
+## 3. Constraints
+
+1. **Total units constraint** (at most 300 combined):
+
+\[
+x + y \le 300
+\]
+
+2. **Minimum fertilizer requirement** (at least 50 units):
+
+\[
+x \ge 50
+\]
+
+3. **Fertilizer relative to seeds** (at most twice as much fertilizer as seeds):
+
+\[
+x \le 2y
+\]
+
+4. **Non-negativity**:
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+## 4. Model type
+
+This is a **linear programming (LP)** problem:
+
+- Objective: linear in \(x, y\)
+- Constraints: linear inequalities
+
+---
+
+## 5. Solving the model analytically
+
+We are minimizing \(0.5x + 1.5y\), and fertilizer is “cheaper in time” per unit than seeds (0.5 < 1.5). So, we prefer more fertilizer and fewer seeds, as long as constraints are satisfied.
+
+Key constraints driving the solution:
+
+- From \(x \le 2y\), we have \(y \ge \frac{x}{2}\).  
+- To reduce time, we’d like to keep \(y\) as small as possible; thus set \(y = \frac{x}{2}\) (tightest allowed by \(x \le 2y\)).
+
+With \(y = \frac{x}{2}\):
+
+1. Minimum fertilizer: \(x \ge 50\)  
+2. Total units: \(x + y = x + \frac{x}{2} = \frac{3}{2}x \le 300 \Rightarrow x \le 200\)
+
+So feasible \(x\) in this line: \(50 \le x \le 200\).
+
+Objective along this line:
+
+\[
+Z(x) = 0.5x + 1.5\left(\frac{x}{2}\right) = 0.5x + 0.75x = 1.25x
+\]
+
+To minimize \(Z(x) = 1.25x\), choose the smallest \(x\):
+
+\[
+x = 50,\quad y = \frac{50}{2} = 25
+\]
+
+Check all constraints:
+
+- \(x + y = 50 + 25 = 75 \le 300\) ✓  
+- \(x \ge 50\) → \(50 \ge 50\) ✓  
+- \(x \le 2y\) → \(50 \le 2 \cdot 25 = 50\) ✓  
+
+Total time:
+
+\[
+Z = 0.5(50) + 1.5(25) = 25 + 37.5 = 62.5 \text{ minutes}
+\]
+
+**Optimal solution:**
+
+- Fertilizer: \(x^* = 50\) units  
+- Seeds: \(y^* = 25\) units  
+- Minimum total time: \(62.5\) minutes
+
+---
+
+## 6. Suitable Python libraries
+
+This linear optimization problem can be solved using any LP solver. Common Python choices:
+
+- **PuLP** (`pulp`): Simple modeling of LPs, works with CBC by default.
+- **OR-Tools** (`ortools.linear_solver`): Google’s optimization suite, supports LP and MIP.
+- **SciPy** (`scipy.optimize.linprog`): Good for continuous LPs, though less modeling convenience.
+
+---
+
+## 7. Example: PuLP formulation (continuous LP)
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Lawn_Optimization", pl.LpMinimize)
+
+# Decision variables (continuous, non-negative)
+x = pl.LpVariable('fertilizer', lowBound=0)
+y = pl.LpVariable('seeds', lowBound=0)
+
+# Objective function
+prob += 0.5 * x + 1.5 * y
+
+# Constraints
+prob += x + y <= 300             # total units
+prob += x >= 50                  # minimum fertilizer
+prob += x <= 2 * y               # at most twice fertilizer as seeds
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Fertilizer (x):", pl.value(x))
+print("Seeds (y):", pl.value(y))
+print("Minimum total time:", pl.value(prob.objective))
+```
+
+This will yield \(x = 50\), \(y = 25\), minimum time \(62.5\).
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create LP problem: minimize total time
+    prob = pl.LpProblem("Lawn_Optimization", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('fertilizer', lowBound=0)  # fertilizer units
+    y = pl.LpVariable('seeds', lowBound=0)       # seed units
+
+    # Objective function: minimize total time
+    prob += 0.5 * x + 1.5 * y
+
+    # Constraints
+    prob += x + y <= 300          # total units constraint
+    prob += x >= 50               # minimum fertilizer requirement
+    prob += x <= 2 * y            # fertilizer at most twice seeds
+
+    # Solve the LP
+    prob.solve()
+
+    # Extract objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print final objective as required
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

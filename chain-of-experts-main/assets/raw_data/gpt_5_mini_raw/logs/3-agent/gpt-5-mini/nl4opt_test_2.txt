@@ -1,0 +1,97 @@
+[MODELER]:
+Model
+- Decision variables
+  - x ∈ Z≥0 = number of full-time workers (8 hours/shift, $300/shift)
+  - y ∈ Z≥0 = number of part-time workers (4 hours/shift, $100/shift)
+
+- Objective
+  - Minimize total number of workers: minimize Z = x + y
+
+- Constraints
+  1. Hours requirement: 8x + 4y ≥ 500
+  2. Budget limit: 300x + 100y ≤ 15000
+  3. Integrality and nonnegativity: x, y ∈ Z≥0
+
+You can simplify the budget constraint by dividing by 100:
+  3x + y ≤ 150
+
+And the hours constraint by dividing by 4:
+  2x + y ≥ 125  (equivalently y ≥ 125 − 2x)
+
+Feasibility requires 125 − 2x ≤ 150 − 3x → x ≤ 25, so x ∈ {0,...,25}.
+
+Solution reasoning (short)
+- For fixed x, the smallest feasible y is y = max(0, ceil(125 − 2x)). The objective x + y is decreasing in x on the feasible range, so we should maximize x.
+- The maximum feasible x is 25. For x = 25, y = 125 − 2·25 = 75 (also satisfies budget 3·25 + 75 = 150).
+- Objective: x + y = 25 + 75 = 100.
+
+Optimal solution
+- Full-time workers x = 25
+- Part-time workers y = 75
+- Total workers = 100
+- Verifications:
+  - Hours: 8·25 + 4·75 = 200 + 300 = 500
+  - Cost: 300·25 + 100·75 = 7,500 + 7,500 = 15,000
+
+Suggested Python libraries to solve this (if you want to implement/verify numerically)
+- pulp (linear/integer programming, easy to use)
+- ortools CP-SAT (powerful integer solver from Google)
+- python-mip (MIP solver interface)
+- mip or gurobi/cplex (if available and licensed)
+
+Example (Pulp) code snippet
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpInteger, value
+
+prob = LpProblem("schedule", LpMinimize)
+x = LpVariable("full_time", lowBound=0, cat=LpInteger)
+y = LpVariable("part_time", lowBound=0, cat=LpInteger)
+
+prob += x + y
+prob += 8*x + 4*y >= 500
+prob += 300*x + 100*y <= 15000
+
+prob.solve()
+print(value(x), value(y), value(prob.objective))
+
+This will return x=25, y=75.
+
+---
+
+[CODER]:
+```python
+import math
+
+# Problem data (directly initialized)
+# x: number of full-time workers (8 hours, $300)
+# y: number of part-time workers (4 hours, $100)
+# Minimize x + y
+# Constraints:
+# 8x + 4y >= 500  -> 2x + y >= 125
+# 300x + 100y <= 15000 -> 3x + y <= 150
+# x, y integer >= 0
+
+best_obj = None
+best_x = None
+best_y = None
+
+# From constraints feasibility x <= 25 (derived), but we'll cap search accordingly
+for x in range(0, 26):  # 0..25
+    # minimal y to satisfy hours: y >= 125 - 2x
+    y_min_hours = max(0, math.ceil(125 - 2 * x))
+    # maximal y to satisfy budget: y <= 150 - 3x
+    y_max_budget = 150 - 3 * x
+    if y_min_hours <= y_max_budget:
+        y = y_min_hours
+        obj = x + y
+        if (best_obj is None) or (obj < best_obj):
+            best_obj = obj
+            best_x = x
+            best_y = y
+
+# Ensure solution found
+if best_obj is None:
+    raise RuntimeError("No feasible solution found")
+
+# Final required print
+print(f"FINAL_OBJ: {best_obj}")
+```

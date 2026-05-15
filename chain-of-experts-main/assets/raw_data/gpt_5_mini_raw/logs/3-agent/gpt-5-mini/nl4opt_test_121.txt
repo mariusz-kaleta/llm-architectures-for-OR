@@ -1,0 +1,91 @@
+[MODELER]:
+Model (linear program)
+
+Decision variables
+- x = number of carrots sold per month (>= 0)
+- y = number of cucumbers sold per month (>= 0)
+
+Objective
+Maximize profit: maximize P = 0.75 x + 0.80 y
+
+Constraints
+1. Monthly purchase budget: 0.30 x + 0.50 y ≤ 500
+2. Cucumber limit: y ≤ (1/3) x
+3. Carrot sales bounds: 300 ≤ x ≤ 500
+4. Integrality if required: x, y integer (optional)
+
+Remarks about structure
+- This is a linear program (LP). If you require integer numbers of vegetables, it becomes an integer LP (ILP).
+- Because the objective coefficients and constraints are linear, an optimal solution occurs at a vertex of the feasible region.
+
+Analytic solution (continuous variables)
+- Carrots give higher profit per dollar spent (0.75/0.30 = 2.5 vs 0.80/0.50 = 1.6), so we push x to its upper bound x = 500.
+- Then the cucumber constraint y ≤ x/3 gives y ≤ 500/3 ≈ 166.6667. The budget constraint does not bind at x = 500 because 0.30·500 = $150 < $500, and adding y up to 166.6667 still respects the $500 budget.
+- So the LP optimum (continuous variables) is x = 500, y = 500/3 ≈ 166.6667.
+
+Profit (continuous): P = 0.75·500 + 0.80·(500/3) = 375 + 133.3333 = $508.3333
+
+Integer solution (if x and y must be integers)
+- x = 500, the largest allowed integer for carrots.
+- y must be ≤ floor(500/3) = 166 (since 167 > 500/3). So choose y = 166.
+Profit (integer): P = 0.75·500 + 0.80·166 = 375 + 132.8 = $507.80
+
+Recommended solution
+- If fractional quantities were allowed: sell 500 carrots and 166.6667 cucumbers (practically: 500 carrots and 166 cucumbers).
+- If integers required: sell 500 carrots and 166 cucumbers (profit $507.80).
+
+Suggested Python libraries to solve this
+- pulp (simple LP/ILP modeling and solvers)
+- OR-Tools (linear / integer optimization)
+- scipy.optimize.linprog (continuous LP only)
+- cvxpy (convex optimization modeling; supports integer with some solvers)
+
+Example (pulp) skeleton
+- Use pulp.LpProblem, pulp.LpVariable('x', lowBound=300, upBound=500, cat='Integer' or 'Continuous'), set objective pulp.lpSum([0.75*x,0.80*y]), add constraints 0.3*x+0.5*y <= 500 and y <= x/3, solve and read x.value(), y.value().
+
+If you want, I can supply the exact pulp or OR-Tools script and run through both continuous and integer variants.
+
+---
+
+[CODER]:
+# Self-contained script to solve the LP (and integer variant) analytically
+# Decision variables:
+#   x = number of carrots sold per month (>=0)
+#   y = number of cucumbers sold per month (>=0)
+# Objective: maximize P = 0.75*x + 0.80*y
+# Constraints:
+#   0.30*x + 0.50*y <= 500
+#   y <= x/3
+#   300 <= x <= 500
+# We'll compute both the continuous LP optimum and the integer (ILP) variant.
+
+from math import floor
+
+# Problem data (directly initialised)
+profit_per_carrot = 0.75
+profit_per_cucumber = 0.80
+cost_per_carrot = 0.30
+cost_per_cucumber = 0.50
+budget = 500.0
+x_lower = 300
+x_upper = 500
+
+# Continuous LP analytic solution:
+# Carrots give higher profit per dollar spent, so set x to its upper bound.
+cont_x = x_upper
+# Cucumber limited by y <= x/3
+cont_y = cont_x / 3.0
+cont_obj = profit_per_carrot * cont_x + profit_per_cucumber * cont_y
+
+# Integer variant (if integrality required):
+int_x = int(x_upper)  # 500
+# y must be integer and <= floor(x/3)
+int_y = floor(int_x / 3)
+int_obj = profit_per_carrot * int_x + profit_per_cucumber * int_y
+
+# Print both solutions (informational)
+print(f"Continuous solution: x = {cont_x}, y = {cont_y:.6f}, objective = {cont_obj:.6f}")
+print(f"Integer solution:    x = {int_x}, y = {int_y}, objective = {int_obj:.6f}")
+
+# Final required output line (LP optimum, continuous variables)
+print(f"FINAL_OBJ: {cont_obj}")

@@ -1,0 +1,113 @@
+[MODELER]:
+Modeling assumptions
+- Let S = units of sulfate, G = units of ginger. Units are continuous (if units must be integer, see note below).
+- The time for the mixture to be effective is the sum of the times required by the two ingredients (they are added sequentially and their effectiveness times add). Thus total time T = 0.5·S + 0.75·G.
+- If you meant a different timing/overlap model (e.g. one ingredient's effectiveness can overlap with the other), the objective would change; this solution uses the additive/serial-time interpretation.
+
+Decision variables
+- S ≥ 0 : units of sulfate
+- G ≥ 0 : units of ginger
+
+Objective
+- Minimize total time T = 0.5 S + 0.75 G
+
+Constraints
+1. Minimum sulfate: S ≥ 100
+2. Total units: S + G = 400
+3. Sulfate not too large: S ≤ 2 G
+
+Mathematical formulation
+Minimize: T = 0.5 S + 0.75 G
+subject to
+- S + G = 400
+- S ≥ 100
+- S ≤ 2 G
+- S, G ≥ 0
+
+Analytic solution
+From S + G = 400 → G = 400 − S. Substitute into objective:
+T(S) = 0.5 S + 0.75(400 − S) = 300 − 0.25 S.
+To minimize T, maximize S subject to constraints. Feasible S must satisfy:
+- 100 ≤ S ≤ 400 (from nonnegativity)
+- S ≤ 2(400 − S) → S ≤ 800/3 ≈ 266.6667
+
+So the maximum feasible S is S* = 800/3 ≈ 266.667, and G* = 400 − S* = 400/3 ≈ 133.333.
+
+Minimum total time: T* = 0.5·(800/3) + 0.75·(400/3) = 700/3 ≈ 233.333 minutes.
+
+If integer units are required
+- Round to nearest feasible integer respecting constraints. The closest feasible integer solution is S = 266, G = 134 (S ≤ 2G holds: 266 ≤ 268). That gives T = 0.5·266 + 0.75·134 = 133 + 100.5 = 233.5 minutes.
+
+Recommended solvers / Python libraries
+- pulp (easy-to-use LP modeling in Python)
+- scipy.optimize.linprog (SciPy linear programming)
+- ortools.linear_solver (Google OR-Tools)
+Any of these can solve the LP above directly.
+
+Short example (conceptual, not full code)
+- With pulp: define variables S,G, add constraints, set objective 0.5*S + 0.75*G, call solver and read S.value(), G.value().
+
+If you want, I can provide a short runnable Python example (pulp or scipy) to solve the model and print the solution.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained script to solve the LP described in the prompt (continuous variables).
+# Decision variables:
+#   S >= 0 (sulfate units)
+#   G >= 0 (ginger units)
+# Objective:
+#   minimize T = 0.5*S + 0.75*G
+# Constraints:
+#   S + G = 400
+#   S >= 100
+#   S <= 2*G
+
+from fractions import Fraction
+
+# Analytic solution:
+# From S+G=400 -> G = 400 - S
+# T(S) = 0.5*S + 0.75*(400 - S) = 300 - 0.25*S
+# To minimize T, maximize S subject to constraints:
+#   100 <= S <= 400
+#   S <= 2*(400 - S) -> S <= 800/3
+# So S* = min(400, 800/3) = 800/3
+
+S_star = Fraction(800, 3)        # exact rational
+G_star = Fraction(400, 1) - S_star
+T_star = Fraction(1, 1)*Fraction(1,2)*S_star + Fraction(3,4)*G_star  # exact rational
+
+# Convert to float for display
+S_star_f = float(S_star)
+G_star_f = float(G_star)
+T_star_f = float(T_star)
+
+# Also compute nearest feasible integer solution (if integer units required)
+# We'll search integer S in feasible range and choose one with minimum T.
+best_int = None
+best_int_T = None
+for S_int in range(100, 401):  # S between 100 and 400 inclusive
+    G_int = 400 - S_int
+    if G_int < 0:
+        continue
+    if S_int <= 2 * G_int:
+        T_int = 0.5 * S_int + 0.75 * G_int
+        if best_int is None or T_int < best_int_T:
+            best_int = (S_int, G_int)
+            best_int_T = T_int
+
+# Print results (final required print must be last; we will print other info first)
+print("Continuous optimal (exact rational):")
+print(f"  S* = {S_star}  (≈ {S_star_f})")
+print(f"  G* = {G_star}  (≈ {G_star_f})")
+print(f"  T* = {T_star}  (≈ {T_star_f})")
+if best_int is not None:
+    S_int, G_int = best_int
+    print("Nearest feasible integer solution:")
+    print(f"  S = {S_int}, G = {G_int}, T = {best_int_T}")
+
+# Final required line (must be the very last printed line, exact format):
+value = T_star_f
+print(f"FINAL_OBJ: {value}")
+```

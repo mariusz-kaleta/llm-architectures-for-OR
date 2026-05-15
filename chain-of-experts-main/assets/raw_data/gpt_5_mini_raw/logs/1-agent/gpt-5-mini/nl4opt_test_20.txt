@@ -1,0 +1,48 @@
+[MONOLITH]:
+```python
+import pulp
+
+# Data (from problem statement)
+# Nutritional content per pack
+calories = {"ramen": 400, "fries": 300}
+protein = {"ramen": 20, "fries": 10}
+sodium = {"ramen": 100, "fries": 75}  # mg
+
+# Requirements
+min_calories = 3000
+min_protein = 80
+# At most 30% of his meals can be ramen -> r <= 0.3*(r+f)
+# This is transformed to: 0.7*r <= 0.3*f  -> r <= (3/7)*f
+
+# Create LP problem (minimize sodium)
+prob = pulp.LpProblem("Minimize_Sodium", pulp.LpMinimize)
+
+# Decision variables: integer number of packs (non-negative)
+r = pulp.LpVariable("ramen_packs", lowBound=0, cat="Integer")
+f = pulp.LpVariable("fries_packs", lowBound=0, cat="Integer")
+
+# Objective: minimize sodium intake (mg)
+prob += sodium["ramen"] * r + sodium["fries"] * f
+
+# Constraints
+prob += calories["ramen"] * r + calories["fries"] * f >= min_calories, "CaloriesRequirement"
+prob += protein["ramen"] * r + protein["fries"] * f >= min_protein, "ProteinRequirement"
+# ramen at most 30% of meals: r <= 0.3*(r+f) -> 0.7*r <= 0.3*f
+prob += 0.7 * r <= 0.3 * f, "RamenFraction"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+r_val = int(pulp.value(r))
+f_val = int(pulp.value(f))
+obj_val = pulp.value(prob.objective)
+
+# Print solution details
+print(f"ramen_packs = {r_val}")
+print(f"fries_packs = {f_val}")
+print(f"sodium_mg = {int(obj_val)}")
+
+# Final required print
+print(f"FINAL_OBJ: {int(obj_val)}")
+```

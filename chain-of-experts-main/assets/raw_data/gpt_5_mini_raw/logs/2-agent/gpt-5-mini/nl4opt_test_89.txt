@@ -1,0 +1,90 @@
+[MODELER]:
+Model
+
+Decision variables
+- x = number of packs of blueberries (nonnegative, integer)
+- y = number of packs of strawberries (nonnegative, integer)
+
+Objective
+- Minimize total sugar S = 5x + 7y (grams)
+
+Constraints
+1. Anti-oxidants: 3x + 1y >= 90
+2. Minerals: 5x + 7y >= 100
+3. Seasonality (at least 3× strawberries): y >= 3x
+4. Nonnegativity (and integrality if packs must be integer): x >= 0, y >= 0 (x,y ∈ Z_+ if integer)
+
+Mathematical formulation
+minimize   S = 5x + 7y
+subject to
+  3x + y >= 90
+  5x + 7y >= 100
+  y - 3x >= 0
+  x, y >= 0  (and x,y integers if required)
+
+Solution (analysis)
+The optimal point occurs where the seasonality constraint is tight (y = 3x) and the anti-oxidant constraint is tight (3x + y = 90). Solving
+  y = 3x
+  3x + y = 90
+gives x = 15, y = 45. These satisfy the minerals constraint (5·15 + 7·45 = 500 ≥ 100). Total sugar = 5·15 + 7·45 = 390 grams. Because x,y are integers here, the continuous LP solution is integral and is optimal for the integer problem as well.
+
+Recommended Python libraries to solve this
+- pulp (simple to set up LP/MIP)
+- OR-Tools (for MILP, fast)
+- scipy.optimize.linprog (for continuous LP only)
+- cvxpy (modeling convenience; supports many solvers)
+- commercial solvers (Gurobi, CPLEX) if large/fast solves are required
+
+Optional: a short example using pulp
+- Create LpProblem('min_sugar', LpMinimize)
+- Define LpVariables x,y with lowBound=0, cat='Integer' (or 'Continuous')
+- Add objective 5*x + 7*y
+- Add constraints as above
+- Call prob.solve() and read x.value(), y.value(), and objective
+
+Final answer
+Eat 15 packs of blueberries and 45 packs of strawberries; this minimizes sugar at 390 grams.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data
+# Decision variables: x (blueberry packs), y (strawberry packs) - integers >= 0
+# Objective: minimize S = 5x + 7y
+# Constraints:
+#   3x + y >= 90        (anti-oxidants)
+#   5x + 7y >= 100      (minerals)
+#   y - 3x >= 0         (seasonality: at least 3x strawberries)
+
+# Analytical solution from active constraints y = 3x and 3x + y = 90:
+x_analytical = 15
+y_analytical = 45
+value_analytical = 5 * x_analytical + 7 * y_analytical
+
+# Verify constraints
+assert 3 * x_analytical + y_analytical >= 90
+assert 5 * x_analytical + 7 * y_analytical >= 100
+assert y_analytical >= 3 * x_analytical
+
+# Brute-force integer verification over a reasonable range to confirm optimality
+best_value = None
+best_xy = None
+
+# Set bounds for search: x up to 100, y up to 300 (safe given constraints)
+for x in range(0, 101):
+    for y in range(0, 301):
+        if 3 * x + y >= 90 and 5 * x + 7 * y >= 100 and y >= 3 * x:
+            S = 5 * x + 7 * y
+            if best_value is None or S < best_value:
+                best_value = S
+                best_xy = (x, y)
+
+# Sanity check: brute-force optimum should match analytical solution
+if best_xy is not None:
+    assert best_xy == (x_analytical, y_analytical), f"Brute-force found {best_xy} with value {best_value}, analytical {(x_analytical,y_analytical)} value {value_analytical}"
+
+value = value_analytical
+
+print(f"FINAL_OBJ: {value}")

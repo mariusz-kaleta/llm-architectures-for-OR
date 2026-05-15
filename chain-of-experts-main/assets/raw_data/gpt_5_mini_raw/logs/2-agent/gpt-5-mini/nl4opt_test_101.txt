@@ -1,0 +1,98 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x = number of topsoil bags (nonnegative integer)
+- y = number of subsoil bags (nonnegative integer)
+
+Objective
+- Minimize total daily water required: minimize W = 6x + 10y
+  (6 units per topsoil bag, 10 units per subsoil bag)
+
+Constraints
+1. Truck capacity / total available: x + y ≤ 150
+2. At least 10 topsoil bags: x ≥ 10
+3. Topsoil ≤ 30% of total: x ≤ 0.3(x + y)
+   (equivalently 7x ≤ 3y, or 3y - 7x ≥ 0)
+4. Integrality and nonnegativity: x, y ∈ Z≥0
+
+Remarks: if you allow continuous (non-integer) bags then the same linear model without integrality applies.
+
+Analytic solution (integer-bag case)
+- From constraint 3: y ≥ (7/3)x, so the minimal feasible total for a given x is n = x + ceil(7x/3).
+- Feasible integer x is 10 ≤ x ≤ 45 (since 7x ≤ 3y and x+y ≤150 imply x ≤45).
+- The objective 6x + 10y is minimized by taking the smallest feasible x, which is x = 10.
+- Then minimal integer y = smallest integer satisfying 3y ≥ 7x = 70 → y ≥ 70/3 → y = 24.
+- Solution: x = 10 topsoil bags, y = 24 subsoil bags. Total water = 6*10 + 10*24 = 300 units per day. Total bags = 34.
+
+Continuous (non-integer) note
+- If fractional bags were allowed, the constraint x ≤ 0.3(x+y) and x ≥ 10 give minimal total n = x/0.3 with x = 10 → n = 33.333..., y = 23.333..., and W = 293.333...
+- But bags are normally discrete, so the integer solution above (10 and 24) is the correct practical solution.
+
+Suggested solver libraries
+- Integer/linear programming: PuLP (with CBC), OR-Tools (CP-SAT or linear solver), Gurobi or CPLEX (commercial)
+- If you only need continuous LP: scipy.optimize.linprog, CVXOPT, PuLP
+
+Example (PuLP) code sketch
+- Use PuLP to model and solve the integer LP; the sketch below shows the core setup:
+
+from pulp import LpProblem, LpMinimize, LpVariable, LpInteger, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("Soil_Water_Min", LpMinimize)
+x = LpVariable('top', lowBound=0, cat=LpInteger)
+y = LpVariable('sub', lowBound=0, cat=LpInteger)
+
+prob += 6*x + 10*y                             # objective
+prob += x + y <= 150                           # capacity
+prob += x >= 10                                # at least 10 topsoil
+prob += 3*y - 7*x >= 0                         # topsoil ≤ 30% -> 3y >= 7x
+
+prob.solve(PULP_CBC_CMD(msg=0))
+print(x.value(), y.value(), (6*x.value()+10*y.value()))
+
+This returns x=10, y=24, total water = 300.
+
+If you want, I can provide a complete runnable script (with solver installation notes) or run sensitivity checks (what if the 30% or the minimum-topsoil requirement change).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Initialize problem data
+max_trucks = 150  # x + y <= 150
+min_topsoil = 10  # x >= 10
+
+# Coefficients for objective W = 6x + 10y
+coeff_x = 6
+coeff_y = 10
+
+best_solution = None
+best_obj = None
+
+# Search integer feasible solutions
+for x in range(0, max_trucks + 1):
+    for y in range(0, max_trucks + 1 - x):
+        # Constraints:
+        # 1) capacity: x + y <= 150  (ensured by loop bounds)
+        # 2) at least 10 topsoil: x >= 10
+        # 3) topsoil <= 30% of total -> 3y - 7x >= 0  (equivalently y >= 7x/3)
+        if x < min_topsoil:
+            continue
+        if 3 * y - 7 * x < 0:
+            continue
+        # objective
+        W = coeff_x * x + coeff_y * y
+        if (best_obj is None) or (W < best_obj):
+            best_obj = W
+            best_solution = (x, y)
+
+# Unpack best solution
+x_opt, y_opt = best_solution
+
+# Print solution details (optional)
+print(f"Optimal integer solution: x = {x_opt} (topsoil bags), y = {y_opt} (subsoil bags)")
+print(f"Total bags = {x_opt + y_opt}, Total water = {best_obj}")
+
+# Final required output line (must be the last line)
+print(f"FINAL_OBJ: {best_obj}")

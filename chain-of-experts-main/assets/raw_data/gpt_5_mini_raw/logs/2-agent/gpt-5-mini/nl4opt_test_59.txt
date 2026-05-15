@@ -1,0 +1,131 @@
+[MODELER]:
+Model
+
+Variables
+- x = number of experiment alpha to run (>= 0)
+- y = number of experiment beta to run (>= 0)
+(If experiments must be whole, add integer constraints: x, y ∈ Z_{\ge 0}.)
+
+Objective
+- Maximize total electricity: maximize Z = 8x + 10y
+
+Constraints (resource limits)
+- Metal: 3x + 5y ≤ 800
+- Acid: 5x + 4y ≤ 750
+- Nonnegativity: x ≥ 0, y ≥ 0
+
+Mathematical formulation
+Maximize Z = 8x + 10y
+subject to
+3x + 5y ≤ 800
+5x + 4y ≤ 750
+x ≥ 0, y ≥ 0
+(optional) x, y integer
+
+Solution (continuous LP)
+Solve the two binding constraints simultaneously:
+3x + 5y = 800
+5x + 4y = 750
+
+This yields x = 550/13 ≈ 42.3077, y = 1750/13 ≈ 134.6154
+Objective value Z = 21900/13 ≈ 1684.6154 units of electricity.
+
+Check corner solutions:
+- x = 0 → y = min(800/5, 750/4) = 160 → Z = 1600
+- y = 0 → x = min(800/3, 750/5) = 150 (acid binds) → Z = 1200
+The interior intersection above gives the maximum for the continuous problem.
+
+Integer (integrality) version
+If x and y must be integers, the best feasible integer solution near the LP optimum is:
+x = 40, y = 136
+which uses resources 3*40 + 5*136 = 800 (metal), 5*40 + 4*136 = 744 (acid) and yields Z = 8*40 + 10*136 = 1680 units.
+(You can confirm no integer combination gives more than 1680 while respecting both constraints.)
+
+Recommended Python libraries
+- pulp (simple modelling, supports integer vars; uses CBC solver by default)
+- scipy.optimize.linprog (for continuous LPs)
+- OR-Tools (Google OR-Tools) (good for integer/CP-SAT solving and LP/MIP)
+- cvxpy (convex optimization modelling; can call mixed-integer solvers if available)
+
+Example (pulp) — continuous and integer variants
+- Use pulp.LpProblem with LpMaximize, define x,y as LpVariable(..., lowBound=0) for continuous;
+- For integer add cat='Integer' to the variables.
+- Add constraints and solve. The solver will return the optimal x, y and objective.
+
+If you want, I can supply ready-to-run Python code examples for the continuous LP and for the integer (MIP) version using pulp or OR-Tools. Which do you prefer? Continuous or integer?
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+import numpy as np
+
+# Problem data
+# Variables: x, y >= 0 (integers optional)
+# Maximize Z = 8x + 10y
+# Constraints:
+#   3x + 5y <= 800
+#   5x + 4y <= 750
+
+# Continuous solution (solve the two equality constraints)
+A = np.array([[3.0, 5.0],
+              [5.0, 4.0]])
+b = np.array([800.0, 750.0])
+
+cont_solution = np.linalg.solve(A, b)
+x_cont, y_cont = cont_solution
+z_cont = 8.0 * x_cont + 10.0 * y_cont
+
+# Corner solutions (axis intersections)
+# x = 0:
+y_at_x0 = min(800.0 / 5.0, 750.0 / 4.0)
+z_x0 = 8.0 * 0.0 + 10.0 * y_at_x0
+
+# y = 0:
+x_at_y0 = min(800.0 / 3.0, 750.0 / 5.0)
+z_y0 = 8.0 * x_at_y0 + 10.0 * 0.0
+
+# Integer (integrality) version: brute-force search for integer x,y
+# Determine reasonable bounds for search
+max_x_bound = int(min(800 // 3, 750 // 5))  # when y = 0
+max_y_bound = int(min(800 // 5, 750 // 4))  # when x = 0
+
+best_int_obj = None
+best_int_pairs = []
+
+for x in range(max_x_bound + 1):
+    # For each x, y can range from 0 to max_y_bound, but we can limit by metal constraint too
+    # Solve for max y allowed by metal and acid constraints:
+    # 3x + 5y <= 800 -> y <= (800 - 3x)/5
+    # 5x + 4y <= 750 -> y <= (750 - 5x)/4
+    y_max_metal = (800 - 3 * x) // 5
+    y_max_acid = (750 - 5 * x) // 4
+    y_max = int(min(y_max_metal, y_max_acid, max_y_bound))
+    if y_max < 0:
+        continue
+    for y in range(y_max + 1):
+        if 3 * x + 5 * y <= 800 and 5 * x + 4 * y <= 750:
+            z = 8 * x + 10 * y
+            if (best_int_obj is None) or (z > best_int_obj):
+                best_int_obj = z
+                best_int_pairs = [(x, y)]
+            elif z == best_int_obj:
+                best_int_pairs.append((x, y))
+
+# Print results (informational)
+print("Continuous solution (intersection of resource constraints):")
+print(f" x = {x_cont:.10f}, y = {y_cont:.10f}, Z = {z_cont:.10f}")
+print("")
+print("Corner solutions:")
+print(f" x=0 -> y={y_at_x0:.10f}, Z={z_x0:.10f}")
+print(f" y=0 -> x={x_at_y0:.10f}, Z={z_y0:.10f}")
+print("")
+print("Integer (brute-force) optimum:")
+print(f" Best integer objective Z = {best_int_obj}")
+print(f" Achieved at integer (x,y) pairs: {best_int_pairs}")
+print("")
+
+# Final required print (only this line must have this exact form)
+print(f"FINAL_OBJ: {best_int_obj}")
+```

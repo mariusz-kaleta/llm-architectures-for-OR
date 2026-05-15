@@ -1,0 +1,75 @@
+[MODELER]:
+Formal linear-program model
+
+Decision variables
+- x_C >= 0 : kilograms of fertilizer C to use.
+- x_Y >= 0 : kilograms of fertilizer Y to use.
+
+Objective
+- Minimize total cost: minimize Z = 2 x_C + 3 x_Y.
+
+Constraints
+- Nitrous oxide requirement (at least 5 units):
+  1.5 x_C + 5 x_Y >= 5.
+- Vitamin mix requirement (at least 8 units):
+  3 x_C + 1 x_Y >= 8.
+- Nonnegativity:
+  x_C >= 0, x_Y >= 0.
+
+Solution (analytical)
+Solve the two binding equality constraints simultaneously:
+1.5 x_C + 5 x_Y = 5
+3 x_C + 1 x_Y = 8
+
+From the second: 3 x_C = 8 - x_Y.
+Substitute and solve gives
+x_Y = 2/9, x_C = 70/27.
+
+Cost at this point:
+Z* = 2*(70/27) + 3*(2/9) = 158/27 ≈ 5.85185185 (dollars).
+
+This is the minimum cost (you can check the other corner solutions: (x_C=10/3,x_Y=0) gives cost 20/3 ≈ 6.6667, (x_C=0,x_Y=8) gives cost 24).
+
+Recommended Python libraries to solve numerically
+- pulp (simple LP modeling and solvers)
+- scipy.optimize.linprog
+- OR-Tools linear solver (ortools.linear_solver)
+- cvxopt or cvxpy for convex optimization formulations
+
+Example (pulp) code snippet
+
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("FertilizerMix", LpMinimize)
+xC = LpVariable("x_C", lowBound=0)
+xY = LpVariable("x_Y", lowBound=0)
+
+prob += 2*xC + 3*xY               # objective
+prob += 1.5*xC + 5*xY >= 5        # nitrous oxide
+prob += 3*xC + 1*xY >= 8          # vitamin mix
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print(xC.value(), xY.value(), "cost =", (2*xC.value()+3*xY.value()))
+
+Conclusion
+Minimum cost = 158/27 ≈ $5.85185, attained at x_C = 70/27 kg ≈ 2.59259 kg and x_Y = 2/9 kg ≈ 0.22222 kg.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import numpy as np
+
+# Coefficients for the binding constraints:
+# 1.5 x_C + 5 x_Y = 5
+# 3   x_C + 1 x_Y = 8
+A = np.array([[1.5, 5.0],
+              [3.0, 1.0]])
+b = np.array([5.0, 8.0])
+
+# Solve the linear system for the intersection point
+xC, xY = np.linalg.solve(A, b)
+
+# Objective: Z = 2*x_C + 3*x_Y
+obj = 2.0 * xC + 3.0 * xY
+
+print(f"FINAL_OBJ: {obj}")

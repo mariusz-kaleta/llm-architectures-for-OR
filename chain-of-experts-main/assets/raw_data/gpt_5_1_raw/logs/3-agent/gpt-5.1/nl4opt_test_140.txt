@@ -1,0 +1,138 @@
+[MODELER]:
+Here’s a linear programming model for this mixing problem.
+
+## 1. Decision variables
+
+Let  
+- \(x \ge 0\): kilograms of **regular mix** produced  
+- \(y \ge 0\): kilograms of **sour surprise mix** produced  
+
+## 2. Objective
+
+Maximize total profit:
+
+\[
+\max\; Z = 3x + 5y
+\]
+
+where  
+- 3 is the profit per kg of regular mix  
+- 5 is the profit per kg of sour surprise mix  
+
+## 3. Constraints
+
+### a) Regular candy availability
+
+Each kg of:
+- regular mix uses 0.8 kg of regular candy  
+- sour surprise mix uses 0.1 kg of regular candy  
+
+Total regular candy available is 80 kg:
+
+\[
+0.8x + 0.1y \le 80
+\]
+
+### b) Sour candy availability
+
+Each kg of:
+- regular mix uses 0.2 kg of sour candy  
+- sour surprise mix uses 0.9 kg of sour candy  
+
+Total sour candy available is 60 kg:
+
+\[
+0.2x + 0.9y \le 60
+\]
+
+### c) Non-negativity
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+So the full LP is:
+
+\[
+\begin{aligned}
+\max\quad & 3x + 5y \\
+\text{s.t.}\quad
+& 0.8x + 0.1y \le 80 \\
+& 0.2x + 0.9y \le 60 \\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+## 4. Solving the model (outline)
+
+Suitable Python libraries:
+- `PuLP` – simple modeling of LP problems; integrates CBC solver.
+- `scipy.optimize.linprog` – basic LP solver.
+- `ortools.linear_solver` – Google OR-Tools, very capable for LP/MIP.
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("CandyMix", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('regular_mix', lowBound=0)
+y = pl.LpVariable('sour_mix', lowBound=0)
+
+# Objective
+prob += 3 * x + 5 * y
+
+# Constraints
+prob += 0.8 * x + 0.1 * y <= 80     # regular candy
+prob += 0.2 * x + 0.9 * y <= 60     # sour candy
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Regular mix (kg):", x.value())
+print("Sour surprise mix (kg):", y.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This will compute the optimal kilograms of each mix to maximize profits under the candy availability constraints.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the LP problem
+    prob = pl.LpProblem("CandyMix", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('regular_mix', lowBound=0)
+    y = pl.LpVariable('sour_mix', lowBound=0)
+
+    # Objective function: Maximize 3x + 5y
+    prob += 3 * x + 5 * y
+
+    # Constraints
+    prob += 0.8 * x + 0.1 * y <= 80    # Regular candy availability
+    prob += 0.2 * x + 0.9 * y <= 60    # Sour candy availability
+
+    # Solve the problem
+    prob.solve()
+
+    # Retrieve the final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print solution details (optional)
+    # print("Status:", pl.LpStatus[prob.status])
+    # print("Regular mix (kg):", x.value())
+    # print("Sour surprise mix (kg):", y.value())
+    # print("Max profit:", final_obj)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

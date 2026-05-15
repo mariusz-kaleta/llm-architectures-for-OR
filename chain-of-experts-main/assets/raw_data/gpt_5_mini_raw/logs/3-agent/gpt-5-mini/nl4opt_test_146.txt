@@ -1,0 +1,82 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- L ∈ Z≥0 : number of large pizzas to make.
+- M ∈ Z≥0 : number of medium pizzas to make.
+
+Objective
+- Minimize total baking time T = 12L + 8M (minutes).
+
+Constraints
+1. Dough availability (must use at least 10,000 units):
+   12L + 8M ≥ 10000.
+2. Toppings availability (must use at least 4,400 units):
+   5L + 4M ≥ 4400.
+3. Promotion for mediums:
+   M ≥ 200.
+4. Regulars prefer larges (at least twice as many large as medium):
+   L ≥ 2M.
+5. Integrality and nonnegativity:
+   L, M ∈ Z≥0.
+
+Remarks: the objective and the dough constraint share the same coefficients (12 and 8), so minimizing 12L+8M is equivalent to minimizing dough usage subject to the other constraints.
+
+Solution (exact integer solution)
+- Optimal numbers: M = 314 medium pizzas, L = 629 large pizzas.
+- Minimum total baking time: T = 12·629 + 8·314 = 10060 minutes.
+
+Feasibility check
+- Dough used: 12·629 + 8·314 = 10060 ≥ 10000.
+- Toppings used: 5·629 + 4·314 = 4401 ≥ 4400.
+- M ≥ 200 and L = 629 ≥ 2·314 = 628 — all constraints satisfied.
+
+How this was found (brief)
+- Substitute L = 2M + x (x ≥ 0 integer) to enforce L ≥ 2M, reduce to one integer variable M and slack x. For each M ≥ 200 choose minimal x to meet toppings; compute objective 32M + 12x and search integer M. The minimum occurs at M = 314 with x = 1, giving L = 629.
+
+Recommended solvers / libraries
+- For coding and solving: use an integer linear programming solver:
+  - Python + PuLP (open-source, interfaces CBC, GLPK).
+  - OR-Tools (CP-SAT is excellent for integer problems).
+  - Python + mip (or Gurobi/CBC if available) for faster solutions on large problems.
+- If you want a quick direct search (small integer ranges), a simple brute-force loop in Python is also trivial and fast.
+
+If you want, I can provide a short PuLP or OR-Tools script that solves this MILP and prints the optimal L, M and baking time.
+
+---
+
+[CODER]:
+```python
+import math
+
+# Search for integer optimal solution
+best_T = None
+best_L = None
+best_M = None
+
+# Search M from 200 up to a safe upper bound (2000)
+for M in range(200, 2001):
+    # Minimal L from toppings: 5L + 4M >= 4400 -> L >= ceil((4400-4M)/5)
+    req_L_toppings = math.ceil((4400 - 4 * M) / 5)
+    # Minimal L from regulars: L >= 2M
+    req_L = max(2 * M, req_L_toppings, 0)
+    L = req_L
+    # Ensure dough constraint: 12L + 8M >= 10000
+    if 12 * L + 8 * M < 10000:
+        # Increase L until dough constraint is met
+        # Each increment increases dough by 12, so compute needed increment directly
+        needed = 10000 - (12 * L + 8 * M)
+        inc = (needed + 12 - 1) // 12
+        L += inc
+    T = 12 * L + 8 * M
+    # Record if better
+    if best_T is None or T < best_T:
+        best_T = T
+        best_L = L
+        best_M = M
+
+# Final check (optional assertions)
+assert best_T is not None
+# Print final objective value in required format
+print(f"FINAL_OBJ: {best_T}")
+```

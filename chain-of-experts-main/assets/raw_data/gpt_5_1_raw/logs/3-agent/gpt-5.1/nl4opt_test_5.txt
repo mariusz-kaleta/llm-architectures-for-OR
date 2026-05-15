@@ -1,0 +1,188 @@
+[MODELER]:
+Let’s turn the description into a clear linear optimization model.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = square feet of engineered hardwood produced per week  
+- \(y\) = square feet of vinyl planks produced per week  
+
+Both must be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+## 2. Objective function
+
+Profit per square foot:  
+- Hardwood: \$2.5  
+- Vinyl: \$3  
+
+Maximize total weekly profit:
+\[
+\max Z = 2.5x + 3y
+\]
+
+## 3. Constraints
+
+1. Minimum demand (hardwood):
+\[
+x \ge 20{,}000
+\]
+
+2. Minimum demand (vinyl):
+\[
+y \ge 10{,}000
+\]
+
+3. Total shipping requirement (at least 60,000 sq ft):
+\[
+x + y \ge 60{,}000
+\]
+
+4. Production capacity (hardwood, at most 50,000):
+\[
+x \le 50{,}000
+\]
+
+5. Production capacity (vinyl, at most 30,000):
+\[
+y \le 30{,}000
+\]
+
+Together:
+\[
+\begin{aligned}
+\text{Maximize } & Z = 2.5x + 3y \\
+\text{subject to } 
+& x \ge 20{,}000 \\
+& y \ge 10{,}000 \\
+& x + y \ge 60{,}000 \\
+& x \le 50{,}000 \\
+& y \le 30{,}000 \\
+& x, y \ge 0
+\end{aligned}
+\]
+
+## 4. Solving analytically
+
+Given the constraints, the feasible region is bounded by:
+- \(20{,}000 \le x \le 50{,}000\)
+- \(10{,}000 \le y \le 30{,}000\)
+- \(x + y \ge 60{,}000\)
+
+To maximize profit, we want as many units as possible of the product with higher profit per square foot (vinyl at \$3). So we expect:
+- Use the maximum possible vinyl: \(y = 30{,}000\).
+- Then satisfy total-shipping and other constraints with hardwood:
+
+From \(x + y \ge 60{,}000\):
+\[
+x + 30{,}000 \ge 60{,}000 \Rightarrow x \ge 30{,}000
+\]
+We also must satisfy \(x \ge 20{,}000\), which is weaker than \(x \ge 30{,}000\) here. And we have the upper bound \(x \le 50{,}000\). So the smallest \(x\) feasible with \(y=30{,}000\) is:
+\[
+x = 30{,}000,\quad y = 30{,}000
+\]
+
+Check other corner points quickly:
+
+- \(x=50{,}000, y=10{,}000\):  
+  \(Z = 2.5 \cdot 50{,}000 + 3 \cdot 10{,}000 = 125{,}000 + 30{,}000 = 155{,}000\)
+
+- \(x=50{,}000, y=30{,}000\):  
+  \(Z = 2.5 \cdot 50{,}000 + 3 \cdot 30{,}000 = 125{,}000 + 90{,}000 = 215{,}000\)
+
+- \(x=30{,}000, y=30{,}000\):  
+  \(Z = 2.5 \cdot 30{,}000 + 3 \cdot 30{,}000 = 75{,}000 + 90{,}000 = 165{,}000\)
+
+- \(x=20{,}000, y=40{,}000\) is infeasible: \(y \le 30{,}000\) denies this.
+
+- \(x=20{,}000, y=40{,}000\) not allowed; max y = 30,000.
+
+The best feasible corner is:
+\[
+x = 50{,}000, \quad y = 30{,}000 \quad \Rightarrow \quad Z_{\max} = \$215{,}000
+\]
+
+This respects:
+- Hardwood demand & capacity: \(20{,}000 \le 50{,}000 \le 50{,}000\)  
+- Vinyl demand & capacity: \(10{,}000 \le 30{,}000 \le 30{,}000\)  
+- Shipping: \(50{,}000 + 30{,}000 = 80{,}000 \ge 60{,}000\)
+
+**Optimal production:**
+- Produce 50,000 sq ft of hardwood per week.
+- Produce 30,000 sq ft of vinyl per week.
+- Maximum profit: \$215,000 per week.
+
+## 5. Suitable Python libraries
+
+This is a linear programming (LP) problem. Good choices in Python:
+
+- `PuLP` – Simple for LPs, integrates with CBC, GLPK, etc.
+- `scipy.optimize.linprog` – Part of SciPy; works well for small/medium LPs.
+- `ortools.linear_solver` from Google OR-Tools – Industrial-strength LP/MIP solver.
+
+Example with PuLP (sketch):
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("FlooringProduction", pl.LpMaximize)
+
+# Variables
+x = pl.LpVariable("hardwood", lowBound=0)
+y = pl.LpVariable("vinyl", lowBound=0)
+
+# Objective
+prob += 2.5 * x + 3 * y
+
+# Constraints
+prob += x >= 20000
+prob += y >= 10000
+prob += x + y >= 60000
+prob += x <= 50000
+prob += y <= 30000
+
+# Solve
+prob.solve()
+print("Status:", pl.LpStatus[prob.status])
+print("Hardwood:", x.value())
+print("Vinyl:", y.value())
+print("Profit:", pl.value(prob.objective))
+```
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("FlooringProduction", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable("hardwood", lowBound=0)  # square feet of engineered hardwood
+    y = pl.LpVariable("vinyl", lowBound=0)     # square feet of vinyl planks
+
+    # Objective function: Maximize 2.5x + 3y
+    prob += 2.5 * x + 3 * y
+
+    # Constraints
+    prob += x >= 20000         # minimum hardwood demand
+    prob += y >= 10000         # minimum vinyl demand
+    prob += x + y >= 60000     # total shipping requirement
+    prob += x <= 50000         # hardwood capacity
+    prob += y <= 30000         # vinyl capacity
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

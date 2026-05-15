@@ -1,0 +1,118 @@
+[MODELER]:
+Mathematical model (linear program)
+
+Decision variables
+- x = number of regular glass panes produced (x ≥ 0)
+- y = number of tempered glass panes produced (y ≥ 0)
+
+Objective
+- Maximize profit P = 8x + 10y
+
+Constraints
+- Heating time: 3x + 5y ≤ 300 (minutes available on heating machine)
+- Cooling time: 5x + 8y ≤ 300 (minutes available on cooling machine)
+- x, y ≥ 0 (and integer if panes must be integral)
+
+Solution (analytic)
+- The feasible region is defined by the two resource inequalities and the axes. Evaluating the objective at the corner points:
+  - (x,y) = (0,0) → P = 0
+  - (x,y) = (60,0) (cooling binds: 5·60 = 300) → P = 8·60 = 480
+  - (x,y) = (0,37.5) (cooling binds: 8·37.5 = 300) → P = 10·37.5 = 375
+- The maximum occurs at x = 60, y = 0 with maximum profit P = $480.
+
+Notes
+- Regular panes give higher profit per minute on both machines (8/3 > 10/5 and 8/5 > 10/8), so producing only regular panes is optimal.
+- If integrality is required, the LP optimum (60,0) is integral, so integer programming is not necessary here.
+
+Recommended Python libraries to solve this
+- PuLP (simple, pure-Python LP modeling)
+- scipy.optimize.linprog (for continuous LPs)
+- OR-Tools (Google, supports LP and MIP)
+- CVXPY (convex optimization modeling)
+
+Example (PuLP sketch)
+- Formulate variables x,y = LpVariable(..., lowBound=0)
+- Set objective LpMaximize(8*x + 10*y)
+- Add constraints 3*x + 5*y <= 300 and 5*x + 8*y <= 300
+- Solve and read x.value(), y.value(), and objective value.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained script to solve the LP described and print the final objective value
+# Decision variables: x (regular panes), y (tempered panes)
+# Maximize P = 8x + 10y
+# Constraints:
+#   3x + 5y <= 300
+#   5x + 8y <= 300
+#   x, y >= 0
+
+# Initialize problem data
+c_x = 8.0
+c_y = 10.0
+A = [(3.0, 5.0), (5.0, 8.0)]
+b = [300.0, 300.0]
+
+# Helper to evaluate objective
+def objective(pt):
+    x, y = pt
+    return c_x * x + c_y * y
+
+# Candidate corner points: axes intersections and intersection of the two constraint lines (if in first quadrant)
+candidates = []
+
+# Origin
+candidates.append((0.0, 0.0))
+
+# Intersections with x-axis (y=0): x <= min(b_i / a_i1)
+x_bound1 = b[0] / A[0][0]  # from 3x <= 300 -> 100
+x_bound2 = b[1] / A[1][0]  # from 5x <= 300 -> 60
+x_max = min(x_bound1, x_bound2)
+candidates.append((x_max, 0.0))
+
+# Intersections with y-axis (x=0): y <= min(b_i / a_i2)
+y_bound1 = b[0] / A[0][1]  # from 5y <= 300 -> 60
+y_bound2 = b[1] / A[1][1]  # from 8y <= 300 -> 37.5
+y_max = min(y_bound1, y_bound2)
+candidates.append((0.0, y_max))
+
+# Intersection of the two constraint lines (solve 2x2)
+a11, a12 = A[0]
+a21, a22 = A[1]
+b1, b2 = b
+det = a11 * a22 - a12 * a21
+if abs(det) > 1e-12:
+    x_int = (b1 * a22 - a12 * b2) / det
+    y_int = (a11 * b2 - b1 * a21) / det
+    # include only if non-negative (feasible in first quadrant)
+    if x_int >= -1e-12 and y_int >= -1e-12:
+        # clamp small numerical negatives to zero
+        x_int = max(0.0, x_int)
+        y_int = max(0.0, y_int)
+        candidates.append((x_int, y_int))
+
+# Filter candidates to ensure they satisfy constraints (numerical tolerance)
+feasible = []
+for x, y in candidates:
+    if x >= -1e-9 and y >= -1e-9 and (A[0][0]*x + A[0][1]*y) <= b[0] + 1e-9 and (A[1][0]*x + A[1][1]*y) <= b[1] + 1e-9:
+        feasible.append((x, y))
+
+# Evaluate objective at feasible corners and pick the best
+best_pt = None
+best_obj = -float('inf')
+for pt in feasible:
+    val = objective(pt)
+    if val > best_obj + 1e-12:
+        best_obj = val
+        best_pt = pt
+
+# Prepare final value (integer if effectively integer)
+if abs(round(best_obj) - best_obj) < 1e-9:
+    value = int(round(best_obj))
+else:
+    value = float(best_obj)
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {value}")
+```

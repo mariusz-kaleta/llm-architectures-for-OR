@@ -1,0 +1,142 @@
+[MODELER]:
+We can model this as a simple linear programming (LP) problem.
+
+### Decision variables
+Let:
+- \( x \) = amount invested in telecom (in dollars)  
+- \( y \) = amount invested in healthcare (in dollars)
+
+### Objective
+Maximize total profit (interest earned):
+
+\[
+\text{Maximize } Z = 0.03x + 0.01y
+\]
+
+### Constraints
+
+1. **Total available money**:  
+   \[
+   x + y = 100000
+   \]
+
+2. **Telecom at least three times healthcare**:  
+   \[
+   x \ge 3y
+   \]
+
+3. **Telecom at most \$70,000**:  
+   \[
+   x \le 70000
+   \]
+
+4. **Non-negativity**:  
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+
+---
+
+### Solving analytically
+
+From \( x + y = 100000 \) we have:
+\[
+y = 100000 - x
+\]
+
+Substitute into \( x \ge 3y \):
+
+\[
+x \ge 3(100000 - x) \Rightarrow x \ge 300000 - 3x \Rightarrow 4x \ge 300000 \Rightarrow x \ge 75000
+\]
+
+But we also have \( x \le 70000 \).  
+Thus we require simultaneously:
+\[
+x \ge 75000 \quad \text{and} \quad x \le 70000
+\]
+which is impossible.
+
+So the set of constraints is **infeasible**: there is no way to invest \$100,000 such that:
+
+- telecom is at least three times healthcare,
+- telecom is at most \$70,000,
+- and the total is \$100,000.
+
+Therefore, **no feasible investment amounts exist that satisfy all the given conditions**. To make the problem solvable, at least one condition must be relaxed, for example:
+
+- increase the telecom cap above \$75,000, or
+- reduce the “three times” requirement, or
+- allow some money to remain uninvested.
+
+---
+
+### Python libraries suitable for solving this
+
+If you want to implement and check this programmatically, you can use any standard LP solver, for example:
+
+- `PuLP` – user-friendly linear programming in Python.
+- `scipy.optimize.linprog` – LP via SciPy.
+- `ortools.linear_solver` (Google OR-Tools) – efficient LP/MIP solver.
+
+Example sketch with PuLP (will report infeasible):
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Investment_Problem", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('telecom', lowBound=0)
+y = pl.LpVariable('healthcare', lowBound=0)
+
+# Objective
+prob += 0.03 * x + 0.01 * y
+
+# Constraints
+prob += x + y == 100000
+prob += x >= 3 * y
+prob += x <= 70000
+
+# Solve
+status = prob.solve()
+print(pl.LpStatus[status])  # Will print 'Infeasible'
+```
+
+This formal model captures the problem precisely and shows that, as stated, it has no solution.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("Investment_Problem", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('telecom', lowBound=0)
+    y = pl.LpVariable('healthcare', lowBound=0)
+
+    # Objective: Maximize 0.03x + 0.01y
+    prob += 0.03 * x + 0.01 * y
+
+    # Constraints
+    prob += x + y == 100000
+    prob += x >= 3 * y
+    prob += x <= 70000
+
+    # Solve
+    status = prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # If infeasible, set objective to None or some indicator
+    if pl.LpStatus[status] != 'Optimal':
+        value = None
+    else:
+        value = pl.value(prob.objective)
+
+    print(f"FINAL_OBJ: {value}")
+
+if __name__ == "__main__":
+    main()

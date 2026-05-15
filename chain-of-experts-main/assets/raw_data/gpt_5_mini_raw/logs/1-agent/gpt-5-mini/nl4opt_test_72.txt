@@ -1,0 +1,38 @@
+[MONOLITH]:
+import pulp
+
+# Define the LP problem: maximize slime produced
+prob = pulp.LpProblem("Maximize_Slime", pulp.LpMaximize)
+
+# Decision variables: number of table setups (can be continuous nonnegative)
+x1 = pulp.LpVariable("table1_setups", lowBound=0, cat="Continuous")  # table 1
+x2 = pulp.LpVariable("table2_setups", lowBound=0, cat="Continuous")  # table 2
+
+# Objective: maximize slime = 4*x1 + 5*x2
+prob += 4 * x1 + 5 * x2, "Total_Slime"
+
+# Constraints:
+# Powder: 3*x1 + 8*x2 <= 100
+prob += 3 * x1 + 8 * x2 <= 100, "Powder_limit"
+
+# Glue: 5*x1 + 6*x2 <= 90
+prob += 5 * x1 + 6 * x2 <= 90, "Glue_limit"
+
+# Mess: 2*x1 + 4*x2 <= 30
+prob += 2 * x1 + 4 * x2 <= 30, "Mess_limit"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+x1_val = x1.varValue if x1.varValue is not None else 0.0
+x2_val = x2.varValue if x2.varValue is not None else 0.0
+obj_val = pulp.value(prob.objective)
+
+# Print solution details
+print(f"table1_setups = {x1_val}")
+print(f"table2_setups = {x2_val}")
+print(f"Total_slime = {obj_val}")
+
+# Final required line (must be last)
+print(f"FINAL_OBJ: {obj_val}")

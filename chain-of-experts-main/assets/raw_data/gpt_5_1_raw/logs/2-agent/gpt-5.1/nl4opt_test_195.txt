@@ -1,0 +1,196 @@
+[MODELER]:
+Here is a formal optimization model for this supplement problem.
+
+## 1. Decision variables
+
+Let  
+- \(x \ge 0\): number of pills of supplement A taken per day  
+- \(y \ge 0\): number of pills of supplement B taken per day  
+
+(If pills must be whole, then \(x, y\) should be integer, typically nonnegative integers.)
+
+## 2. Objective
+
+Minimize the total daily cost of supplements:
+
+\[
+\text{Minimize } Z = 2x + 3y
+\]
+
+where:
+- 2 = cost per pill of supplement A (in dollars)  
+- 3 = cost per pill of supplement B (in dollars)
+
+## 3. Constraints
+
+### Iron requirement
+
+Each A pill gives 5 units of iron; each B pill gives 4 units of iron.  
+The man needs at least 40 units of iron:
+
+\[
+5x + 4y \;\ge\; 40
+\]
+
+### Calcium requirement
+
+Each A pill gives 10 units of calcium; each B pill gives 15 units of calcium.  
+The man needs at least 50 units of calcium:
+
+\[
+10x + 15y \;\ge\; 50
+\]
+
+### Nonnegativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,
+\]
+and if we require whole pills:
+\[
+x, y \in \mathbb{Z}.
+\]
+
+## 4. Solution of the linear program (continuous case)
+
+Ignoring integrality (allowing fractional pills), you can solve it analytically:
+
+Solve the system where both constraints are tight (as is typical in a minimum-cost LP with two constraints):
+
+\[
+\begin{cases}
+5x + 4y = 40 \\
+10x + 15y = 50
+\end{cases}
+\]
+
+From the first:  
+\[
+x = 8 - 0.8y
+\]
+
+Substitute into the second:
+
+\[
+10(8 - 0.8y) + 15y = 50 \\
+80 - 8y + 15y = 50 \\
+80 + 7y = 50 \\
+7y = -30 \Rightarrow y = -\frac{30}{7} < 0
+\]
+
+This is infeasible (negative \(y\)), so the optimal point lies on one constraint with the other inactive (and on the nonnegativity boundary).
+
+Check corners formed by constraints and axes:
+
+1. Satisfy iron with only A:
+   \[
+   5x \ge 40 \Rightarrow x \ge 8
+   \]
+   At \(x=8, y=0\):
+   - Iron: \(5\cdot 8 = 40\) ✓  
+   - Calcium: \(10\cdot 8 = 80 \ge 50\) ✓  
+   - Cost: \(Z = 2\cdot 8 + 3\cdot 0 = 16\).
+
+2. Satisfy iron with only B:
+   \[
+   4y \ge 40 \Rightarrow y \ge 10
+   \]
+   At \(x=0, y=10\):
+   - Iron: \(4\cdot 10 = 40\) ✓  
+   - Calcium: \(15\cdot 10 = 150 \ge 50\) ✓  
+   - Cost: \(Z = 3\cdot 10 = 30\).
+
+3. Satisfy calcium with only A:
+   \[
+   10x \ge 50 \Rightarrow x \ge 5
+   \]
+   At \(x=5, y=0\):
+   - Iron: \(5\cdot 5 = 25 < 40\) ✗ (infeasible).
+
+4. Satisfy calcium with only B:
+   \[
+   15y \ge 50 \Rightarrow y \ge \frac{50}{15} \approx 3.33
+   \]
+   At \(x=0, y=\frac{50}{15}\):
+   - Iron: \(4\cdot \frac{50}{15} \approx 13.33 < 40\) ✗.
+
+Because the line intersection is infeasible and the only feasible corners are \((8,0)\) and \((0,10)\), and cost is linear and increasing in both variables, the minimum cost is at the cheaper feasible corner:
+
+- Optimal (continuous) solution:  
+  \[
+  x^* = 8,\quad y^* = 0,\quad Z^* = 16.
+  \]
+
+Since these are already integers, this is also the integer solution.
+
+**Answer:** He should buy 8 pills of supplement A and 0 pills of supplement B per day to minimize his cost.
+
+## 5. Suitable Python libraries
+
+To model and solve this problem in Python, you can use:
+
+- **PuLP**  
+  - Simple modeling syntax, integrates with CBC solver (open-source).  
+  - Good for small to medium linear/integer problems.  
+  - Example:
+    ```python
+    import pulp as pl
+
+    # Problem
+    prob = pl.LpProblem("Supplements", pl.LpMinimize)
+
+    # Variables
+    x = pl.LpVariable("x", lowBound=0, cat="Integer")
+    y = pl.LpVariable("y", lowBound=0, cat="Integer")
+
+    # Objective
+    prob += 2*x + 3*y
+
+    # Constraints
+    prob += 5*x + 4*y >= 40    # iron
+    prob += 10*x + 15*y >= 50  # calcium
+
+    # Solve
+    prob.solve()
+    print("x =", x.varValue, "y =", y.varValue, "Cost =", pl.value(prob.objective))
+    ```
+
+- **OR-Tools (Google)** – `ortools.linear_solver`  
+  - Powerful, efficient, supports LP/MIP.  
+  - Good choice for larger or more complex diet-like problems.
+
+- **SciPy** (`scipy.optimize.linprog`)  
+  - Suitable if you treat \(x, y\) as continuous (no integrality).  
+  - For exact integer solutions, use PuLP or OR-Tools instead.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Supplements", pl.LpMinimize)
+
+    # Decision variables: integer, nonnegative
+    x = pl.LpVariable("x", lowBound=0, cat="Integer")
+    y = pl.LpVariable("y", lowBound=0, cat="Integer")
+
+    # Objective function: minimize cost
+    prob += 2 * x + 3 * y
+
+    # Constraints
+    prob += 5 * x + 4 * y >= 40   # Iron requirement
+    prob += 10 * x + 15 * y >= 50 # Calcium requirement
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

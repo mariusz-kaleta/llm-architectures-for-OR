@@ -1,0 +1,163 @@
+[MODELER]:
+Let’s model this as a mixed-integer linear optimization problem.
+
+## 1. Decision variables
+
+Let
+- \(x\) = number of high-intensity drills used (integer, \(x \ge 0\))
+- \(y\) = number of low-intensity drills used (integer, \(y \ge 0\))
+
+## 2. Objective
+
+We want to minimize the total number of drills used:
+\[
+\min \; x + y
+\]
+
+## 3. Constraints
+
+### a) Gem processing requirement
+
+Each high-intensity drill processes 50 gems/day; each low-intensity drill processes 30 gems/day. We must process at least 800 gems per day:
+
+\[
+50x + 30y \;\ge\; 800
+\]
+
+### b) Water usage constraint
+
+Each high-intensity drill uses 50 units of water; each low-intensity drill uses 20 units. Total available water is 700 units:
+
+\[
+50x + 20y \;\le\; 700
+\]
+
+### c) Fraction of high-intensity drills
+
+“At most 40% of the drills can be high intensity” means:
+
+\[
+x \;\le\; 0.4(x + y)
+\]
+
+Rewriting:
+
+\[
+x \le 0.4x + 0.4y
+\]
+\[
+0.6x \le 0.4y
+\]
+\[
+3x \le 2y
+\]
+
+So the constraint is:
+\[
+3x \;\le\; 2y
+\]
+
+### d) Minimum number of low-intensity drills
+
+“At least 10 should be low intensity drills”:
+
+\[
+y \;\ge\; 10
+\]
+
+### e) Integrality and non-negativity
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+## 4. Complete mathematical model
+
+\[
+\begin{aligned}
+\min \ & x + y \\
+\text{s.t.} \quad 
+& 50x + 30y \;\ge\; 800 \quad &\text{(gems)}\\
+& 50x + 20y \;\le\; 700 \quad &\text{(water)}\\
+& 3x \;\le\; 2y \quad &\text{(≤ 40% high-intensity)}\\
+& y \;\ge\; 10 \quad &\text{(min low-intensity)}\\
+& x, y \in \mathbb{Z}_{\ge 0} \quad &\text{(integrality)}
+\end{aligned}
+\]
+
+This is an integer linear programming (ILP) problem.
+
+## 5. Suitable Python libraries
+
+You can solve this with any standard MILP solver interface. Good options:
+
+- **PuLP**: simple modeling interface in pure Python, works with CBC (open-source) or commercial solvers.
+- **OR-Tools (Google)**: has a CP-SAT solver well-suited for integer problems.
+- **Pyomo**: more general modeling environment, supports many back-end solvers.
+
+For this small problem, **PuLP** or **OR-Tools** are very convenient.
+
+### Example in PuLP (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("GemDrillPlanning", pl.LpMinimize)
+
+# Variables
+x = pl.LpVariable('x', lowBound=0, cat='Integer')  # high-intensity
+y = pl.LpVariable('y', lowBound=10, cat='Integer') # low-intensity, y >= 10
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 50*x + 30*y >= 800   # gems
+prob += 50*x + 20*y <= 700   # water
+prob += 3*x <= 2*y           # <= 40% high-intensity
+
+# Solve
+prob.solve()
+print("Status:", pl.LpStatus[prob.status])
+print("High-intensity drills (x):", x.value())
+print("Low-intensity drills (y):", y.value())
+print("Min total drills:", x.value() + y.value())
+```
+
+This will give the optimal numbers of high- and low-intensity drills that minimize \(x + y\) under all constraints.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("GemDrillPlanning", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('x', lowBound=0, cat='Integer')   # high-intensity drills
+    y = pl.LpVariable('y', lowBound=10, cat='Integer')  # low-intensity drills (y >= 10)
+
+    # Objective: minimize total drills
+    prob += x + y
+
+    # Constraints
+    prob += 50 * x + 30 * y >= 800    # gem processing requirement
+    prob += 50 * x + 20 * y <= 700    # water usage constraint
+    prob += 3 * x <= 2 * y            # at most 40% high-intensity drills
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get solution values
+    x_val = x.value()
+    y_val = y.value()
+    obj_val = x_val + y_val
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {obj_val}")
+
+if __name__ == "__main__":
+    main()

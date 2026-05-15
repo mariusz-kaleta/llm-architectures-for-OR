@@ -1,0 +1,46 @@
+[MONOLITH]:
+import pulp
+
+# Data (from problem description)
+small_people = 2   # people required per small truck
+small_cap = 30     # capacity per small truck
+large_people = 4   # people required per large truck
+large_cap = 50     # capacity per large truck
+total_people = 30  # available people
+
+min_small = 10     # at least 10 small trucks
+min_large = 3      # at least 3 large trucks
+# relation: number of small trucks must be twice the number of large trucks: s = 2*l
+
+# Define problem
+prob = pulp.LpProblem("Snow_Removal", pulp.LpMaximize)
+
+# Decision variables: integer numbers of trucks
+s = pulp.LpVariable("small_trucks", lowBound=0, cat='Integer')
+l = pulp.LpVariable("large_trucks", lowBound=0, cat='Integer')
+
+# Objective: maximize total capacity transported
+prob += small_cap * s + large_cap * l, "Total_Snow_Capacity"
+
+# Constraints
+prob += small_people * s + large_people * l <= total_people, "People_Availability"
+prob += s >= min_small, "Min_Small"
+prob += l >= min_large, "Min_Large"
+prob += s == 2 * l, "Small_Twice_Large"
+
+# Solve
+prob.solve()
+
+status = pulp.LpStatus[prob.status]
+
+# Prepare final objective value output according to feasibility/status
+if status == 'Optimal':
+    final_value = pulp.value(prob.objective)
+    # optional: convert to int if it's effectively integer
+    if abs(final_value - round(final_value)) < 1e-6:
+        final_value = int(round(final_value))
+else:
+    final_value = 'infeasible'
+
+# (You may optionally print details here; final required print is below)
+print(f"FINAL_OBJ: {final_value}")

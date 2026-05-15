@@ -1,0 +1,90 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- f ∈ Z≥0 : number of ferry trips
+- r ∈ Z≥0 : number of light-rail trips
+
+Objective
+- Minimize total trips T = f + r
+
+Constraints
+1. Capacity: 20 f + 15 r ≥ 500
+2. Rail requirement: r ≥ 4 f
+
+Mathematical formulation
+minimize    T = f + r
+subject to 20 f + 15 r ≥ 500
+           r − 4 f ≥ 0
+           f, r ∈ Z≥0
+
+Remarks on solving
+- This is a small integer linear program (MILP). Because domain is small you can solve by simple enumeration over f (or r) or with any MILP solver.
+- For a given integer f, the minimum feasible r is r_min(f) = max(4 f, ceil((500 − 20 f)/15)). Then T(f) = f + r_min(f). Evaluate for integer f ≥ 0 until capacity constraint can be satisfied.
+
+Quick analytic search (integer):
+- f = 0 → r = 34 → T = 34
+- f = 1 → r = 32 → T = 33
+- f = 2 → r = 31 → T = 33
+- f = 3 → r = 30 → T = 33
+- f = 4 → r = 28 → T = 32
+- f = 5 → r = 27 → T = 32
+- f = 6 → r = 26 → T = 32
+- f = 7 → r = 28 (because r ≥ 4 f = 28) → T = 35
+Minimum T = 32, achieved for (f, r) = (4,28), (5,27), or (6,26).
+
+Recommended solvers / Python libraries
+- pulp (easy MILP modeling with CBC solver)
+- OR-Tools CP-SAT (fast for integer problems)
+- mip or gurobipy (commercial/advanced solvers if available)
+- Simple brute-force or use scipy only for continuous relaxations (scipy.optimize does not handle integer constraints directly)
+
+Example (pulp) sketch
+- Define LpVariables f, r as integers ≥ 0
+- Add constraints 20*f + 15*r >= 500 and r >= 4*f
+- Minimize f + r
+- Solve with pulp.PULP_CBC_CMD()
+
+This yields the optimal minimum total trips = 32 (with trip combinations given above).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data (initialized directly)
+capacity_needed = 500
+cap_ferry = 20
+cap_rail = 15
+rail_ratio = 4  # r >= 4*f
+
+# Search bounds
+# f won't need to be very large; choose a safe upper bound
+f_upper = 100
+
+best_T = None
+best_solutions = []
+
+for f in range(0, f_upper + 1):
+    # minimum r to satisfy capacity (may be negative if capacity already met by f alone)
+    needed_r_capacity = math.ceil((capacity_needed - cap_ferry * f) / cap_rail)
+    # r must also satisfy rail requirement and be nonnegative
+    r_min = max(rail_ratio * f, needed_r_capacity, 0)
+    # r_min is integer already from ceil and integer multiplications
+    # Check feasibility explicitly (in case needed_r_capacity was very large)
+    if cap_ferry * f + cap_rail * r_min < capacity_needed:
+        continue  # infeasible for this f
+    T = f + r_min
+    if (best_T is None) or (T < best_T):
+        best_T = T
+        best_solutions = [(f, r_min)]
+    elif T == best_T:
+        best_solutions.append((f, r_min))
+
+# Output results (informational)
+print("Optimal total trips and corresponding (f, r) solutions:")
+for (f, r) in best_solutions:
+    print(f"f = {f}, r = {r}, T = {f + r}")
+
+# Final required output line
+print(f"FINAL_OBJ: {best_T}")

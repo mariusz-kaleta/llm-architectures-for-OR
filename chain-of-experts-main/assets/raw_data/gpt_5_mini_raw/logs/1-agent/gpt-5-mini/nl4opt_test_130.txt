@@ -1,0 +1,44 @@
+[MONOLITH]:
+import pulp
+
+# Data
+prod_A = 30  # items per day by machine A
+prod_B = 50  # items per day by machine B
+energy_A = 100  # kWh per day by machine A
+energy_B = 120  # kWh per day by machine B
+required_items = 1000
+available_energy = 3000
+max_frac_B = 0.30
+min_A = 5
+
+# Problem
+prob = pulp.LpProblem("Minimize_Number_of_Machines", pulp.LpMinimize)
+
+# Decision variables: integer number of machines
+xA = pulp.LpVariable("xA", lowBound=0, cat="Integer")
+xB = pulp.LpVariable("xB", lowBound=0, cat="Integer")
+
+# Objective: minimize total number of machines
+prob += xA + xB
+
+# Constraints
+prob += prod_A * xA + prod_B * xB >= required_items, "ProductionRequirement"
+prob += energy_A * xA + energy_B * xB <= available_energy, "EnergyLimit"
+# At most 30% of machines are type B -> xB <= 0.3*(xA + xB) -> 0.7*xB <= 0.3*xA -> 7*xB <= 3*xA
+prob += 7 * xB <= 3 * xA, "MaxFractionB"
+prob += xA >= min_A, "MinA"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract solution
+val_xA = int(pulp.value(xA))
+val_xB = int(pulp.value(xB))
+obj_val = int(pulp.value(prob.objective))
+
+# (Optional) print solution details
+print(f"xA = {val_xA}, xB = {val_xB}")
+
+# Final required output line
+print(f"FINAL_OBJ: {obj_val}")

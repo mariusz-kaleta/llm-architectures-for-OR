@@ -1,0 +1,160 @@
+[MODELER]:
+Let’s formalize this as a linear programming (LP) problem.
+
+### 1. Decision variables
+
+Let:
+- \( x \) = number of premium desktops to make and sell per month  
+- \( y \) = number of regular desktops to make and sell per month  
+
+Both must be nonnegative:
+- \( x \ge 0 \)
+- \( y \ge 0 \)
+
+### 2. Objective function (maximize profit)
+
+Profit per unit:
+- Premium: \$500  
+- Regular: \$300  
+
+Total monthly profit:
+\[
+\text{Maximize } Z = 500x + 300y
+\]
+
+### 3. Constraints
+
+1. **Sales capacity**: at most 200 desktops total:
+\[
+x + y \le 200
+\]
+
+2. **Production budget**: at most \$300,000 in production cost:  
+   - Premium costs \$2,000 each  
+   - Regular costs \$1,000 each  
+\[
+2000x + 1000y \le 300000
+\]
+
+3. **Nonnegativity**:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+### 4. Mathematical model summary
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 500x + 300y \\
+\text{subject to} \quad
+& x + y \le 200 \\
+& 2000x + 1000y \le 300000 \\
+& x \ge 0,\ y \ge 0
+\end{aligned}
+\]
+
+### 5. Solving the model (sketch)
+
+- Budget constraint simplifies to:
+  \[
+  2000x + 1000y \le 300000 \;\Rightarrow\; 2x + y \le 300
+  \]
+- We have:
+  \[
+  \begin{cases}
+  x + y \le 200 \\
+  2x + y \le 300
+  \end{cases}
+  \]
+
+Key corner points (feasible region vertices):
+- \((0, 0)\)
+- \((0, 200)\) from \(x=0, x+y=200\)
+- \((150, 0)\) from \(y=0, 2x+y=300\)
+- Intersection of \(x+y=200\) and \(2x+y=300\):
+  \[
+  x+y=200,\quad 2x+y=300 \Rightarrow x=100,\ y=100
+  \]
+
+Evaluate profit:
+- \((0,0)\): \(Z = 0\)
+- \((0,200)\): \(Z = 500(0)+300(200) = 60{,}000\)
+- \((150,0)\): \(Z = 500(150)+300(0) = 75{,}000\)
+- \((100,100)\): \(Z = 500(100)+300(100) = 80{,}000\)
+
+Best is \((x,y) = (100,100)\).
+
+**Optimal solution:**
+- Make and sell **100 premium** desktops
+- Make and sell **100 regular** desktops  
+- Maximum profit: **\$80,000** per month
+
+### 6. Suitable Python libraries
+
+To solve this LP in Python, good choices include:
+
+- **PuLP** (`pulp`) – very straightforward for educational LP problems.
+- **OR-Tools** (`ortools.linear_solver`) – robust and industrial-grade.
+- **SciPy** (`scipy.optimize.linprog`) – good for continuous LPs.
+
+Example with PuLP (outline):
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Desktop_Production", pl.LpMaximize)
+
+# Decision variables (nonnegative, continuous or Integer if needed)
+x = pl.LpVariable('premium', lowBound=0)
+y = pl.LpVariable('regular', lowBound=0)
+
+# Objective
+prob += 500 * x + 300 * y
+
+# Constraints
+prob += x + y <= 200             # sales capacity
+prob += 2000 * x + 1000 * y <= 300000  # budget
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Premium desktops:", x.value())
+print("Regular desktops:", y.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This model and code will yield the optimal production mix.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the LP problem (maximization)
+    prob = pl.LpProblem("Desktop_Production", pl.LpMaximize)
+
+    # Decision variables: x = premium, y = regular
+    x = pl.LpVariable('premium', lowBound=0)
+    y = pl.LpVariable('regular', lowBound=0)
+
+    # Objective function: Maximize 500x + 300y
+    prob += 500 * x + 300 * y
+
+    # Constraints
+    prob += x + y <= 200                    # Sales capacity
+    prob += 2000 * x + 1000 * y <= 300000   # Production budget
+
+    # Solve the problem
+    prob.solve()
+
+    # Extract objective value
+    obj_value = pl.value(prob.objective)
+
+    # Final required print
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

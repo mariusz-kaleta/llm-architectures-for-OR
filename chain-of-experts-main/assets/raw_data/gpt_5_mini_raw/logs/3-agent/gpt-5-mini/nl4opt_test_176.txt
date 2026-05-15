@@ -1,0 +1,108 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- f ∈ Z, f ≥ 5 : number of freight trips.
+- a ∈ Z, a ≥ 0 : number of air trips.
+
+Objective
+- Minimize total trips: minimize T = f + a.
+
+Constraints
+1. Capacity (transport at least 200 tons):
+   5f + 3a ≥ 200.
+
+2. Budget (cost ≤ $20,000):
+   300f + 550a ≤ 20000
+   ⇔ 6f + 11a ≤ 400 (dividing by 50).
+
+3. Air share (at least 30% of tons shipped by air):
+   3a ≥ 0.3(5f + 3a)
+   ⇔ 3a ≥ 1.5f + 0.9a
+   ⇔ 2.1a ≥ 1.5f
+   ⇔ 7a ≥ 5f  (multiply by 10, then divide by common factor).
+
+4. Integrality and bounds:
+   f, a integer, f ≥ 5, a ≥ 0.
+
+Objective function
+- minimize f + a subject to the constraints above.
+
+Solving approach and recommended libraries
+- This is a small integer linear program (ILP). Suitable Python libraries:
+  - pulp (simple modeling + CBC solver)
+  - ortools CP-SAT (fast integer solver)
+  - pyomo with a MILP solver (CBC, GLPK, Gurobi)
+  - mip (Python-MIP) or scipy.optimize with integer enumeration for small size
+
+You can also solve by small integer enumeration because variable bounds are small (budget gives an easy upper bound on a).
+
+Numeric solution (optimal)
+- Solving the ILP yields:
+  f = 28 freight trips
+  a = 20 air trips
+
+Verification
+- Capacity: 5·28 + 3·20 = 140 + 60 = 200 tons (meets ≥ 200).
+- Budget: 300·28 + 550·20 = 8,400 + 11,000 = 19,400 ≤ 20,000.
+- Air share: air tons = 3·20 = 60; total = 200 → 60/200 = 30% (meets ≥ 30%).
+- f ≥ 5 satisfied.
+- Total trips = 28 + 20 = 48. No feasible combination yields fewer than 48 trips under the constraints.
+
+If you want, I can provide a short Python (pulp or ortools) script that formulates and solves this ILP.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the ILP by enumeration
+
+# Decision variables:
+# f (freight trips) integer, f >= 5
+# a (air trips) integer, a >= 0
+#
+# Constraints:
+# 1) Capacity: 5f + 3a >= 200
+# 2) Budget (scaled): 6f + 11a <= 400
+# 3) Air share: 7a >= 5f
+# Objective: minimize T = f + a
+
+def solve():
+    best_obj = None
+    best_f = None
+    best_a = None
+
+    # Determine safe bounds for enumeration.
+    # From budget: 6f <= 400 -> f <= 66. From nonnegativity a <= 400//11 ~ 36, but we'll compute per f.
+    for f in range(5, 67):  # f from 5 to 66 inclusive
+        # For given f, a must satisfy budget: 11a <= 400 - 6f -> a <= floor((400-6f)/11)
+        max_a_budget = (400 - 6 * f) // 11
+        if max_a_budget < 0:
+            continue
+        # Also a >= 0
+        for a in range(0, max_a_budget + 1):
+            # Check capacity
+            if 5 * f + 3 * a < 200:
+                continue
+            # Check air share
+            if 7 * a < 5 * f:
+                continue
+            # All constraints satisfied
+            obj = f + a
+            if (best_obj is None) or (obj < best_obj):
+                best_obj = obj
+                best_f = f
+                best_a = a
+
+    if best_obj is None:
+        # No feasible solution found (should not happen for this model)
+        raise RuntimeError("No feasible solution found")
+
+    # Optionally we could use best_f and best_a; final requirement: print final objective value in exact format
+    value = best_obj
+    print(f"FINAL_OBJ: {value}")
+
+if __name__ == "__main__":
+    solve()
+```

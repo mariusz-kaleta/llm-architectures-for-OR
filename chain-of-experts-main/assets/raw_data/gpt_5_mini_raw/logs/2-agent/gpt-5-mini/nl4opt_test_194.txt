@@ -1,0 +1,113 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of fish meals (nonnegative integer)
+  - y = number of chicken meals (nonnegative integer)
+
+- Objective
+  - Minimize total fat: minimize F = 7x + 10y
+
+- Constraints
+  1. Protein requirement: 10x + 15y ≥ 130
+  2. Iron requirement: 12x + 8y ≥ 120
+  3. Preference: y ≥ 2x
+  4. Integrality and nonnegativity: x, y ∈ Z_{\ge 0}
+
+Notes: if you allow fractional meals, remove the integrality requirement and solve as an LP.
+
+Solution (integer meals)
+
+You can set y = 2x + k (k ≥ 0 integer). Minimizing F = 27x + 10k subject to
+- 40x + 15k ≥ 130 (from protein)
+- 28x + 8k ≥ 120 (from iron)
+
+Testing integer x gives the minimal feasible integer solution at x = 4, k = 1 → y = 9.
+
+Check:
+- Protein: 10·4 + 15·9 = 40 + 135 = 175 ≥ 130
+- Iron: 12·4 + 8·9 = 48 + 72 = 120 ≥ 120
+- Preference: 9 ≥ 2·4 = 8
+
+Total fat = 7·4 + 10·9 = 28 + 90 = 118 units (minimum over integer solutions).
+
+(If fractional meals were allowed, the LP optimum is at the intersection of the iron and preference constraints: x = 120/28 ≈ 4.2857, y = 2x ≈ 8.5714, giving fat ≈ 115.714 — but meals are normally integer.)
+
+Suggested Python libraries to solve this
+- For exact integer solution: PuLP (with CBC) or OR-Tools CP-SAT (mixed-integer)
+- For LP relaxation only: scipy.optimize.linprog or PuLP
+
+Example (PuLP) outline
+- Define variables as LpVariable.integer
+- Add the three constraints
+- Set objective 7*x + 10*y to minimize
+- Solve and read x.value(), y.value()
+
+Answer: Eat 4 fish meals and 9 chicken meals (total fat = 118 units).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Coefficients and requirements initialized directly
+fat_coef_x = 7   # fat per fish meal
+fat_coef_y = 10  # fat per chicken meal
+
+prot_coef_x = 10
+prot_coef_y = 15
+prot_req = 130
+
+iron_coef_x = 12
+iron_coef_y = 8
+iron_req = 120
+
+# Preference: y >= 2x
+pref_multiplier = 2
+
+# Helper for ceiling division for positive numerator
+def ceil_div_pos(numer, denom):
+    if numer <= 0:
+        return 0
+    return (numer + denom - 1) // denom
+
+best_fat = None
+best_x = None
+best_y = None
+
+# Search reasonable range for x (number of fish meals)
+# Upper bound chosen safely large; constraints will limit feasible region
+for x in range(0, 201):
+    # minimal y to satisfy protein: 10x + 15y >= 130 -> y >= (130 - 10x)/15
+    y_min_prot = ceil_div_pos(prot_req - prot_coef_x * x, prot_coef_y)
+    # minimal y to satisfy iron: 12x + 8y >= 120 -> y >= (120 - 12x)/8
+    y_min_iron = ceil_div_pos(iron_req - iron_coef_x * x, iron_coef_y)
+    # preference
+    y_pref = pref_multiplier * x
+
+    y_min = max(0, y_min_prot, y_min_iron, y_pref)
+
+    # Check feasibility explicitly
+    prot_ok = (prot_coef_x * x + prot_coef_y * y_min) >= prot_req
+    iron_ok = (iron_coef_x * x + iron_coef_y * y_min) >= iron_req
+    pref_ok = (y_min >= y_pref)
+
+    if not (prot_ok and iron_ok and pref_ok):
+        continue
+
+    fat = fat_coef_x * x + fat_coef_y * y_min
+
+    if (best_fat is None) or (fat < best_fat) or (fat == best_fat and x + y_min < best_x + best_y):
+        best_fat = fat
+        best_x = x
+        best_y = y_min
+
+# If no solution found (shouldn't happen), set best_fat to None
+if best_fat is None:
+    raise RuntimeError("No feasible integer solution found within search bounds.")
+
+# Print final objective value as required (only this exact line format at the end)
+print(f"FINAL_OBJ: {best_fat}")
+```

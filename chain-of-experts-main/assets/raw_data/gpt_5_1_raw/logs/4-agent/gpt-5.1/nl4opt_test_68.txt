@@ -1,0 +1,247 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- **Goal:** Minimise the **total operating time** of the two factories (sum of hours factory 1 runs plus hours factory 2 runs), while
+  - meeting minimum production requirements for each pill type, and
+  - not exceeding the available amount of the rare compound.
+
+---
+
+2. **Suggested model type**
+
+- **Model:** Linear Programming (LP)
+  - Continuous decision variables (hours can be fractional).
+  - Linear objective (sum of hours).
+  - Linear constraints (production rates and compound usage).
+
+---
+
+3. **Main decision variables**
+
+Define time-based variables:
+
+- \(x_1\): Number of hours factory 1 is operated.
+- \(x_2\): Number of hours factory 2 is operated.
+
+---
+
+4. **Key constraints to consider**
+
+Translate the narrative into production and resource constraints:
+
+1. **Allergy pill production requirement**
+   - Factory 1: 20 allergy pills per hour.
+   - Factory 2: 10 allergy pills per hour.
+   - Need at least 700 allergy pills total.
+   - Constraint: combined allergy pill output from both factories over their operating times must be ≥ 700.
+
+2. **Fever-reducing pill production requirement**
+   - Factory 1: 15 fever pills per hour.
+   - Factory 2: 30 fever pills per hour.
+   - Need at least 600 fever pills total.
+   - Constraint: combined fever pill output from both factories over their operating times must be ≥ 600.
+
+3. **Rare compound availability**
+   - Factory 1 uses 20 units of compound per hour.
+   - Factory 2 uses 30 units of compound per hour.
+   - Only 1000 units of the compound are available.
+   - Constraint: total compound used over the operating times of both factories must be ≤ 1000.
+
+4. **Non-negativity and feasibility of time**
+   - Operating hours cannot be negative:
+     - \(x_1 ≥ 0\)
+     - \(x_2 ≥ 0\)
+
+---
+
+5. **Objective formulation (conceptual)**
+
+- Minimise **total operating time**:
+  - Objective: minimise \(x_1 + x_2\).
+
+---
+
+6. **Modelling/solution strategy for the Modeller**
+
+- Set up the LP with:
+  - Decision variables \(x_1, x_2\).
+  - Objective: minimise \(x_1 + x_2\).
+  - Three linear constraints:
+    - Allergy pills ≥ 700.
+    - Fever pills ≥ 600.
+    - Rare compound use ≤ 1000.
+  - Plus non-negativity constraints.
+- Solve using:
+  - Graphical method (since only two variables) or
+  - Any LP solver (e.g., simplex).
+- Check that the solution:
+  - Satisfies all minimum production requirements.
+  - Respects compound limit.
+  - Uses as little total time as possible.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model of the problem, followed by suggestions for solving it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_1 \ge 0\): hours that **factory 1** is operated  
+- \(x_2 \ge 0\): hours that **factory 2** is operated  
+
+These are continuous (can be fractional hours).
+
+---
+
+## 2. Objective
+
+Minimise the **total operating time** of both factories:
+
+\[
+\min \; Z = x_1 + x_2
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1. Allergy pill requirement
+
+- Factory 1: 20 allergy pills/hour  
+- Factory 2: 10 allergy pills/hour  
+- Need at least 700 allergy pills.
+
+\[
+20x_1 + 10x_2 \;\ge\; 700
+\]
+
+---
+
+### 3.2. Fever-reducing pill requirement
+
+- Factory 1: 15 fever pills/hour  
+- Factory 2: 30 fever pills/hour  
+- Need at least 600 fever pills.
+
+\[
+15x_1 + 30x_2 \;\ge\; 600
+\]
+
+---
+
+### 3.3. Rare compound availability
+
+- Factory 1: 20 units/hour  
+- Factory 2: 30 units/hour  
+- Only 1000 units available.
+
+\[
+20x_1 + 30x_2 \;\le\; 1000
+\]
+
+---
+
+### 3.4. Non-negativity
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+---
+
+## 4. Complete LP model
+
+\[
+\begin{aligned}
+\text{Minimise} \quad & Z = x_1 + x_2 \\
+\text{subject to} \quad
+& 20x_1 + 10x_2 \;\ge\; 700 \quad &&\text{(allergy pills)}\\
+& 15x_1 + 30x_2 \;\ge\; 600 \quad &&\text{(fever pills)}\\
+& 20x_1 + 30x_2 \;\le\; 1000 \quad &&\text{(rare compound)}\\
+& x_1 \ge 0,\; x_2 \ge 0 \quad &&\text{(non-negativity)}
+\end{aligned}
+\]
+
+This is a **linear programming** problem.
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard LP solver can handle this easily:
+
+- **PuLP** (`pulp`): very user-friendly for small LPs, interfaces to CBC by default.
+- **OR-Tools Linear Solver** (`ortools.linear_solver.pywraplp`): robust, fast, well-documented.
+- **SciPy** (`scipy.optimize.linprog`): good if you’re already using SciPy.
+
+For this style of modelling, **PuLP** or **OR-Tools** are most natural.
+
+---
+
+## 6. Example: PuLP formulation (minimal)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Pill_Production", pl.LpMinimize)
+
+# Variables
+x1 = pl.LpVariable("hours_factory_1", lowBound=0)
+x2 = pl.LpVariable("hours_factory_2", lowBound=0)
+
+# Objective
+prob += x1 + x2
+
+# Constraints
+prob += 20*x1 + 10*x2 >= 700, "Allergy_requirement"
+prob += 15*x1 + 30*x2 >= 600, "Fever_requirement"
+prob += 20*x1 + 30*x2 <= 1000, "Compound_limit"
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Hours factory 1:", x1.value())
+print("Hours factory 2:", x2.value())
+print("Total time:", pl.value(x1 + x2))
+```
+
+You can implement the same structure in OR-Tools or SciPy with almost identical mathematical content.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Pill_Production", pl.LpMinimize)
+
+    # Decision variables
+    x1 = pl.LpVariable("hours_factory_1", lowBound=0)
+    x2 = pl.LpVariable("hours_factory_2", lowBound=0)
+
+    # Objective function: minimize total operating time
+    prob += x1 + x2, "Total_Operating_Time"
+
+    # Constraints
+    prob += 20 * x1 + 10 * x2 >= 700, "Allergy_requirement"
+    prob += 15 * x1 + 30 * x2 >= 600, "Fever_requirement"
+    prob += 20 * x1 + 30 * x2 <= 1000, "Compound_limit"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    objective_value = pl.value(prob.objective)
+
+    # Print final objective value
+    print(f"FINAL_OBJ: {objective_value}")
+
+if __name__ == "__main__":
+    main()

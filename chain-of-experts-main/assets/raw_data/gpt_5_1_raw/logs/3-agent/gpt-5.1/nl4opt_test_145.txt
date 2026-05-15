@@ -1,0 +1,137 @@
+[MODELER]:
+Here is a clean mathematical model of the problem.
+
+### Decision variables
+
+Let  
+- \(x\) = number of crab cakes (meals of type 1)  
+- \(y\) = number of lobster rolls (meals of type 2)
+
+We assume \(x, y \ge 0\) and they can be real numbers (if the problem later requires whole meals, we add integrality constraints).
+
+---
+
+### Objective
+
+Minimize total unsaturated fat intake.
+
+- Each crab cake has 4 units of unsaturated fat.
+- Each lobster roll has 6 units of unsaturated fat.
+
+So the total fat is:
+\[
+\text{Minimize } Z = 4x + 6y
+\]
+
+---
+
+### Constraints
+
+1. **Vitamin A requirement (at least 80 units):**
+
+   - Crab cake: 5 units of vitamin A  
+   - Lobster roll: 8 units of vitamin A  
+
+   \[
+   5x + 8y \;\ge\; 80
+   \]
+
+2. **Vitamin C requirement (at least 100 units):**
+
+   - Crab cake: 7 units of vitamin C  
+   - Lobster roll: 4 units of vitamin C  
+
+   \[
+   7x + 4y \;\ge\; 100
+   \]
+
+3. **Lobster proportion constraint (at most 40% of meals are lobster rolls):**
+
+   The fraction of meals that are lobster rolls is:
+   \[
+   \frac{y}{x + y} \;\le\; 0.4 \quad \text{(provided } x + y > 0 \text{)}
+   \]
+
+   This can be rewritten as a linear inequality:
+   \[
+   \frac{y}{x + y} \le 0.4
+   \;\Longrightarrow\;
+   y \le 0.4(x + y)
+   \;\Longrightarrow\;
+   y \le 0.4x + 0.4y
+   \;\Longrightarrow\;
+   0.6y \le 0.4x
+   \;\Longrightarrow\;
+   3y \le 2x
+   \]
+
+   So we use:
+   \[
+   3y \;\le\; 2x
+   \]
+
+4. **Nonnegativity:**
+
+   \[
+   x \;\ge\; 0,\quad y \;\ge\; 0
+   \]
+
+---
+
+### Complete linear program
+
+\[
+\begin{aligned}
+\text{Minimize} \quad & Z = 4x + 6y \\
+\text{subject to} \quad 
+& 5x + 8y \ge 80 \quad \text{(vitamin A)} \\
+& 7x + 4y \ge 100 \quad \text{(vitamin C)} \\
+& 3y \le 2x          \quad \text{(lobster ≤ 40% of meals)} \\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+---
+
+### Suitable Python libraries
+
+This is a small linear programming (LP) problem. Good choices in Python:
+
+- `PuLP` – simple syntax, great for educational/quick models.
+- `scipy.optimize.linprog` – good for continuous LPs (no integer constraints).
+- `ortools.linear_solver` (from Google OR-Tools) – powerful and fast; supports LP, MILP, etc.
+- `cvxpy` – convenient high-level modeling for convex problems, including LPs.
+
+For this problem specifically, `PuLP`, `scipy.optimize.linprog`, or OR-Tools’ linear solver are all very suitable.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create LP problem: minimize
+    prob = pulp.LpProblem("Crab_Lobster_Diet", pulp.LpMinimize)
+
+    # Decision variables
+    x = pulp.LpVariable('x', lowBound=0)  # crab cakes
+    y = pulp.LpVariable('y', lowBound=0)  # lobster rolls
+
+    # Objective: Minimize unsaturated fat
+    prob += 4 * x + 6 * y
+
+    # Constraints
+    prob += 5 * x + 8 * y >= 80   # Vitamin A
+    prob += 7 * x + 4 * y >= 100  # Vitamin C
+    prob += 3 * y <= 2 * x        # Lobster proportion
+
+    # Solve
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    obj_value = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

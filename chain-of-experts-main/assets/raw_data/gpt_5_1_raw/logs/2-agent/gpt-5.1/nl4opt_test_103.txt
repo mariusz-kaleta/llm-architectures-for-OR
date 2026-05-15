@@ -1,0 +1,101 @@
+[MODELER]:
+Formulate this as an **integer linear programming (ILP)** problem.
+
+### 1. Decision variables
+
+Let  
+- \(x\) = number of hot-air balloon rides (integer, \(\ge 0\))  
+- \(y\) = number of gondola lift rides (integer, \(\ge 0\))
+
+### 2. Objective
+
+Minimize total pollution:
+
+\[
+\min \; Z = 10x + 15y
+\]
+
+where  
+- Each balloon ride produces 10 units of pollution  
+- Each gondola ride produces 15 units of pollution  
+
+### 3. Constraints
+
+1. **Capacity constraint (transport at least 70 visitors)**  
+   - Balloons carry 4 visitors each  
+   - Gondolas carry 6 visitors each  
+
+   \[
+   4x + 6y \;\ge\; 70
+   \]
+
+2. **Limit on the number of balloon rides**
+
+   \[
+   x \le 10
+   \]
+
+3. **Non-negativity and integrality**
+
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+---
+
+### 4. Model summary
+
+- **Variables**: integers \(x, y \ge 0\)  
+- **Objective**:  
+  \[
+  \min 10x + 15y
+  \]
+- **Subject to**:  
+  \[
+  \begin{cases}
+  4x + 6y \ge 70 \\
+  x \le 10 \\
+  x, y \in \mathbb{Z}_{\ge 0}
+  \end{cases}
+  \]
+
+### 5. Suitable Python libraries
+
+To solve this ILP, you can use any standard MILP/LP solver. In Python, good options are:
+
+- **PuLP** (`pulp`): Simple modeling interface, works with CBC by default.
+- **OR-Tools** (`ortools.linear_solver` or `ortools.math_opt`): Very efficient, good for integer programming.
+- **SciPy** (`scipy.optimize.linprog`): For linear programming with continuous variables only; here you need integrality, so it’s less suitable unless you relax integrality or round.
+
+For this problem, **PuLP** or **OR-Tools** are the most appropriate.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+# Create the ILP problem: minimize pollution
+prob = pulp.LpProblem("Minimize_Pollution", pulp.LpMinimize)
+
+# Decision variables: number of balloon rides (x) and gondola rides (y)
+x = pulp.LpVariable('x', lowBound=0, cat='Integer')
+y = pulp.LpVariable('y', lowBound=0, cat='Integer')
+
+# Objective function: Minimize total pollution 10x + 15y
+prob += 10 * x + 15 * y, "Total_Pollution"
+
+# Constraints
+# Capacity constraint: 4x + 6y >= 70
+prob += 4 * x + 6 * y >= 70, "Capacity"
+
+# Limit on number of balloon rides: x <= 10
+prob += x <= 10, "Balloon_Limit"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Get the optimal objective value
+final_obj_value = pulp.value(prob.objective)
+
+# Print the final objective value in the required format
+print(f"FINAL_OBJ: {final_obj_value}")

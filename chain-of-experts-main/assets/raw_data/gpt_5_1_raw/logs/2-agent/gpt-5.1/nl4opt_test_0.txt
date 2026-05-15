@@ -1,0 +1,149 @@
+[MODELER]:
+Let’s turn this into an optimization model.
+
+### 1. Decision variables
+
+Let  
+- \( b \in \mathbb{Z}_{\ge 0} \): number of boat trips  
+- \( c \in \mathbb{Z}_{\ge 0} \): number of canoe trips  
+
+### 2. Objective
+
+Each trip takes:
+- Boat trip: 20 minutes  
+- Canoe trip: 40 minutes  
+
+Total time:
+\[
+T = 20b + 40c
+\]
+
+We want to **minimize** total time:
+\[
+\min\; 20b + 40c
+\]
+
+### 3. Constraints
+
+1. **Duck capacity constraint**  
+   A boat carries 10 ducks per trip; a canoe carries 8 ducks per trip.  
+   We need to move at least 300 ducks:
+
+\[
+10b + 8c \;\ge\; 300
+\]
+
+2. **Boat trip upper limit**  
+
+\[
+b \;\le\; 12
+\]
+
+3. **At least 60% of trips must be by canoe**
+
+Total trips: \( b + c \)  
+Canoe trips: \( c \)  
+
+\[
+\frac{c}{b + c} \;\ge\; 0.60
+\]
+
+Multiply through (assuming \(b + c > 0\), which is implied by needing to move ducks):
+
+\[
+c \;\ge\; 0.6(b + c)
+\]
+\[
+c \;\ge\; 0.6b + 0.6c
+\]
+\[
+0.4c \;\ge\; 0.6b
+\]
+\[
+c \;\ge\; 1.5b
+\]
+
+So the canoe-trip requirement becomes a linear constraint:
+
+\[
+c - 1.5b \;\ge\; 0
+\]
+
+4. **Integrality and non-negativity**
+
+\[
+b, c \in \mathbb{Z}_{\ge 0}
+\]
+
+### 4. Complete model
+
+Minimize:
+\[
+\min\; 20b + 40c
+\]
+
+subject to:
+\[
+10b + 8c \;\ge\; 300
+\]
+\[
+b \;\le\; 12
+\]
+\[
+c \;\ge\; 1.5b
+\]
+\[
+b, c \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+### 5. Suitable Python libraries
+
+This is an **integer linear program (ILP)** with only two integer decision variables and linear constraints. Suitable Python libraries:
+
+- **PuLP** (`pulp`): very convenient for small to medium ILPs, easy syntax.
+- **OR-Tools** (`ortools.linear_solver`): powerful, supports multiple solvers.
+- **Python-MIP** (`mip`): good for mixed-integer programming problems.
+- **SciPy** (`scipy.optimize.linprog`): for linear programming only, would need to relax integrality (not ideal here since trips must be integers, but could be used with rounding if necessary).
+
+For this specific problem, **PuLP** or **OR-Tools** would be the most straightforward choices.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def solve_duck_transport_problem():
+    # Create the problem: minimize total time
+    prob = pulp.LpProblem("Duck_Transport", pulp.LpMinimize)
+
+    # Decision variables (non-negative integers)
+    b = pulp.LpVariable('b', lowBound=0, cat='Integer')  # number of boat trips
+    c = pulp.LpVariable('c', lowBound=0, cat='Integer')  # number of canoe trips
+
+    # Objective function: minimize total time 20b + 40c
+    prob += 20 * b + 40 * c, "Total_Time"
+
+    # Constraints
+
+    # Duck capacity: 10b + 8c >= 300
+    prob += 10 * b + 8 * c >= 300, "Duck_Capacity"
+
+    # Boat trip upper limit: b <= 12
+    prob += b <= 12, "Boat_Trip_Upper_Limit"
+
+    # At least 60% of trips by canoe: c >= 1.5b
+    prob += c >= 1.5 * b, "Canoe_Trip_Requirement"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    total_time = pulp.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {total_time}")
+
+if __name__ == "__main__":
+    solve_duck_transport_problem()

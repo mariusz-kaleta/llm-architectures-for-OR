@@ -1,0 +1,153 @@
+[MODELER]:
+Here is a clean mathematical formulation of the problem as a linear program.
+
+### Decision variables
+- \(x_1 \ge 0\): number of strawberry cookies produced per day  
+- \(x_2 \ge 0\): number of sugar cookies produced per day  
+
+### Objective
+Maximize daily profit:
+\[
+\max \; Z = 5.5 x_1 + 12 x_2
+\]
+
+### Constraints
+
+1. **Strawberry demand limit** (at most 100 strawberry cookies):
+\[
+x_1 \le 100
+\]
+
+2. **Sugar demand limit** (at most 80 sugar cookies):
+\[
+x_2 \le 80
+\]
+
+3. **Staffing / production capacity** (can make at most 100 cookies in total per day):
+\[
+x_1 + x_2 \le 100
+\]
+
+4. **Nonnegativity**:
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+---
+
+### Solution (by reasoning)
+
+Profit per cookie:
+- Strawberry: \$5.50
+- Sugar: \$12.00
+
+Sugar cookies are more profitable, so we want to produce as many sugar cookies as possible, subject to constraints.
+
+1. From sugar demand: \(x_2 \le 80\)
+2. From total capacity: \(x_1 + x_2 \le 100\)
+
+Set \(x_2\) to its maximum allowed by demand: \(x_2 = 80\).  
+Then from capacity: \(x_1 + 80 \le 100 \Rightarrow x_1 \le 20\).  
+This also respects strawberry demand: \(20 \le 100\).
+
+So a feasible and likely optimal solution:
+- \(x_1 = 20\)
+- \(x_2 = 80\)
+
+Check profit:
+\[
+Z = 5.5(20) + 12(80) = 110 + 960 = 1070
+\]
+
+Other corner points to verify (LP optimum will be at a corner):
+
+1. \((x_1, x_2) = (0, 0)\) → \(Z = 0\)
+2. \((100, 0)\) (demand-limited strawberry, no sugar) → \(Z = 5.5 \cdot 100 = 550\)
+3. \((0, 80)\) (no strawberry, max sugar) → \(Z = 12 \cdot 80 = 960\)
+4. \((20, 80)\) (capacity and sugar demand both tight) → \(Z = 1070\)
+
+Maximum is at \((20, 80)\).
+
+**Optimal production plan:**  
+- Make 20 strawberry cookies  
+- Make 80 sugar cookies  
+- Maximum daily profit: \$1,070
+
+---
+
+### Suitable Python libraries
+
+To solve this programmatically, you can use any standard linear programming library in Python:
+
+- **PuLP** (`pulp`): Very straightforward for formulating LPs.
+- **OR-Tools Linear Solver** (`ortools.linear_solver`): Industrial-strength solver from Google.
+- **SciPy** (`scipy.optimize.linprog`): General-purpose LP solver, good for small to medium problems.
+
+---
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Zeta_Bakery", pl.LpMaximize)
+
+# Decision variables
+x1 = pl.LpVariable('x1', lowBound=0)  # strawberry cookies
+x2 = pl.LpVariable('x2', lowBound=0)  # sugar cookies
+
+# Objective function
+prob += 5.5 * x1 + 12 * x2
+
+# Constraints
+prob += x1 <= 100          # strawberry demand
+prob += x2 <= 80           # sugar demand
+prob += x1 + x2 <= 100     # total production capacity
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("x1 (strawberry) =", pl.value(x1))
+print("x2 (sugar)      =", pl.value(x2))
+print("Max profit      =", pl.value(prob.objective))
+```
+
+This will return approximately:
+- x1 ≈ 20
+- x2 ≈ 80
+- Max profit ≈ 1070
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Zeta_Bakery", pl.LpMaximize)
+
+    # Decision variables
+    x1 = pl.LpVariable('x1', lowBound=0)  # strawberry cookies
+    x2 = pl.LpVariable('x2', lowBound=0)  # sugar cookies
+
+    # Objective function: Maximize 5.5*x1 + 12*x2
+    prob += 5.5 * x1 + 12 * x2
+
+    # Constraints
+    prob += x1 <= 100          # strawberry demand
+    prob += x2 <= 80           # sugar demand
+    prob += x1 + x2 <= 100     # total production capacity
+
+    # Solve the problem
+    prob.solve()
+
+    # Get the final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,128 @@
+[MODELER]:
+Formulate this as a linear programming (LP) problem.
+
+### Decision variables
+Let  
+- \(x\) = number of times the **catalyst** process is used  
+- \(y\) = number of times the **non-catalyst** process is used  
+
+Both must be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+### Objective (maximize CO₂ produced)
+Each catalyst process run produces 15 units of CO₂.  
+Each non-catalyst process run produces 18 units of CO₂.
+
+Maximize:
+\[
+\max Z = 15x + 18y
+\]
+
+### Constraints
+
+**Wood availability**  
+- Catalyst: 10 units of wood per run  
+- Non-catalyst: 15 units of wood per run  
+Total wood used cannot exceed 300:
+\[
+10x + 15y \le 300
+\]
+
+**Oxygen availability**  
+- Catalyst: 20 units of oxygen per run  
+- Non-catalyst: 12 units of oxygen per run  
+Total oxygen used cannot exceed 300:
+\[
+20x + 12y \le 300
+\]
+
+### Complete LP model
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 15x + 18y \\
+\text{subject to} \quad
+& 10x + 15y \le 300 \quad (\text{wood}) \\
+& 20x + 12y \le 300 \quad (\text{oxygen}) \\
+& x \ge 0,\ y \ge 0
+\end{aligned}
+\]
+
+### Solving analytically (optional, to show the result)
+
+Solve the two constraints as equalities to find the intersection:
+
+1. \(10x + 15y = 300 \Rightarrow 2x + 3y = 60\)
+2. \(20x + 12y = 300 \Rightarrow 5x + 3y = 75\)
+
+Subtract (1) from (2):
+\[
+(5x+3y) - (2x+3y) = 75 - 60 \Rightarrow 3x = 15 \Rightarrow x = 5
+\]
+Then from \(2x + 3y = 60\):
+\[
+2(5) + 3y = 60 \Rightarrow 10 + 3y = 60 \Rightarrow 3y = 50 \Rightarrow y = \frac{50}{3} \approx 16.67
+\]
+
+Check resource usage:
+- Wood: \(10\cdot 5 + 15\cdot \frac{50}{3} = 50 + 250 = 300\) (binding)
+- Oxygen: \(20\cdot 5 + 12\cdot \frac{50}{3} = 100 + 200 = 300\) (binding)
+
+Objective value:
+\[
+Z = 15\cdot 5 + 18\cdot \frac{50}{3} = 75 + 300 = 375
+\]
+
+So, to maximize CO₂:
+- Use the catalyst process: \(x = 5\) times  
+- Use the non-catalyst process: \(y = 50/3 \approx 16.67\) times  
+
+(If the problem required integer numbers of runs, we’d need an integer/MI LP and check nearby integer points.)
+
+### Suitable Python libraries
+
+To solve this LP numerically in Python, suitable libraries include:
+
+- `PuLP` – simple and expressive LP modeling:
+  - `pulp.LpProblem`, `pulp.LpVariable`, `pulp.PULP_CBC_CMD`
+- `ortools.linear_solver` (Google OR-Tools) – efficient for LP/MIP:
+  - `pywraplp.Solver.CreateSolver("GLOP")` or `"CBC"` for MIP
+- `scipy.optimize.linprog` – good for continuous LPs (no integer constraints)
+
+For clear modeling and easy extension to integer constraints, `PuLP` or OR-Tools is recommended.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the LP problem: maximize CO2
+    prob = pulp.LpProblem("CO2_Maximization", pulp.LpMaximize)
+
+    # Decision variables: nonnegative, continuous
+    x = pulp.LpVariable('x', lowBound=0, cat='Continuous')  # catalyst runs
+    y = pulp.LpVariable('y', lowBound=0, cat='Continuous')  # non-catalyst runs
+
+    # Objective function: Maximize 15x + 18y
+    prob += 15 * x + 18 * y, "Total_CO2"
+
+    # Constraints
+    # Wood: 10x + 15y <= 300
+    prob += 10 * x + 15 * y <= 300, "Wood_Constraint"
+
+    # Oxygen: 20x + 12y <= 300
+    prob += 20 * x + 12 * y <= 300, "Oxygen_Constraint"
+
+    # Solve the LP
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

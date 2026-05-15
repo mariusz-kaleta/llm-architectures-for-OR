@@ -1,0 +1,262 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total number of parking spots required to transport all required people, while respecting composition and preference rules for vehicle types.
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP) / pure integer program.  
+- Reason: Decision variables (number of large and small units) must be non‑negative integers, and constraints are linear.
+
+3. Main decision variables  
+Define integer decision variables such as:
+- L = number of large mobile production units used  
+- S = number of small mobile production units used  
+
+Optionally, for clarity:
+- P = total number of parking spots used (can also be expressed directly in objective as a linear function of L and S, rather than as a separate variable).
+
+4. Key constraints to consider  
+
+a) Capacity (people transportation requirement)  
+- Each large unit carries 6 people.  
+- Each small unit carries 2 people.  
+- The total capacity must be at least 80 people.  
+  - Form: capacity from L and S ≥ 80.
+
+b) Small-unit preference (minimum number of small units)  
+- Movie stars’ preference requires at least 5 small mobile units.  
+  - Form: S ≥ 5.
+
+c) Composition mix (large units must be at least 75% of all vehicles)  
+- Large units must constitute at least 75% of all vehicles used.  
+- “All vehicles” = L + S.  
+  - Form: L ≥ 0.75 × (L + S).  
+- Rearrange to a linear inequality suitable for ILP (e.g., by moving terms to one side and/or clearing denominators).
+
+d) Non-negativity and integrality  
+- L and S must be non-negative integers.  
+  - Form: L, S ≥ 0, and integer.
+
+5. Objective function structure  
+
+- Parking spots used:  
+  - Each large unit uses 2 parking spots.  
+  - Each small unit uses 1 parking spot.  
+- Objective: Minimise total parking spots = 2L + S.  
+
+6. Modelling strategy notes  
+
+- You can either:
+  - Use the objective directly as Minimise 2L + S, or  
+  - Introduce P as a variable with constraint P = 2L + S and minimise P.  
+- Ensure integrality is enforced, as fractional vehicles are not meaningful.  
+- Because the model is very small (two integer variables), it’s well suited to an exact ILP solver or even manual enumeration/checking if needed.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by implementation suggestions.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(L \in \mathbb{Z}_{\ge 0}\): number of large mobile production units  
+- \(S \in \mathbb{Z}_{\ge 0}\): number of small mobile production units  
+
+(Optionally)
+- \(P \in \mathbb{Z}_{\ge 0}\): total parking spots used
+
+---
+
+## 2. Objective function
+
+Each large unit uses 2 parking spots; each small unit uses 1.
+
+Minimise the total number of parking spots:
+
+\[
+\min\; 2L + S
+\]
+
+(If you introduce \(P\), then you would instead minimise \(P\) subject to \(P = 2L + S\).)
+
+---
+
+## 3. Constraints
+
+### a) Capacity requirement (at least 80 people)
+
+- Each large unit carries 6 people.
+- Each small unit carries 2 people.
+
+So total capacity must be at least 80:
+
+\[
+6L + 2S \;\ge\; 80
+\]
+
+---
+
+### b) Minimum number of small units (stars’ preference)
+
+At least 5 small units:
+
+\[
+S \;\ge\; 5
+\]
+
+---
+
+### c) Composition mix: large units ≥ 75% of all vehicles
+
+Large units must be at least 75% of the total number of units:
+
+\[
+L \;\ge\; 0.75(L + S)
+\]
+
+Convert to a linear inequality:
+
+\[
+L \;\ge\; 0.75L + 0.75S
+\]
+
+\[
+L - 0.75L \;\ge\; 0.75S
+\]
+
+\[
+0.25L \;\ge\; 0.75S
+\]
+
+Multiply both sides by 4:
+
+\[
+L \;\ge\; 3S
+\]
+
+Equivalently, in the ILP:
+
+\[
+L - 3S \;\ge\; 0
+\]
+
+---
+
+### d) Non-negativity and integrality
+
+\[
+L, S \in \mathbb{Z}_{\ge 0}
+\]
+
+(And \(P \in \mathbb{Z}_{\ge 0}\) if used.)
+
+---
+
+## 4. Complete ILP model
+
+**Variables:**
+
+- \(L, S \in \mathbb{Z}_{\ge 0}\)
+
+**Objective:**
+
+\[
+\min\; 2L + S
+\]
+
+**Subject to:**
+
+\[
+\begin{aligned}
+6L + 2S &\ge 80 &\text{(capacity)} \\
+S &\ge 5 &\text{(min small units)} \\
+L - 3S &\ge 0 &\text{(large units ≥ 75% of vehicles)} \\
+L, S &\in \mathbb{Z}_{\ge 0} &\text{(integrality)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard MILP / ILP package will solve this easily. Suggested options:
+
+- **PuLP**: pure-Python modeling library that can use CBC (bundled), GLPK, CPLEX, Gurobi, etc.
+- **OR-Tools (Google)**: has a CP-SAT solver well-suited to integer problems.
+- **Pyomo**: more general mathematical modeling environment supporting many solvers.
+
+Given the small size, **PuLP** or **OR-Tools** are straightforward choices.
+
+---
+
+## 6. Example PuLP implementation sketch
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Movie_Transport_Planning", pl.LpMinimize)
+
+# Decision variables
+L = pl.LpVariable('L', lowBound=0, cat='Integer')  # large units
+S = pl.LpVariable('S', lowBound=0, cat='Integer')  # small units
+
+# Objective: minimize total parking spots
+prob += 2*L + S
+
+# Constraints
+prob += 6*L + 2*S >= 80, "Capacity"
+prob += S >= 5, "Min_Small"
+prob += L - 3*S >= 0, "Large_at_least_75_percent"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("L (large units) =", pl.value(L))
+print("S (small units) =", pl.value(S))
+print("Total parking spots =", pl.value(2*L + S))
+```
+
+This directly encodes the ILP model above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Movie_Transport_Planning", pl.LpMinimize)
+
+    # Decision variables
+    L = pl.LpVariable('L', lowBound=0, cat='Integer')  # large units
+    S = pl.LpVariable('S', lowBound=0, cat='Integer')  # small units
+
+    # Objective: minimize total parking spots
+    prob += 2 * L + S
+
+    # Constraints
+    # Capacity: 6L + 2S >= 80
+    prob += 6 * L + 2 * S >= 80, "Capacity"
+
+    # Minimum small units: S >= 5
+    prob += S >= 5, "Min_Small"
+
+    # Large units at least 75% of all vehicles: L >= 3S
+    prob += L - 3 * S >= 0, "Large_at_least_75_percent"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute final objective value
+    final_obj = pl.value(2 * L + S)
+
+    # Print strictly as requested
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

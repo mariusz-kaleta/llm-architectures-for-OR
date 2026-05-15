@@ -1,0 +1,217 @@
+[PLANNER]:
+1. Key optimisation goal
+- Maximise total profit from producing and selling bottles of black and matcha milk tea.
+
+2. Suggested model type
+- Linear Programming (LP). If you require production counts to be whole bottles, use an Integer Linear Program / Mixed-Integer LP (MILP).
+
+3. Main decision variables
+- B = number of black milk tea bottles to produce.
+- M = number of matcha milk tea bottles to produce.
+(If integer requirement is important: B and M should be integer and nonnegative.)
+
+4. Key constraints to include
+- Milk availability constraint: total milk used by B and M must not exceed 30,000 grams.
+  (Usage per bottle: black = 600 g, matcha = 525 g.)
+- Honey availability constraint: total honey used by B and M must not exceed 500 grams.
+  (Usage per bottle: black = 10 g, matcha = 5 g.)
+- Nonnegativity: B ≥ 0, M ≥ 0.
+- Integrality (optional): B and M integer if bottles must be whole.
+- Implicit/optional constraints to consider (if relevant):
+  - Any maximum production capacity (staff, bottles per day) if applicable.
+  - Minimum production or marketing/demand limits if there are lower/upper demand bounds.
+  - If modelling multiple periods or inventory, add inter-period balance constraints.
+
+5. Objective coefficients and data to plug into model
+- Profit per bottle: black = $7.50, matcha = $5.00.
+- Milk usage: black = 600 g, matcha = 525 g, available = 30,000 g.
+- Honey usage: black = 10 g, matcha = 5 g, available = 500 g.
+
+6. Solver / solution guidance
+- Solve as a 2-variable LP (simplex or graphical method) for quick analytical solution; use an LP solver (Excel Solver, any LP/MILP solver) if preferred.
+- After solving, report optimal B and M, binding constraints, and shadow prices (marginal value) for milk and honey for economic interpretation.
+- If integrality is enforced and LP fractional solution arises, run MILP solver to get integer solution and compare profit to LP relaxation.
+
+Deliverables expected from the Modeller
+- Optimal numbers of black and matcha bottles (B and M).
+- Total profit at optimum.
+- Indication of which resource constraints are binding.
+- If requested, sensitivity information: how much profit would increase per extra gram of milk or honey.
+
+---
+
+[MODELER]:
+Below is a concise formal model, the solved optimum, sensitivity (shadow prices), and solver suggestions.
+
+1) Decision variables
+- B ≥ 0 : number of black milk tea bottles produced.
+- M ≥ 0 : number of matcha milk tea bottles produced.
+(If bottles must be whole, require B, M ∈ Z≥0.)
+
+2) Data
+- Profit per bottle: p_B = 7.5, p_M = 5.
+- Milk per bottle (grams): m_B = 600, m_M = 525. Available M_milk = 30000 grams.
+- Honey per bottle (grams): h_B = 10, h_M = 5. Available M_honey = 500 grams.
+
+3) Mathematical model (LP)
+Maximise Z = 7.5 B + 5 M
+
+subject to
+600 B + 525 M ≤ 30000   (milk constraint)
+10 B + 5 M ≤ 500        (honey constraint)
+B ≥ 0, M ≥ 0            (nonnegativity)
+(optional: B, M integer)
+
+4) Solution (analytical)
+Feasible corner points:
+- B = 0, M = 30000/525 = 400/7 ≈ 57.1429 (milk binds) → Z ≈ 285.71
+- M = 0, B = min(30000/600, 500/10) = 50 (both constraints bind) → Z = 7.5·50 = 375
+- Intersection of the two resource equations is B = 50, M = 0.
+
+Optimal solution:
+- B* = 50 bottles of black milk tea
+- M* = 0 bottles of matcha milk tea
+- Maximum profit Z* = $375
+
+Both milk and honey constraints are binding at the optimum (600·50 + 525·0 = 30000; 10·50 + 5·0 = 500).
+
+5) Shadow prices / marginal values (dual variables)
+Let y_milk and y_honey be the marginal profit per additional gram of milk and honey (dual variables). Solving the dual system at optimum gives:
+- y_milk = 1/180 ≈ $0.0055556 per gram of milk (≈ $5.56 per 1000 g)
+- y_honey = 5/12 ≈ $0.4166667 per gram of honey
+
+Interpretation: while the current basis is valid, one extra gram of milk would increase maximum profit by about $0.00556 (until the basis changes), and one extra gram of honey would increase profit by about $0.41667 (until the basis changes). Because both resource constraints are binding, their shadow prices are positive.
+
+6) Remarks on integrality and alternatives
+- The LP optimum is integer here (B = 50, M = 0), so MILP is not required in this instance.
+- If demand caps or minimum production requirements exist, add the corresponding constraints.
+
+7) Solver/library recommendations
+- For a simple LP/MILP: PuLP (CBC), OR-Tools (linear solver), or scipy.optimize.linprog for LP.
+- For larger problems or to obtain dual/shadow prices easily: HiGHS (via scipy.linprog(method='highs')) or commercial solvers (Gurobi, CPLEX, Mosek, GLPK).
+- If you need integer variables: PuLP (with CBC or GLPK), OR-Tools (CP-SAT for integer), or Gurobi/CPLEX.
+
+Example approach in Python (outline):
+- Use pulp.LpProblem with LpVariable('B', lowBound=0, cat='Integer' or 'Continuous') and similarly for M, add constraints and solve with the chosen solver.
+- To get shadow prices you may need a solver that exposes duals (e.g., GLPK, Gurobi, HiGHS). Alternatively compute dual values analytically as above.
+
+If you’d like, I can produce a ready-to-run Python script using PuLP (with or without integrality) and show how to extract the solution and, if possible for the chosen solver, the duals.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the milk tea LP described.
+# Initializes data, evaluates corner points, finds optimum, computes duals if possible,
+# and prints final objective value in the required format.
+
+# Data
+p_B = 7.5   # profit per black bottle
+p_M = 5.0   # profit per matcha bottle
+
+m_B = 600.0  # milk per black bottle (grams)
+m_M = 525.0  # milk per matcha bottle (grams)
+M_milk = 30000.0  # available milk (grams)
+
+h_B = 10.0   # honey per black bottle (grams)
+h_M = 5.0    # honey per matcha bottle (grams)
+M_honey = 500.0   # available honey (grams)
+
+# Helper to evaluate objective and check feasibility
+def objective(B, M):
+    return p_B * B + p_M * M
+
+def feasible(B, M, tol=1e-9):
+    if B < -tol or M < -tol:
+        return False
+    if m_B * B + m_M * M - M_milk > tol:
+        return False
+    if h_B * B + h_M * M - M_honey > tol:
+        return False
+    return True
+
+# Corner 1: B = 0
+B1 = 0.0
+M1 = min(M_milk / m_M, M_honey / h_M)
+if not feasible(B1, M1):
+    # If numerical issues occur, adjust
+    M1 = max(0.0, min(M_milk / m_M, M_honey / h_M))
+
+Z1 = objective(B1, M1)
+
+# Corner 2: M = 0
+M2 = 0.0
+B2 = min(M_milk / m_B, M_honey / h_B)
+if not feasible(B2, M2):
+    B2 = max(0.0, min(M_milk / m_B, M_honey / h_B))
+
+Z2 = objective(B2, M2)
+
+# Corner 3: intersection of the two resource equations (solve 2x2)
+# Solve:
+# m_B * B + m_M * M = M_milk
+# h_B * B + h_M * M = M_honey
+det = m_B * h_M - h_B * m_M
+B3 = None
+M3 = None
+Z3 = None
+if abs(det) > 1e-12:
+    B3 = (M_milk * h_M - M_honey * m_M) / det
+    M3 = (m_B * M_honey - h_B * M_milk) / det
+    if not feasible(B3, M3):
+        # If intersection is outside feasible region, ignore
+        B3 = None
+        M3 = None
+        Z3 = None
+    else:
+        Z3 = objective(B3, M3)
+
+# Collect feasible corners
+candidates = [
+    (B1, M1, Z1),
+    (B2, M2, Z2)
+]
+if B3 is not None:
+    candidates.append((B3, M3, Z3))
+
+# Choose best
+best = max(candidates, key=lambda t: t[2])
+B_opt, M_opt, Z_opt = best
+
+# Compute duals (shadow prices) if both constraints are binding (within tolerance)
+tol = 1e-8
+milk_slack = M_milk - (m_B * B_opt + m_M * M_opt)
+honey_slack = M_honey - (h_B * B_opt + h_M * M_opt)
+
+y_milk = None
+y_honey = None
+dual_computed = False
+if abs(milk_slack) <= tol and abs(honey_slack) <= tol:
+    # Solve A^T y = c where A^T = [[m_B, h_B], [m_M, h_M]]
+    # i.e. m_B*y_milk + h_B*y_honey = p_B
+    #       m_M*y_milk + h_M*y_honey = p_M
+    det_dual = m_B * h_M - m_M * h_B
+    if abs(det_dual) > 1e-12:
+        y_milk = (p_B * h_M - p_M * h_B) / det_dual
+        y_honey = (m_B * p_M - m_M * p_B) / det_dual
+        dual_computed = True
+
+# Output results (informational)
+print("Optimal (B, M):", (B_opt, M_opt))
+print("Maximum profit Z:", Z_opt)
+if dual_computed:
+    print("Shadow price y_milk  (per gram):", y_milk)
+    print("Shadow price y_honey (per gram):", y_honey)
+else:
+    print("Shadow prices not computed (constraints not both binding or singular).")
+
+# Final required print (must be the very last line in this format)
+# If objective is effectively integer, print as integer for cleanliness
+if abs(Z_opt - round(Z_opt)) < 1e-9:
+    Z_to_print = int(round(Z_opt))
+else:
+    Z_to_print = float(Z_opt)
+
+print(f"FINAL_OBJ: {Z_to_print}")
+```

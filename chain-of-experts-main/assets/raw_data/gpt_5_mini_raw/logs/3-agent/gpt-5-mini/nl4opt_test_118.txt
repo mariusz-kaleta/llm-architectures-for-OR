@@ -1,0 +1,95 @@
+[MODELER]:
+Model summary (assumptions)
+- Each helicopter trip takes 40 min and carries 30 fish.
+- Each car trip takes 30 min and carries 20 fish.
+- Trips are counted sequentially, so total time is the sum of trip durations: T = 40·h + 30·c.
+- h and c are nonnegative integers.
+- At most 5 helicopter trips.
+- At least 60% of trips must be by car (c ≥ 0.6(h + c)).
+
+Decision variables
+- h ∈ Z≥0 : number of helicopter trips
+- c ∈ Z≥0 : number of car trips
+
+Constraints
+1. Fish demand: 30h + 20c ≥ 300
+2. Helicopter limit: h ≤ 5
+3. Car-trip proportion: c ≥ 0.6(h + c)  (equivalently 2c ≥ 3h or c ≥ 1.5h)
+
+Objective
+- Minimize total time T = 40h + 30c
+
+Complete mathematical formulation
+minimize T = 40h + 30c
+subject to
+  30h + 20c ≥ 300
+  c − 1.5h ≥ 0   (or 3h − 2c ≤ 0)
+  h ≤ 5
+  h, c ∈ Z≥0
+
+Solution (small integer domain, solve by enumeration or integer solver)
+Evaluate h = 0,1,2,3,4,5 and compute minimum feasible c for each (c ≥ ceil(max((300−30h)/20, 1.5h))):
+
+- h=0 → c=15, T=450
+- h=1 → c=14, T=460
+- h=2 → c=12, T=440
+- h=3 → c=11, T=450
+- h=4 → c=9,  T=430  ← optimal
+- h=5 → c=8,  T=440
+
+Optimal: h = 4 helicopter trips and c = 9 car trips. Total time = 430 minutes, total fish = 4·30 + 9·20 = 300.
+
+Suggested Python libraries to solve
+- pulp (CBC) — simple MILP formulation
+- OR-Tools CP-SAT — fast integer solver
+- mip (Python-MIP with CBC/GUROBI) or pyomo — more expressive modeling
+
+Example (pulp) sketch
+- Define LpVariables h,c as integers >=0
+- Add constraints: 30*h+20*c >=300, c >= 1.5*h, h <= 5
+- Minimize 40*h + 30*c
+- Solve and read h.value(), c.value() — will return h=4, c=9.
+
+Note: if the interpretation of "total time" were different (e.g., minimizing makespan if trips can run in parallel), the formulation would change. The above uses the usual additive time-cost interpretation.
+
+---
+
+[CODER]:
+import math
+
+# Problem data (initialized directly)
+fish_per_helicopter = 30
+fish_per_car = 20
+demand = 300
+
+time_per_helicopter = 40
+time_per_car = 30
+
+max_helicopter_trips = 5
+
+# Enumerate feasible integer solutions
+best_T = None
+best_solution = None
+
+for h in range(0, max_helicopter_trips + 1):
+    # Minimum c to satisfy fish demand: (demand - 30*h)/20
+    required_by_fish = (demand - fish_per_helicopter * h) / fish_per_car
+    # Minimum c to satisfy car proportion: c >= 1.5*h
+    required_by_proportion = 1.5 * h
+    # c must be nonnegative
+    required = max(required_by_fish, required_by_proportion, 0.0)
+    # c is integer number of trips
+    c = math.ceil(required)
+    # Verify feasibility explicitly (in case numeric issues)
+    if 30 * h + 20 * c >= demand and c >= 1.5 * h:
+        T = time_per_helicopter * h + time_per_car * c
+        if best_T is None or T < best_T:
+            best_T = T
+            best_solution = (h, c, T)
+
+# If no feasible solution found (shouldn't happen here), handle gracefully
+if best_T is None:
+    best_T = float('inf')
+
+# Final required print
+print(f"FINAL_OBJ: {best_T}")

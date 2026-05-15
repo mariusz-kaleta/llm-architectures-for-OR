@@ -1,0 +1,96 @@
+[MODELER]:
+Summary (optimal plan)
+- Make 12 ship trips and 1 plane trip.
+- Total fuel = 12*500 + 1*300 = 6 300 liters.
+- This satisfies capacity and all constraints and is fuel-minimizing.
+
+Formal model
+Decision variables
+- x ∈ Z≥0 = number of ship trips
+- y ∈ Z≥0 = number of plane trips
+
+Objective
+- Minimize total fuel: minimize F(x,y) = 500 x + 300 y
+
+Constraints
+1. Capacity: 40 x + 20 y ≥ 500  (must carry at least 500 containers)
+   equivalently 2 x + y ≥ 25
+2. Plane-trip limit: y ≤ 10
+3. At least 50% of trips by ship: x ≥ 0.5 (x + y)  →  x ≥ y
+4. Integrality and nonnegativity: x,y ∈ Z≥0
+
+Remarks
+- Ships carry more per trip and use less fuel per container (500/40 = 12.5 L/container) than planes (300/20 = 15 L/container), so the model favors ships subject to the y ≤ 10 and x ≥ y constraints.
+- Solving the integer linear program yields (x,y) = (12,1) with total fuel 6300 L.
+
+Suggested Python solvers / libraries
+- pulp (simple to model small ILPs), example: pulp.LpProblem with LpInteger variables
+- OR-Tools CP-SAT (robust and fast for integer problems)
+- gurobipy or CPLEX (commercial, fast for larger problems)
+- scipy.optimize (only for continuous problems — not appropriate if trips must be integer)
+- cvxpy (can express integer variables but solver availability matters)
+
+Example using pulp (concise)
+- Create LpProblem(minimize)
+- x = LpVariable('x', lowBound=0, cat='Integer')
+- y = LpVariable('y', lowBound=0, cat='Integer')
+- Add constraints: 40*x + 20*y >= 500; y <= 10; x >= y
+- Objective: 500*x + 300*y
+- Solve and read x.value(), y.value()
+
+If you want, I can provide a complete runnable code snippet in pulp or OR-Tools.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the described integer optimization problem.
+# Finds integers x (ship trips) and y (plane trips) minimizing fuel:
+#   minimize 500*x + 300*y
+#   s.t. 40*x + 20*y >= 500, y <= 10, x >= y, x,y >= 0 integers
+
+# All data initialized directly in code. Brute-force search (small domain).
+
+ship_capacity = 40
+plane_capacity = 20
+required_containers = 500
+
+fuel_ship = 500
+fuel_plane = 300
+
+plane_limit = 10
+
+# Search bounds:
+# y in [0, plane_limit]
+# x minimal approximately ceil((required - plane_capacity*y)/ship_capacity) but we'll search up to a safe upper bound.
+y_min, y_max = 0, plane_limit
+x_min_search, x_max_search = 0, 200  # 200 is more than enough for this small problem
+
+best_obj = None
+best_x = None
+best_y = None
+
+for y in range(y_min, y_max + 1):
+    for x in range(x_min_search, x_max_search + 1):
+        # constraints
+        if x < 0 or y < 0:
+            continue
+        if x < y:  # at least 50% of trips by ship -> x >= y
+            continue
+        if (ship_capacity * x + plane_capacity * y) < required_containers:
+            continue
+        # y <= plane_limit automatically enforced by loop
+        obj = fuel_ship * x + fuel_plane * y
+        if (best_obj is None) or (obj < best_obj):
+            best_obj = obj
+            best_x = x
+            best_y = y
+
+# If no feasible solution found (shouldn't happen), raise error
+if best_obj is None:
+    raise RuntimeError("No feasible solution found")
+
+# Print final objective value in exact required format
+print(f"FINAL_OBJ: {int(best_obj)}")
+```

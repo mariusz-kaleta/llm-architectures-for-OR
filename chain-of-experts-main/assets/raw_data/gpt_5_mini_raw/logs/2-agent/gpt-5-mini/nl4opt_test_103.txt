@@ -1,0 +1,73 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x ∈ Z≥0 : number of hot-air balloon rides (each carries 4 visitors)
+  - y ∈ Z≥0 : number of gondola lifts (each carries 6 visitors)
+
+- Constraints
+  - Capacity: 4x + 6y ≥ 70 (at least 70 visitors must be transported)
+  - Balloon limit: 0 ≤ x ≤ 10
+  - Integrality: x, y integers
+
+- Objective
+  - Minimize total pollution Z = 10x + 15y
+    (10 units pollution per balloon ride, 15 per gondola)
+
+Analytic solution
+
+If we use the minimal number of rides (no excess capacity), set 4x + 6y = 70. Divide by 2: 2x + 3y = 35.
+This Diophantine equation has integer solutions when x ≡ 1 (mod 3): x = 1 + 3t, t integer.
+With 0 ≤ x ≤ 10 this gives x ∈ {1,4,7,10}. Corresponding y values are:
+- x = 1 → y = 11
+- x = 4 → y = 9
+- x = 7 → y = 7
+- x = 10 → y = 5
+
+For each of these (exact-capacity) solutions Z = 10x + 15y = 175. Any feasible solution with excess capacity gives higher pollution (check by enumeration or substitution), so the minimum pollution is 175 units and is attained by any of the four combinations above.
+
+Examples of optimal choices
+- 10 hot-air balloons and 5 gondolas (4·10 + 6·5 = 70) → pollution = 175
+- 7 hot-air balloons and 7 gondolas → pollution = 175
+- 4 hot-air balloons and 9 gondolas → pollution = 175
+- 1 hot-air balloon and 11 gondolas → pollution = 175
+
+Recommended Python solvers
+- pulp (with CBC) — simple MILP modelling and solving
+- ortools CP-SAT (Google OR-Tools) — powerful integer solver
+- python-mip (mip) — interfaces to CBC/Gurobi
+(avoid scipy.optimize for integer problems — it handles continuous only)
+
+If you want, I can provide a short Python example using pulp or ortools to solve this model.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Model parameters
+capacity_required = 70
+max_x = 10  # 0 <= x <= 10
+pollution_per_x = 10
+pollution_per_y = 15
+
+min_obj = None
+best_solutions = []
+
+for x in range(0, max_x + 1):
+    rem = capacity_required - 4 * x
+    if rem <= 0:
+        y = 0
+    else:
+        y = math.ceil(rem / 6)
+    obj = pollution_per_x * x + pollution_per_y * y
+    if (min_obj is None) or (obj < min_obj):
+        min_obj = obj
+        best_solutions = [(x, y)]
+    elif obj == min_obj:
+        best_solutions.append((x, y))
+
+# (Optional) verify known analytic result
+# assert min_obj == 175
+
+print(f"FINAL_OBJ: {min_obj}")

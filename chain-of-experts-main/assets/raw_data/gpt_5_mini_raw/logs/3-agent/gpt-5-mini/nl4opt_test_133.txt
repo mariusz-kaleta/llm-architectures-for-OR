@@ -1,0 +1,114 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - J ≥ 0 : number of process J performed
+  - P ≥ 0 : number of process P performed
+  (If the number of processes must be integer, add J, P ∈ Z≥0.)
+
+- Objective
+  - Maximize total metal extracted: maximize Z = 5 J + 9 P
+
+- Constraints
+  - Water: 8 J + 6 P ≤ 1500
+  - Pollution: 3 J + 5 P ≤ 1350
+  - Nonnegativity: J ≥ 0, P ≥ 0
+
+Solution (analysis and result)
+
+Check the feasible corner points (constraints and axes):
+- (J, P) = (0, 0) → Z = 0
+- (J, P) = (187.5, 0) from 8J = 1500 → Z = 5·187.5 = 937.5
+- (J, P) = (0, 250) from 6P = 1500 → Z = 9·250 = 2250
+
+Note: the pollution constraint 3J + 5P ≤ 1350 is not binding in the region defined by the water constraint and nonnegativity (the maximum of 3J+5P subject to 8J+6P ≤1500 is 1250 ≤ 1350), so it is redundant here.
+
+Hence the optimum is at J = 0, P = 250, giving maximum metal = 2250 units.
+
+If J and P must be integers, the same solution applies because P = 250 is integer.
+
+Suggested Python libraries to solve this
+- PuLP (simple LP modeling and solver interface)
+- scipy.optimize.linprog (simplex or interior-point solver)
+- OR-Tools linear solver (good for larger problems and integer programming)
+- CVXOPT or cvxpy (for convex optimization modeling)
+
+Example using PuLP (conceptual; you can paste into a Python file)
+  import pulp
+  J = pulp.LpVariable('J', lowBound=0)
+  P = pulp.LpVariable('P', lowBound=0)
+  prob = pulp.LpProblem('Metal', pulp.LpMaximize)
+  prob += 5*J + 9*P
+  prob += 8*J + 6*P <= 1500
+  prob += 3*J + 5*P <= 1350
+  prob.solve()
+  print(J.value(), P.value(), pulp.value(prob.objective))
+
+Answer: perform 0 of process J and 250 of process P to extract 2250 units of metal.
+
+---
+
+[CODER]:
+import math
+
+# Define problem data
+c_J = 5.0
+c_P = 9.0
+
+# Constraints:
+# 8 J + 6 P <= 1500  (water)
+# 3 J + 5 P <= 1350  (pollution)
+
+tol = 1e-9
+
+# Candidate corner points: intersections of constraints and axes
+candidates = []
+
+# Axes intersections
+candidates.append((0.0, 0.0))
+# Water with J-axis (P=0)
+candidates.append((1500.0 / 8.0, 0.0))
+# Water with P-axis (J=0)
+candidates.append((0.0, 1500.0 / 6.0))
+# Pollution with J-axis (P=0)
+candidates.append((1350.0 / 3.0, 0.0))
+# Pollution with P-axis (J=0)
+candidates.append((0.0, 1350.0 / 5.0))
+
+# Intersection of the two constraint lines:
+# 8J + 6P = 1500
+# 3J + 5P = 1350
+a11, a12, b1 = 8.0, 6.0, 1500.0
+a21, a22, b2 = 3.0, 5.0, 1350.0
+det = a11 * a22 - a12 * a21
+if abs(det) > tol:
+    J_inter = (b1 * a22 - a12 * b2) / det
+    P_inter = (a11 * b2 - b1 * a21) / det
+    candidates.append((J_inter, P_inter))
+
+# Feasibility check
+def feasible(J, P):
+    if J < -tol or P < -tol:
+        return False
+    if 8.0 * J + 6.0 * P > 1500.0 + tol:
+        return False
+    if 3.0 * J + 5.0 * P > 1350.0 + tol:
+        return False
+    return True
+
+best_obj = -math.inf
+best_point = (0.0, 0.0)
+
+for (J, P) in candidates:
+    if feasible(J, P):
+        obj = c_J * J + c_P * P
+        if obj > best_obj + tol:
+            best_obj = obj
+            best_point = (J, P)
+
+# If best_obj is very close to an integer, convert to int for neatness
+if abs(best_obj - round(best_obj)) < 1e-8:
+    best_obj = int(round(best_obj))
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {best_obj}")

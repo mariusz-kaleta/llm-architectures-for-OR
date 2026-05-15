@@ -1,0 +1,88 @@
+[MODELER]:
+Formulation
+
+Decision variables
+- m1 ≥ 0 : minutes using machine 1
+- m2 ≥ 0 : minutes using machine 2
+
+Parameters (given)
+- Heart delivery rates: h1 = 0.5 (units/min from machine 1), h2 = 0.3 (units/min from machine 2)
+- Brain delivery rates: b1 = 0.8 (units/min from machine 1), b2 = 1.0 (units/min from machine 2)
+- Waste rates: w1 = 0.3 (waste units/min from machine 1), w2 = 0.5 (waste units/min from machine 2)
+- Heart upper bound: Hmax = 8 (units)
+- Brain minimum requirement: Bmin = 4 (units)
+
+Objective
+Minimise total waste:
+min f(m1,m2) = w1*m1 + w2*m2 = 0.3 m1 + 0.5 m2
+
+Constraints
+1) Heart: h1*m1 + h2*m2 ≤ Hmax  => 0.5 m1 + 0.3 m2 ≤ 8
+2) Brain: b1*m1 + b2*m2 ≥ Bmin  => 0.8 m1 + 1.0 m2 ≥ 4
+3) Nonnegativity: m1 ≥ 0, m2 ≥ 0
+
+Type of problem
+This is a linear program (LP).
+
+Analytic solution (short reasoning)
+To satisfy the brain constraint at minimum waste, compare waste per unit of brain delivered:
+- Machine 1: to deliver 1 unit brain requires 1/0.8 = 1.25 min → waste = 0.3*1.25 = 0.375 per brain unit
+- Machine 2: to deliver 1 unit brain requires 1/1 = 1 min → waste = 0.5 per brain unit
+
+Machine 1 is strictly more waste‑efficient for delivering brain medicine (0.375 < 0.5). Therefore to minimize waste we should use machine 1 only to meet the brain requirement: set m2 = 0 and choose m1 so 0.8 m1 ≥ 4 ⇒ m1 ≥ 5. Using m1 exactly 5 meets the brain requirement without unnecessary extra time.
+
+Check heart constraint at (m1,m2)=(5,0): 0.5*5 + 0.3*0 = 2.5 ≤ 8, so the heart constraint is satisfied.
+
+Hence optimal solution:
+- m1 = 5 minutes
+- m2 = 0 minutes
+Minimum total waste = 0.3*5 + 0.5*0 = 1.5 units
+
+Suggested solvers/libraries
+- pulp (Python) — convenient for formulating and solving LPs (CBC solver)
+- scipy.optimize.linprog — standard LP solver in SciPy
+- OR-Tools (ortools.linear_solver) — Google’s solver with multiple backends
+- CVXOPT or cvxpy — for convex optimization with cleaner modelling syntax
+
+If you want, I can provide a short Python example (pulp or scipy) that sets up and solves this LP.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+# Linear program parameters
+h1 = 0.5  # heart rate from machine 1 (units/min)
+h2 = 0.3  # heart rate from machine 2 (units/min)
+b1 = 0.8  # brain rate from machine 1 (units/min)
+b2 = 1.0  # brain rate from machine 2 (units/min)
+w1 = 0.3  # waste rate machine 1 (units/min)
+w2 = 0.5  # waste rate machine 2 (units/min)
+
+Hmax = 8   # heart upper bound (units)
+Bmin = 4   # brain minimum requirement (units)
+
+# Compute waste per unit brain for each machine
+waste_per_brain_1 = w1 / b1
+waste_per_brain_2 = w2 / b2
+
+# Choose the more waste-efficient machine for meeting brain requirement
+if waste_per_brain_1 < waste_per_brain_2:
+    m1 = Bmin / b1
+    m2 = 0.0
+else:
+    m1 = 0.0
+    m2 = Bmin / b2
+
+# Ensure heart constraint is satisfied; if not, adjust (not needed here but kept for completeness)
+heart_used = h1 * m1 + h2 * m2
+if heart_used > Hmax + 1e-9:
+    # If heart constraint violated, we would need to find alternate feasible solution.
+    # For this problem data this branch should not execute.
+    # As a fallback, scale down proportionally to meet heart constraint (maintain brain delivered if possible).
+    # Here we just raise an error to indicate infeasibility under simple strategy.
+    raise RuntimeError("Derived solution violates heart constraint; fallback not implemented.")
+
+# Compute objective (total waste)
+obj = w1 * m1 + w2 * m2
+
+# Final output (required exact format)
+print(f"FINAL_OBJ: {obj}")

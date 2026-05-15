@@ -1,0 +1,116 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Maximise total profit earned from Mrs. Watson’s investment.
+
+2. Suggested model type
+- Model: Linear Programming (continuous LP).
+
+3. Main decision variables (define units as dollars)
+- Variable: Amount of money invested in condos.
+- Variable: Amount of money invested in detached houses.
+
+(You may scale variables to thousands of dollars for numerical stability if desired.)
+
+4. Key constraints to include (described in words)
+- Total budget constraint: The sum of money invested in condos and detached houses cannot exceed $760,000.
+- Minimum condos share: Money invested in condos must be at least 20% of the total amount invested (i.e., condos must constitute at least 20% of the combined investment in condos and detached houses).
+- Minimum detached-houses amount: At least $20,000 must be invested in detached houses.
+- Nonnegativity: Investment amounts for both asset types must be nonnegative and continuous (fractional dollars allowed).
+
+5. Objective function description
+- Maximise total profit computed as the profit per dollar from each asset multiplied by the dollars invested in that asset (condos yield $0.50 per dollar, detached houses yield $1.00 per dollar).
+
+6. Additional modelling notes for the Modeller
+- Ensure feasibility: check that the combination of the minimum condo-percentage requirement and the minimum detached-houses dollar requirement is feasible under the $760,000 budget.
+- Since both returns are positive, the optimal solution will typically use the full budget unless constrained by the minimum-percentage requirement or feasibility issues.
+- Recommend reporting: optimal dollar amounts for each investment, total invested, and resulting total profit. Provide sensitivity analysis for changes in profit rates, the 20% requirement, and the $20,000 floor.
+
+---
+
+[MODELER]:
+I'll convert the text into a clear LP model, give the algebraic form, check feasibility, solve it analytically (since it's very small), and recommend solver libraries.
+
+1) Decision variables
+- C = dollars invested in condos (C >= 0).
+- D = dollars invested in detached houses (D >= 0).
+
+(If you prefer numerical stability you can scale to thousands: c = C/1000, d = D/1000 and adjust constants accordingly.)
+
+2) Objective
+Maximise total profit:
+Maximize Z = 0.5 C + 1.0 D
+
+(Profit per dollar: condos $0.50, detached houses $1.00.)
+
+3) Constraints (linear)
+- Budget: C + D <= 760000
+- Minimum condos share (20% of total invested): C >= 0.2 (C + D)
+  Equivalent linear form: 0.8 C - 0.2 D >= 0  (or C - 0.2C - 0.2D >= 0)
+  Another equivalent: C >= 0.25 D
+- Minimum detached-houses amount: D >= 20000
+- Nonnegativity: C >= 0, D >= 0
+
+4) Feasibility check (general condition)
+From C >= 0.25 D and C + D <= B (B = 760000) the minimal total investment for a given D is when C = 0.25 D, giving 1.25 D <= B, so feasible only if D <= B / 1.25. Thus any required minimum D (call it D_min) must satisfy D_min <= B / 1.25. For this problem:
+B / 1.25 = 760000 / 1.25 = 608000, and D_min = 20000 <= 608000, so the model is feasible.
+
+5) Analytical solution (since this LP is trivial)
+Because both returns are positive and detached houses yield more per dollar than condos, the solver will use the full budget and push as much money as allowed into detached houses subject to the condo-share requirement.
+
+The condo-share constraint binds at optimum: C = 0.25 D, and budget binds: C + D = 760000.
+Solve:
+1.25 D = 760000 -> D* = 760000 / 1.25 = 608000
+C* = 760000 - 608000 = 152000
+
+Objective value:
+Z* = 0.5 * 152000 + 1.0 * 608000 = 76000 + 608000 = 684000
+
+Thus optimal investment: C = $152,000 in condos, D = $608,000 in detached houses; total profit = $684,000.
+
+6) Notes about binding constraints and sensitivity
+- Binding constraints at optimum: budget (C + D = 760000) and condo-share (C = 0.25 D). The D >= 20000 constraint is not binding.
+- If the minimum detached-houses floor were increased above 608000 the model would become infeasible.
+- If returns or the 20% requirement change, you can re-solve the LP (or compute shadow prices if using an LP solver) to get sensitivity information.
+
+7) Suggested Python libraries to implement/solve this LP
+- pulp (simple, pure-Python LP modeling)
+- scipy.optimize.linprog (efficient linear programming)
+- cvxpy (convex optimization interface)
+- ortools.linear_solver (Google OR-Tools LP solver)
+- gurobipy or cplex (commercial, high-performance solvers if available)
+
+Example (brief) using scipy.optimize.linprog (unscaled):
+- Variables order: x = [C, D]
+- Objective to minimize (linprog minimizes): f = [-0.5, -1.0]
+- Inequality A_ub x <= b_ub:
+  [1, 1] x <= 760000
+  [-0.8, 0.2] x <= 0    (this is - (0.8 C - 0.2 D) <= 0 to impose 0.8C - 0.2D >= 0)
+- Bounds: C >= 0, D >= 20000 (use bounds for each variable)
+
+This completes the formal LP model, feasibility check, analytic solution, and solver recommendations.
+
+---
+
+[CODER]:
+# Investment optimization (analytic solution)
+# Decision variables:
+# C = dollars invested in condos
+# D = dollars invested in detached houses
+# Data
+B = 760_000            # total budget
+rC = 0.5               # profit per dollar for condos
+rD = 1.0               # profit per dollar for detached houses
+# Condo share requirement: C >= 0.2*(C + D)  ->  C >= 0.25 * D
+
+# Analytic optimal solution:
+D_opt = B / 1.25
+C_opt = B - D_opt
+Z = rC * C_opt + rD * D_opt
+
+# If objective is essentially an integer, present as int
+if abs(Z - round(Z)) < 1e-9:
+    Z_out = int(round(Z))
+else:
+    Z_out = Z
+
+print(f"FINAL_OBJ: {Z_out}")

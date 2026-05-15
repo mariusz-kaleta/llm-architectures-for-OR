@@ -1,0 +1,100 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - s = number of smoothies (nonnegative integer)
+  - b = number of protein bars (nonnegative integer)
+
+- Data
+  - protein per smoothie = 2 units
+  - protein per bar = 7 units
+  - calories per smoothie = 300
+  - calories per bar = 250
+  - calorie budget = 2000
+
+- Constraint from the wording "must eat 2 times more protein bars than smoothies"
+  - Common interpretation: "two times as many" ⇒ b = 2 s
+  - (If you meant "2 times more" in the alternate sense of 200% more, that would be b = 3 s; see note below.)
+
+- Objective
+  - Maximize total protein: maximize P = 2 s + 7 b
+
+- Calorie constraint
+  - 300 s + 250 b ≤ 2000
+
+Complete mathematical formulation (with b = 2 s):
+  maximize P = 2 s + 7 b
+  subject to
+    300 s + 250 b ≤ 2000
+    b = 2 s
+    s, b ∈ Z_+  (nonnegative integers)
+
+Solve by substitution: b = 2 s ⇒ calories: 300 s + 250(2 s) = 800 s ≤ 2000 ⇒ s ≤ 2.5.
+With integer meals s ∈ {0,1,2}, choose largest feasible s = 2. Then b = 4.
+Total protein = 2(2) + 7(4) = 4 + 28 = 32 units.
+Calories used = 300·2 + 250·4 = 600 + 1000 = 1600 ≤ 2000.
+
+(If fractional meals were allowed, s = 2.5, b = 5 uses all 2000 calories and gives P = 16·2.5 = 40 protein units.)
+
+Note on alternate interpretation:
+- If "2 times more" were interpreted as 200% more (b = 3 s), the integer-optimal choice would be s = 1, b = 3 (P = 23 units).
+
+Recommended solvers/tools
+- For integer linear programming: PuLP, OR-Tools (CP-SAT), or Pyomo + a MILP solver (CBC, Gurobi, CPLEX).
+- For continuous LP relaxation: scipy.optimize.linprog or PuLP.
+
+Example (PuLP) sketch for the twice-as-many interpretation:
+  import pulp
+  s = pulp.LpVariable('s', lowBound=0, cat='Integer')
+  b = pulp.LpVariable('b', lowBound=0, cat='Integer')
+  prob = pulp.LpProblem('MaxProtein', pulp.LpMaximize)
+  prob += 2*s + 7*b
+  prob += 300*s + 250*b <= 2000
+  prob += b == 2*s
+  prob.solve()
+  print(pulp.value(s), pulp.value(b), pulp.value(prob.objective))
+
+Answer (common interpretation): Eat 2 smoothies and 4 protein bars (32 protein units).
+
+---
+
+[CODER]:
+import math
+
+# Data
+protein_per_smoothie = 2
+protein_per_bar = 7
+calories_per_smoothie = 300
+calories_per_bar = 250
+calorie_budget = 2000
+
+# Constraint from problem statement: b = 2 * s
+# Decision variables: s, b are nonnegative integers
+
+best_obj = -math.inf
+best_s = None
+best_b = None
+best_calories = None
+
+# Upper bound for s: calorie_budget divided by calories per smoothie (safe overestimate)
+max_s = calorie_budget // calories_per_smoothie + 1
+
+for s in range(0, max_s + 1):
+    b = 2 * s  # enforce b = 2*s
+    calories = calories_per_smoothie * s + calories_per_bar * b
+    if calories <= calorie_budget:
+        obj = protein_per_smoothie * s + protein_per_bar * b
+        if obj > best_obj:
+            best_obj = obj
+            best_s = s
+            best_b = b
+            best_calories = calories
+
+# Output solution details
+print(f"Optimal smoothies (s): {best_s}")
+print(f"Optimal protein bars (b): {best_b}")
+print(f"Total protein (objective): {best_obj}")
+print(f"Total calories used: {best_calories}")
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {best_obj}")

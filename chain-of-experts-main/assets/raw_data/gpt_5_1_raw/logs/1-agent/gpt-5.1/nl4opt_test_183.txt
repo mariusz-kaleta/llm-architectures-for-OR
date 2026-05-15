@@ -1,0 +1,42 @@
+[MONOLITH]:
+import pulp
+
+# Create the problem: minimize pollution
+prob = pulp.LpProblem("Cruise_Ship_Optimization", pulp.LpMinimize)
+
+# Decision variables: number of large (L) and small (S) cruise ship trips
+L = pulp.LpVariable('L', lowBound=0, cat='Continuous')
+S = pulp.LpVariable('S', lowBound=0, cat='Continuous')
+
+# Objective function: minimize total pollution
+# Large trip: 20 units, Small trip: 15 units
+prob += 20 * L + 15 * S
+
+# Constraints
+
+# 1. At most 7 large cruise ship trips
+prob += L <= 7, "Max_Large_Trips"
+
+# 2. At least 40% of total trips must be small:
+#    S >= 0.4 * (L + S) -> 0.6S >= 0.4L -> 3S >= 2L
+prob += 3 * S >= 2 * L, "Small_Trips_Proportion"
+
+# 3. At least 20,000 customers transported:
+#    2000L + 800S >= 20000
+prob += 2000 * L + 800 * S >= 20000, "Demand"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+L_opt = pulp.value(L)
+S_opt = pulp.value(S)
+obj_val = pulp.value(prob.objective)
+
+# Print solution details (optional, but helpful to see)
+print(f"Optimal number of large ship trips (L): {L_opt}")
+print(f"Optimal number of small ship trips (S): {S_opt}")
+print(f"Minimum total pollution: {obj_val}")
+
+# Required final objective print
+print(f"FINAL_OBJ: {obj_val}")

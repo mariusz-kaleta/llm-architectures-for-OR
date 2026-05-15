@@ -1,0 +1,40 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+total_funds = 100000.0
+telecom_max = 70000.0
+ratio = 3.0  # telecom >= ratio * healthcare
+rate_telecom = 0.03
+rate_healthcare = 0.01
+
+# Define the LP problem (maximization)
+prob = pulp.LpProblem("Investment_Allocation", pulp.LpMaximize)
+
+# Decision variables
+T = pulp.LpVariable("Telecom", lowBound=0, cat="Continuous")
+H = pulp.LpVariable("Healthcare", lowBound=0, cat="Continuous")
+
+# Objective: maximize profit
+prob += rate_telecom * T + rate_healthcare * H
+
+# Constraints
+prob += T + H <= total_funds
+prob += T >= ratio * H
+prob += T <= telecom_max
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+telecom_invest = pulp.value(T)
+healthcare_invest = pulp.value(H)
+objective_value = pulp.value(prob.objective)
+
+# Print solution (optional informational prints)
+print(f"Telecom investment: {telecom_invest}")
+print(f"Healthcare investment: {healthcare_invest}")
+print(f"Total invested: {telecom_invest + healthcare_invest}")
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {objective_value}")

@@ -1,0 +1,155 @@
+[PLANNER]:
+1) Key optimisation goal
+- Minimise the total time spent transporting at least 300 ducks to shore.
+
+2) Suggested model type
+- Integer Linear Programming (ILP). Variables are counts of trips and must be integer. Because the boat-variables domain is small (boats ≤ 12) a simple discrete enumeration over boat counts is also recommended as an efficient alternative.
+
+3) Main decision variables (conceptual)
+- Number of boat trips (integer, >= 0, max 12).
+- Number of canoe trips (integer, >= 0).
+
+(For clarity to the modeller: total time is 20 minutes per boat trip plus 40 minutes per canoe trip.)
+
+4) Key constraints to include (described verbally)
+- Capacity constraint: the combined capacity of all trips must be at least 300 ducks (each boat trip carries 10 ducks; each canoe trip carries 8 ducks).
+- Boat-trip upper bound: no more than 12 boat trips are allowed.
+- Trip-type proportion: at least 60% of all trips must be by canoe. (In practice this constraint forces the number of canoe trips to be at least 1.5 times the number of boat trips.)
+- Integrality and non-negativity: both trip counts must be non‑negative integers; canoe trips have no explicit upper bound unless you choose to impose one.
+- Feasibility check: ensure there exist integer counts satisfying both the capacity and proportion bounds; if infeasible, report that.
+
+5) Practical modelling/solution notes for the modeller
+- Objective function (to implement): total_time = 20*(#boat trips) + 40*(#canoe trips).
+- Because boats are faster per duck, the tension is between using the permitted boats (up to 12) and the requirement that 60% of trips be canoe. Explore the small integer search space by looping boat trips B = 0..12 and, for each B, compute the smallest integer canoe trips C that simultaneously satisfies:
+  - the capacity requirement (total ducks ≥ 300), and
+  - the 60%-canoe proportion requirement.
+  Then compute total_time and pick the (B,C) pair with minimal total_time.
+- Alternatively feed the ILP (variables integer) to a MILP/ILP solver; include the proportion constraint in its linear form (as noted above) and the capacity and upper bound constraints.
+- Ask to report the optimal integer solution (number of boat trips and number of canoe trips), the resulting total time (minutes), and capacity utilization (ducks transported). Also report if multiple optimal solutions exist.
+
+---
+
+[MODELER]:
+Below is a clear mathematical model, a short exact-solution method (small integer enumeration), how to express the proportion constraint linearly for an ILP, and solver/library suggestions. I also compute the optimal integer solution.
+
+1) Decision variables
+- B ∈ Z_{\ge 0} = number of boat trips (each boat trip carries 10 ducks, takes 20 minutes). Upper bound: B ≤ 12.
+- C ∈ Z_{\ge 0} = number of canoe trips (each canoe trip carries 8 ducks, takes 40 minutes). No explicit upper bound (practically limited by capacity requirement).
+
+2) Objective
+Minimise total time:
+minimize T = 20·B + 40·C  (minutes)
+
+3) Constraints (linear)
+- Capacity: 10·B + 8·C ≥ 300  (at least 300 ducks transported)
+- Proportion (at least 60% of trips must be canoe): C / (B + C) ≥ 0.6.
+  This is linearised as:
+    C ≥ 0.6(B + C)  =>  C − 0.6C ≥ 0.6B  => 0.4C ≥ 0.6B
+  Multiply both sides by 5 (to avoid decimals) or directly by 2:
+    2·C ≥ 3·B  =>  2C − 3B ≥ 0
+- Boat trip upper bound: B ≤ 12
+- Integrality and non-negativity: B, C ∈ Z_{\ge 0}.
+
+Full ILP formulation:
+min 20B + 40C
+s.t.
+10B + 8C ≥ 300
+2C − 3B ≥ 0
+0 ≤ B ≤ 12, C ≥ 0
+B, C integers
+
+4) Very efficient exact solution method (small discrete search)
+Because B ∈ {0,...,12}, do this loop:
+- For B from 0 to 12:
+  - C_min_capacity = ceil(max(0, (300 − 10·B)/8))
+  - C_min_prop = ceil(1.5·B)   (from C ≥ 1.5·B)
+  - C = max(C_min_capacity, C_min_prop)
+  - compute T = 20·B + 40·C
+  - record feasible (B,C) and T
+- Choose (B,C) with smallest T. Report feasibility if no feasible (B,C) found.
+
+5) Solver / library suggestions
+- Simple brute-force implementation: plain Python (math.ceil) or numpy.
+- ILP solvers (if you prefer modelling as ILP):
+  - pulp (open-source, uses CBC by default)
+  - OR-Tools (CP-SAT solver for integer problems)
+  - pyomo + a MILP solver (CBC, GLPK, Gurobi, CPLEX if available)
+  - scipy.optimize is not appropriate for integer problems, but can be used for continuous relaxation only.
+Use pulp or OR-Tools for straightforward integer implementation.
+
+6) Computed optimal integer solution (using the enumeration described)
+Evaluating B = 0..12 and choosing smallest T yields:
+- Optimal B = 12 boat trips
+- Optimal C = 23 canoe trips
+- Total time T = 20·12 + 40·23 = 240 + 920 = 1160 minutes
+- Ducks transported = 10·12 + 8·23 = 120 + 184 = 304 ducks
+- Proportion check: 23/(12+23) ≈ 0.657 ≥ 0.6 ✔
+This is unique optimal in the searched domain B ≤ 12 (no other (B,C) with equal T).
+
+7) Short sample Python (enumeration) outline
+Pseudo / outline (can be copy-pasted and run with standard Python):
+- for B in range(0,13):
+    C_min_capacity = max(0, math.ceil((300 - 10*B)/8))
+    C_min_prop = math.ceil(1.5 * B)
+    C = max(C_min_capacity, C_min_prop)
+    T = 20*B + 40*C
+    record if feasible and T smallest
+- report best (B,C,T, ducks)
+
+8) Notes / modelling remarks
+- The proportion constraint is linear and exact in integer form as 2C − 3B ≥ 0.
+- If you wanted to allow fractional trips (not realistic here), you could solve the continuous LP relaxation; but integrality is required.
+- If B upper bound were higher than 12, you would still use the same approach; the brute-force approach is only feasible because B’s domain is tiny.
+- If you want ties reported, keep all (B,C) with T equal to minimum T.
+
+If you want, I can paste a ready-to-run Python script using pulp or plain enumeration that prints the optimal solutions and verifies constraints.
+
+---
+
+[CODER]:
+import math
+
+# Problem data
+DUCKS_REQUIRED = 300
+BOAT_CAPACITY = 10
+CANOE_CAPACITY = 8
+BOAT_TIME = 20
+CANOE_TIME = 40
+B_UPPER = 12  # 0..12 inclusive
+
+best_T = None
+best_solutions = []  # list of tuples (B, C, T)
+
+for B in range(0, B_UPPER + 1):
+    # minimum C by capacity
+    deficit = DUCKS_REQUIRED - BOAT_CAPACITY * B
+    C_min_capacity = 0 if deficit <= 0 else math.ceil(deficit / CANOE_CAPACITY)
+    # minimum C by proportion: C >= 1.5 * B
+    C_min_prop = math.ceil(1.5 * B)
+    C = max(C_min_capacity, C_min_prop)
+    # Ensure non-negative
+    if C < 0:
+        C = 0
+
+    # Verify constraints (safety check)
+    if (BOAT_CAPACITY * B + CANOE_CAPACITY * C) >= DUCKS_REQUIRED and (2 * C - 3 * B) >= 0:
+        T = BOAT_TIME * B + CANOE_TIME * C
+        if best_T is None or T < best_T:
+            best_T = T
+            best_solutions = [(B, C, T)]
+        elif T == best_T:
+            best_solutions.append((B, C, T))
+
+# Print results
+if best_T is None:
+    print("No feasible solution found within B <= 12.")
+else:
+    # Print all optimal solutions found (should be unique per problem statement)
+    for sol in best_solutions:
+        B, C, T = sol
+        ducks = BOAT_CAPACITY * B + CANOE_CAPACITY * C
+        proportion = C / (B + C) if (B + C) > 0 else 0.0
+        print(f"Optimal solution: B={B}, C={C}, Time={T} minutes, Ducks={ducks}, Proportion={proportion:.6f}")
+
+# Final required single-line output
+print(f"FINAL_OBJ: {best_T}")

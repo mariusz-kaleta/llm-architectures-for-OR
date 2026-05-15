@@ -1,0 +1,142 @@
+[MODELER]:
+Let
+
+- \(x\): acres of blueberries to plant  
+- \(y\): acres of raspberries to plant  
+
+Both \(x\) and \(y\) are continuous and nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+**Objective (maximize profit)**  
+Profit per acre:
+- Blueberries: \$56  
+- Raspberries: \$75  
+
+So total profit:
+\[
+\max\; Z = 56x + 75y
+\]
+
+**Constraints**
+
+1. **Land availability (300 acres total)**  
+\[
+x + y \le 300
+\]
+
+2. **Labor availability (575 days)**  
+Each acre of blueberries needs 6 days; raspberries need 3 days:
+\[
+6x + 3y \le 575
+\]
+
+3. **Watering budget (\$10{,}000)**  
+Each acre of blueberries needs \$22; raspberries need \$25:
+\[
+22x + 25y \le 10000
+\]
+
+4. **Nonnegativity**  
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+This is a linear programming (LP) problem.
+
+**Suitable Python libraries to solve this LP**
+
+You can implement and solve this model with:
+
+- `PuLP` (simple and very readable for LPs)
+- `scipy.optimize.linprog` (from SciPy)
+- `ortools.linear_solver` (Google OR-Tools, good for larger optimization problems)
+
+Example choice for this size: `PuLP` or `scipy.optimize.linprog` are both straightforward.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import itertools
+from math import isclose
+
+# We will solve the LP:
+# max Z = 56x + 75y
+# s.t.
+#   x + y <= 300
+#   6x + 3y <= 575
+#   22x + 25y <= 10000
+#   x >= 0, y >= 0
+
+# We'll solve this small 2-variable LP analytically by checking all corner points.
+
+# Constraints written in standard form:
+# 1) x + y <= 300
+# 2) 6x + 3y <= 575
+# 3) 22x + 25y <= 10000
+# 4) x >= 0
+# 5) y >= 0
+
+# We'll find intersection points of each pair of constraint boundaries (as equalities)
+# and then filter feasible ones.
+
+def intersect(eq1, eq2):
+    """
+    Solve intersection of two linear equations in x,y:
+    eq is (a, b, c) meaning: a*x + b*y = c
+    Returns (x, y) or None if no unique intersection.
+    """
+    a1, b1, c1 = eq1
+    a2, b2, c2 = eq2
+    det = a1 * b2 - a2 * b1
+    if isclose(det, 0.0):
+        return None
+    x = (c1 * b2 - c2 * b1) / det
+    y = (a1 * c2 - a2 * c1) / det
+    return (x, y)
+
+# Equality forms of constraints
+eqs = [
+    (1.0, 1.0, 300.0),      # x + y = 300
+    (6.0, 3.0, 575.0),      # 6x + 3y = 575
+    (22.0, 25.0, 10000.0),  # 22x + 25y = 10000
+    (1.0, 0.0, 0.0),        # x = 0
+    (0.0, 1.0, 0.0)         # y = 0
+]
+
+candidates = []
+
+# Intersections of all pairs of boundary lines
+for (i, eq1), (j, eq2) in itertools.combinations(list(enumerate(eqs)), 2):
+    pt = intersect(eq1, eq2)
+    if pt is None:
+        continue
+    x, y = pt
+    # Check feasibility
+    if x >= -1e-9 and y >= -1e-9:
+        if x + y <= 300 + 1e-9 and \
+           6*x + 3*y <= 575 + 1e-9 and \
+           22*x + 25*y <= 10000 + 1e-9:
+            candidates.append((max(0.0, x), max(0.0, y)))
+
+# Also include origin explicitly
+candidates.append((0.0, 0.0))
+
+# Remove duplicates by rounding
+unique_points = {}
+for x, y in candidates:
+    key = (round(x, 10), round(y, 10))
+    unique_points[key] = (x, y)
+
+best_val = None
+best_pt = None
+
+for x, y in unique_points.values():
+    Z = 56*x + 75*y
+    if best_val is None or Z > best_val:
+        best_val = Z
+        best_pt = (x, y)
+
+# Print final objective
+print(f"FINAL_OBJ: {best_val}")

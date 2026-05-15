@@ -1,0 +1,103 @@
+[MODELER]:
+Model
+
+Decision variables
+- g = number of gummies (>= 0). (Integer if you require whole gummies.)
+- p = number of pills (>= 0, and p >= 10). (Integer if pills must be whole.)
+
+Objective
+- Maximize total zinc: Z = 4g + 5p
+
+Constraints
+1. Magnesium limit: 3g + 2p <= 200
+2. Preference requirement: g >= 3p
+3. Minimum pills: p >= 10
+4. Nonnegativity: g >= 0, p >= 0
+(Optionally g, p integer.)
+
+Mathematical formulation
+Maximize Z = 4g + 5p
+subject to
+3g + 2p <= 200
+g - 3p >= 0
+p >= 10
+g, p >= 0
+(g, p integer if whole items required)
+
+Solution reasoning (quick)
+- Gummies give 4 zinc per 3 magnesium (4/3 ≈ 1.333 zinc per Mg).
+- Pills give 5 zinc per 2 magnesium (5/2 = 2.5 zinc per Mg).
+- Because g >= 3p is required, it is optimal (for maximizing zinc) to keep g at its minimum allowed value g = 3p (taking any extra gummies wastes magnesium on the lower zinc-per-magnesium item).
+- Substitute g = 3p into magnesium constraint: 3(3p) + 2p = 11p <= 200 → p <= 200/11 ≈ 18.1818.
+- Continuous optimum: p* = 200/11, g* = 600/11, zinc ≈ 309.09.
+- If integers required (whole pills/gummies), p must be integer and at least 10. The largest integer p ≤ 200/11 is p = 18, with g = 3·18 = 54.
+  - Magnesium used: 3*54 + 2*18 = 198 <= 200.
+  - Zinc obtained: 4*54 + 5*18 = 306.
+
+Answer
+- If fractional amounts allowed: p = 200/11 ≈ 18.1818 pills and g = 600/11 ≈ 54.545 gummies (Z ≈ 309.09).
+- If whole items required (practical case): p = 18 pills and g = 54 gummies, giving 306 units of zinc.
+
+Suggested solvers / Python libraries
+- pulp (easy linear / integer LP modeling)
+- OR-Tools CP-SAT (for integer/CP style solution)
+- scipy.optimize.linprog (for continuous LP)
+- cvxpy (convex/LP modeling, supports integer mixed-integer with solvers)
+Example (pulp) outline
+- Define LpVariables g, p (cat='Integer' if you want integers).
+- Add constraints 3*g + 2*p <= 200, g >= 3*p, p >= 10.
+- Set objective LpMaximize(4*g + 5*p).
+- Solve and read g.value(), p.value().
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data (initialized directly)
+# Maximize Z = 4g + 5p
+# s.t. 3g + 2p <= 200
+#      g >= 3p
+#      p >= 10
+#      g, p >= 0
+# Continuous and integer (whole items) solutions will be computed.
+
+# Continuous solution (analytical)
+# For given p with g >= 3p and 3g+2p <=200, best g is g = (200 - 2p)/3 (upper bound).
+# Feasible p must satisfy (200 - 2p)/3 >= 3p -> 11p <= 200 -> p <= 200/11
+p_cont = 200.0 / 11.0
+g_cont = (200.0 - 2.0 * p_cont) / 3.0  # should equal 600/11
+Z_cont = 4.0 * g_cont + 5.0 * p_cont
+
+# Integer (whole items) solution: iterate integer p >= 10
+best_int_Z = None
+best_int_p = None
+best_int_g = None
+
+p_min = 10
+p_max = math.floor(200 / 11)  # from feasibility g >= 3p and magnesium constraint
+for p in range(p_min, p_max + 1):
+    # maximum integer g allowed by magnesium constraint
+    g_max = (200 - 2 * p) // 3  # floor division for integer g
+    if g_max < 3 * p:
+        continue  # infeasible because g must be at least 3p
+    g = g_max  # choose largest g to maximize Z for fixed p
+    Z = 4 * g + 5 * p
+    if (best_int_Z is None) or (Z > best_int_Z):
+        best_int_Z = Z
+        best_int_p = p
+        best_int_g = g
+
+# Print results
+print("Continuous solution (fractional allowed):")
+print(f" p = {p_cont:.6f}")
+print(f" g = {g_cont:.6f}")
+print(f" Z = {Z_cont:.6f}")
+print()
+print("Integer (whole items) solution (practical case):")
+print(f" p = {best_int_p}")
+print(f" g = {best_int_g}")
+print(f" Z = {best_int_Z}")
+
+# Final required output line (must be the very last line)
+print(f"FINAL_OBJ: {best_int_Z}")

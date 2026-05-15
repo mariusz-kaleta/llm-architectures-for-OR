@@ -1,0 +1,43 @@
+[MONOLITH]:
+import pulp
+
+# Initialize the problem: minimize number of air conditioners
+prob = pulp.LpProblem("AC_Selection", pulp.LpMinimize)
+
+# Decision variables
+L = pulp.LpVariable('LowPower', lowBound=0, cat='Integer')
+H = pulp.LpVariable('HighPower', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of ACs
+prob += L + H
+
+# Constraints
+
+# Cooling capacity: at least 250 housing units
+prob += 12 * L + 17 * H >= 250, "CoolingRequirement"
+
+# Electricity usage: at most 3400 units
+prob += 150 * L + 250 * H <= 3400, "ElectricityLimit"
+
+# At least 7 high-powered models
+prob += H >= 7, "MinHighPower"
+
+# Low-powered models limited to 30% of total units:
+# L <= 0.3(L + H)  ->  0.7L <= 0.3H  -> 7L <= 3H
+prob += 7 * L <= 3 * H, "LowPowerLimit"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+low_power = int(pulp.value(L))
+high_power = int(pulp.value(H))
+objective_value = int(pulp.value(prob.objective))
+
+# Print detailed solution (optional for user visibility)
+print(f"Low-power ACs: {low_power}")
+print(f"High-power ACs: {high_power}")
+print(f"Minimum total ACs: {objective_value}")
+
+# Required final objective print
+print(f"FINAL_OBJ: {objective_value}")

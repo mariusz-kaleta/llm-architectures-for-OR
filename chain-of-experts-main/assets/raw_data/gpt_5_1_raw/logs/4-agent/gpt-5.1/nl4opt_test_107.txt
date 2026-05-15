@@ -1,0 +1,206 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Minimise the total daily operating cost of the two farms while meeting (or exceeding) the store’s berry requirements.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP)  
+   - Rationale:  
+     - Objective is linear in the number of days each farm operates.  
+     - Production (harvested kg) is proportional to days operated → linear relationships.  
+     - Constraints are simple linear inequalities (meeting minimum demand).  
+
+3. Main decision variables  
+   - Let the modeller define continuous non‑negative variables such as:
+     - Variable for “number of days the old farm operates” (could be fractional; implicitly assuming divisibility of operating time within a day).
+     - Variable for “number of days the new farm operates”.
+   - These will be the only explicit decision variables; all harvested amounts can be expressed as linear functions of these variables.
+
+4. Objective function components  
+   - Cost coefficients:
+     - Old farm: 300 dollars per operating day.
+     - New farm: 200 dollars per operating day.
+   - Objective:
+     - Minimise: (300 × days at old farm) + (200 × days at new farm).
+
+5. Key constraints to include  
+
+   Demand satisfaction constraints (for each berry type, total harvested ≥ contract requirement):
+
+   - Raspberries:
+     - Old farm yields 2 kg/day.
+     - New farm yields 4 kg/day.
+     - Total from both farms must be at least 10 kg.
+
+   - Blueberries:
+     - Old farm yields 2 kg/day.
+     - New farm yields 1 kg/day.
+     - Total from both farms must be at least 9 kg.
+
+   - Strawberries:
+     - Old farm yields 4 kg/day.
+     - New farm yields 2 kg/day.
+     - Total from both farms must be at least 15 kg.
+
+   Non‑negativity constraints:
+   - Days at old farm ≥ 0.
+   - Days at new farm ≥ 0.
+
+6. Modelling notes / options  
+   - The base version assumes fractional days are allowed (standard LP). If the context requires whole days only, the modeller could instead propose an Integer Linear Programming (ILP) model with integer day variables.
+   - Surplus production (producing more than the contract amounts) is allowed and not penalised beyond incurring the extra operating cost; constraints should use “≥” rather than “=”.
+
+---
+
+[MODELER]:
+Here is a clean LP formulation for the problem, plus guidance on how to implement it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of days the **old farm** operates  
+- \(y\) = number of days the **new farm** operates  
+
+Base model: \(x, y\) are continuous (fractional days allowed):
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+(If whole days are required: add integrality \(x, y \in \mathbb{Z}_{\ge 0}\).)
+
+---
+
+## 2. Objective function
+
+Minimise total operating cost:
+
+\[
+\min \; Z = 300x + 200y
+\]
+
+---
+
+## 3. Constraints
+
+### Demand (contract) constraints
+
+All demands must be met or exceeded.
+
+1. **Raspberries (≥ 10 kg)**  
+   Old farm: 2 kg/day, new farm: 4 kg/day
+   \[
+   2x + 4y \;\ge\; 10
+   \]
+
+2. **Blueberries (≥ 9 kg)**  
+   Old farm: 2 kg/day, new farm: 1 kg/day
+   \[
+   2x + y \;\ge\; 9
+   \]
+
+3. **Strawberries (≥ 15 kg)**  
+   Old farm: 4 kg/day, new farm: 2 kg/day
+   \[
+   4x + 2y \;\ge\; 15
+   \]
+
+### Non-negativity
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+## 4. Complete LP model (continuous version)
+
+\[
+\begin{aligned}
+\min\quad & 300x + 200y \\
+\text{s.t.}\quad 
+& 2x + 4y \ge 10 & \text{(raspberries)} \\
+& 2x + y \ge 9 & \text{(blueberries)} \\
+& 4x + 2y \ge 15 & \text{(strawberries)} \\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+---
+
+## 5. Suggested Python libraries
+
+Any standard LP solver will handle this:
+
+- **PuLP** (`pulp`) – very simple modeling interface in pure Python; can use CBC by default.
+- **OR-Tools** (`ortools.linear_solver`) – powerful and fast; supports LP and MILP.
+- **SciPy** (`scipy.optimize.linprog`) – suitable if you only need straightforward LP.
+
+For an integer-days variant (MILP), prefer **PuLP** or **OR-Tools**.
+
+---
+
+## 6. Sketch of a PuLP implementation
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Berry_Farm_Problem", pl.LpMinimize)
+
+# Variables (continuous, >= 0)
+x = pl.LpVariable('days_old_farm', lowBound=0)
+y = pl.LpVariable('days_new_farm', lowBound=0)
+
+# Objective
+prob += 300 * x + 200 * y
+
+# Constraints
+prob += 2 * x + 4 * y >= 10  # raspberries
+prob += 2 * x + 1 * y >= 9   # blueberries
+prob += 4 * x + 2 * y >= 15  # strawberries
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Days at old farm:", x.value())
+print("Days at new farm:", y.value())
+print("Minimum cost:", pl.value(prob.objective))
+```
+
+To enforce whole days: define `cat='Integer'` in `LpVariable`.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Berry_Farm_Problem", pl.LpMinimize)
+
+    # Decision variables: days of operation for old and new farms (continuous, >= 0)
+    x = pl.LpVariable('days_old_farm', lowBound=0)
+    y = pl.LpVariable('days_new_farm', lowBound=0)
+
+    # Objective function: minimize total operating cost
+    prob += 300 * x + 200 * y
+
+    # Constraints
+    prob += 2 * x + 4 * y >= 10  # Raspberries
+    prob += 2 * x + y >= 9       # Blueberries
+    prob += 4 * x + 2 * y >= 15  # Strawberries
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract the final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Required final output
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

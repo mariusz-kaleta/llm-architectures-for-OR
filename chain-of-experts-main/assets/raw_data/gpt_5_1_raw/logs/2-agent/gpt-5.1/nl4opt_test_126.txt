@@ -1,0 +1,146 @@
+[MODELER]:
+Here is a formal optimization model of the florist’s problem.
+
+### Decision variables
+Let  
+- \(x\) = number of small bouquets transported (integer, \(x \ge 0\))  
+- \(y\) = number of large bouquets transported (integer, \(y \ge 0\))
+
+### Objective
+Each small bouquet has 5 flowers, each large bouquet has 10 flowers.  
+Maximize the total number of flowers:
+
+\[
+\max \; Z = 5x + 10y
+\]
+
+### Constraints
+
+1. **Capacity for small bouquets**  
+   \[
+   x \le 80
+   \]
+
+2. **Capacity for large bouquets**  
+   \[
+   y \le 50
+   \]
+
+3. **Total bouquet capacity** (at most 70 bouquets overall)  
+   \[
+   x + y \le 70
+   \]
+
+4. **Minimum number of large bouquets**  
+   \[
+   y \ge 20
+   \]
+
+5. **Popularity condition** (at least twice as many small as large)  
+   \[
+   x \ge 2y
+   \]
+
+6. **Integrality and nonnegativity**  
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+---
+
+### Solving / Reasoning (sketch)
+
+Because each large bouquet has more flowers per bouquet (10) than a small one (5), we’d like as many large bouquets as possible, but we are limited by the condition \(x \ge 2y\) and total bouquets \(x + y \le 70\).
+
+Combine the two key constraints:
+- \(x \ge 2y\)
+- \(x + y \le 70\)
+
+From \(x \ge 2y\), substitute into the total-bouquet constraint:
+\[
+2y + y \le 70 \;\Rightarrow\; 3y \le 70 \;\Rightarrow\; y \le \frac{70}{3} \approx 23.33
+\]
+Since \(y\) must be an integer and \(y \ge 20\), the feasible integers are \(y = 20, 21, 22, 23\), subject also to \(y \le 50\), which is nonbinding here.
+
+For each candidate \(y\), take the largest feasible \(x\) (to maximize flowers) under all constraints:
+- \(x \le 80\)
+- \(x + y \le 70 \Rightarrow x \le 70 - y\)
+- \(x \ge 2y\)
+
+So effectively, for each \(y\), we can pick
+\[
+x = \min\{80, 70 - y\} \quad \text{with } x \ge 2y.
+\]
+
+Check the upper bound that also respects \(x \ge 2y\):
+
+- \(y = 20\):  
+  \(x \le 70 - 20 = 50\), and \(x \ge 40\). Best is \(x = 50\).  
+  Flowers: \(5(50) + 10(20) = 250 + 200 = 450.\)
+
+- \(y = 21\):  
+  \(x \le 49\), \(x \ge 42\). Best is \(x = 49\).  
+  Flowers: \(5(49) + 10(21) = 245 + 210 = 455.\)
+
+- \(y = 22\):  
+  \(x \le 48\), \(x \ge 44\). Best is \(x = 48\).  
+  Flowers: \(5(48) + 10(22) = 240 + 220 = 460.\)
+
+- \(y = 23\):  
+  \(x \le 47\), \(x \ge 46\). Best is \(x = 47\).  
+  Flowers: \(5(47) + 10(23) = 235 + 230 = 465.\)
+
+The maximum is at \(x = 47\), \(y = 23\), with 465 flowers.
+
+### Optimal solution
+
+- Small bouquets: \(x^* = 47\)  
+- Large bouquets: \(y^* = 23\)  
+
+Total flowers transported:  
+\[
+Z^* = 5 \cdot 47 + 10 \cdot 23 = 465
+\]
+
+---
+
+### Suitable Python libraries
+
+This is a small integer linear program (ILP). Appropriate libraries include:
+
+- **PuLP** (`pulp`): Simple interface for LP/ILP, works well for educational and small–medium problems.
+- **OR-Tools Linear Solver** (`ortools.linear_solver`): Google’s optimization suite; efficient for integer and linear programming.
+- **Pyomo**: More general algebraic modeling language for larger or more complex optimization models.
+
+For quickest implementation, PuLP or OR-Tools would be ideal.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("FloristProblem", pulp.LpMaximize)
+
+# Decision variables
+x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # small bouquets
+y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # large bouquets
+
+# Objective: Maximize total number of flowers
+prob += 5 * x + 10 * y
+
+# Constraints
+prob += x <= 80              # Capacity for small bouquets
+prob += y <= 50              # Capacity for large bouquets
+prob += x + y <= 70          # Total bouquet capacity
+prob += y >= 20              # Minimum number of large bouquets
+prob += x >= 2 * y           # Popularity condition: at least twice as many small as large
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Get the objective value
+final_obj = pulp.value(prob.objective)
+
+# Print final objective value in required format
+print(f"FINAL_OBJ: {final_obj}")

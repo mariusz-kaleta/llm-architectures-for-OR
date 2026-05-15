@@ -1,0 +1,321 @@
+[MODELER]:
+Below is a clear mathematical formulation of the purchase problem, followed by an analysis of feasibility and simple remedies.
+
+1) Decision variables
+- x = number of new-model furnaces (integer, x ≥ 5).
+- y = number of old-model furnaces (integer, y ≥ 0).
+
+2) Objective
+Minimize the total number of furnaces:
+minimize Z = x + y.
+
+3) Constraints (from the problem statement)
+- Heating requirement: 10 x + 15 y ≥ 200.
+- Energy availability: 200 x + 250 y ≤ 3500.
+- Upper bound on fraction of old furnaces: y ≤ 0.35 (x + y). Equivalently (rearranged):
+  0.65 y ≤ 0.35 x  ⇒  y ≤ (0.35/0.65) x = (7/13) x ≈ 0.5384615 x.
+- Minimum new furnaces: x ≥ 5.
+- Integrality: x, y ∈ Z≥0.
+
+So the problem is a small integer linear program (ILP):
+min x+y
+s.t.
+10x + 15y ≥ 200
+200x + 250y ≤ 3500
+y ≤ (7/13) x
+x ≥ 5, x,y integers.
+
+4) Feasibility analysis (exact)
+Use the ratio constraint y ≤ (7/13) x and substitute into the heating and energy constraints to check continuous feasibility:
+
+- If y = (7/13)x (maximum allowed old furnaces), maximum heating per new furnace is:
+  10x + 15*(7/13)x = x*(10 + 105/13) = x * 18.076923...
+  To get 200 apartments: x ≥ 200 / 18.076923... ≈ 11.066.
+
+- Under the same substitution the energy consumption is:
+  200x + 250*(7/13)x = x*(200 + 1750/13) = x * 334.6153846...
+  With 3500 kWh available: x ≤ 3500 / 334.6153846... ≈ 10.468.
+
+Because 11.066 > 10.468, there is no x that can simultaneously satisfy the heating and energy constraints while respecting the 35% old-furnace cap. More generally, solving algebraically for the required allowed fraction p of old furnaces shows p must satisfy p/(1−p) ≥ 2 (i.e. p ≥ 2/3) to have any feasible solution; but p is fixed at 0.35 here, so the constraints are inconsistent.
+
+Therefore the ILP is infeasible: with the given numbers there is no integer pair (x,y) satisfying all constraints.
+
+5) Quantitative diagnostics (how far off)
+- Maximum apartments heatable under current constraints (continuous relaxation, using ratio bound y = (7/13)x and energy bound equality):
+  x_max = 3500 / 334.6153846... ≈ 10.468 → heating ≤ 18.076923 * 10.468 ≈ 190 apartments.
+  So at best about 190 apartments can be heated (≈10 short of the required 200).
+
+- Minimum extra electricity required (keeping the 35% cap) to just meet 200 apartments (continuous calculation):
+  E_min = 200 * (200 + 250*(7/13)) / (10 + 15*(7/13)) ≈ 3702.13 kWh.
+  Present availability = 3500 kWh, so an extra ≈ 202.13 kWh is required (≈3702 kWh total) to become feasible under the current 35% cap.
+
+- Alternatively, to keep energy fixed at 3500 kWh, the allowed fraction of old furnaces would need to be increased to at least p = 2/3 (≈66.67%), far above the stated 35% cap.
+
+6) Practical remedies (choose one or a combination)
+- Increase available electricity from 3500 to at least ≈3703 kWh.
+- Raise the allowed share of old furnaces from 35% up to at least 66.7%.
+- Reduce the apartment heating requirement (below ≈190) or change appliance specs (different models).
+- If any of the constraints are typos (e.g., old furnaces actually heat 50 apartments, etc.), correct them and re-solve.
+
+7) Solvers / libraries you can use
+- pulp (wrapper for many LP/MILP solvers) – easy to model ILP.
+- ortools (Google OR-Tools) – fast MILP solver.
+- pyomo (with a solver backend like CBC, GLPK, Gurobi) – for larger models.
+- scipy.optimize (only for continuous LPs; doesn’t handle integer constraints).
+Any of pulp or ortools is appropriate here for modeling and solving the ILP once the constraints are adjusted to make the instance feasible.
+
+If you want, I can:
+- run a quick integer search for feasible (x,y) if you want to relax one of the constraints (for example: raise kWh to a specified value or change the 35% cap), or
+- produce example Python code (pulp or ortools) that implements the model and either detects infeasibility or solves it after you indicate how to relax the constraints.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+# Self-contained analysis script for the furnace ILP described.
+# It performs an exact integer search (no external solvers required),
+# detects infeasibility of the original formulation, and computes diagnostics:
+# - maximum apartments heatable under current constraints
+# - minimal additional electricity (kWh) required to become feasible (integer search)
+# - minimal allowed fraction of old furnaces (p) required to become feasible (search)
+#
+# At the very end the script prints the final objective value line as required:
+# print(f"FINAL_OBJ: {value}")
+#
+# The original ILP is:
+# min x+y
+# s.t.
+# 10 x + 15 y >= 200
+# 200 x + 250 y <= 3500
+# y <= (7/13) x
+# x >= 5, x,y integer
+
+import math
+
+# Problem data (initialized directly)
+heating_new = 10       # apartments heated by new-model furnace
+heating_old = 15       # apartments heated by old-model furnace
+energy_new = 200       # kWh used by new-model furnace
+energy_old = 250       # kWh used by old-model furnace
+apartments_req = 200   # required apartments to heat
+energy_avail = 3500    # available kWh
+old_frac_cap = 0.35    # maximum fraction of old furnaces (by count)
+min_x = 5              # minimum number of new furnaces
+
+# Equivalent ratio-derived bound: y <= (7/13) x
+ratio_num = 7
+ratio_den = 13
+# sanity bounds for brute force search
+# with energy upper bound we can compute reasonable x_max
+x_max_initial = energy_avail // energy_new  # floor(3500/200) = 17
+
+# Search for feasible integer solutions of the original ILP
+feasible_solutions = []
+for x in range(min_x, x_max_initial + 1):
+    # max y by ratio constraint
+    y_max_by_ratio = (ratio_num * x) // ratio_den
+    # max y by energy constraint
+    if energy_old > 0:
+        y_max_by_energy = (energy_avail - energy_new * x) // energy_old
+    else:
+        y_max_by_energy = x_max_initial  # not used, just safe
+    y_max = min(y_max_by_ratio, y_max_by_energy)
+    if y_max < 0:
+        continue
+    for y in range(0, y_max + 1):
+        # check all constraints
+        if 10 * x + 15 * y < apartments_req:
+            continue
+        if 200 * x + 250 * y > energy_avail:
+            continue
+        # ratio already enforced by y_max_by_ratio/y loop
+        feasible_solutions.append((x, y))
+
+# Determine feasibility
+is_feasible = len(feasible_solutions) > 0
+
+# Compute maximum apartments heatable under current ratio and energy constraints
+max_heatable = -1
+max_heatable_pairs = []
+for x in range(min_x, x_max_initial + 1):
+    y_max_by_ratio = (ratio_num * x) // ratio_den
+    # energy bound for y
+    if energy_old > 0:
+        y_max_by_energy = (energy_avail - energy_new * x) // energy_old
+    else:
+        y_max_by_energy = 0
+    y_max = min(y_max_by_ratio, y_max_by_energy)
+    if y_max < 0:
+        continue
+    for y in range(0, y_max + 1):
+        energy = energy_new * x + energy_old * y
+        if energy > energy_avail:
+            continue
+        heat = heating_new * x + heating_old * y
+        if heat > max_heatable:
+            max_heatable = heat
+            max_heatable_pairs = [(x, y, heat, energy)]
+        elif heat == max_heatable:
+            max_heatable_pairs.append((x, y, heat, energy))
+
+# Compute minimal additional electricity required (integer search)
+# We search E from current energy_avail up to a reasonable upper bound.
+# The continuous calculation suggested ~3702 kWh; search up to 10000 kWh to be safe.
+min_extra_energy_found = None
+min_energy_for_feas = None
+min_energy_solution = None
+
+max_search_energy = 10000
+for E in range(energy_avail, max_search_energy + 1):
+    feasible_for_E = False
+    x_max_E = E // energy_new
+    for x in range(min_x, x_max_E + 1):
+        y_max_by_ratio = (ratio_num * x) // ratio_den
+        if energy_old > 0:
+            y_max_by_energy = (E - energy_new * x) // energy_old
+        else:
+            y_max_by_energy = x_max_E
+        y_max = min(y_max_by_ratio, y_max_by_energy)
+        if y_max < 0:
+            continue
+        for y in range(0, y_max + 1):
+            if heating_new * x + heating_old * y >= apartments_req:
+                feasible_for_E = True
+                min_energy_for_feas = E
+                min_energy_solution = (x, y)
+                break
+        if feasible_for_E:
+            break
+    if feasible_for_E:
+        min_extra_energy_found = E - energy_avail
+        break
+
+# Compute minimal allowed fraction p of old furnaces required to be feasible
+# with energy fixed at energy_avail.
+min_p_found = None
+min_p_solution = None
+# We'll search p in increments of 0.001 (0.1% resolution)
+p_step = 0.001
+p = 0.0
+while p <= 1.0:
+    feasible_for_p = False
+    x_max_p = energy_avail // energy_new
+    for x in range(min_x, x_max_p + 1):
+        # y <= p*(x+y)  =>  y <= p*x/(1-p)  (if p < 1)
+        if p >= 1.0:
+            y_max_by_p = x_max_p  # no effective limit
+        else:
+            # compute floor of p*x/(1-p)
+            denom = 1.0 - p
+            if denom <= 0:
+                y_max_by_p = x_max_p
+            else:
+                # numeric rounding safe because we use integer y loop and later energy check
+                y_max_by_p = math.floor((p * x) / denom + 1e-12)
+        # energy bound
+        if energy_old > 0:
+            y_max_by_energy = (energy_avail - energy_new * x) // energy_old
+        else:
+            y_max_by_energy = 0
+        y_max = min(y_max_by_p, y_max_by_energy)
+        if y_max < 0:
+            continue
+        for y in range(0, y_max + 1):
+            if heating_new * x + heating_old * y >= apartments_req:
+                feasible_for_p = True
+                min_p_found = p
+                min_p_solution = (x, y)
+                break
+        if feasible_for_p:
+            break
+    if feasible_for_p:
+        break
+    p += p_step
+# Round min_p_found to a reasonable number of decimals if found
+if min_p_found is not None:
+    min_p_found = round(min_p_found, 6)
+
+# Prepare output diagnostics
+print("Original ILP feasibility check and diagnostics")
+print("Problem data:")
+print(f" - heating per new/old: {heating_new}/{heating_old} apartments")
+print(f" - energy per new/old: {energy_new}/{energy_old} kWh")
+print(f" - required apartments: {apartments_req}")
+print(f" - available energy: {energy_avail} kWh")
+print(f" - old-furnace cap (fraction): {old_frac_cap} (enforced as y <= (7/13) x) ")
+print(f" - minimum new furnaces x >= {min_x}")
+print("")
+
+if is_feasible:
+    # Find best (min x+y) among feasible solutions
+    best_obj = None
+    best_solutions = []
+    for (x, y) in feasible_solutions:
+        obj = x + y
+        if best_obj is None or obj < best_obj:
+            best_obj = obj
+            best_solutions = [(x, y)]
+        elif obj == best_obj:
+            best_solutions.append((x, y))
+    print("Feasible solutions found for the original ILP.")
+    print(f"Number of feasible integer solutions found: {len(feasible_solutions)}")
+    print(f"Best objective (min x+y) = {best_obj}")
+    print("Best solution(s) (x,y):")
+    for s in best_solutions:
+        x, y = s
+        heat = heating_new * x + heating_old * y
+        energy = energy_new * x + energy_old * y
+        print(f" - x={x}, y={y}, heat={heat}, energy={energy}")
+    final_obj_value = best_obj
+else:
+    print("Original ILP is infeasible with the given data and the 35% old-furnace cap.")
+    print("")
+    # Maximum apartments heatable under current constraints
+    if max_heatable >= 0:
+        print(f"Maximum apartments heatable under current constraints (ratio + energy): {max_heatable}")
+        # show example pairs achieving max_heatable
+        print("Example pair(s) achieving that maximum (x, y, heat, energy):")
+        for rec in max_heatable_pairs:
+            x, y, heat, energy = rec
+            print(f" - x={x}, y={y}, heat={heat}, energy={energy}")
+        shortage = apartments_req - max_heatable
+        print(f"This is a shortfall of {shortage} apartments (need {apartments_req}).")
+    else:
+        print("No feasible (x,y) satisfy energy and ratio bounds at all (even disregarding heating).")
+
+    # Minimal extra electricity required (integer search result)
+    if min_extra_energy_found is not None:
+        print("")
+        print("Minimal additional electricity required (integer solution search):")
+        print(f" - Additional kWh required: {min_extra_energy_found} kWh")
+        print(f" - Total kWh that would be needed: {min_energy_for_feas} kWh")
+        x, y = min_energy_solution
+        heat = heating_new * x + heating_old * y
+        energy = energy_new * x + energy_old * y
+        print(f" - Example feasible integer solution at that energy: x={x}, y={y}, heat={heat}, energy={energy}")
+        print(f" - (Current available {energy_avail} kWh -> need {min_energy_for_feas} kWh)")
+    else:
+        print("")
+        print("Could not find a feasible integer solution even when increasing energy up to search limit.")
+        print(f"Search limit was {max_search_energy} kWh.")
+
+    # Minimal fraction of old furnaces required
+    if min_p_found is not None:
+        print("")
+        print("Minimal allowed fraction p of old furnaces required (with energy fixed at current level):")
+        print(f" - Minimal p (approx): {min_p_found}")
+        x, y = min_p_solution
+        heat = heating_new * x + heating_old * y
+        energy = energy_new * x + energy_old * y
+        frac = y / (x + y) if (x + y) > 0 else 0.0
+        print(f" - Example integer solution at that p: x={x}, y={y}, heat={heat}, energy={energy}, y/(x+y)={frac:.6f}")
+        print(" - Note: this value is consistent with the analytic result that p must be at least 2/3 (~0.6667) for feasibility.")
+    else:
+        print("")
+        print("Could not find any p in [0,1] with resolution 0.001 that makes the problem feasible with current energy.")
+    final_obj_value = "infeasible"
+
+# Final required print (strict format)
+print(f"FINAL_OBJ: {final_obj_value}")
+```

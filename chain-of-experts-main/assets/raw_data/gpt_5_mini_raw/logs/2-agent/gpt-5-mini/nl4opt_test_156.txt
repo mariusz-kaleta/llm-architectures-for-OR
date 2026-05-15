@@ -1,0 +1,114 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x_s = number of images annotated by the specialized company (integer ≥ 0)
+- x_c = number of images annotated by the common company (integer ≥ 0)
+
+Parameters (given)
+- N = required total images = 10,000
+- r_s = specialized rate = 60 images/hour
+- r_c = common rate = 40 images/hour
+- p_s = specialized price = $100/hour
+- p_c = common price = $72/hour
+
+Derived per-image costs
+- c_s = p_s / r_s = 100 / 60 = 5/3 ≈ $1.6667 per image
+- c_c = p_c / r_c = 72 / 40 = 1.8 = $1.80 per image
+
+Objective
+- Minimize total cost C = c_s * x_s + c_c * x_c
+
+Constraints
+1. Total coverage: x_s + x_c ≥ N (must annotate at least N images)
+2. Special-images requirement: x_s ≥ (1/3) (x_s + x_c)  (at least one third of the work by specialized)
+   equivalently: 2 x_s ≥ x_c  (or x_c ≤ 2 x_s)
+3. Nonnegativity and integrality: x_s, x_c ≥ 0 (and integer if you need whole images)
+
+Analysis / closed-form solution
+Because the objective is linear and c_s < c_c (1.6667 < 1.8), every image assigned to the specialized company is cheaper. With no upper limit on specialized capacity, the cost-minimizing choice is to assign as many images as possible to the cheaper supplier, subject to the coverage constraint. Therefore set:
+
+- x_s = N = 10,000
+- x_c = 0
+
+This satisfies the special-images constraint (100% ≥ 1/3) and yields minimum cost.
+
+Numerical result
+- Specialized hours = x_s / r_s = 10,000 / 60 ≈ 166.6667 hours
+- Total cost = p_s * hours = 100 * 166.6667 = $16,666.67 (exactly (5/3)*10,000 = $16,666 2/3)
+- Alternative if you used only common: cost = 1.8 * 10,000 = $18,000 (more expensive)
+
+General rule (if you change parameters)
+- If c_s < c_c → allocate all N to specialized: x_s = N, x_c = 0.
+- If c_s > c_c → allocate the minimum allowed to specialized (x_s = N/3) and the rest to common (x_c = 2N/3).
+- If c_s = c_c → any allocation meeting constraints gives the same cost.
+
+Solving with Python
+This is a simple linear program; solvable analytically as above. If you want to use a solver or include integrality, suggested libraries:
+- pulp (easy LP/MILP): pip install pulp
+- ortools (Google OR-Tools) for MILP
+- scipy.optimize.linprog (continuous LP)
+- cvxpy (convex optimization interface)
+
+Example PuLP snippet (continuous/integer images)
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpInteger, value
+
+N = 10000
+c_s = 100/60
+c_c = 72/40
+
+prob = LpProblem("annotation", LpMinimize)
+x_s = LpVariable("x_s", lowBound=0, cat=LpInteger)   # use LpInteger or leave as continuous
+x_c = LpVariable("x_c", lowBound=0, cat=LpInteger)
+
+prob += c_s * x_s + c_c * x_c
+prob += x_s + x_c >= N
+prob += x_s >= (1/3)*(x_s + x_c)   # or 2*x_s >= x_c
+
+prob.solve()
+print(value(x_s), value(x_c), value(prob.objective))
+
+Summary answer
+Allocate all 10,000 images to the specialized company (x_s = 10,000, x_c = 0). This minimizes cost ($16,666.67) because the specialized provider has a lower per-image cost.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Parameters
+N = 10000               # required total images
+r_s = 60                # specialized rate (images/hour)
+r_c = 40                # common rate (images/hour)
+p_s = 100.0             # specialized price ($/hour)
+p_c = 72.0              # common price ($/hour)
+
+# Derived per-image costs
+c_s = p_s / r_s         # cost per image for specialized
+c_c = p_c / r_c         # cost per image for common
+
+# Decide allocation based on per-image costs and constraints
+if c_s < c_c:
+    x_s = N
+    x_c = 0
+elif c_s > c_c:
+    # allocate minimum required to specialized (at least one third), rest to common
+    x_s = math.ceil(N / 3)
+    x_c = N - x_s
+    if x_c < 0:
+        x_c = 0
+else:
+    # equal costs: choose all to specialized by convention
+    x_s = N
+    x_c = 0
+
+# Ensure constraints (sanity checks)
+assert x_s + x_c >= N
+assert 2 * x_s >= x_c
+assert x_s >= 0 and x_c >= 0
+
+# Objective: total cost
+total_cost = c_s * x_s + c_c * x_c
+
+# Final output (only this line should contain the FINAL_OBJ)
+print(f"FINAL_OBJ: {total_cost:.2f}")

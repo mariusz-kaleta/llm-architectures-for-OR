@@ -1,0 +1,56 @@
+[MONOLITH]:
+```python
+# Optimization to minimize pain killer usage for filling molars and canines
+# Problem data initialized directly from the problem statement.
+
+import pulp
+
+# Data
+total_resin = 3000.0
+resin_per_molar = 20.0
+resin_per_canine = 15.0
+
+pain_per_molar = 3.0
+pain_per_canine = 2.3
+
+min_canine_fraction = 0.60  # at least 60% of cavities must be canines
+min_molars = 45  # must reserve materials to fill at least 45 molars
+
+# Create integer linear program
+prob = pulp.LpProblem("Dentist_Minimize_Pain", pulp.LpMinimize)
+
+# Decision variables: number of molars (m) and canines (c) to fill
+m = pulp.LpVariable("molars", lowBound=0, cat="Integer")
+c = pulp.LpVariable("canines", lowBound=0, cat="Integer")
+
+# Objective: minimize total pain killer used
+prob += pain_per_molar * m + pain_per_canine * c, "Total_Pain"
+
+# Constraints
+prob += resin_per_molar * m + resin_per_canine * c <= total_resin, "Resin_Limit"
+
+# At least 60% of cavities must be canines:
+# c >= 0.6*(m + c)  =>  c - 0.6c >= 0.6m  => 0.4c >= 0.6m  => c >= 1.5 m
+prob += c >= (min_canine_fraction / (1 - min_canine_fraction)) * m, "Canine_Fraction"
+
+# Reserve to fill at least min_molars molars
+prob += m >= min_molars, "Min_Molars"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract solution
+molars_filled = int(pulp.value(m))
+canines_filled = int(pulp.value(c))
+total_pain = float(pulp.value(prob.objective))
+
+# Print solution (variables) and final objective (required final print)
+print(f"Molars to fill: {molars_filled}")
+print(f"Canines to fill: {canines_filled}")
+print(f"Total resin used: {resin_per_molar * molars_filled + resin_per_canine * canines_filled}")
+print(f"Total pain killer used: {total_pain}")
+
+# Final required line (must be the very last output)
+print(f"FINAL_OBJ: {total_pain}")
+```

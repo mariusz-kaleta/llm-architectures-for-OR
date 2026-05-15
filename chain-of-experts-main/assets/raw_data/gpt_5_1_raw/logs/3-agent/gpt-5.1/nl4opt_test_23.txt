@@ -1,0 +1,139 @@
+[MODELER]:
+Formulate this as an integer linear programming (ILP) problem.
+
+## Decision variables
+
+Let  
+- \(x\) = number of vans  
+- \(y\) = number of minibuses  
+
+Both must be non‑negative integers:
+\[
+x \in \mathbb{Z}_{\ge 0}, \quad y \in \mathbb{Z}_{\ge 0}
+\]
+
+## Objective
+
+Minimize total pollution.  
+- Each van produces 7 units of pollution  
+- Each minibus produces 10 units of pollution  
+
+Objective function:
+\[
+\min\; Z = 7x + 10y
+\]
+
+## Constraints
+
+1. **Capacity constraint (at least 150 children):**  
+   - Each van carries 6 children  
+   - Each minibus carries 10 children  
+   - Total capacity ≥ 150:
+   \[
+   6x + 10y \ge 150
+   \]
+
+2. **Minibus limit (at most 10 minibuses):**
+   \[
+   y \le 10
+   \]
+
+3. **Vans must exceed minibuses:**
+   \[
+   x \ge y + 1
+   \]
+
+4. **Non-negativity and integrality:**
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+So the full model:
+
+\[
+\begin{aligned}
+\min\quad & 7x + 10y \\
+\text{s.t.}\quad 
+& 6x + 10y \ge 150 \\
+& y \le 10 \\
+& x \ge y + 1 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+## Solving the model
+
+This is a small ILP; you can solve it with:
+
+- `pulp` (Python LP/MIP modelling)
+- `ortools.linear_solver` (Google OR-Tools MIP solver)
+- `mip` or `pyscipopt` for more advanced solvers
+
+### Example using PuLP
+
+```python
+import pulp as pl
+
+# Model
+model = pl.LpProblem("School_Transport", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('vans', lowBound=0, cat='Integer')
+y = pl.LpVariable('minibuses', lowBound=0, cat='Integer')
+
+# Objective
+model += 7*x + 10*y
+
+# Constraints
+model += 6*x + 10*y >= 150          # capacity
+model += y <= 10                    # minibus limit
+model += x >= y + 1                 # vans exceed minibuses
+
+# Solve
+model.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Vans:", x.value())
+print("Minibuses:", y.value())
+print("Total pollution:", 7*x.value() + 10*y.value())
+```
+
+Running this will give you the optimal numbers of vans and minibuses that minimize pollution under the given constraints.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the model
+    model = pl.LpProblem("School_Transport", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('vans', lowBound=0, cat='Integer')
+    y = pl.LpVariable('minibuses', lowBound=0, cat='Integer')
+
+    # Objective: minimize total pollution
+    model += 7 * x + 10 * y
+
+    # Constraints
+    model += 6 * x + 10 * y >= 150    # Capacity constraint
+    model += y <= 10                  # Minibus limit
+    model += x >= y + 1               # Vans must exceed minibuses
+
+    # Solve the model
+    model.solve(pl.PULP_CBC_CMD(msg=False))
+
+    vans = x.value()
+    minibuses = y.value()
+    total_pollution = 7 * vans + 10 * minibuses
+
+    # Print solution details (optional; can be commented out if not desired)
+    print(f"Vans: {vans}")
+    print(f"Minibuses: {minibuses}")
+    print(f"Total pollution: {total_pollution}")
+
+    # Required final objective output
+    print(f"FINAL_OBJ: {total_pollution}")
+
+if __name__ == "__main__":
+    main()

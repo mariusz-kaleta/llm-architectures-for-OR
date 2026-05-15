@@ -1,0 +1,110 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - v ∈ Z, v ≥ 0 : number of vintage bottles
+  - r ∈ Z, r ≥ 0 : number of regular bottles
+
+- Given data
+  - vintage volume = 500 ml
+  - regular volume = 750 ml
+  - total available volume = 100000 ml
+
+- Constraints
+  1. Volume capacity: 500 v + 750 r ≤ 100000
+  2. Regular-to-vintage ratio: r ≥ 4 v
+  3. Minimum vintage: v ≥ 10
+  4. Integrality: v, r ∈ Z
+
+- Objective
+  Maximize total bottles B = v + r
+
+Analytical simplification
+- Divide every volume term by 250 to simplify arithmetic: let capacity 400 units, vintage uses 2 units, regular uses 3 units.
+  Constraints become:
+    2 v + 3 r ≤ 400
+    r ≥ 4 v
+    v ≥ 10, integers.
+
+- For a fixed v, the maximum feasible r is r_max = floor((400 − 2 v)/3). Feasibility requires r_max ≥ 4 v → v ≤ floor(400/14) = 28.
+
+- Evaluate B(v) = v + floor((400 − 2 v)/3) for integer v ∈ {10,…,28}. Doing this yields the maximum total bottles B* = 142, attained at:
+  - v = 26, r = 116  (26 + 116 = 142)
+  - v = 27, r = 115  (27 + 115 = 142)
+  - v = 28, r = 114  (28 + 114 = 142)
+
+So the maximum possible number of bottles is 142. There are three integer solutions achieving this; if you prefer more vintage bottles (collectors), choose v = 28, r = 114.
+
+Solving with a solver
+- This is a small integer linear program (MILP). Suitable Python libraries:
+  - pulp (simple MILP modeling)
+  - mip (for mixed-integer programming)
+  - OR-Tools CP-SAT (very fast for integer problems)
+  - cvxpy with a MILP-capable solver backend (e.g., GLPK, CBC, Gurobi)
+  - scipy.optimize is not suitable directly because it handles continuous optimization only
+
+Example (pulp)
+- Pseudocode / short snippet:
+
+  from pulp import LpProblem, LpMaximize, LpVariable, lpSum, LpInteger, PULP_CBC_CMD
+
+  prob = LpProblem("bottles", LpMaximize)
+  v = LpVariable("v", lowBound=10, cat=LpInteger)
+  r = LpVariable("r", lowBound=0, cat=LpInteger)
+  prob += v + r
+  prob += 500*v + 750*r <= 100000
+  prob += r >= 4*v
+  prob.solve(PULP_CBC_CMD(msg=False))
+  print(v.value(), r.value(), "total", v.value()+r.value())
+
+This will return one of the optimal solutions (for example v=28, r=114).
+
+Summary answer
+- Maximum total bottles = 142.
+- Optimal integer solutions (vintage, regular): (26,116), (27,115), (28,114). If you prefer more vintage bottles, choose v = 28 and r = 114.
+
+---
+
+[CODER]:
+```python
+# Self-contained script to solve the bottle optimization problem by enumeration.
+
+# Data initialization
+vintage_volume_ml = 500
+regular_volume_ml = 750
+total_capacity_ml = 100000
+
+# Constraints
+min_vintage = 10
+ratio_regular_to_vintage = 4  # r >= 4*v
+
+# Search for integer solutions
+best_obj = -1
+best_v = None
+best_r = None
+
+# Upper bound for v (can't exceed capacity alone)
+v_max_possible = total_capacity_ml // vintage_volume_ml
+
+for v in range(min_vintage, v_max_possible + 1):
+    # minimum required regular due to ratio
+    r_min = ratio_regular_to_vintage * v
+    # maximum regular allowed by capacity
+    remaining_capacity = total_capacity_ml - vintage_volume_ml * v
+    if remaining_capacity < 0:
+        break
+    r_max = remaining_capacity // regular_volume_ml
+    if r_max < r_min:
+        continue  # infeasible for this v
+    # For fixed v, maximize r to maximize total bottles
+    r = r_max
+    obj = v + r
+    # Tie-breaker: prefer more vintage bottles if same objective
+    if obj > best_obj or (obj == best_obj and v > (best_v if best_v is not None else -1)):
+        best_obj = obj
+        best_v = v
+        best_r = r
+
+# Final objective print as required
+print(f"FINAL_OBJ: {best_obj}")
+```

@@ -1,0 +1,90 @@
+[MODELER]:
+Model summary (integer linear program)
+
+Decision variables
+- S ∈ Z_{\ge 0}: number of scooters used.
+- R ∈ Z_{\ge 0}: number of rickshaws used.
+
+Objective
+- Minimize S (the total number of scooters).
+
+Constraints
+1. Capacity: 2S + 3R ≥ 300 (at least 300 visitors transported).
+2. At most 40% rickshaws: R ≤ 0.4 (S + R). Equivalently, to avoid decimals:
+   2S − 3R ≥ 0  (this enforces R ≤ (2/3) S).
+3. Integrality and nonnegativity: S, R ∈ Z_{\ge 0}.
+
+Optimal solution (analytic)
+- Combine constraints: set R as large as allowed to reduce S. Using R = (2/3)S in the capacity constraint gives 2S + 3*(2/3)S = 4S ≥ 300 ⇒ S ≥ 75.
+- Choose S = 75, R = 50 (integers). Check: 2·75 + 3·50 = 300 and 50/(75+50) = 40%, so all constraints satisfied.
+- Thus the minimum number of scooters required is S* = 75 (with R* = 50 rickshaws).
+
+Suggested Python libraries to solve this ILP
+- PuLP (with CBC) — simple and pure-Python.
+- OR-Tools CP-SAT — very fast for integer programs.
+- mip (Python-MIP) — good interface with CBC/Gurobi.
+- Pyomo — if integrating with other modeling or larger systems.
+
+Example (PuLP) — concise code
+Note: this is ready-to-run if you have pulp installed.
+
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpInteger, PULP_CBC_CMD
+
+prob = LpProblem("Minimize_Scooters", LpMinimize)
+S = LpVariable('S', lowBound=0, cat=LpInteger)
+R = LpVariable('R', lowBound=0, cat=LpInteger)
+
+prob += S  # objective
+prob += 2*S + 3*R >= 300  # capacity
+prob += 2*S - 3*R >= 0    # at most 40% rickshaws
+
+prob.solve(PULP_CBC_CMD(msg=0))
+print("S =", int(S.value()), "R =", int(R.value()))
+
+This will output S = 75, R = 50.
+
+If you want, I can provide code for OR-Tools or show how to relax integrality and inspect the LP relaxation.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import sys
+
+# Problem data (initialized directly)
+CAPACITY_REQUIRED = 300
+
+# Constraints:
+# 1) 2*S + 3*R >= CAPACITY_REQUIRED
+# 2) 2*S - 3*R >= 0  (equivalent to R <= (2/3)S)
+# S, R are nonnegative integers
+
+max_search = 500  # safe upper bound for search
+
+solution_found = False
+best_S = None
+best_R = None
+
+for S in range(0, max_search + 1):
+    feasible_Rs = []
+    for R in range(0, max_search + 1):
+        if 2 * S + 3 * R >= CAPACITY_REQUIRED and 2 * S - 3 * R >= 0:
+            feasible_Rs.append(R)
+    if feasible_Rs:
+        # choose the largest feasible R for this S (matches strategy of using as many rickshaws as allowed)
+        best_S = S
+        best_R = max(feasible_Rs)
+        solution_found = True
+        break
+
+if not solution_found:
+    # Should not happen for this problem, but handle robustly
+    print("No feasible solution found.", file=sys.stderr)
+    best_S = None
+    best_R = None
+else:
+    # Print solution details (not the final objective line)
+    print(f"S = {best_S}, R = {best_R}")
+    print(f"Check: 2*S + 3*R = {2*best_S + 3*best_R}, R/(S+R) = {best_R / (best_S + best_R):.2f}")
+
+# Final objective value line (must be the very last printed line)
+print(f"FINAL_OBJ: {best_S}")

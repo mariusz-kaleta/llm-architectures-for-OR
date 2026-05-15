@@ -1,0 +1,37 @@
+[MONOLITH]:
+import pulp
+
+# Problem data (from the problem statement)
+capacity_scooter = 2   # scooter carries 2 people
+capacity_rickshaw = 3  # rickshaw carries 3 people
+min_visitors = 300
+max_rickshaw_fraction = 0.4  # at most 40% of vehicles can be rickshaws
+
+# Create MILP: minimize number of scooters
+prob = pulp.LpProblem("Minimize_Scooters", pulp.LpMinimize)
+
+# Decision variables: number of scooters (s) and rickshaws (r), integers >= 0
+s = pulp.LpVariable("scooters", lowBound=0, cat="Integer")
+r = pulp.LpVariable("rickshaws", lowBound=0, cat="Integer")
+
+# Objective: minimize scooters
+prob += s
+
+# Capacity constraint: 2*s + 3*r >= 300
+prob += capacity_scooter * s + capacity_rickshaw * r >= min_visitors
+
+# Pollution constraint: r / (s + r) <= 0.4
+# Linearize: r <= 0.4*(s + r) -> 0.6*r <= 0.4*s -> 3*r <= 2*s
+prob += 3 * r <= 2 * s
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract solution
+s_val = int(pulp.value(s))
+r_val = int(pulp.value(r))
+obj_val = s_val  # objective is number of scooters
+
+# Final required print
+print(f"FINAL_OBJ: {obj_val}")

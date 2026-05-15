@@ -1,0 +1,48 @@
+[MONOLITH]:
+import pulp
+
+# Initialize data
+# Production rates (pills per hour)
+heart_rate_lab1 = 20
+lung_rate_lab1 = 30
+
+heart_rate_lab2 = 30
+lung_rate_lab2 = 40
+
+# Worker hours required per hour of running each lab (interpreting "session" as per hour)
+worker_hours_per_hr_lab1 = 3
+worker_hours_per_hr_lab2 = 5
+
+# Availability and demand
+available_worker_hours = 1500
+required_heart = 20000
+required_lung = 30000
+
+# Decision variables: hours to run lab1 and lab2
+h1 = pulp.LpVariable('h1_hours_lab1', lowBound=0, cat='Continuous')
+h2 = pulp.LpVariable('h2_hours_lab2', lowBound=0, cat='Continuous')
+
+# Problem: minimize total running hours
+prob = pulp.LpProblem('Minimize_Total_Run_Time', pulp.LpMinimize)
+prob += h1 + h2, "Total_Run_Hours"
+
+# Production constraints
+prob += heart_rate_lab1 * h1 + heart_rate_lab2 * h2 >= required_heart, "Heart_Demand"
+prob += lung_rate_lab1 * h1 + lung_rate_lab2 * h2 >= required_lung, "Lung_Demand"
+
+# Worker hours constraint
+prob += worker_hours_per_hr_lab1 * h1 + worker_hours_per_hr_lab2 * h2 <= available_worker_hours, "Worker_Hours"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+h1_val = pulp.value(h1)
+h2_val = pulp.value(h2)
+total_time = pulp.value(prob.objective)
+
+# Print solution (hours for each lab) and final objective as required (final line must be FINAL_OBJ)
+print(f"Hours to run Lab 1: {h1_val}")
+print(f"Hours to run Lab 2: {h2_val}")
+print(f"Total running hours (objective): {total_time}")
+print(f"FINAL_OBJ: {total_time}")

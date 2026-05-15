@@ -1,0 +1,178 @@
+[MODELER]:
+Here is a clean mathematical model of the problem and how to solve it.
+
+---
+
+## 1. Define decision variables
+
+Let:
+
+- \(L \in \mathbb{Z}_{\ge 0}\): number of large mobile production units  
+- \(S \in \mathbb{Z}_{\ge 0}\): number of small mobile production units  
+
+Both must be non‑negative integers.
+
+---
+
+## 2. Objective: minimize total parking spots
+
+Each large unit uses 2 spots, each small unit uses 1 spot.  
+Minimize total parking spots:
+
+\[
+\min \; Z = 2L + S
+\]
+
+---
+
+## 3. Constraints
+
+### (a) Transport capacity (at least 80 people)
+
+- Large unit capacity: 6 people  
+- Small unit capacity: 2 people  
+
+Total capacity must be at least 80:
+
+\[
+6L + 2S \;\ge\; 80
+\]
+
+---
+
+### (b) Minimum number of small units
+
+At least 5 small mobile units are required:
+
+\[
+S \;\ge\; 5
+\]
+
+---
+
+### (c) Large units at least 75% of all vehicles
+
+“Large mobile production units … must make up at least 75% of all vehicles”:
+
+\[
+L \;\ge\; 0.75(L + S)
+\]
+
+Rearrange:
+
+\[
+L \;\ge\; 0.75L + 0.75S \\
+0.25L \;\ge\; 0.75S \\
+L \;\ge\; 3S
+\]
+
+So:
+
+\[
+L \;\ge\; 3S
+\]
+
+---
+
+### (d) Integrality and non-negativity
+
+\[
+L, S \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete optimization model (integer linear program)
+
+\[
+\begin{aligned}
+\min \quad & Z = 2L + S \\
+\text{s.t.} \quad 
+& 6L + 2S \;\ge\; 80 \\
+& S \;\ge\; 5 \\
+& L \;\ge\; 3S \\
+& L, S \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+This is a small integer linear program. Appropriate libraries:
+
+- **PuLP** (`pulp`): easy modeling of linear and integer programs; good for teaching and small to medium problems.
+- **OR-Tools** (`ortools.linear_solver` or `ortools.sat.python.cp_model`): powerful Google library, good performance and multiple solvers.
+- **Pyomo**: more general modeling environment for optimization, but a bit heavier-weight than PuLP for this size.
+- **SciPy** (`scipy.optimize.linprog`) is primarily for continuous LP; not ideal here because we need integrality.
+
+For this problem specifically, **PuLP** or **OR-Tools** are the most straightforward choices.
+
+---
+
+## 6. Example with PuLP
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Production_Units", pl.LpMinimize)
+
+# Decision variables (non-negative integers)
+L = pl.LpVariable('L', lowBound=0, cat='Integer')
+S = pl.LpVariable('S', lowBound=0, cat='Integer')
+
+# Objective: minimize total parking spots
+prob += 2*L + S
+
+# Constraints
+prob += 6*L + 2*S >= 80      # capacity
+prob += S >= 5               # minimum small units
+prob += L >= 3*S             # large units at least 75% of total
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Large units (L):", L.value())
+print("Small units (S):", S.value())
+print("Total parking spots:", 2*L.value() + S.value())
+```
+
+You can swap PuLP with OR-Tools if you prefer:
+
+- `ortools.linear_solver.pywraplp.Solver` for an LP/MIP-style formulation, or
+- `ortools.sat.python.cp_model` for a CP-SAT integer model.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create problem
+    prob = pl.LpProblem("Production_Units", pl.LpMinimize)
+
+    # Decision variables (non-negative integers)
+    L = pl.LpVariable('L', lowBound=0, cat='Integer')
+    S = pl.LpVariable('S', lowBound=0, cat='Integer')
+
+    # Objective: minimize total parking spots
+    prob += 2 * L + S
+
+    # Constraints
+    prob += 6 * L + 2 * S >= 80      # capacity
+    prob += S >= 5                   # minimum small units
+    prob += L >= 3 * S               # large units at least 75% of total
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute objective value
+    obj_value = 2 * L.value() + S.value()
+
+    # Final required print
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

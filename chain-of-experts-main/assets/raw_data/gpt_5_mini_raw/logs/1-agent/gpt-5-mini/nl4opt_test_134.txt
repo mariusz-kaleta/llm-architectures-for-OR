@@ -1,0 +1,36 @@
+[MONOLITH]:
+import pulp
+
+# Data
+seats_sedan = 50
+pollution_sedan = 10
+seats_bus = 250
+pollution_bus = 40
+max_pollution = 800
+min_customers = 4600
+
+# Problem: minimize number of vehicles (sedans + buses)
+prob = pulp.LpProblem("Minimize_Vehicles", pulp.LpMinimize)
+
+# Decision variables: integers >= 0
+sedans = pulp.LpVariable("sedans", lowBound=0, cat="Integer")
+buses = pulp.LpVariable("buses", lowBound=0, cat="Integer")
+
+# Objective
+prob += sedans + buses
+
+# Constraints
+prob += seats_sedan * sedans + seats_bus * buses >= min_customers, "SeatingRequirement"
+prob += pollution_sedan * sedans + pollution_bus * buses <= max_pollution, "PollutionLimit"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract solution
+sedans_val = int(pulp.value(sedans))
+buses_val = int(pulp.value(buses))
+value = int(pulp.value(prob.objective))
+
+# Output results
+print(f"Sedans: {sedans_val}, Buses: {buses_val}")
+print(f"FINAL_OBJ: {value}")

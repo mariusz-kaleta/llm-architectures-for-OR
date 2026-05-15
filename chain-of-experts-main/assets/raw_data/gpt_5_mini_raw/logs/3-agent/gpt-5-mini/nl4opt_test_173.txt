@@ -1,0 +1,89 @@
+[MODELER]:
+Model summary
+- Decision variables:
+  x = number of premium desktops produced and sold (≥ 0, integer)
+  y = number of regular desktops produced and sold (≥ 0, integer)
+
+- Objective:
+  Maximize total profit P = 500x + 300y
+
+- Constraints:
+  1) Sales capacity: x + y ≤ 200
+  2) Manufacturing budget: 2000x + 1000y ≤ 300000
+  3) Nonnegativity and integrality: x, y ≥ 0 (and integers)
+
+Mathematical formulation
+Maximize:   P = 500x + 300y
+Subject to:
+  x + y ≤ 200
+  2000x + 1000y ≤ 300000
+  x, y ∈ Z_{\ge 0}
+
+Solve analytically (corner-point method)
+Feasible corner points are (x,y) = (150,0), (100,100), (0,200) and (0,0).
+Evaluate profit:
+- (150,0): P = 500·150 = 75,000
+- (100,100): P = 500·100 + 300·100 = 80,000  ← maximum
+- (0,200): P = 300·200 = 60,000
+So optimal solution: x = 100 premium desktops, y = 100 regular desktops, giving maximum profit $80,000. This also uses the full budget: 2000·100 + 1000·100 = $300,000 and total units = 200.
+
+Recommended solvers / Python libraries
+- pulp (good for simple LP/MILP; uses CBC by default)
+- OR-Tools (pywraplp) for LP/MIP with high performance
+- scipy.optimize.linprog (for continuous LPs; must convert to minimization)
+- CVXOPT or commercial solvers (Gurobi, CPLEX) if available for larger problems
+
+Example using pulp
+(from pulp import LpProblem, LpMaximize, LpVariable, lpSum, PULP_CBC_CMD)
+problem = LpProblem("Desktop_Profit", LpMaximize)
+x = LpVariable("premium", lowBound=0, cat='Integer')
+y = LpVariable("regular", lowBound=0, cat='Integer')
+problem += 500*x + 300*y
+problem += x + y <= 200
+problem += 2000*x + 1000*y <= 300000
+problem.solve(PULP_CBC_CMD(msg=False))
+print(x.value(), y.value(), "Profit =", 500*x.value() + 300*y.value())
+
+This will return premium = 100, regular = 100, Profit = 80000.
+
+---
+
+[CODER]:
+import math
+
+# Data (directly initialised)
+profit_premium = 500   # profit per premium desktop (x)
+profit_regular = 300   # profit per regular desktop (y)
+
+max_units = 200        # sales capacity: x + y <= 200
+budget_limit = 300000  # manufacturing budget: 2000*x + 1000*y <= 300000
+cost_premium = 2000
+cost_regular = 1000
+
+# Brute-force integer search over feasible domain (small, so efficient)
+best_profit = -math.inf
+best_solution = None
+
+# x and y are nonnegative integers. Upper bound for each is max_units (because x+y <= max_units).
+for x in range(0, max_units + 1):
+    # y can range from 0 to max_units - x (due to sales capacity)
+    for y in range(0, max_units - x + 1):
+        if cost_premium * x + cost_regular * y <= budget_limit:
+            profit = profit_premium * x + profit_regular * y
+            if profit > best_profit:
+                best_profit = profit
+                best_solution = (x, y)
+
+# Extract best solution
+best_x, best_y = best_solution
+
+# Optional verification (commented out; kept for clarity)
+# Verify that solution matches analytical corner point (100,100) with profit 80000
+# assert (best_x, best_y) == (100, 100)
+# assert best_profit == 80000
+
+# Print a summary (not the final required line)
+print(f"Optimal solution: x = {best_x} (premium), y = {best_y} (regular), Profit = {best_profit}")
+
+# Final required output line (must be the last line)
+print(f"FINAL_OBJ: {best_profit}")

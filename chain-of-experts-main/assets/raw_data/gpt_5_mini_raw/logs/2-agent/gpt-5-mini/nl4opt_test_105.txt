@@ -1,0 +1,99 @@
+[MODELER]:
+Model
+
+- Decision variables:
+  - x = number of batches of hams produced (≥ 0)
+  - y = number of batches of pork ribs produced (≥ 0)
+
+- Objective:
+  - Maximize profit: Z = 150 x + 300 y
+
+- Constraints (machine-hour limits):
+  - meat slicer: 4 x + 2 y ≤ 4000
+  - meat packer: 2.5 x + 3.5 y ≤ 4000
+  - nonnegativity: x ≥ 0, y ≥ 0
+
+Solve (continuous LP)
+
+Check the corner points of the feasible polygon:
+- x = 0, use packer fully: y = 4000 / 3.5 = 1142.857... → profit = 300 × 1142.857... = $342,857.14
+- y = 0, use slicer fully: x = 4000 / 4 = 1000 → profit = 150 × 1000 = $150,000
+- intersection of both machine constraints: solve
+    4x + 2y = 4000
+    2.5x + 3.5y = 4000
+  → x = y = 2000/3 ≈ 666.667 → profit = 150(666.667) + 300(666.667) = $300,000
+
+The maximum occurs at x = 0, y = 4000/3.5 = 1142.857... with maximum profit $342,857.14.
+
+Interpretation / integer batches
+- If fractional batches are allowed: produce 0 batches of hams and 1142.857 batches of pork ribs (profit $342,857.14).
+- If batches must be integer: the feasible integer solution nearest below is x = 0, y = 1142 (profit $342,600). (y = 1143 is infeasible because 3.5·1143 = 4000.5 > 4000.)
+
+Suggested Python libraries to solve this
+- pulp (easy modeling + CBC solver)
+- scipy.optimize.linprog (simplex/interior-point solvers)
+- OR-Tools (CP-SAT for integer programming or LinearSolver for LPs)
+
+Example (pulp, continuous LP)
+- Use pulp.LpProblem, pulp.LpVariable(lowBound=0), set objective 150*x + 300*y, add constraints 4*x + 2*y <= 4000 and 2.5*x + 3.5*y <= 4000, then prob.solve() and read x.value(), y.value(), pulp.value(prob.objective).
+
+If you want, I can provide the short pulp or scipy code to solve this and print the solution.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+#!/usr/bin/env python3
+# LP solve by checking corner points (no external libraries required)
+
+# Decision variables: x (hams batches), y (pork ribs batches)
+# Objective: maximize Z = 150*x + 300*y
+# Constraints:
+#   4x + 2y <= 4000   (meat slicer)
+#   2.5x + 3.5y <= 4000 (meat packer)
+#   x >= 0, y >= 0
+
+# Define corner points of the feasible polygon:
+# 1) (0,0)
+# 2) Use packer fully, x=0 -> y = 4000/3.5
+# 3) Use slicer fully, y=0 -> x = 4000/4
+# 4) Intersection of the two binding constraints
+
+def evaluate_objective(x, y):
+    return 150.0 * x + 300.0 * y
+
+# Corner 1
+c1 = (0.0, 0.0)
+z1 = evaluate_objective(*c1)
+
+# Corner 2: x = 0, packer full
+c2 = (0.0, 4000.0 / 3.5)
+z2 = evaluate_objective(*c2)
+
+# Corner 3: y = 0, slicer full
+c3 = (4000.0 / 4.0, 0.0)
+z3 = evaluate_objective(*c3)
+
+# Corner 4: intersection of
+# 4x + 2y = 4000
+# 2.5x + 3.5y = 4000
+a11, a12, b1 = 4.0, 2.0, 4000.0
+a21, a22, b2 = 2.5, 3.5, 4000.0
+det = a11 * a22 - a12 * a21
+if abs(det) < 1e-12:
+    # Degenerate, shouldn't happen here
+    c4 = (0.0, 0.0)
+else:
+    x_int = (b1 * a22 - a12 * b2) / det
+    y_int = (a11 * b2 - b1 * a21) / det
+    c4 = (x_int, y_int)
+z4 = evaluate_objective(*c4)
+
+# Collect and find maximum
+corners = [("c1", c1, z1), ("c2", c2, z2), ("c3", c3, z3), ("c4", c4, z4)]
+best = max(corners, key=lambda t: t[2])
+best_point = best[1]
+best_obj = best[2]
+
+# Final required print (must be the last output line)
+value = best_obj
+print(f"FINAL_OBJ: {value}")

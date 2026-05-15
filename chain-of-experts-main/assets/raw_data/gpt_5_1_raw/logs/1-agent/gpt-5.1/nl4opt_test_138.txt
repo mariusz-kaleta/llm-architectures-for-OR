@@ -1,0 +1,38 @@
+[MONOLITH]:
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Maximize_Protein_Intake", pl.LpMaximize)
+
+# Decision variables: number of smoothies (s) and protein bars (b)
+s = pl.LpVariable('smoothies', lowBound=0, cat='Continuous')
+b = pl.LpVariable('bars', lowBound=0, cat='Continuous')
+
+# Objective: maximize total protein
+# Each smoothie has 2 units of protein, each protein bar has 7 units
+prob += 2 * s + 7 * b, "Total_Protein"
+
+# Constraints
+# 1) The woman must eat 2 times more protein bars than smoothies: b = 2 * s
+prob += b == 2 * s, "Ratio_Bars_to_Smoothies"
+
+# 2) Calorie constraint: each smoothie 300 calories, each bar 250 calories, at most 2000 calories
+prob += 300 * s + 250 * b <= 2000, "Calorie_Limit"
+
+# Solve the problem
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Extract results
+smoothies_opt = pl.value(s)
+bars_opt = pl.value(b)
+total_protein_opt = pl.value(2 * s + 7 * b)
+total_calories = 300 * smoothies_opt + 250 * bars_opt
+
+# Print results
+print(f"Optimal number of smoothies: {smoothies_opt}")
+print(f"Optimal number of protein bars: {bars_opt}")
+print(f"Total protein units: {total_protein_opt}")
+print(f"Total calories consumed: {total_calories}")
+
+# Final objective value print
+print(f"FINAL_OBJ: {total_protein_opt}")

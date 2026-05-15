@@ -1,0 +1,64 @@
+[MODELER]:
+Model the problem as an integer linear program.
+
+Decision variables
+- R ∈ Z≥0 : number of retail stores to open.
+- F ∈ Z≥0 : number of factory-outlet stores to open.
+
+Objective
+- Minimize the total number of stores: minimize Z = R + F.
+
+Constraints
+1. Customer requirement: 200R + 80F ≥ 1200.
+2. Employee availability: 6R + 4F ≤ 50.
+3. Integer and nonnegativity: R, F ∈ Z≥0.
+
+Mathematical formulation
+- Minimize: R + F
+- subject to:
+  - 200R + 80F ≥ 1200
+  - 6R + 4F ≤ 50
+  - R, F ∈ Z≥0
+
+Analytic quick solution
+- Check feasibility for small totals: any solution must satisfy customers. Since a retail store brings 200 customers, 6 retail stores give 6·200 = 1200 customers and use 6·6 = 36 employees (≤50). No combination of 5 stores (any mix of retail/outlet) can reach 1200 customers because the maximum customers with 5 stores is 5·200 = 1000 (if all retail). Therefore the minimum achievable total number of stores is 6, attained by R = 6, F = 0.
+
+Recommended solvers / Python libraries
+- For integer linear programs: PuLP, OR-Tools (CP-SAT), mip (Coin-or CBC via pulp), Pyomo (with a solver like CBC or Gurobi if available).
+- For continuous relaxations: scipy.optimize.linprog (not integer).
+
+Example using PuLP (Python)
+- Define integer variables R and F, objective R+F, and the two constraints; solve. The solver will return R=6, F=0 as optimal.
+
+If you want, I can provide the exact PuLP or OR-Tools code to solve this.
+
+---
+
+[CODER]:
+# Integer linear program solved by exhaustive search (self-contained, no external solvers required)
+
+# Decision variables: R (retail stores), F (factory-outlet stores)
+# Constraints:
+#   200*R + 80*F >= 1200
+#   6*R + 4*F <= 50
+# R, F are nonnegative integers
+# Objective: minimize R + F
+
+min_total = None
+best_solution = None
+
+# Upper bounds derived from employee constraint: R <= 50//6 = 8, F <= 50//4 = 12
+for R in range(0, 51):  # generous bounds
+    for F in range(0, 51):
+        if 200*R + 80*F >= 1200 and 6*R + 4*F <= 50:
+            total = R + F
+            if (min_total is None) or (total < min_total):
+                min_total = total
+                best_solution = (R, F)
+
+if min_total is None:
+    # No feasible solution (should not happen for this problem)
+    print(f"FINAL_OBJ: None")
+else:
+    # Print only the final objective value as required
+    print(f"FINAL_OBJ: {min_total}")

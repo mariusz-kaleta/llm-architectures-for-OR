@@ -1,0 +1,242 @@
+[MODELER]:
+Below is a mathematical optimization model for the problem, followed by a suitable Python-based solution approach.
+
+---
+
+## 1. Decision Variables
+
+Let  
+- \(x\) = number of washing machines to repair  
+- \(y\) = number of freezers to repair  
+
+Both variables should be nonnegative, and if only whole repairs are allowed, they should be integers:
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}.
+\]
+
+---
+
+## 2. Objective Function
+
+Each washing machine repaired yields \$250.  
+Each freezer repaired yields \$375.
+
+Maximize total earnings:
+\[
+\max Z = 250x + 375y
+\]
+
+---
+
+## 3. Constraints
+
+### (a) Inspection time constraint
+
+Each washing machine: 30 minutes inspection  
+Each freezer: 20 minutes inspection  
+Total inspection time available: 5000 minutes
+
+\[
+30x + 20y \le 5000
+\]
+
+### (b) Total schedule time constraint
+
+The repair process uses inspection plus fixing time.  
+- Washing machine: \(30\) (inspection) + \(90\) (fixing) = \(120\) minutes total  
+- Freezer: \(20\) (inspection) + \(125\) (fixing) = \(145\) minutes total  
+
+Total time available in schedule: 20000 minutes
+
+\[
+120x + 145y \le 20000
+\]
+
+### (c) Nonnegativity (and integrality if needed)
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}.
+\]
+
+---
+
+## 4. Final Linear Programming Model
+
+\[
+\begin{aligned}
+\max\quad & Z = 250x + 375y \\
+\text{s.t.}\quad 
+& 30x + 20y \le 5000 \\
+& 120x + 145y \le 20000 \\
+& x, y \ge 0,\ x,y \in \mathbb{Z}.
+\end{aligned}
+\]
+
+---
+
+## 5. Analytical Solution (continuous, then integer)
+
+Ignoring integrality first:
+
+1. **Inspection constraint**:  
+   \[
+   30x + 20y \le 5000 \;\Rightarrow\; 3x + 2y \le 500 \;\Rightarrow\; y \le 250 - 1.5x.
+   \]
+
+2. **Total time constraint**:  
+   \[
+   120x + 145y \le 20000 \;\Rightarrow\; 24x + 29y \le 4000 \;\Rightarrow\; y \le \frac{4000 - 24x}{29}.
+   \]
+
+Check corners of the feasible region:
+
+- **Corner 1: all washing machines (y = 0)**  
+  From constraints:  
+  \(30x \le 5000 \Rightarrow x \le 166.\overline{6}\),  
+  \(120x \le 20000 \Rightarrow x \le 166.\overline{6}\).  
+  So \(x = 166.\overline{6}\).  
+  Profit: \(Z \approx 250 \times 166.67 \approx 41{,}667\).
+
+- **Corner 2: all freezers (x = 0)**  
+  From constraints:  
+  \(20y \le 5000 \Rightarrow y \le 250\),  
+  \(145y \le 20000 \Rightarrow y \le \approx 137.93\).  
+  So \(y \approx 137.93\).  
+  Profit: \(Z \approx 375 \times 137.93 \approx 51{,}724\).
+
+- **Corner 3: intersection of both constraints**  
+
+  Solve:
+  \[
+  \begin{cases}
+  30x + 20y = 5000 \\
+  120x + 145y = 20000
+  \end{cases}
+  \]
+
+  From the first equation:
+  \[
+  y = 250 - 1.5x
+  \]
+  Substitute in second:
+  \[
+  120x + 145(250 - 1.5x) = 20000
+  \]
+  \[
+  120x + 36{,}250 - 217.5x = 20{,}000
+  \]
+  \[
+  -97.5x = -16{,}250 \Rightarrow x \approx 166.67
+  \]
+  Then:
+  \[
+  y = 250 - 1.5(166.67) \approx 0
+  \]
+
+So the intersection essentially reduces to the “all washing machines” corner. Comparing profits, “all freezers” corner gives higher profit in the continuous case.
+
+For the **integer case**:
+- Max freezers with both constraints:  
+  From inspection: \(20y \le 5000 \Rightarrow y \le 250\).  
+  From schedule: \(145y \le 20000 \Rightarrow y \le \lfloor 20000/145 \rfloor = 137\).  
+  So max \(y = 137\), profit \(Z = 375 \cdot 137 = 51{,}375\).
+
+Check if combining any washing machines with 137 freezers is feasible:
+
+- With \(y = 137\):  
+  Inspection used: \(20 \cdot 137 = 2740\), leftover \(5000 - 2740 = 2260\).  
+  Total time used: \(145 \cdot 137 = 19{,}865\), leftover \(20000 - 19865 = 135\).
+
+Each washing machine needs: 30 inspection + 120 total minutes.  
+Available: only 135 minutes total, 2260 inspection, so total time is binding; at most \(\lfloor 135 / 120 \rfloor = 1\) washing machine in terms of schedule capacity, but check inspection: \(30 \le 2260\) (fine).  
+Thus, potential point: \(x = 1, y = 137\).
+
+- Feasibility:
+  - Inspection: \(30(1)+20(137)=30+2740=2770 \le 5000\) ✓  
+  - Total: \(120(1)+145(137)=120+19865=19985 \le 20000\) ✓  
+  Profit: \(250(1)+375(137)=250+51375=51625\), which is higher than 51375.
+
+Try \(x=2, y=137\):
+
+- Total time: \(120(2)+145(137)=240+19865=20105 > 20000\) ✗
+
+So the best integer solution is:
+\[
+x^* = 1,\quad y^* = 137,\quad Z^* = \$51{,}625.
+\]
+
+**Answer**: The repairman should repair **1 washing machine** and **137 freezers** to maximize earnings, under the given time constraints.
+
+---
+
+## 6. Suitable Python Libraries
+
+You can formulate and solve this as a linear/integer programming problem using:
+
+- **PuLP** (`pulp`): Simple and very readable for small LP/IP models.
+- **OR-Tools** (`ortools.linear_solver`): Powerful and fast, excellent for integer programming.
+- **SciPy** (`scipy.optimize.linprog`): Good for continuous LPs; less convenient for integrality.
+
+For this specific problem (small integer LP), **PuLP** or **OR-Tools** are most appropriate.
+
+### Example with PuLP (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Appliance_Repair", pl.LpMaximize)
+
+# Variables
+x = pl.LpVariable('x', lowBound=0, cat='Integer')  # washing machines
+y = pl.LpVariable('y', lowBound=0, cat='Integer')  # freezers
+
+# Objective
+prob += 250 * x + 375 * y
+
+# Constraints
+prob += 30 * x + 20 * y <= 5000        # inspection time
+prob += 120 * x + 145 * y <= 20000     # total time
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Washing machines (x):", x.value())
+print("Freezers (y):", y.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This will return `x = 1`, `y = 137`, and the corresponding maximum profit.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Appliance_Repair", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('x', lowBound=0, cat='Integer')  # washing machines
+    y = pl.LpVariable('y', lowBound=0, cat='Integer')  # freezers
+
+    # Objective function
+    prob += 250 * x + 375 * y
+
+    # Constraints
+    prob += 30 * x + 20 * y <= 5000      # inspection time constraint
+    prob += 120 * x + 145 * y <= 20000   # total schedule time constraint
+
+    # Solve the problem
+    prob.solve()
+
+    # Extract the objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print only the required final objective line
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

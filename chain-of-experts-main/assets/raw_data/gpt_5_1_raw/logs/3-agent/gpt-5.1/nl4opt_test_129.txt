@@ -1,0 +1,97 @@
+[MODELER]:
+Formulate this as an integer linear programming (ILP) problem.
+
+### Decision variables
+
+Let  
+- \(x\) = number of 4‑wheeler vehicles (integer, \(x \ge 0\))  
+- \(y\) = number of 3‑wheeler vehicles (integer, \(y \ge 0\))
+
+### Objective
+
+Minimize the total number of vehicles:
+
+\[
+\min \; z = x + y
+\]
+
+### Constraints
+
+1. **Luggage capacity constraint**  
+   A 4‑wheeler moves 60 luggage/day; a 3‑wheeler moves 40 luggage/day.  
+   Need at least 1000 luggage/day:
+
+   \[
+   60x + 40y \;\ge\; 1000
+   \]
+
+2. **Pollution constraint**  
+   A 4‑wheeler produces 30 units of pollutant/day; a 3‑wheeler produces 15 units/day.  
+   At most 430 units/day:
+
+   \[
+   30x + 15y \;\le\; 430
+   \]
+
+3. **Integrality and nonnegativity**
+
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+### Model summary
+
+\[
+\begin{aligned}
+\min \quad & x + y \\
+\text{s.t.} \quad &
+60x + 40y \;\ge\; 1000 \\
+& 30x + 15y \;\le\; 430 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+### Suitable Python libraries
+
+You can implement and solve this ILP with:
+
+- **PuLP** (`pulp`) – very straightforward for teaching/examples:
+  - `pulp.LpProblem`, `pulp.LpVariable`, `pulp.PULP_CBC_CMD`
+- **OR-Tools Linear Solver** (`ortools.linear_solver.pywraplp`) – efficient and robust:
+  - Use solver type `CBC_MIXED_INTEGER_PROGRAMMING` or SCIP if available.
+- **Pyomo** – for more complex/structured optimization models.
+
+For this small ILP, `pulp` or `ortools` are more than sufficient.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the ILP problem: minimize total number of vehicles
+    prob = pulp.LpProblem("Vehicle_Optimization", pulp.LpMinimize)
+
+    # Decision variables: number of 4-wheelers (x) and 3-wheelers (y)
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')
+
+    # Objective function: minimize x + y
+    prob += x + y, "Total_Vehicles"
+
+    # Constraint 1: Luggage capacity
+    prob += 60 * x + 40 * y >= 1000, "Luggage_Capacity"
+
+    # Constraint 2: Pollution
+    prob += 30 * x + 15 * y <= 430, "Pollution_Limit"
+
+    # Solve the problem using CBC solver
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

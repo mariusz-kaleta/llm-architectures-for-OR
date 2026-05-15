@@ -1,0 +1,225 @@
+[MODELER]:
+We can model this as a small integer linear program.
+
+### Decision variables
+
+Let  
+- \(x\) = number of large pills (integer, \(x \ge 0\))  
+- \(y\) = number of small pills (integer, \(y \ge 0\))
+
+### Objective
+
+Minimize total filler used.
+
+- Each large pill uses 2 units of filler.
+- Each small pill uses 1 unit of filler.
+
+So the total filler used is:
+\[
+\min \; F = 2x + y
+\]
+
+### Constraints
+
+1. **Medicinal ingredient availability**
+
+Each large pill uses 3 units, each small pill uses 2 units, and there are 1000 units available:
+
+\[
+3x + 2y \le 1000
+\]
+
+2. **Minimum large pills**
+
+At least 100 large pills:
+
+\[
+x \ge 100
+\]
+
+3. **Popularity requirement (at least 60% small pills)**
+
+At least 60% of total pills must be small:
+
+\[
+y \ge 0.6(x + y)
+\]
+
+Rearrange:
+
+\[
+y \ge 0.6x + 0.6y  
+\Rightarrow y - 0.6y \ge 0.6x  
+\Rightarrow 0.4y \ge 0.6x  
+\Rightarrow y \ge 1.5x
+\]
+
+So:
+
+\[
+y \ge 1.5x
+\]
+
+4. **Integrality**
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+### Solving the model analytically
+
+Use the medicinal constraint as equality at optimum (filler minimized by not wasting medicinal ingredient under these linear conditions):
+
+\[
+3x + 2y = 1000
+\]
+
+Combine with popularity constraint \(y = 1.5x\) at the boundary (since making more small pills than required would increase filler use):
+
+\[
+3x + 2(1.5x) = 1000  
+\Rightarrow 3x + 3x = 1000  
+\Rightarrow 6x = 1000  
+\Rightarrow x \approx 166.67
+\]
+
+Thus the best integer candidates are near \(x = 167\) (must also obey \(x \ge 100\)).
+
+Check \(x = 167\):
+- From medicinal: \(3(167) + 2y \le 1000 \Rightarrow 501 + 2y \le 1000 \Rightarrow 2y \le 499 \Rightarrow y \le 249.5\), so \(y \le 249\).
+- From popularity: \(y \ge 1.5 \cdot 167 = 250.5\).
+
+No integer \(y\) satisfies both, so \(x = 167\) infeasible.
+
+Try \(x = 166\):
+- Medicinal: \(3(166) + 2y \le 1000 \Rightarrow 498 + 2y \le 1000 \Rightarrow 2y \le 502 \Rightarrow y \le 251\).
+- Popularity: \(y \ge 1.5 \cdot 166 = 249\).
+
+So feasible integer \(y \in \{249, 250, 251\}\).
+
+Compute filler for these:
+
+- \((x, y) = (166, 249)\): filler \(= 2 \cdot 166 + 249 = 332 + 249 = 581\), medicinal used \(= 3 \cdot 166 + 2 \cdot 249 = 498 + 498 = 996 \le 1000\).
+- \((166, 250)\): filler \(= 2 \cdot 166 + 250 = 582\), medicinal \(= 498 + 500 = 998\).
+- \((166, 251)\): filler \(= 2 \cdot 166 + 251 = 583\), medicinal \(= 498 + 502 = 1000\).
+
+Among these, \((166, 249)\) uses the least filler (581).
+
+We should check that no smaller \(x\) gives a smaller objective:
+
+For \(x < 166\), popularity says \(y \ge 1.5x\). If we choose the minimum allowable \(y = 1.5x\), the filler is
+\[
+F(x) = 2x + 1.5x = 3.5x,
+\]
+which is strictly increasing in \(x\). So among all \(x \le 166\), the smallest filler is at the smallest feasible \(x\), i.e., \(x = 100\):
+
+- For \(x = 100\):  
+  - Popularity: \(y \ge 1.5 \cdot 100 = 150\).
+  - Medicinal: \(3(100) + 2y \le 1000 \Rightarrow 300 + 2y \le 1000 \Rightarrow 2y \le 700 \Rightarrow y \le 350\).
+  So allowed \(y \in [150, 350]\), and the minimum filler is at \(y = 150\):  
+  filler \(= 2\cdot 100 + 150 = 350\).
+
+Since \(350 < 581\), that is much better. We must also confirm medicinal ingredients used:
+
+- \((x, y) = (100, 150)\): medicinal \(= 3\cdot 100 + 2\cdot 150 = 300 + 300 = 600 \le 1000\), so feasible.
+
+Thus minimizing filler actually prefers **not** to use all medicinal ingredients.
+
+So the optimal solution is:
+
+- Large pills: \(x^* = 100\)  
+- Small pills: \(y^* = 150\)  
+- Minimum filler used: \(F^* = 350\) units
+
+---
+
+### Summary of the formal model
+
+\[
+\begin{aligned}
+\text{Variables:} & \quad x, y \in \mathbb{Z}_{\ge 0} \\
+\text{Minimize:} & \quad 2x + y \\
+\text{subject to:} & \quad 3x + 2y \le 1000 \\
+& \quad x \ge 100 \\
+& \quad y \ge 1.5x
+\end{aligned}
+\]
+
+Optimal integer solution: \((x, y) = (100, 150)\).
+
+---
+
+### Suitable Python libraries
+
+This is an integer linear program (ILP). Good choices:
+
+- `PuLP` (easy modeling, uses CBC by default)
+- `ortools.linear_solver` (Google OR-Tools, very efficient for LP/MIP)
+- `Pyomo` (more general algebraic modeling)
+- `scipy.optimize.linprog` (only for LP; would need to relax integrality, but here the fractional optimum will already be integral, so it also works)
+
+For this problem, `PuLP` or OR-Tools are straightforward.
+
+Example with PuLP:
+
+```python
+import pulp as pl
+
+# Model
+model = pl.LpProblem("Pill_Production", pl.LpMinimize)
+
+# Variables
+x = pl.LpVariable('x', lowBound=100, cat='Integer')  # large pills
+y = pl.LpVariable('y', lowBound=0, cat='Integer')    # small pills
+
+# Objective: minimize filler
+model += 2*x + y
+
+# Constraints
+model += 3*x + 2*y <= 1000        # medicinal capacity
+model += y >= 1.5 * x             # popularity: at least 60% small
+
+# Solve
+model.solve()
+
+print("Status:", pl.LpStatus[model.status])
+print("Large pills (x):", pl.value(x))
+print("Small pills (y):", pl.value(y))
+print("Min filler:", pl.value(2*x + y))
+```
+
+This will return \(x = 100\), \(y = 150\), filler \(= 350\).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def solve_pill_problem():
+    # Create the model
+    model = pl.LpProblem("Pill_Production", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('x', lowBound=100, cat='Integer')  # large pills
+    y = pl.LpVariable('y', lowBound=0, cat='Integer')    # small pills
+
+    # Objective: minimize filler 2x + y
+    model += 2 * x + y
+
+    # Constraints
+    model += 3 * x + 2 * y <= 1000      # medicinal ingredient availability
+    model += y >= 1.5 * x               # popularity: at least 60% small pills
+
+    # Solve the model
+    model.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    filler_used = pl.value(2 * x + y)
+
+    return filler_used
+
+if __name__ == "__main__":
+    final_obj = solve_pill_problem()
+    print(f"FINAL_OBJ: {final_obj}")

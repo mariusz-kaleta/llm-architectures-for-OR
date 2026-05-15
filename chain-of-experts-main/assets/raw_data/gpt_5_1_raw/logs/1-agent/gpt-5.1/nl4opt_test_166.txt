@@ -1,0 +1,37 @@
+[MONOLITH]:
+import pulp
+
+# Initialize the problem: minimize number of taxi rides
+prob = pulp.LpProblem("Taxi_CompanyCar_Optimization", pulp.LpMinimize)
+
+# Decision variables
+x = pulp.LpVariable('Taxis', lowBound=0, cat='Integer')       # number of taxi rides
+y = pulp.LpVariable('CompanyCars', lowBound=30, cat='Integer')  # number of company car rides (at least 30)
+
+# Constraints
+
+# 1. Capacity constraint: each taxi = 2 employees, each company car = 3 employees
+prob += 2 * x + 3 * y >= 500, "EmployeeCapacity"
+
+# 2. At most 60% of rides can be company car rides:
+#    y <= 0.6 * (x + y)  ->  0.4y <= 0.6x  ->  2y <= 3x  ->  y <= 1.5x
+prob += y <= 1.5 * x, "CompanyCarProportion"
+
+# Objective: Minimize number of taxi rides
+prob += x, "MinimizeTaxis"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+# Extract solution
+taxis = pulp.value(x)
+company_cars = pulp.value(y)
+
+# Print detailed results
+print(f"Optimal number of taxi rides: {taxis}")
+print(f"Optimal number of company car rides: {company_cars}")
+print(f"Total employees transported: {2 * taxis + 3 * company_cars}")
+print(f"Proportion of company car rides: {company_cars / (taxis + company_cars):.4f}")
+
+# Final objective value (as required)
+print(f"FINAL_OBJ: {taxis}")

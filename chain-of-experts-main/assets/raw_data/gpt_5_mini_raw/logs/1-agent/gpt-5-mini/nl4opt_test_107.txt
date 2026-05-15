@@ -1,0 +1,43 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+crops = ["raspberries", "blueberries", "strawberries"]
+required = {"raspberries": 10, "blueberries": 9, "strawberries": 15}
+
+# Farms: old and new
+farms = ["old", "new"]
+cost = {"old": 300, "new": 200}  # cost per day
+# harvest per day (kg) for each farm and crop
+harvest = {
+    "old": {"raspberries": 2, "blueberries": 2, "strawberries": 4},
+    "new": {"raspberries": 4, "blueberries": 1, "strawberries": 2},
+}
+
+# Define LP
+prob = pulp.LpProblem("Berry_Farms_Min_Cost", pulp.LpMinimize)
+
+# Decision variables: number of days to operate each farm (continuous, >=0)
+days = {f: pulp.LpVariable(f"days_{f}", lowBound=0, cat="Continuous") for f in farms}
+
+# Objective: minimize total operating cost
+prob += pulp.lpSum(cost[f] * days[f] for f in farms)
+
+# Constraints: meet or exceed crop requirements
+for crop in crops:
+    prob += pulp.lpSum(harvest[f][crop] * days[f] for f in farms) >= required[crop], f"req_{crop}"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Gather results
+solution_days = {f: days[f].varValue for f in farms}
+objective_value = pulp.value(prob.objective)
+
+# Print solution (optional details)
+for f in farms:
+    print(f"Days to operate {f} farm: {solution_days[f]:.6f}")
+print(f"Total cost: {objective_value:.6f}")
+
+# Final required print (must be the very last line)
+print(f"FINAL_OBJ: {objective_value}")

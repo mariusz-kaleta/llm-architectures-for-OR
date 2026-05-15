@@ -1,0 +1,168 @@
+[MODELER]:
+Formulate this as a linear programming (LP) problem.
+
+### Decision variables
+Let  
+- \(x\) = number of regular sandwiches  
+- \(y\) = number of special sandwiches  
+
+Both must be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+### Objective function
+Profit:
+- $3 per regular → \(3x\)  
+- $4 per special → \(4y\)
+
+Maximize total profit:
+\[
+\max \; Z = 3x + 4y
+\]
+
+### Constraints
+
+**Eggs constraint**  
+Each regular uses 2 eggs, each special uses 3 eggs, total available is 40:
+\[
+2x + 3y \le 40
+\]
+
+**Bacon constraint**  
+Each regular uses 3 slices, each special uses 5 slices, total available is 70:
+\[
+3x + 5y \le 70
+\]
+
+### Complete LP model
+\[
+\begin{aligned}
+\max\quad & Z = 3x + 4y \\
+\text{s.t.}\quad 
+& 2x + 3y \le 40 \quad \text{(eggs)} \\
+& 3x + 5y \le 70 \quad \text{(bacon)} \\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+### Solving analytically (optional)
+
+Solve the system where both constraints are binding (typically optimal in such problems):
+
+\[
+\begin{cases}
+2x + 3y = 40 \\
+3x + 5y = 70
+\end{cases}
+\]
+
+From the first: \(2x = 40 - 3y \Rightarrow x = 20 - 1.5y\).
+
+Substitute into the second:
+\[
+3(20 - 1.5y) + 5y = 70 \\
+60 - 4.5y + 5y = 70 \\
+60 + 0.5y = 70 \Rightarrow 0.5y = 10 \Rightarrow y = 20
+\]
+
+Then
+\[
+x = 20 - 1.5 \cdot 20 = 20 - 30 = -10
+\]
+This is infeasible (negative), so the intersection lies outside the nonnegative region. Thus the optimum is at a boundary point where one variable is zero.
+
+Check corner points:
+
+1. \(x = 0\):  
+   - Eggs: \(3y \le 40 \Rightarrow y \le 13.\overline{3}\)  
+   - Bacon: \(5y \le 70 \Rightarrow y \le 14\)  
+   Feasible max (integer) at \(y = 13\) → profit \(Z = 4 \cdot 13 = 52\).
+
+2. \(y = 0\):  
+   - Eggs: \(2x \le 40 \Rightarrow x \le 20\)  
+   - Bacon: \(3x \le 70 \Rightarrow x \le 23.\overline{3}\)  
+   Feasible max (integer) at \(x = 20\) → profit \(Z = 3 \cdot 20 = 60\).
+
+So the best integer solution in the nonnegative region is:
+- \(x = 20\) regular sandwiches  
+- \(y = 0\) special sandwiches  
+with maximal profit \(Z = \$60\).
+
+(If fractional sandwiches were allowed, the LP optimum also occurs at \(x=20,y=0\) because the intersection of the constraints is outside the feasible quadrant.)
+
+### Suitable Python libraries
+
+To solve this programmatically, use any standard LP solver, for example:
+
+- **PuLP** (simple Python LP modeling, open-source)
+- **OR-Tools (Google)** with `pywraplp` (linear solver)
+- **SciPy**: `scipy.optimize.linprog` (if you only need continuous LP)
+
+Example with PuLP:
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Sandwich_Profit_Maximization", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('regular', lowBound=0)      # continuous; use cat='Integer' for integer
+y = pl.LpVariable('special', lowBound=0)
+
+# Objective
+prob += 3*x + 4*y
+
+# Constraints
+prob += 2*x + 3*y <= 40   # eggs
+prob += 3*x + 5*y <= 70   # bacon
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Regular:", x.value())
+print("Special:", y.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This will return approximately:
+- Regular: 20  
+- Special: 0  
+- Max profit: 60
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("Sandwich_Profit_Maximization", pl.LpMaximize)
+
+    # Decision variables (continuous, nonnegative)
+    x = pl.LpVariable('regular', lowBound=0)
+    y = pl.LpVariable('special', lowBound=0)
+
+    # Objective function: Maximize profit 3x + 4y
+    prob += 3 * x + 4 * y
+
+    # Constraints
+    # Eggs: 2x + 3y <= 40
+    prob += 2 * x + 3 * y <= 40
+
+    # Bacon: 3x + 5y <= 70
+    prob += 3 * x + 5 * y <= 70
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract optimal objective value
+    optimal_profit = pl.value(prob.objective)
+
+    # Final required output
+    print(f"FINAL_OBJ: {optimal_profit}")
+
+if __name__ == "__main__":
+    main()

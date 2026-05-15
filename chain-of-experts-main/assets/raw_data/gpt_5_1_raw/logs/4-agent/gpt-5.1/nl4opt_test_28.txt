@@ -1,0 +1,238 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximize the total amount of fish transported, given a limited budget and a requirement that sled dog trips are fewer than truck trips.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with continuous decision variables (if fractional trips are allowed).  
+   - If trips must be whole numbers, the Modeller should instead use an Integer Linear Programming (ILP) model.
+
+3. Main decision variables  
+   Define variables representing the number of trips by each mode:
+   - Variable 1: Number of sled dog trips.  
+     - Type: ≥ 0 (continuous or integer, depending on modelling choice).
+   - Variable 2: Number of truck trips.  
+     - Type: ≥ 0 (continuous or integer).
+
+   These variables will drive:
+   - Total fish transported = (DogCapability × sled dog trips) + (TruckCapability × truck trips).
+   - Total cost = (DogCost × sled dog trips) + (TruckCost × truck trips).
+
+4. Key constraints to consider  
+
+   a) Budget constraint  
+   - Total transport cost may not exceed the maximum budget.  
+   - Using concrete data:
+     - DogCost = 50 per sled dog trip  
+     - TruckCost = 100 per truck trip  
+     - MaxBudget = 1000  
+   - Constraint: 50 × (sled dog trips) + 100 × (truck trips) ≤ 1000.
+
+   b) Relationship between sled dog and truck usage  
+   - The number of sled dog trips must be less than the number of truck trips.  
+   - Constraint: (sled dog trips) ≤ (truck trips) − ε.  
+     - For a pure LP relaxation, you can model “strictly less than” as “≤” (sled dog trips ≤ truck trips).  
+     - If integer trips are enforced (ILP), use: (sled dog trips) + 1 ≤ (truck trips) to capture strict inequality.
+
+   c) Non-negativity constraints  
+   - Sled dog trips ≥ 0.  
+   - Truck trips ≥ 0.
+
+5. Objective function structure  
+
+   - Maximize total fish transported:  
+     - DogCapability = 100 fish per sled dog trip  
+     - TruckCapability = 300 fish per truck trip  
+   - Objective: Maximize 100 × (sled dog trips) + 300 × (truck trips).
+
+6. Modelling notes for the Modeller  
+
+   - Start by deciding whether fractional trips are meaningful in the real context:
+     - If yes, use a standard LP with continuous variables.  
+     - If not, use integer variables (ILP) for both trip counts.
+   - Incorporate concrete data directly in objective and constraints:
+     - Objective coefficients: 100 and 300.  
+     - Budget coefficients: 50 and 100; right-hand side: 1000.
+   - If you need a strictly smaller number of sled dog trips but keep a pure LP:
+     - Either accept the ≤ approximation, or  
+     - Solve the LP, then verify that the optimal solution satisfies “strictly less than” in practice (if not, adjust with a small perturbation or move to ILP with +1 constraint as above).
+
+---
+
+[MODELER]:
+Here is a clear mathematical model based on the description and the strategic plan.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_d \ge 0\): number of sled dog trips  
+- \(x_t \ge 0\): number of truck trips  
+
+Depending on the real-world requirements:
+
+- LP (fractional trips allowed): \(x_d, x_t\) are continuous.  
+- ILP (only whole trips allowed): \(x_d, x_t\) are integer.
+
+---
+
+## 2. Objective function
+
+Maximize the total amount of fish transported.
+
+- Each sled dog trip carries 100 fish.
+- Each truck trip carries 300 fish.
+
+Objective:
+
+\[
+\max \; Z = 100 x_d + 300 x_t
+\]
+
+---
+
+## 3. Constraints
+
+### a) Budget constraint
+
+Total cost of all trips cannot exceed the budget \(1000\).
+
+- Sled dog trip cost: 50  
+- Truck trip cost: 100  
+
+\[
+50 x_d + 100 x_t \le 1000
+\]
+
+### b) Relationship between sled dog and truck trips
+
+The number of sled dog trips must be *less than* the number of truck trips.
+
+- In a pure LP with continuous variables, a strict inequality is usually approximated by:
+
+\[
+x_d \le x_t
+\]
+
+- If you use an ILP with integer variables and want strictness exactly:
+
+\[
+x_d + 1 \le x_t
+\]
+
+Choose one form depending on your modelling choice.
+
+### c) Non-negativity (and integrality if required)
+
+\[
+x_d \ge 0, \quad x_t \ge 0
+\]
+
+If modelling trips as integers:
+
+\[
+x_d, x_t \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete LP formulation (continuous version)
+
+\[
+\begin{aligned}
+\max \quad & 100 x_d + 300 x_t \\
+\text{s.t.} \quad
+& 50 x_d + 100 x_t \le 1000 \\
+& x_d \le x_t \\
+& x_d \ge 0,\; x_t \ge 0
+\end{aligned}
+\]
+
+---
+
+## 5. Complete ILP formulation (integer trips, strict inequality enforced)
+
+\[
+\begin{aligned}
+\max \quad & 100 x_d + 300 x_t \\
+\text{s.t.} \quad
+& 50 x_d + 100 x_t \le 1000 \\
+& x_d + 1 \le x_t \\
+& x_d, x_t \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 6. Suggested Python libraries
+
+For this small LP/ILP, several libraries work well:
+
+- `PuLP` – very convenient for teaching and small/medium models.
+- `ortools.linear_solver` (from Google OR-Tools) – robust, supports LP and MIP.
+- `Pyomo` – good if you want a more general algebraic modelling language.
+- `scipy.optimize.linprog` – suitable for continuous LP only (not integers, not strict inequality).
+
+A typical choice for this task: `PuLP` or OR-Tools.
+
+Example (sketch) using PuLP for the continuous LP:
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Fish_Transport", pl.LpMaximize)
+
+# Variables
+x_d = pl.LpVariable('sled_dog_trips', lowBound=0)
+x_t = pl.LpVariable('truck_trips', lowBound=0)
+
+# Objective
+prob += 100 * x_d + 300 * x_t
+
+# Constraints
+prob += 50 * x_d + 100 * x_t <= 1000       # Budget
+prob += x_d <= x_t                         # Sled trips ≤ truck trips
+
+# Solve
+prob.solve()
+print("Status:", pl.LpStatus[prob.status])
+print("sled_dog_trips =", x_d.varValue)
+print("truck_trips =", x_t.varValue)
+print("Max fish =", pl.value(prob.objective))
+```
+
+For integer trips, set `cat="Integer"` when creating `LpVariable` and replace `x_d <= x_t` with `x_d + 1 <= x_t`.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the ILP problem (integer trips, strict inequality via x_d + 1 <= x_t)
+    prob = pl.LpProblem("Fish_Transport_ILP", pl.LpMaximize)
+
+    # Decision variables: integer, non-negative
+    x_d = pl.LpVariable('sled_dog_trips', lowBound=0, cat="Integer")
+    x_t = pl.LpVariable('truck_trips', lowBound=0, cat="Integer")
+
+    # Objective: maximize transported fish
+    prob += 100 * x_d + 300 * x_t
+
+    # Constraints
+    prob += 50 * x_d + 100 * x_t <= 1000    # Budget constraint
+    prob += x_d + 1 <= x_t                  # Strict inequality x_d < x_t via integrality
+
+    # Solve
+    prob.solve()
+
+    # Get objective value
+    final_obj = pl.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

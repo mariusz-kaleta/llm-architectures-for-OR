@@ -1,0 +1,100 @@
+[MODELER]:
+First I’ll state the modelling assumptions, then give a clear mathematical model, solve it, and finally list solver libraries you can use.
+
+Assumptions
+- A decision variable counts whole trips (no fractional trips).  
+- Each helicopter trip carries 5 patients and takes 1 hour; each bus trip carries 8 patients and takes 3 hours.  
+- “Total time to transport the patients” is interpreted as the sum of the durations of all trips (total vehicle-hours). If you intended a different objective (e.g. makespan / time until the last patient is delivered), tell me and I will re-model.  
+
+Decision variables
+- h ∈ Z≥0 : number of helicopter trips  
+- b ∈ Z≥0 : number of bus trips
+
+Objective
+- Minimize total time (vehicle-hours):
+  minimize Z = 1·h + 3·b
+
+Constraints
+1. Patient capacity: 5h + 8b ≥ 120
+2. At least 30% of trips by helicopter: h ≥ 0.3(h + b)  (equivalently 0.7h − 0.3b ≥ 0, or 7h − 3b ≥ 0)
+3. At most 10 bus trips: b ≤ 10
+4. Integrality: h, b integers ≥ 0
+
+Linearized form
+minimize Z = h + 3b  
+s.t.
+- 5h + 8b ≥ 120
+- 7h − 3b ≥ 0
+- 0 ≤ b ≤ 10, h integer, b integer
+
+Analytic solution
+From the patient constraint, h ≥ (120 − 8b)/5. Substitute into objective:
+Z ≥ (120 − 8b)/5 + 3b = 24 + 1.4 b.
+Z is increasing in b (coefficient 1.4 > 0), so the optimal choice is to set b as small as possible. The smallest feasible b is b = 0. Then h ≥ 120/5 = 24, so take h = 24 (integer).
+
+Check the helicopter-proportion constraint: 7·24 − 3·0 = 168 ≥ 0, satisfied. Bus upper bound is satisfied.
+
+Optimal solution
+- h = 24 helicopter trips
+- b = 0 bus trips
+- Total time Z = 24 hours
+
+(Interpretation: use only helicopters — each helicopter trip is more time-efficient per patient (1/5 = 0.2 hr/patient) than a bus (3/8 = 0.375 hr/patient), so adding buses would increase total vehicle-hours.)
+
+Suggested solver libraries
+- pulp (simple Python linear / integer programming) — good for small ILPs.  
+- OR-Tools (Google) — fast MIP solver.  
+- pyomo + a solver (CBC, GLPK, CPLEX, Gurobi) — for more complex models.  
+- scipy.optimize is not suitable for integer problems (only continuous).
+
+If you want, I can:
+- provide a short Python+pulp example that models and solves the ILP, or  
+- re-model for a different objective (e.g., minimize makespan given a fixed fleet size or parallel vehicles).
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the ILP described in the prompt.
+# Uses PuLP (CBC) to minimize total vehicle-hours: minimize h + 3b
+# Subject to:
+#   5h + 8b >= 120
+#   7h - 3b >= 0
+#   0 <= b <= 10
+#   h, b integers >= 0
+
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Transport_Patients", pulp.LpMinimize)
+
+# Decision variables: integer non-negative
+h = pulp.LpVariable("h", lowBound=0, cat="Integer")
+b = pulp.LpVariable("b", lowBound=0, upBound=10, cat="Integer")  # b has an upper bound of 10
+
+# Objective: minimize total time (vehicle-hours)
+prob += h + 3 * b
+
+# Constraints
+prob += 5 * h + 8 * b >= 120        # patient capacity
+prob += 7 * h - 3 * b >= 0          # at least 30% of trips by helicopter
+
+# Solve with CBC (default solver in PuLP). Suppress solver output.
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Retrieve objective value
+obj_val = pulp.value(prob.objective)
+
+# If objective is effectively integer, cast to int for clean output
+if obj_val is None:
+    final_value = None
+else:
+    if abs(obj_val - round(obj_val)) < 1e-9:
+        final_value = int(round(obj_val))
+    else:
+        final_value = float(obj_val)
+
+print(f"FINAL_OBJ: {final_value}")
+```

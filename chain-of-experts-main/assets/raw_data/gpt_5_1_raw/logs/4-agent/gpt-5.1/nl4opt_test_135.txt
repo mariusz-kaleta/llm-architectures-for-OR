@@ -1,0 +1,199 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total number of snow removers hired (seasonal + permanent), subject to meeting labor-hour needs and staying within budget.
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP), specifically a small 2-variable integer optimisation.
+
+3. Main decision variables  
+Define integer variables representing how many workers of each type to hire:
+- Variable 1: Number of seasonal snow removers hired. (Nonnegative integer)
+- Variable 2: Number of permanent snow removers hired. (Nonnegative integer)
+
+4. Key constraints to consider  
+
+a) Labor-hour requirement  
+Each type contributes a fixed number of labor hours per shift:
+- Seasonal: 6 hours per worker
+- Permanent: 10 hours per worker  
+
+Constraint:  
+- Total hours from seasonal + permanent workers must be at least the required number of labor hours:
+  - 6 × (seasonal workers) + 10 × (permanent workers) ≥ 300
+
+b) Budget limit  
+Each type has a fixed cost per shift:
+- Seasonal: $120 per worker
+- Permanent: $250 per worker  
+
+Constraint:  
+- Total wage cost cannot exceed the budget:
+  - 120 × (seasonal workers) + 250 × (permanent workers) ≤ 6500
+
+c) Nonnegativity and integrality  
+- Both decision variables must be nonnegative.
+- Both variables must be integers, since you can’t hire fractional workers.
+
+5. Objective function structure  
+- Minimise the total number of workers:
+  - (seasonal workers) + (permanent workers)
+
+6. Notes for the Modeller  
+- Because there are only two integer variables and straightforward linear constraints, the feasible set is small and can be visualised or brute-forced if desired.
+- The trade-off is between:
+  - Permanent workers: more hours and more expensive per worker
+  - Seasonal workers: fewer hours and cheaper per worker  
+- The binding constraints are likely the labor-hour requirement and possibly the budget; check which are active at optimum.
+- After solving, ensure:
+  - Labor hours requirement is satisfied or exceeded.
+  - Total cost is within budget.
+  - Worker counts are integers and nonnegative.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model and how you’d implement/solve it.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x_s \in \mathbb{Z}_{\ge 0}\): number of **seasonal** snow removers hired  
+- \(x_p \in \mathbb{Z}_{\ge 0}\): number of **permanent** snow removers hired  
+
+---
+
+## 2. Objective
+
+Minimise the **total number of workers** hired:
+
+\[
+\min \; Z = x_s + x_p
+\]
+
+---
+
+## 3. Constraints
+
+### a) Labor-hour requirement
+
+Each seasonal worker contributes 6 hours; each permanent worker contributes 10 hours.  
+The city needs at least 300 total labor hours:
+
+\[
+6x_s + 10x_p \;\ge\; 300
+\]
+
+### b) Budget limit
+
+Each seasonal worker costs \$120; each permanent worker costs \$250.  
+Total cost must be within the \$6500 budget:
+
+\[
+120x_s + 250x_p \;\le\; 6500
+\]
+
+### c) Nonnegativity and integrality
+
+\[
+x_s \ge 0,\quad x_p \ge 0,\quad x_s, x_p \in \mathbb{Z}
+\]
+
+---
+
+## 4. Model summary (ILP formulation)
+
+\[
+\begin{aligned}
+\min \quad & x_s + x_p \\
+\text{s.t.} \quad 
+& 6x_s + 10x_p \;\ge\; 300 \\
+& 120x_s + 250x_p \;\le\; 6500 \\
+& x_s, x_p \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a small integer linear program (2 variables, 2 main constraints).
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard MILP or LP solver can handle this easily:
+
+- **PuLP** (pure Python interface; can use CBC which is bundled)
+- **OR-Tools** (`ortools.linear_solver` with CBC or SCIP)
+- **Pyomo** (more general modeling framework; use CBC, GLPK, Gurobi, CPLEX, etc.)
+
+For this specific problem, **PuLP** or **OR-Tools** is more than sufficient.
+
+---
+
+## 6. Example: PuLP implementation
+
+```python
+import pulp as pl
+
+# Create the problem
+prob = pl.LpProblem("Snow_Removal_Staffing", pl.LpMinimize)
+
+# Decision variables (nonnegative integers)
+x_s = pl.LpVariable('seasonal_workers', lowBound=0, cat='Integer')
+x_p = pl.LpVariable('permanent_workers', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of workers
+prob += x_s + x_p, "Total_Workers"
+
+# Labor-hour constraint
+prob += 6 * x_s + 10 * x_p >= 300, "Labor_Hours"
+
+# Budget constraint
+prob += 120 * x_s + 250 * x_p <= 6500, "Budget"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Seasonal workers:", x_s.value())
+print("Permanent workers:", x_p.value())
+print("Total workers:", x_s.value() + x_p.value())
+print("Total hours:", 6 * x_s.value() + 10 * x_p.value())
+print("Total cost:", 120 * x_s.value() + 250 * x_p.value())
+```
+
+You can adapt this to OR-Tools or Pyomo with the same structure (same variables, objective, and constraints).
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Snow_Removal_Staffing", pl.LpMinimize)
+
+    # Decision variables (nonnegative integers)
+    x_s = pl.LpVariable('seasonal_workers', lowBound=0, cat='Integer')
+    x_p = pl.LpVariable('permanent_workers', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of workers
+    prob += x_s + x_p, "Total_Workers"
+
+    # Labor-hour constraint
+    prob += 6 * x_s + 10 * x_p >= 300, "Labor_Hours"
+
+    # Budget constraint
+    prob += 120 * x_s + 250 * x_p <= 6500, "Budget"
+
+    # Solve with CBC (default in PuLP)
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    total_workers = pl.value(prob.objective)
+
+    # Final required print
+    print(f"FINAL_OBJ: {total_workers}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,143 @@
+[MODELER]:
+Formal linear program
+
+Decision variables
+- x = number of loaves of bread produced (≥ 0)
+- y = number of batches of cookies produced (≥ 0)
+
+Objective
+- Maximize total profit: maximize Z = 5x + 3y
+
+Constraints (machine time per year)
+- Stand-mixer time: 1x + 0.5y ≤ 3000
+- Oven time: 3x + 1y ≤ 3000
+- x, y ≥ 0
+
+Remarks and solution
+- Notice the oven constraint is dominant: multiplying the mixer constraint by 2 gives 2x + y ≤ 6000, which is always looser than 3x + y ≤ 3000 for any x ≥ 0. Thus mixer constraint is redundant and feasible region is defined by 3x + y ≤ 3000, x ≥ 0, y ≥ 0.
+- Check corner points:
+  - (x,y) = (0,0) → profit 0
+  - (x,y) = (1000,0) → profit 5·1000 = 5000 (oven bound: 3·1000 = 3000)
+  - (x,y) = (0,3000) → profit 3·3000 = 9000 (oven bound: 3000)
+- Optimal solution: produce 0 loaves of bread and 3000 batches of cookies.
+- Maximum profit = $9,000 per year.
+
+Suggested Python solvers / libraries
+- pulp (simple LP modeling and solving) — good for teaching and small problems
+- scipy.optimize.linprog — simple solver in SciPy (continuous LPs)
+- ortools.linear_solver (Google OR-Tools) — fast, supports integer variables if needed
+- cvxpy — for more general convex optimization modeling
+
+Example (pulp)
+```python
+import pulp
+
+# Define problem
+prob = pulp.LpProblem("Bakery", pulp.LpMaximize)
+x = pulp.LpVariable('bread', lowBound=0)
+y = pulp.LpVariable('cookies', lowBound=0)
+
+# Objective
+prob += 5*x + 3*y
+
+# Constraints
+prob += 1*x + 0.5*y <= 3000  # mixer
+prob += 3*x + 1*y <= 3000    # oven
+
+prob.solve()
+print("bread =", x.value())
+print("cookies =", y.value())
+print("profit =", pulp.value(prob.objective))
+```
+
+If you require integer quantities (whole loaves/batches), set x and/or y with cat='Integer' in pulp or use OR-Tools' integer solver; the continuous solution above (0,3000) is integer already.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the given LP:
+# Maximize Z = 5x + 3y
+# s.t. 1*x + 0.5*y <= 3000
+#      3*x + 1*y <= 3000
+#      x, y >= 0
+
+from itertools import combinations
+
+# Define the inequality constraints (a, b, c) meaning a*x + b*y <= c
+inequalities = [
+    (1.0, 0.5, 3000.0),  # mixer
+    (3.0, 1.0, 3000.0),  # oven
+]
+
+# Lines (equalities) to consider for corner intersections:
+# We'll include the equalities for the two machine constraints and the axes x=0, y=0.
+# Represent a line as (a, b, c) meaning a*x + b*y = c.
+lines = [
+    (1.0, 0.5, 3000.0),  # mixer line
+    (3.0, 1.0, 3000.0),  # oven line
+    (1.0, 0.0, 0.0),     # x = 0
+    (0.0, 1.0, 0.0),     # y = 0
+]
+
+def intersect(line1, line2, tol=1e-12):
+    a1, b1, c1 = line1
+    a2, b2, c2 = line2
+    det = a1 * b2 - a2 * b1
+    if abs(det) < tol:
+        return None
+    x = (c1 * b2 - c2 * b1) / det
+    y = (a1 * c2 - a2 * c1) / det
+    return (x, y)
+
+# Collect candidate corner points: intersections of all pairs of lines
+candidates = set()
+for l1, l2 in combinations(lines, 2):
+    pt = intersect(l1, l2)
+    if pt is not None:
+        # Round small numerical noise
+        x, y = pt
+        candidates.add((round(x, 12), round(y, 12)))
+
+# Also include the origin explicitly
+candidates.add((0.0, 0.0))
+
+# Filter feasible points (satisfy all inequalities and nonnegativity)
+tol = 1e-9
+feasible_points = []
+for x, y in candidates:
+    if x < -tol or y < -tol:
+        continue
+    ok = True
+    for a, b, c in inequalities:
+        if a * x + b * y > c + 1e-8:
+            ok = False
+            break
+    if ok:
+        feasible_points.append((x, y))
+
+# Evaluate objective 5x + 3y at feasible points and find maximum
+def objective(x, y):
+    return 5.0 * x + 3.0 * y
+
+best_obj = None
+best_point = None
+for x, y in feasible_points:
+    val = objective(x, y)
+    if (best_obj is None) or (val > best_obj + 1e-9):
+        best_obj = val
+        best_point = (x, y)
+
+# Normalize result: if nearly integer, present as int
+if best_obj is None:
+    final_value = 0.0
+else:
+    if abs(best_obj - round(best_obj)) < 1e-6:
+        final_value = int(round(best_obj))
+    else:
+        final_value = float(best_obj)
+
+# Print final objective in the required format
+print(f"FINAL_OBJ: {final_value}")
+```

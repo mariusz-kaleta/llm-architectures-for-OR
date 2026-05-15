@@ -1,0 +1,98 @@
+[MODELER]:
+Below is a clear LP/MILP formulation and a short note on solving it with Python.
+
+Decision variables
+- x = number of sled-dog trips (≥ 0)
+- y = number of truck trips (≥ 0)
+
+Data (given)
+- DogCapability = 100 (fish per dog trip)
+- TruckCapability = 300 (fish per truck trip)
+- DogCost = 50 (cost per dog trip)
+- TruckCost = 100 (cost per truck trip)
+- MaxBudget = 1000
+
+Objective
+- Maximize total fish transported:
+  maximize Z = 100·x + 300·y
+
+Constraints
+- Budget: 50·x + 100·y ≤ 1000
+- Trip ordering (dog trips must be less than truck trips):
+  - If trips must be integer (natural model): x and y are integers and x ≤ y − 1 (enforces x < y).
+  - If you allow continuous variables (LP relaxation) you cannot use strict “<”; approximate by x ≤ y − ε for a tiny ε > 0, or enforce a practical lower bound x ≤ y (if equality permitted).
+- Nonnegativity: x ≥ 0, y ≥ 0
+- (Optional integrality) x, y ∈ Z+ if trips are discrete.
+
+Complete MILP (integer model)
+- maximize 100x + 300y
+- subject to:
+  50x + 100y ≤ 1000
+  x ≤ y − 1
+  x, y ∈ Z+, x ≥ 0, y ≥ 0
+
+Remarks about the structure and optimal solution (with the provided numbers)
+- Cost per fish: dog = 50/100 = 0.5, truck = 100/300 ≈ 0.333. Trucks are more cost-effective, so the optimal solution uses only trucks when allowed.
+- With integer trips and x ≤ y − 1, the optimum is x = 0, y = 10 (budget exhausted by 10 trucks), giving Z = 3000 fish.
+- Same optimal Z holds if x is allowed to be 0 and variables are continuous.
+
+Suggested Python libraries for solving
+- pulp (easy modeling and supports integer variables)
+- OR-Tools (good performance for integer problems)
+- scipy.optimize.linprog (only continuous LPs, cannot handle integer or strict inequality)
+- If available and large-scale, commercial solvers: Gurobi or CPLEX (via their Python APIs)
+
+Example (pulp) code sketch (use as template)
+- Create integer variables x,y
+- Problem: maximize 100*x + 300*y
+- Add 50*x + 100*y <= 1000 and x <= y - 1
+- Solve and read x,y and objective
+
+If you want, I can provide the exact pulp or OR-Tools code and run through the solution steps or produce the solver output.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the MILP by brute force (integer trips).
+# Data initialization
+DogCapability = 100
+TruckCapability = 300
+DogCost = 50
+TruckCost = 100
+MaxBudget = 1000
+
+# Search integer solutions
+max_x = MaxBudget // DogCost  # upper bound for x
+max_y = MaxBudget // TruckCost  # upper bound for y
+
+best_obj = None
+best_solution = None
+
+for x in range(0, max_x + 1):
+    for y in range(0, max_y + 1):
+        # Constraints:
+        if 50 * x + 100 * y > MaxBudget:
+            continue
+        if not (x <= y - 1):  # x <= y - 1 enforces x < y for integers
+            continue
+        # Objective
+        z = DogCapability * x + TruckCapability * y  # 100*x + 300*y
+        if (best_obj is None) or (z > best_obj):
+            best_obj = z
+            best_solution = (x, y)
+
+# Print solution details (optional)
+if best_solution is None:
+    print("No feasible integer solution found.")
+    final_value = 0
+else:
+    x_opt, y_opt = best_solution
+    # You may print the chosen variables (not required). Keep final line exact as requested.
+    print(f"Optimal integer solution: x={x_opt}, y={y_opt}, Z={best_obj}")
+    final_value = best_obj
+
+# Final required output line (must be exactly this format)
+print(f"FINAL_OBJ: {final_value}")
+```

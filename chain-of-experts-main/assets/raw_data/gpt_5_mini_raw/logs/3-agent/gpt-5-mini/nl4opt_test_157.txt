@@ -1,0 +1,118 @@
+[MODELER]:
+Mathematical model
+
+Decision variables
+- x = number of truck trips (integer, x >= 0)
+- y = number of van trips   (integer, y >= 0)
+
+Objective
+Minimize total trips: minimize Z = x + y
+
+Constraints
+- Capacity: 1000 x + 500 y >= 50,000 (must ship at least 50,000 patties)
+- Budget:   300 x + 100 y <= 12,500 (budget limit)
+- Maneuverability: x <= y (number of trucks must not exceed number of vans)
+- Integrality and nonnegativity: x, y ∈ Z_{\ge 0}
+
+You can simplify by dividing the capacity constraint by 500 and the budget constraint by 100:
+- 2x + y >= 100
+- 3x + y <= 125
+- x <= y
+- x, y ∈ Z_{\ge 0}
+Minimize Z = x + y
+
+Analytic solution (short)
+From 2x + y >= 100 we get y >= 100 − 2x. To minimize x + y for feasible x, choose the smallest feasible y = 100 − 2x (while respecting the other constraints). The budget constraint gives y <= 125 − 3x. Feasibility requires 100 − 2x <= 125 − 3x → x <= 25. For x ∈ {0,...,25} the minimizing y is 100 − 2x, so total trips Z = x + (100 − 2x) = 100 − x, which is minimized by maximizing x. Therefore x = 25 (largest feasible) and y = 100 − 2·25 = 50.
+
+Optimal plan and values
+- Trucks: x = 25
+- Vans:   y = 50
+- Total trips: Z = 75
+Check:
+- Capacity: 25·1000 + 50·500 = 25,000 + 25,000 = 50,000 (meets requirement)
+- Cost:     25·300 + 50·100 = 7,500 + 5,000 = 12,500 (uses whole budget)
+- x <= y holds (25 <= 50)
+
+Suggested Python libraries to solve this
+- pulp (easy-to-use MILP solver interface)
+- OR-Tools (powerful integer programming solver)
+- mip (python-mip) or CBC/Gurobi/CPLEX backends if you need high performance
+
+Example (pulp)
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpInteger, PULP_CBC_CMD
+
+prob = LpProblem("Shipments", LpMinimize)
+x = LpVariable('trucks', lowBound=0, cat=LpInteger)
+y = LpVariable('vans',   lowBound=0, cat=LpInteger)
+
+prob += x + y
+prob += 1000*x + 500*y >= 50000
+prob += 300*x + 100*y <= 12500
+prob += x <= y
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print(x.value(), y.value(), (x.value()+y.value()))
+
+This will return x=25, y=50, total trips=75.
+
+If you want, I can provide the same model in OR-Tools or show how to relax integrality and compare solutions.
+
+---
+
+[CODER]:
+#!/usr/bin/env python3
+# Self-contained solver for the integer optimization problem described.
+# Decision variables:
+#   x = number of truck trips (integer, >=0)
+#   y = number of van trips   (integer, >=0)
+# Objective:
+#   Minimize Z = x + y
+# Constraints (simplified):
+#   2x + y >= 100
+#   3x + y <= 125
+#   x <= y
+
+def find_optimal():
+    best_obj = None
+    best_solutions = []
+    # Determine reasonable search bounds:
+    # From 3x + y <= 125 and y >= 0 => 3x <= 125 => x <= 41
+    # From 2x + y >= 100 and y <= 125 (from budget) => x up to 125 also safe, but 0..125 is fine
+    x_max = 125
+    y_max = 125
+    for x in range(0, x_max + 1):
+        for y in range(0, y_max + 1):
+            if 2*x + y < 100:
+                continue
+            if 3*x + y > 125:
+                continue
+            if x > y:
+                continue
+            obj = x + y
+            if best_obj is None or obj < best_obj:
+                best_obj = obj
+                best_solutions = [(x, y)]
+            elif obj == best_obj:
+                best_solutions.append((x, y))
+    return best_obj, best_solutions
+
+def main():
+    best_obj, solutions = find_optimal()
+    # Choose one solution (there should be at least one)
+    if not solutions:
+        # No feasible solution
+        best_x = None
+        best_y = None
+    else:
+        best_x, best_y = solutions[0]
+
+    # Print solution details (optional, not the required final line)
+    print(f"Optimal trucks (x): {best_x}")
+    print(f"Optimal vans   (y): {best_y}")
+    print(f"Total trips (Z): {best_obj}")
+
+    # Final required output line (must be exactly this format)
+    print(f"FINAL_OBJ: {best_obj}")
+
+if __name__ == "__main__":
+    main()

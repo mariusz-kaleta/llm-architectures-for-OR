@@ -1,0 +1,166 @@
+[MODELER]:
+Here is a clean mathematical optimization model for the problem.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of ship trips (nonnegative, can be relaxed as continuous for LP)  
+- \(y\) = number of plane trips (nonnegative, can be relaxed as continuous for LP)
+
+If the problem requires whole trips, impose integer constraints:
+- \(x, y \in \mathbb{Z}_{\ge 0}\)
+
+---
+
+## 2. Objective function
+
+Each ship trip uses 500 liters, each plane trip uses 300 liters.  
+Minimize total fuel used:
+
+\[
+\min\; Z = 500x + 300y
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Capacity (containers transported)
+
+Each ship trip: 40 containers  
+Each plane trip: 20 containers  
+Must transport at least 500 containers:
+
+\[
+40x + 20y \;\ge\; 500
+\]
+
+---
+
+### 3.2 Maximum number of plane trips
+
+At most 10 plane trips:
+
+\[
+y \;\le\; 10
+\]
+
+---
+
+### 3.3 At least 50% of trips by ship
+
+Total trips = \(x + y\).  
+At least 50% must be ship trips:
+
+\[
+x \;\ge\; 0.5(x + y)
+\]
+
+Rearrange:
+
+\[
+x \;\ge\; 0.5x + 0.5y \\
+0.5x \;\ge\; 0.5y \\
+x \;\ge\; y
+\]
+
+So:
+
+\[
+x - y \;\ge\; 0
+\]
+
+---
+
+### 3.4 Nonnegativity (and integrality if needed)
+
+\[
+x \;\ge\; 0,\quad y \;\ge\; 0
+\]
+
+If you require integer numbers of trips:
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete model (linear / integer program)
+
+**Linear Programming (LP) formulation (continuous trips):**
+
+\[
+\begin{aligned}
+\min\quad & 500x + 300y \\
+\text{s.t.}\quad
+& 40x + 20y \;\ge\; 500 \\
+& y \;\le\; 10 \\
+& x - y \;\ge\; 0 \\
+& x, y \;\ge\; 0
+\end{aligned}
+\]
+
+**Integer Linear Programming (ILP) formulation (whole trips):**
+
+Same as above, plus:
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+You can implement and solve this model using any standard LP/MIP library, e.g.:
+
+- **PuLP** (simple, pure Python, works with many solvers)
+- **OR-Tools (Google)** — `ortools.linear_solver` for LP/MIP
+- **SciPy** — `scipy.optimize.linprog` (for continuous LP only)
+- **Pyomo** — for more complex modeling, but overkill here
+
+For integer trips, prefer:
+
+- **PuLP** with CBC solver (bundled) or external solvers (CPLEX, Gurobi)
+- **OR-Tools** with the MIP solver (CBC or SCIP backend)
+
+Example library choice: **PuLP** is a very straightforward option for this problem.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: minimize total fuel
+    prob = pulp.LpProblem("Minimize_Fuel", pulp.LpMinimize)
+
+    # Decision variables: integer number of trips
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # ship trips
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # plane trips
+
+    # Objective function: 500x + 300y
+    prob += 500 * x + 300 * y
+
+    # Constraints
+    # Capacity: 40x + 20y >= 500
+    prob += 40 * x + 20 * y >= 500, "Capacity"
+
+    # Max plane trips: y <= 10
+    prob += y <= 10, "MaxPlaneTrips"
+
+    # At least 50% trips by ship: x - y >= 0  (i.e., x >= y)
+    prob += x - y >= 0, "ShipPercentage"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

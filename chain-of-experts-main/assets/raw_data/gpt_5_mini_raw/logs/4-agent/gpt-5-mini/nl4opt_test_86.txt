@@ -1,0 +1,150 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Minimise the total number of stores that must be open (the sum of retail stores and factory outlets) while meeting the company daily customer and employee availability requirements.
+
+2) Suggested model type
+- Model: Integer Linear Programming (ILP). Store counts are integer (discrete) variables; objective and constraints are linear. You can relax to a continuous LP to get a bound, but final solution must enforce integrality.
+
+3) Main decision variables (describe, not formal symbols)
+- Number of retail stores to open (non‑negative integer).
+- Number of factory outlets to open (non‑negative integer).
+
+4) Key constraints to include (textual descriptions)
+- Customer coverage: The combined daily customers from all open retail stores and outlets must be at least the required daily minimum (at least 1200 customers per day).
+- Employee availability: The total employees required to staff the chosen retail stores and outlets cannot exceed the available workforce (at most 50 employees).
+- Integrality and nonnegativity: Both store counts must be integer and nonnegative.
+- Practical bounds (optional but useful): Upper bounds on store counts for solver stability (e.g., derived from employees or customers — you can cap by the maximum feasible number given employees or by a reasonable business limit).
+
+5) Additional modelling considerations / tie‑breaking rules
+- Multiple optimal solutions may exist with the same minimal number of stores. Decide secondary objective if desired (for example, minimize total employees used, minimize excess customers, prefer retail over outlets, or minimize operating cost if cost data is available). Implement secondary objective lexicographically or as a weighted objective if needed.
+- Feasibility check: Before solving, check whether it is possible to reach required customers given available employees (choose stores with best customers per employee ratio to test feasibility).
+- Solver approach: Because the problem is small, a quick enumeration over feasible small integer ranges will work; otherwise use an ILP solver (branch‑and‑bound). Solving the LP relaxation first gives a lower bound on number of stores.
+- Reporting: Return the optimal counts of each store type, total customers delivered, total employees used, and any slack (excess customers or unused employees).
+
+6) Implementation checklist for the Modeller
+- Define integer variables for counts of each store type.
+- Set objective to minimize the sum of these variables.
+- Add the customer and employee capacity constraints in plain linear form.
+- Add integrality and bounds.
+- Optionally add a secondary objective or tie‑breaking rule.
+- Solve using an ILP solver or enumerate; verify and present the recommended store mix and utilization metrics.
+
+---
+
+[MODELER]:
+Below is a concise formalisation of the planner's description as an Integer Linear Program (ILP), notes on bounds/feasibility, solver options, and the optimal solution for the given data.
+
+1) Decision variables
+- x ∈ Z_{\ge 0} = number of retail stores to open.
+- y ∈ Z_{\ge 0} = number of factory outlets to open.
+
+2) Data / parameters
+- customers per retail store: 200
+- customers per outlet: 80
+- employees per retail store: 6
+- employees per outlet: 4
+- required daily customers: 1200
+- available employees: 50
+
+3) Objective
+Minimise total number of stores:
+minimize z = x + y
+
+4) Constraints (linear)
+- Customer coverage: 200 x + 80 y ≥ 1200
+- Employee availability: 6 x + 4 y ≤ 50
+- Integrality and nonnegativity: x, y ∈ Z_{\ge 0}
+- Practical upper bounds (optional, improve solver stability):
+  x ≤ floor(50 / 6) = 8 (employee-limited upper bound)
+  y ≤ floor(50 / 4) = 12
+
+5) Feasibility check (quick reasoning)
+- If only retail stores: need ceil(1200/200) = 6 retail stores → uses 6*6 = 36 employees ≤ 50 ⇒ feasible.
+- Thus problem is feasible.
+
+6) Solve / tie-breaking
+- Primary objective is to minimize x + y.
+- If multiple (x,y) achieve the same minimal z, you can impose a lexicographic secondary objective (e.g., minimize employees used 6x+4y, or prefer retail by minimizing y) or use a small weighted objective: minimize (x+y, 6x+4y) or equivalently minimize (x+y) + ε*(6x+4y) with ε small.
+
+7) Recommended solvers / Python libraries
+- pulp (easy-to-use Python LP/MIP front-end; uses CBC by default)
+- OR-Tools CP-SAT or linear solver (very fast for small MIP)
+- Pyomo with a MIP solver (GLPK, CBC, Gurobi, CPLEX)
+- cvxpy (supports mixed integer via appropriate solvers)
+- For this tiny problem a simple enumeration (nested loops) is also fine.
+
+8) Small PuLP model (sketch)
+- Create integer variables x,y
+- Add constraints 200*x + 80*y >= 1200 and 6*x + 4*y <= 50
+- Minimize x + y and solve with the default solver.
+
+9) Analytical solution (solved)
+- Try z = 5 (x+y = 5): maximum customers if all 5 are retail: 5*200 = 1000 < 1200 ⇒ impossible.
+- Therefore z ≥ 6. Try z = 6:
+  - Only feasible combination that meets customers is x = 6, y = 0 (200*6 = 1200).
+  - Employee use: 6*6 = 36 ≤ 50.
+- Thus the optimal integer solution is unique: x = 6 retail stores, y = 0 factory outlets.
+
+10) Reporting the optimal solution
+- Retail stores: 6
+- Factory outlets: 0
+- Total stores open: 6 (minimum)
+- Total daily customers provided: 6 * 200 + 0 * 80 = 1200 (meets exact requirement)
+- Employees used: 6 * 6 + 0 * 4 = 36
+- Employee slack: 50 − 36 = 14 unused employees
+- Customer slack: 0 excess customers (exactly meets 1200)
+
+If you want, I can:
+- Provide a ready-to-run Python script (pulp or OR-Tools) that solves the ILP and prints results, or
+- Add a secondary objective (e.g., minimize employees used or minimize excess customers) and re-solve.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the ILP by enumeration for the given data.
+
+# Parameters
+customers_per_retail = 200
+customers_per_outlet = 80
+employees_per_retail = 6
+employees_per_outlet = 4
+required_customers = 1200
+available_employees = 50
+
+# Practical upper bounds
+max_x = available_employees // employees_per_retail  # 8
+max_y = available_employees // employees_per_outlet  # 12
+
+best_solution = None  # tuple (z, employees_used, x, y)
+for x in range(0, max_x + 1):
+    for y in range(0, max_y + 1):
+        customers = customers_per_retail * x + customers_per_outlet * y
+        employees = employees_per_retail * x + employees_per_outlet * y
+        if customers >= required_customers and employees <= available_employees:
+            z = x + y
+            candidate = (z, employees, x, y)
+            if best_solution is None:
+                best_solution = candidate
+            else:
+                # Primary objective: minimize z
+                if candidate[0] < best_solution[0]:
+                    best_solution = candidate
+                elif candidate[0] == best_solution[0]:
+                    # Secondary tie-breaker: minimize employees used
+                    if candidate[1] < best_solution[1]:
+                        best_solution = candidate
+                    elif candidate[1] == best_solution[1]:
+                        # Further tie-breaker: prefer more retail (i.e., minimize y)
+                        if candidate[3] < best_solution[3]:
+                            best_solution = candidate
+
+if best_solution is None:
+    raise SystemExit("No feasible solution found (should not happen for given data).")
+
+z_opt, employees_used_opt, x_opt, y_opt = best_solution
+
+# (Optional) You could print details here; final required line must be exactly as below.
+print(f"FINAL_OBJ: {z_opt}")
+```

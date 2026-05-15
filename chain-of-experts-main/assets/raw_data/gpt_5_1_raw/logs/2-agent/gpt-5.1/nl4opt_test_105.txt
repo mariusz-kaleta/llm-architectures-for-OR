@@ -1,0 +1,151 @@
+[MODELER]:
+Here is a clean optimization model for the problem.
+
+---
+
+### 1. Decision variables
+
+Let  
+- \(x\) = number of batches of hams produced per year  
+- \(y\) = number of batches of pork ribs produced per year  
+
+Both variables should be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+If batches must be whole numbers, we can later impose \(x, y \in \mathbb{Z}_{\ge 0}\), but the classical formulation treats them as continuous.
+
+---
+
+### 2. Objective function
+
+Profit per batch:
+- Hams: \$150 per batch
+- Pork ribs: \$300 per batch
+
+Total profit:
+\[
+\text{Maximize } Z = 150x + 300y
+\]
+
+---
+
+### 3. Constraints
+
+**Machine-hour limits (each machine has at most 4000 hours/year):**
+
+1. Meat slicer:  
+   - Hams require 4 hours/batch  
+   - Pork ribs require 2 hours/batch  
+   Total slicer usage:
+   \[
+   4x + 2y \le 4000
+   \]
+
+2. Meat packer:  
+   - Hams require 2.5 hours/batch  
+   - Pork ribs require 3.5 hours/batch  
+   Total packer usage:
+   \[
+   2.5x + 3.5y \le 4000
+   \]
+
+Nonnegativity:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+### 4. Complete linear program
+
+\[
+\begin{aligned}
+\text{Maximize } & Z = 150x + 300y \\
+\text{subject to } 
+& 4x + 2y \le 4000 \quad \text{(slicer hours)} \\
+& 2.5x + 3.5y \le 4000 \quad \text{(packer hours)} \\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+This is a standard linear programming (LP) problem.
+
+---
+
+### 5. Solving the model in Python
+
+This can be solved with any LP solver. Recommended libraries:
+
+- **PuLP** (`pulp`): very straightforward for teaching and small LPs.
+- **SciPy** (`scipy.optimize.linprog`): good if you’re already in a scientific Python stack.
+- **OR-Tools** (`ortools.linear_solver`): powerful and fast, also supports integer programming easily.
+
+#### Example with PuLP
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("MeatPlantProfitMax", pl.LpMaximize)
+
+# Decision variables (continuous, nonnegative)
+x = pl.LpVariable("Hams", lowBound=0)
+y = pl.LpVariable("Ribs", lowBound=0)
+
+# Objective function
+prob += 150 * x + 300 * y
+
+# Constraints
+prob += 4 * x + 2 * y <= 4000, "SlicerHours"
+prob += 2.5 * x + 3.5 * y <= 4000, "PackerHours"
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal hams (batches):", x.value())
+print("Optimal ribs (batches):", y.value())
+print("Maximum profit:", pl.value(prob.objective))
+```
+
+This gives the optimal number of batches of hams and pork ribs to produce in order to maximize profit under the given machine hour constraints.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("MeatPlantProfitMax", pl.LpMaximize)
+
+    # Decision variables (continuous, nonnegative)
+    x = pl.LpVariable("Hams", lowBound=0)
+    y = pl.LpVariable("Ribs", lowBound=0)
+
+    # Objective function: Maximize profit
+    prob += 150 * x + 300 * y
+
+    # Constraints
+    prob += 4 * x + 2 * y <= 4000, "SlicerHours"
+    prob += 2.5 * x + 3.5 * y <= 4000, "PackerHours"
+
+    # Solve the LP
+    prob.solve()
+
+    # Get objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print results (optional details)
+    print("Status:", pl.LpStatus[prob.status])
+    print("Optimal hams (batches):", x.value())
+    print("Optimal ribs (batches):", y.value())
+    print("Maximum profit:", final_obj)
+
+    # Final required output
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

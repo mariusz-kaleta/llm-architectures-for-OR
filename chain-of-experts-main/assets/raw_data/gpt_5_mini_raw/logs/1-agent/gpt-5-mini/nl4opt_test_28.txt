@@ -1,0 +1,35 @@
+[MONOLITH]:
+import pulp
+
+# Data (initialized directly from the problem statement)
+DogCapability = 100
+TruckCapability = 300
+DogCost = 50
+TruckCost = 100
+MaxBudget = 1000
+
+# Define the LP problem (maximize transported fish)
+prob = pulp.LpProblem("Fish_Transport_Maximization", pulp.LpMaximize)
+
+# Decision variables: number of dog trips (x) and truck trips (y)
+# Trips must be integer and non-negative
+x = pulp.LpVariable("DogTrips", lowBound=0, cat=pulp.LpInteger)
+y = pulp.LpVariable("TruckTrips", lowBound=0, cat=pulp.LpInteger)
+
+# Objective: maximize total fish transported
+prob += DogCapability * x + TruckCapability * y, "Total_Fish"
+
+# Budget constraint
+prob += DogCost * x + TruckCost * y <= MaxBudget, "Budget"
+
+# Number of sled dog trips must be less than the number of truck trips:
+# x <= y - 1  ->  x - y <= -1
+prob += x - y <= -1, "DogTrips_Less_Than_TruckTrips"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve final objective value
+final_obj = pulp.value(prob.objective)
+
+print(f"FINAL_OBJ: {final_obj}")

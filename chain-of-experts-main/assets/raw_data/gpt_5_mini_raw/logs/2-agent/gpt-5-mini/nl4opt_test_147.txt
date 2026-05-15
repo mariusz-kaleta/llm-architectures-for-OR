@@ -1,0 +1,87 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - c ∈ Z≥0 : number of cars used
+  - b ∈ Z≥0 : number of buses used
+
+- Objective
+  - Minimize total pollution: minimize Z = 10 c + 30 b
+
+- Constraints
+  - Transport requirement: 4 c + 20 b ≥ 300
+  - Bus availability: 0 ≤ b ≤ 4
+  - Integrality & nonnegativity: c, b integers and ≥ 0
+
+Remarks: A car carries 4 employees and emits 10 pollution units (2.5 per person). A bus carries 20 and emits 30 units (1.5 per person), so buses are more pollution-efficient; this suggests using as many buses as allowed.
+
+Solve analytically
+- Use the maximum allowed buses, b = 4 (capacity 80). Remaining employees: 300 − 80 = 220 → cars needed c = ceil(220 / 4) = 55.
+- Total pollution = 10·55 + 30·4 = 550 + 120 = 670.
+
+Hence optimal solution: use 55 cars and 4 buses, producing 670 units of pollution.
+
+Suggested Python solvers
+- pulp (linear/integer programming, easy to use)
+- OR-Tools CP-SAT (fast integer solver)
+- pyomo + a MILP solver (CBC, GLPK, Gurobi, CPLEX)
+(Scipy.optimize is not ideal because this is an integer program.)
+
+Example (pulp)
+```python
+import pulp
+
+# Variables
+c = pulp.LpVariable('cars', lowBound=0, cat='Integer')
+b = pulp.LpVariable('buses', lowBound=0, upBound=4, cat='Integer')
+
+# Problem
+prob = pulp.LpProblem('min_pollution', pulp.LpMinimize)
+prob += 10*c + 30*b                     # objective
+prob += 4*c + 20*b >= 300               # transport constraint
+
+prob.solve()
+print('cars =', int(pulp.value(c)))
+print('buses =', int(pulp.value(b)))
+print('pollution =', pulp.value(prob.objective))
+```
+
+This returns cars = 55, buses = 4, pollution = 670.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data
+total_people = 300
+car_capacity = 4
+bus_capacity = 20
+pollution_car = 10
+pollution_bus = 30
+max_buses = 4
+
+# Search over feasible integer bus counts (0..max_buses)
+best_obj = None
+best_c = None
+best_b = None
+
+for b in range(0, max_buses + 1):
+    remaining = total_people - b * bus_capacity
+    if remaining <= 0:
+        c = 0
+    else:
+        c = math.ceil(remaining / car_capacity)
+    obj = pollution_car * c + pollution_bus * b
+    if (best_obj is None) or (obj < best_obj) or (obj == best_obj and b > best_b):
+        best_obj = obj
+        best_c = c
+        best_b = b
+
+# Optional: print chosen solution details
+print(f"Optimal cars: {best_c}")
+print(f"Optimal buses: {best_b}")
+print(f"Pollution: {best_obj}")
+
+# Final required output line (must be exactly this format)
+print(f"FINAL_OBJ: {best_obj}")

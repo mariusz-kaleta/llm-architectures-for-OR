@@ -1,0 +1,38 @@
+[MONOLITH]:
+import pulp
+
+# Decision variables: x = gallons of chocolate, y = gallons of vanilla
+# Bounds and data taken directly from the problem statement
+profit_chocolate = 200
+profit_vanilla = 300
+
+# Create the problem
+prob = pulp.LpProblem("IceCream_Production", pulp.LpMaximize)
+
+# Variables with bounds: at least 5 each, at most 10 chocolate and 8 vanilla
+x = pulp.LpVariable('chocolate_gallons', lowBound=5, upBound=10, cat='Continuous')
+y = pulp.LpVariable('vanilla_gallons', lowBound=5, upBound=8, cat='Continuous')
+
+# Objective: maximize profit
+prob += profit_chocolate * x + profit_vanilla * y
+
+# Time constraint: 1 hour per gallon chocolate, 2 hours per gallon vanilla, 30 hours available
+prob += 1 * x + 2 * y <= 30, "Time_Availability"
+
+# Worker constraint interpreted as: 1 worker per gallon chocolate and 2 per gallon vanilla,
+# and at least 6 workers are needed (this constraint is redundant given x,y >=5 but included for completeness)
+prob += 1 * x + 2 * y >= 6, "Minimum_Workers"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve results
+x_val = pulp.value(x)
+y_val = pulp.value(y)
+obj_val = pulp.value(prob.objective)
+
+# Print results
+print(f"Optimal chocolate gallons: {x_val}")
+print(f"Optimal vanilla gallons: {y_val}")
+print(f"Optimal profit: {obj_val}")
+print(f"FINAL_OBJ: {obj_val}")

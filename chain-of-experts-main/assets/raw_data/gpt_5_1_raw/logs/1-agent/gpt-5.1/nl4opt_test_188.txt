@@ -1,0 +1,43 @@
+[MONOLITH]:
+import pulp
+
+# Initialize the problem: minimize total number of furnaces
+problem = pulp.LpProblem("Furnace_Selection", pulp.LpMinimize)
+
+# Decision variables: number of new and old model furnaces
+xN = pulp.LpVariable('New_Furnaces', lowBound=0, cat='Integer')
+xO = pulp.LpVariable('Old_Furnaces', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of furnaces
+problem += xN + xO, "Total_Furnaces"
+
+# Constraints:
+
+# Heating capacity: at least 200 apartments
+problem += 10 * xN + 15 * xO >= 200, "Heating_Requirement"
+
+# Electricity availability: at most 3500 kWh
+problem += 200 * xN + 250 * xO <= 3500, "Electricity_Constraint"
+
+# At most 35% of furnaces can be old model: xO <= 0.35 * (xN + xO)
+# This is equivalent to: 0.65 * xO <= 0.35 * xN -> 13*xO <= 7*xN
+problem += 13 * xO <= 7 * xN, "Old_Model_Limit"
+
+# At least 5 new model furnaces
+problem += xN >= 5, "Min_New_Furnaces"
+
+# Solve the problem
+problem.solve(pulp.PULP_CBC_CMD(msg=0))
+
+# Retrieve solution
+new_furnaces = pulp.value(xN)
+old_furnaces = pulp.value(xO)
+final_obj = pulp.value(problem.objective)
+
+# Print solution details (not required but useful for completeness)
+print(f"New model furnaces: {new_furnaces}")
+print(f"Old model furnaces: {old_furnaces}")
+print(f"Total furnaces: {final_obj}")
+
+# Required final objective output
+print(f"FINAL_OBJ: {final_obj}")

@@ -1,0 +1,124 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- O = number of oranges (integer, O ≥ 0)
+- G = number of grapefruits (integer, G ≥ 0)
+
+Objective
+- Minimize total sugar S = 5 O + 6 G  (grams)
+
+Constraints
+- Vitamin C: 5 O + 7 G ≥ 80
+- Vitamin A: 3 O + 5 G ≥ 70
+- Preference: O ≥ 2 G
+
+Full mathematical program (integer linear program)
+minimize   S = 5 O + 6 G
+subject to
+    5 O + 7 G ≥ 80
+    3 O + 5 G ≥ 70
+    O − 2 G ≥ 0
+    O, G ∈ Z≥0
+
+Remarks on solution
+- If integrality is relaxed (continuous variables), the LP optimum is at O ≈ 12.727, G ≈ 6.364 with S ≈ 101.82 g.
+- With integer (whole fruits) variables, the optimal integer solution is:
+    O = 15 oranges, G = 5 grapefruits
+  This meets all constraints and minimizes sugar: S = 5·15 + 6·5 = 105 grams.
+
+Suggested Python libraries to solve
+- pulp (simple to express and solve integer LPs)
+- ortools (CP-SAT or linear solver, good for integer problems)
+- scipy.optimize (for continuous relaxation)
+- cvxpy (modeling, with integer support via solvers)
+
+Example using pulp (sketch)
+- Create LpVariables O and G with cat='Integer'
+- Add constraints 5*O + 7*G >= 80, 3*O + 5*G >= 70, O - 2*G >= 0
+- Minimize 5*O + 6*G
+- Solve and read O, G
+
+Answer: Eat 15 oranges and 5 grapefruits (total sugar = 105 g).
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Complete, self-contained script to solve the integer LP described.
+# It will try to use pulp if available; if not, it falls back to a brute-force search.
+
+from math import isfinite
+
+# Problem data (given)
+# Minimize S = 5*O + 6*G
+# subject to:
+#   5*O + 7*G >= 80
+#   3*O + 5*G >= 70
+#   O - 2*G >= 0
+#   O, G integer >= 0
+
+final_obj_value = None
+
+try:
+    import pulp
+
+    # Define problem
+    prob = pulp.LpProblem("Fruit_Min_Sugar", pulp.LpMinimize)
+
+    # Decision variables
+    O = pulp.LpVariable('O', lowBound=0, cat='Integer')
+    G = pulp.LpVariable('G', lowBound=0, cat='Integer')
+
+    # Objective
+    prob += 5 * O + 6 * G
+
+    # Constraints
+    prob += 5 * O + 7 * G >= 80
+    prob += 3 * O + 5 * G >= 70
+    prob += O - 2 * G >= 0
+
+    # Solve quietly
+    solver = pulp.PULP_CBC_CMD(msg=False)
+    prob.solve(solver)
+
+    val_O = O.varValue
+    val_G = G.varValue
+
+    if val_O is None or val_G is None:
+        raise RuntimeError("Solver failed to find a solution with pulp.")
+
+    # Ensure integer values
+    val_O_int = int(round(val_O))
+    val_G_int = int(round(val_G))
+
+    final_obj_value = 5 * val_O_int + 6 * val_G_int
+
+except Exception:
+    # Fallback brute-force search (guaranteed to work without external solvers)
+    best = None
+    best_O = None
+    best_G = None
+    # Choose a reasonable upper bound for search. Nutrient requirements imply small numbers.
+    MAX_SEARCH = 200
+    for Oi in range(0, MAX_SEARCH + 1):
+        for Gi in range(0, MAX_SEARCH + 1):
+            if 5 * Oi + 7 * Gi < 80:
+                continue
+            if 3 * Oi + 5 * Gi < 70:
+                continue
+            if Oi - 2 * Gi < 0:
+                continue
+            S = 5 * Oi + 6 * Gi
+            if best is None or S < best:
+                best = S
+                best_O = Oi
+                best_G = Gi
+    if best is None:
+        raise RuntimeError("No feasible integer solution found in brute-force search.")
+    final_obj_value = best
+
+# Final output exactly in required format
+print(f"FINAL_OBJ: {final_obj_value}")
+```

@@ -1,0 +1,108 @@
+[MODELER]:
+Here is a clean mathematical model of the problem.
+
+### Decision variables
+Let  
+- \(x\) = number of medium-sized factories to build (integer, \(x \ge 0\))  
+- \(y\) = number of small factories to build (integer, \(y \ge 0\))
+
+### Objective
+Minimize the total number of factories:
+\[
+\min \; Z = x + y
+\]
+
+### Constraints
+
+1. **Production requirement (at least 250 toys/day):**  
+   Each medium factory makes 50 toys/day; each small factory makes 35 toys/day.
+   \[
+   50x + 35y \;\ge\; 250
+   \]
+
+2. **Operator availability (at most 16 operators):**  
+   Each medium factory uses 3 operators; each small factory uses 2 operators.
+   \[
+   3x + 2y \;\le\; 16
+   \]
+
+3. **Integrality and non-negativity:**
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+This is a small integer linear programming (ILP) problem.
+
+### Suitable Python libraries
+
+You can model and solve this with:
+
+- **PuLP** (`pulp`) – straightforward for teaching and small ILPs.
+- **OR-Tools Linear Solver** (`ortools.linear_solver.pywraplp`) – efficient and flexible.
+- **Pyomo** – more general modeling framework, also suitable.
+
+For a problem this size, `pulp` is an excellent simple choice.
+
+---
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("ToyFactoryPlanning", pl.LpMinimize)
+
+# Decision variables (non-negative integers)
+x = pl.LpVariable('medium_factories', lowBound=0, cat='Integer')
+y = pl.LpVariable('small_factories',  lowBound=0, cat='Integer')
+
+# Objective: minimize total number of factories
+prob += x + y
+
+# Constraints
+prob += 50*x + 35*y >= 250    # production
+prob += 3*x + 2*y <= 16       # operators
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Medium factories (x):", pl.value(x))
+print("Small factories  (y):", pl.value(y))
+print("Total factories:", pl.value(x + y))
+```
+
+Running this will give you the optimal numbers of medium and small factories that minimize \(x + y\) while satisfying the production and operator constraints.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("ToyFactoryPlanning", pl.LpMinimize)
+
+    # Decision variables (non-negative integers)
+    x = pl.LpVariable('medium_factories', lowBound=0, cat='Integer')
+    y = pl.LpVariable('small_factories', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of factories
+    prob += x + y
+
+    # Constraints
+    prob += 50 * x + 35 * y >= 250    # Production requirement
+    prob += 3 * x + 2 * y <= 16       # Operator availability
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    obj_value = pl.value(x + y)
+
+    # Final required print
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

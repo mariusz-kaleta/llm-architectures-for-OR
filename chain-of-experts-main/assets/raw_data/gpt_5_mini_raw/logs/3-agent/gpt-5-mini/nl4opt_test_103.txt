@@ -1,0 +1,70 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of hot-air balloon rides (integer, x ≥ 0, x ≤ 10)
+  - y = number of gondola rides (integer, y ≥ 0)
+
+- Objective
+  - Minimize total pollution P = 10x + 15y
+
+- Constraints
+  - Capacity: 4x + 6y ≥ 70 (at least 70 visitors transported)
+  - Hot-air balloon limit: 0 ≤ x ≤ 10
+  - Integrality: x, y integers (rides are countable)
+
+Mathematical formulation
+  minimize   P = 10x + 15y
+  subject to 4x + 6y ≥ 70
+             0 ≤ x ≤ 10, x ∈ Z
+             y ≥ 0, y ∈ Z
+
+Analysis and solution
+- Pollutio n per passenger is equal for both modes: 10/4 = 2.5 and 15/6 = 2.5. Hence P = 2.5(4x + 6y). To minimize P you therefore minimize the carried passengers subject to meeting the requirement: the minimum achievable RHS is 70, so the minimum pollution is Pmin = 2.5 × 70 = 175 units.
+- For integer solutions we need 4x + 6y = 70 (exact equality gives P = 175). Dividing by 2 gives 2x + 3y = 35. Integer solutions are x = 1 + 3k, y = (35 − 2x)/3 for integer k. With the constraint 0 ≤ x ≤ 10 the feasible integer x values are {1, 4, 7, 10}, giving corresponding y values {11, 9, 7, 5}. All four (x,y) pairs produce the same minimal pollution 175.
+
+A practical choice
+- One convenient optimal solution is x = 10 hot-air balloon rides and y = 5 gondola rides (produces exactly 4·10 + 6·5 = 70 seats and total pollution 175). Any of the other integer optimal pairs (1,11), (4,9), (7,7) are also optimal.
+
+Recommended solvers / libraries
+- For integer linear programming: PuLP (with CBC solver), OR-Tools (CP-SAT or linear solver), or Gurobi/Cplex if available.
+- For continuous LP relaxation: scipy.optimize.linprog.
+
+If you want, I can provide a short PuLP (or OR-Tools) script that computes these optimal integer solutions.
+
+---
+
+[CODER]:
+import math
+
+# Problem data
+c_x = 10  # pollution per hot-air balloon ride
+c_y = 15  # pollution per gondola ride
+cap_x = 4
+cap_y = 6
+required_visitors = 70
+x_min, x_max = 0, 10  # bounds for x
+
+best_obj = None
+best_solutions = []
+
+for x in range(x_min, x_max + 1):
+    remaining = required_visitors - cap_x * x
+    if remaining <= 0:
+        y_min = 0
+    else:
+        y_min = math.ceil(remaining / cap_y)
+    y = y_min
+    if y < 0:
+        continue
+    obj = c_x * x + c_y * y
+    if (best_obj is None) or (obj < best_obj):
+        best_obj = obj
+        best_solutions = [(x, y)]
+    elif obj == best_obj:
+        best_solutions.append((x, y))
+
+# Choose one optimal solution (not printed as per instructions)
+value = int(best_obj)
+
+print(f"FINAL_OBJ: {value}")

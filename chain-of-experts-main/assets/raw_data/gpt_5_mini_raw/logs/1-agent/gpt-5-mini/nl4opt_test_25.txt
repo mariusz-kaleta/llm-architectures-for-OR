@@ -1,0 +1,38 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization (from problem statement)
+# Medicines: Zodiac (x) and Sunny (y)
+cost = {'Zodiac': 1.0, 'Sunny': 3.0}
+z1_per = {'Zodiac': 1.3, 'Sunny': 1.2}   # grams of Z1 per pill
+d3_per = {'Zodiac': 1.5, 'Sunny': 5.0}   # grams of D3 per pill
+req_z1 = 5.0   # required grams of Z1 per day
+req_d3 = 10.0  # required grams of D3 per day
+
+# Define LP problem
+prob = pulp.LpProblem("Minimize_Medicine_Cost", pulp.LpMinimize)
+
+# Decision variables: number of pills of each type (continuous, >=0)
+x = pulp.LpVariable('Zodiac_pills', lowBound=0, cat='Continuous')
+y = pulp.LpVariable('Sunny_pills', lowBound=0, cat='Continuous')
+
+# Objective: minimize total cost
+prob += cost['Zodiac'] * x + cost['Sunny'] * y, "Total_Cost"
+
+# Constraints: satisfy minimum daily requirements
+prob += z1_per['Zodiac'] * x + z1_per['Sunny'] * y >= req_z1, "Z1_requirement"
+prob += d3_per['Zodiac'] * x + d3_per['Sunny'] * y >= req_d3, "D3_requirement"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract objective value
+final_obj = pulp.value(prob.objective)
+
+# (Optional) print variable values and status
+print(f"Status: {pulp.LpStatus[prob.status]}")
+print(f"Zodiac pills (x) = {x.value():.6f}")
+print(f"Sunny pills  (y) = {y.value():.6f}")
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {final_obj}")

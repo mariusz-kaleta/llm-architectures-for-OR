@@ -1,0 +1,88 @@
+[MODELER]:
+We want to model and solve: choose how many vans and trucks to use so that at least 2000 pairs of shoes are carried, the number of trucks does not exceed the number of vans, and the number of vans is as small as possible.
+
+Decision variables
+- v ∈ Z≥0 : number of vans
+- t ∈ Z≥0 : number of trucks
+
+Parameters
+- van capacity = 50 pairs
+- truck capacity = 100 pairs
+- required pairs = 2000
+
+Constraints
+1. Capacity: 50 v + 100 t ≥ 2000
+2. Truck limit: t ≤ v
+3. Integrality: v, t integers (nonnegative)
+
+Objective
+Minimize v
+
+Mathematical formulation
+minimize v
+subject to
+50 v + 100 t ≥ 2000
+t ≤ v
+v, t ∈ Z≥0
+
+Analytic reasoning (simple, exact)
+- To minimize v, for any given v you should maximize t subject to t ≤ v, so take t = v.
+- Substitute t = v into capacity: 50v + 100v = 150v ≥ 2000 → v ≥ 2000/150 = 13.333...
+- Smallest integer v satisfying that is v = 14. Then t = 14.
+- Check: capacity = 50·14 + 100·14 = 150·14 = 2100 ≥ 2000, and t ≤ v holds.
+
+Answer: Minimum number of vans is 14 (with 14 trucks).
+
+Suggested solvers / libraries
+- pulp (Python) — simple MILP interface using CBC/GUROBI/CPLEX if available.
+- OR-Tools CP-SAT (Google OR-Tools) — fast integer programming.
+- pyomo (with a solver backend) or gurobi/cplex if you have licenses.
+(scikit-learn/scipy.optimize are not ideal because they don't natively support integer variables; you could brute-force small discrete options without an IP solver.)
+
+Example (pulp) — conceptual snippet
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpInteger, PULP_CBC_CMD
+
+prob = LpProblem("MinimizeVans", LpMinimize)
+v = LpVariable('v', lowBound=0, cat=LpInteger)
+t = LpVariable('t', lowBound=0, cat=LpInteger)
+prob += v
+prob += 50*v + 100*t >= 2000
+prob += t <= v
+prob.solve(PULP_CBC_CMD(msg=False))
+print(v.value(), t.value())
+
+This will return v = 14, t = 14.
+
+---
+
+[CODER]:
+import math
+
+# Parameters
+van_capacity = 50
+truck_capacity = 100
+required_pairs = 2000
+
+# Search for feasible integer solutions (v, t) with v, t >= 0 and t <= v
+max_v_search = math.ceil(required_pairs / van_capacity)  # worst case all vans
+best_solution = None  # (v, t)
+
+for v in range(0, max_v_search + 1):
+    # For given v, minimal trucks needed (could be 0)
+    remaining = required_pairs - van_capacity * v
+    if remaining <= 0:
+        # no trucks needed
+        t_needed = 0
+    else:
+        t_needed = math.ceil(remaining / truck_capacity)
+    # Check truck limit t <= v
+    if t_needed <= v:
+        best_solution = (v, t_needed)
+        break  # first feasible v is minimal v
+
+if best_solution is None:
+    raise RuntimeError("No feasible solution found")
+
+v_min, t_for_v = best_solution
+# Objective value is v_min
+print(f"FINAL_OBJ: {v_min}")

@@ -1,0 +1,179 @@
+[MODELER]:
+Here is a precise mathematical model of the problem and how you would solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of motorcycles to purchase and use per shift  
+- \(y\) = number of sedans to purchase and use per shift  
+
+Assume \(x, y \ge 0\) and, realistically, integers (you can’t buy a fraction of a vehicle).
+
+---
+
+## 2. Objective function
+
+Each motorcycle earns \$100 per shift, each sedan earns \$225 per shift.  
+Maximize total earnings:
+
+\[
+\max\; Z = 100x + 225y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Capacity (people transported)
+
+Each motorcycle transports 30 people; each sedan transports 70 people.  
+Need at least 1200 people per shift:
+
+\[
+30x + 70y \;\ge\; 1200
+\]
+
+---
+
+### b) Pollution
+
+Each motorcycle produces 4 units of pollution; each sedan produces 15 units.  
+Total pollution must be less than 200 units. In optimization, “less than” is typically modeled as “less than or equal,” since the optimal solution naturally won’t exceed it:
+
+\[
+4x + 15y \;\le\; 200
+\]
+
+---
+
+### c) Motorcycle share (at most 25% of vehicles)
+
+At most 25% of the fleet can be motorcycles:
+
+\[
+x \;\le\; 0.25(x + y)
+\]
+
+Rewriting:
+
+\[
+x \le \frac{1}{4}(x+y)
+\quad\Rightarrow\quad
+4x \le x + y
+\quad\Rightarrow\quad
+3x \le y
+\]
+
+So we use:
+
+\[
+3x - y \;\le\; 0
+\]
+
+---
+
+### d) Non-negativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+(You may also first solve the linear program with \(x, y \ge 0\) continuous, and then verify integrality.)
+
+---
+
+## 4. Complete model (linear integer program)
+
+\[
+\begin{aligned}
+\text{Maximize}\quad
+& Z = 100x + 225y \\
+\text{subject to}\quad
+& 30x + 70y \;\ge\; 1200 && \text{(transport at least 1200 people)} \\
+& 4x + 15y \;\le\; 200 && \text{(pollution limit)} \\
+& 3x - y \;\le\; 0 && \text{(at most 25% motorcycles)} \\
+& x, y \ge 0,\; x, y \in \mathbb{Z} && \text{(nonnegative integers)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+You can model and solve this using any linear/integer programming package, for example:
+
+- **PuLP** (pure Python, easy for education and small–medium problems)
+- **OR-Tools** (Google’s optimization suite; has a linear solver and CP-SAT for integer problems)
+- **Pyomo** (more general algebraic modeling language)
+- **SciPy** (`scipy.optimize.linprog`) for the *continuous* version only; not ideal for integrality
+
+For this problem, **PuLP** or **OR-Tools** is ideal.
+
+---
+
+## 6. Example PuLP formulation (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Taxi_Vehicle_Selection", pl.LpMaximize)
+
+# Decision variables (integer)
+x = pl.LpVariable('motorcycles', lowBound=0, cat='Integer')
+y = pl.LpVariable('sedans',      lowBound=0, cat='Integer')
+
+# Objective
+prob += 100*x + 225*y, "Total_Earnings"
+
+# Constraints
+prob += 30*x + 70*y >= 1200, "Capacity"
+prob += 4*x  + 15*y <= 200,  "Pollution"
+prob += 3*x  -  y   <= 0,    "Motorcycle_Share"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Motorcycles:", x.value())
+print("Sedans:", y.value())
+print("Total earnings:", pl.value(prob.objective))
+```
+
+This code directly corresponds to the mathematical model above and will return the optimal numbers of motorcycles and sedans to maximize earnings under the given constraints.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Taxi_Vehicle_Selection", pl.LpMaximize)
+
+    # Decision variables (integer, non-negative)
+    x = pl.LpVariable('motorcycles', lowBound=0, cat='Integer')
+    y = pl.LpVariable('sedans', lowBound=0, cat='Integer')
+
+    # Objective function
+    prob += 100 * x + 225 * y, "Total_Earnings"
+
+    # Constraints
+    prob += 30 * x + 70 * y >= 1200, "Capacity"
+    prob += 4 * x + 15 * y <= 200, "Pollution"
+    prob += 3 * x - y <= 0, "Motorcycle_Share"
+
+    # Solve the MILP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(prob.objective)
+
+    # Final required print
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

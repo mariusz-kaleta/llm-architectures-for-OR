@@ -1,0 +1,234 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Minimise the total cost of the plant growth compound while meeting required nutrient levels (nitrous oxide and vitamin mix).
+
+2. Suggested model type  
+   - Model: Linear Programming (LP), two-variable continuous model.
+
+3. Main decision variables  
+   Define continuous variables representing how much of each fertilizer to include:
+   - Variable 1: Quantity of Fertilizer C to use (kg).  
+   - Variable 2: Quantity of Fertilizer Y to use (kg).
+
+4. Key constraints to consider  
+
+   a) Nutrient requirement constraints  
+   - Nitrous oxide requirement:  
+     The total nitrous oxide from C and Y must be at least 5 units.  
+     • Each kg of C provides 1.5 units.  
+     • Each kg of Y provides 5 units.  
+     Form a constraint to ensure:  
+     (nitrous from C) + (nitrous from Y) ≥ 5.
+
+   - Vitamin mix requirement:  
+     The total vitamin mix from C and Y must be at least 8 units.  
+     • Each kg of C provides 3 units.  
+     • Each kg of Y provides 1 unit.  
+     Form a constraint to ensure:  
+     (vitamins from C) + (vitamins from Y) ≥ 8.
+
+   b) Non-negativity constraints  
+   - Both quantities of fertilizers must be non-negative (cannot use negative kg):  
+     • Quantity of C ≥ 0.  
+     • Quantity of Y ≥ 0.
+
+5. Objective function structure  
+   - Total cost = (cost per kg of C) × (kg of C) + (cost per kg of Y) × (kg of Y).  
+   - Use the given costs:  
+     • Fertilizer C: $2/kg.  
+     • Fertilizer Y: $3/kg.  
+   - Construct the objective to minimise this total cost subject to the above constraints.
+
+6. Modelling/solution strategy  
+   - Since there are only two decision variables, the modeller could:
+     • Solve via standard LP methods (e.g., simplex) or  
+     • Use graphical solution: plot both nutrient constraints in the (C, Y) plane, identify the feasible region, then evaluate the cost at corner points.  
+   - Identify the corner points where constraints intersect (especially where nitrous and vitamin constraints are binding) and compute total cost at each to find the minimum.
+
+7. Output required  
+   - Optimal quantities of Fertilizer C and Y (in kg).  
+   - Minimum total cost of the compound.  
+   - (Optionally) Verify that nutrient requirements are satisfied at the optimal solution by computing total nitrous oxide and vitamin mix.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model and how you would implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_C \ge 0\): kilograms of Fertilizer C to include  
+- \(x_Y \ge 0\): kilograms of Fertilizer Y to include
+
+These are continuous variables.
+
+---
+
+## 2. Objective function (minimise cost)
+
+Cost per kg:
+
+- Fertilizer C: \$2/kg  
+- Fertilizer Y: \$3/kg  
+
+Total cost:
+
+\[
+\text{Minimize } Z = 2x_C + 3x_Y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Nitrous oxide requirement
+
+Need at least 5 units of nitrous oxide:
+
+- C provides 1.5 units/kg  
+- Y provides 5 units/kg  
+
+\[
+1.5x_C + 5x_Y \;\ge\; 5
+\]
+
+### b) Vitamin mix requirement
+
+Need at least 8 units of vitamin mix:
+
+- C provides 3 units/kg  
+- Y provides 1 unit/kg  
+
+\[
+3x_C + 1x_Y \;\ge\; 8
+\]
+
+### c) Non-negativity
+
+\[
+x_C \ge 0,\quad x_Y \ge 0
+\]
+
+---
+
+## 4. Full LP model
+
+\[
+\begin{align}
+\min_{x_C, x_Y} \quad & Z = 2x_C + 3x_Y \\
+\text{s.t.} \quad
+& 1.5x_C + 5x_Y \ge 5 \\
+& 3x_C + x_Y \ge 8 \\
+& x_C \ge 0, \; x_Y \ge 0
+\end{align}
+\]
+
+Output needed:
+
+- Optimal \(x_C^*\), \(x_Y^*\)
+- Minimum cost \(Z^*\)
+- Check nutrient totals:
+  - Nitrous: \(1.5x_C^* + 5x_Y^*\)
+  - Vitamins: \(3x_C^* + x_Y^*\)
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard LP solver works; for this size all are overkill but convenient:
+
+- `PuLP` (very simple modeling interface; pure Python)
+- `scipy.optimize.linprog` (basic LP in SciPy)
+- `ortools.linear_solver` (Google OR-Tools; powerful but more verbose)
+
+For teaching / clarity, `PuLP` is a good choice.
+
+---
+
+## 6. Example in Python with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("FertilizerMix", pl.LpMinimize)
+
+# Decision variables
+x_C = pl.LpVariable('x_C', lowBound=0)  # kg of C
+x_Y = pl.LpVariable('x_Y', lowBound=0)  # kg of Y
+
+# Objective: minimize cost
+prob += 2 * x_C + 3 * x_Y
+
+# Constraints
+prob += 1.5 * x_C + 5 * x_Y >= 5      # nitrous oxide
+prob += 3 * x_C + 1 * x_Y >= 8        # vitamin mix
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Results
+xC_opt = pl.value(x_C)
+xY_opt = pl.value(x_Y)
+Z_opt  = pl.value(prob.objective)
+
+nitrous  = 1.5 * xC_opt + 5 * xY_opt
+vitamins = 3 * xC_opt + 1 * xY_opt
+
+print("Optimal kg of C:", xC_opt)
+print("Optimal kg of Y:", xY_opt)
+print("Minimum cost: $", Z_opt)
+print("Nitrous oxide units:", nitrous)
+print("Vitamin units:", vitamins)
+```
+
+This will return the optimal mix and verify that both nutrient requirements are satisfied.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the LP problem
+    prob = pl.LpProblem("FertilizerMix", pl.LpMinimize)
+
+    # Decision variables
+    x_C = pl.LpVariable('x_C', lowBound=0)  # kg of Fertilizer C
+    x_Y = pl.LpVariable('x_Y', lowBound=0)  # kg of Fertilizer Y
+
+    # Objective function: Minimize total cost
+    prob += 2 * x_C + 3 * x_Y
+
+    # Constraints
+    prob += 1.5 * x_C + 5 * x_Y >= 5      # Nitrous oxide requirement
+    prob += 3 * x_C + 1 * x_Y >= 8        # Vitamin mix requirement
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Retrieve optimal values
+    xC_opt = pl.value(x_C)
+    xY_opt = pl.value(x_Y)
+    Z_opt = pl.value(prob.objective)
+
+    # Compute nutrient totals
+    nitrous = 1.5 * xC_opt + 5 * xY_opt
+    vitamins = 3 * xC_opt + 1 * xY_opt
+
+    # Print detailed results
+    print("Optimal kg of Fertilizer C (x_C):", xC_opt)
+    print("Optimal kg of Fertilizer Y (x_Y):", xY_opt)
+    print("Minimum total cost Z*: $", Z_opt)
+    print("Nitrous oxide units:", nitrous)
+    print("Vitamin mix units:", vitamins)
+
+    # Final required objective value print
+    print(f"FINAL_OBJ: {Z_opt}")
+
+if __name__ == "__main__":
+    main()

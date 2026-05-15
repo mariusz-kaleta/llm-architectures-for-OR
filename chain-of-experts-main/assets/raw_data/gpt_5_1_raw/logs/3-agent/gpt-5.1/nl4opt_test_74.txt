@@ -1,0 +1,237 @@
+[MODELER]:
+Here’s a clean optimization formulation of the problem and how you’d solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x \ge 0\): number of painkiller pills  
+- \(y \ge 0\): number of sleeping pills  
+
+(We will later remember that these should be integers in a real setting, but mathematically the LP can be solved in the continuous domain first.)
+
+---
+
+## 2. Objective
+
+Each pill uses digestive medicine:
+
+- Painkiller: 3 units per pill  
+- Sleeping pill: 5 units per pill  
+
+Total digestive medicine used:
+\[
+D = 3x + 5y
+\]
+
+**Objective:** minimize total digestive medicine  
+\[
+\min\; 3x + 5y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Morphine availability
+
+Total morphine available: 3000 mg.
+
+- Painkiller: 10 mg per pill  
+- Sleeping pill: 6 mg per pill  
+
+So:
+\[
+10x + 6y \le 3000
+\]
+
+---
+
+### b) Minimum number of painkillers
+
+At least 50 painkiller pills:
+\[
+x \ge 50
+\]
+
+---
+
+### c) Sleeping pills at least 70% of all pills
+
+Sleeping pills must be at least 70% of total pills:
+
+\[
+y \ge 0.7(x + y)
+\]
+
+Rearrange:
+\[
+y \ge 0.7x + 0.7y \\
+y - 0.7y \ge 0.7x \\
+0.3y \ge 0.7x \\
+y \ge \frac{7}{3}x
+\]
+
+So:
+\[
+y \ge \frac{7}{3}x
+\]
+
+---
+
+### d) Non-negativity
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+Combined model:
+
+\[
+\begin{aligned}
+\min\quad & 3x + 5y \\
+\text{s.t.}\quad
+& 10x + 6y \le 3000 \\
+& x \ge 50 \\
+& y \ge \frac{7}{3}x \\
+& x, y \ge 0
+\end{aligned}
+\]
+
+---
+
+## 4. Solving analytically
+
+Because more sleeping pills are forced (which use *more* digestive medicine per pill), and we’re minimizing digestive medicine, we expect the solution to be at the **minimum allowed** numbers of pills that satisfy all constraints.
+
+Use \(y = \frac{7}{3}x\) (minimum y that still satisfies 70% sleeping condition) to reduce to one variable and then impose morphine and x ≥ 50.
+
+Morphine constraint:
+\[
+10x + 6y \le 3000
+\]
+Substitute \(y = \frac{7}{3}x\):
+
+\[
+10x + 6\left(\frac{7}{3}x\right) \le 3000 \\
+10x + 14x \le 3000 \\
+24x \le 3000 \\
+x \le 125
+\]
+
+We also must have:
+- \(x \ge 50\)
+- \(y = \frac{7}{3}x\)
+
+Objective with that substitution:
+\[
+D(x) = 3x + 5\left(\frac{7}{3}x\right) = 3x + \frac{35}{3}x = \frac{44}{3}x
+\]
+
+This is **increasing** in \(x\) (coefficient positive), so to minimize \(D\), choose the smallest feasible \(x\):
+
+\[
+x^* = 50,\quad y^* = \frac{7}{3} \cdot 50 = \frac{350}{3} \approx 116.67
+\]
+
+Check morphine usage:
+\[
+10x^* + 6y^* = 10 \cdot 50 + 6\cdot\frac{350}{3} = 500 + 700 = 1200 \le 3000
+\]
+So morphine is not binding; only the 70% and minimum painkiller constraints bind.
+
+If you require **integer** numbers of pills, you’d typically solve this as an integer program. For example, the smallest integer solution that respects \(y \ge \frac{7}{3}x\) and \(x \ge 50\) is:
+
+- Try \(x = 50 \Rightarrow y \ge 116.\overline{6}\), so \(y \ge 117\).  
+  Check morphine: \(10\cdot 50 + 6\cdot 117 = 500 + 702 = 1202 \le 3000\) (feasible).
+- Digestive: \(3\cdot 50 + 5\cdot 117 = 150 + 585 = 735\).
+
+This is the likely integer optimum (you can verify via a solver).
+
+---
+
+## 5. Recommended Python libraries and formulation
+
+This is a small linear (and optionally integer) optimization problem. Suitable libraries:
+
+- `PuLP` – simple modeling and uses CBC by default (LP/MIP).
+- `ortools.linear_solver` from Google OR-Tools – efficient for LP/MIP.
+- `scipy.optimize.linprog` – only if you treat it as continuous (no integer requirement).
+
+### Example model in PuLP (with integer pills)
+
+```python
+import pulp as pl
+
+# Define problem: minimize total digestive medicine
+prob = pl.LpProblem("Pharmacy_Production", pl.LpMinimize)
+
+# Decision variables (integers)
+x = pl.LpVariable('painkillers', lowBound=50, cat='Integer')
+y = pl.LpVariable('sleeping_pills', lowBound=0, cat='Integer')
+
+# Objective
+prob += 3 * x + 5 * y
+
+# Constraints
+prob += 10 * x + 6 * y <= 3000            # morphine limit
+prob += y >= (7.0 / 3.0) * x              # at least 70% sleeping pills
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Painkillers:", x.value())
+print("Sleeping pills:", y.value())
+print("Total digestive medicine:", pl.value(prob.objective))
+```
+
+You can do the same in OR-Tools’ MIP solver (`pywraplp.Solver.CreateSolver('CBC')`) if you prefer.
+
+---
+
+**Summary model**
+
+- Variables: \(x\) = painkiller pills, \(y\) = sleeping pills  
+- Objective: \(\min 3x + 5y\)  
+- Constraints:
+  - \(10x + 6y \le 3000\)
+  - \(x \ge 50\)
+  - \(y \ge \frac{7}{3}x\)
+  - \(x, y \ge 0\); optionally \(x,y \in \mathbb{Z}\)
+
+For a continuous LP solution: \(x^* = 50\), \(y^* = 350/3\). For an integer solution, a solver like PuLP/OR-Tools will give \(x = 50, y = 117\).
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem: minimize total digestive medicine
+    prob = pl.LpProblem("Pharmacy_Production", pl.LpMinimize)
+
+    # Decision variables (integers)
+    x = pl.LpVariable('painkillers', lowBound=50, cat='Integer')
+    y = pl.LpVariable('sleeping_pills', lowBound=0, cat='Integer')
+
+    # Objective: minimize 3x + 5y
+    prob += 3 * x + 5 * y
+
+    # Constraints
+    prob += 10 * x + 6 * y <= 3000          # Morphine availability
+    prob += y >= (7.0 / 3.0) * x            # Sleeping pills at least 70% of all pills
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print required final objective
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

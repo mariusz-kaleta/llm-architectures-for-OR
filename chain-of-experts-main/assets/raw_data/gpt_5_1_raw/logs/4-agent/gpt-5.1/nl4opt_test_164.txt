@@ -1,0 +1,229 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximise total profit from selling and installing refrigerators and stoves, given limited mover time and setup time.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with two decision variables and two resource constraints.  
+   - This is a continuous LP; if needed, integrality can be added later (but will not change much with the given scales).
+
+3. Main decision variables  
+   - Let:
+     - Variable 1: Number of refrigerators to sell and install.  
+     - Variable 2: Number of stoves to sell and install.
+   - Both variables are nonnegative (cannot sell a negative quantity).
+
+4. Objective function structure  
+   - Maximise total profit = (profit per refrigerator × number of refrigerators) + (profit per stove × number of stoves).  
+   - Use coefficients:  
+     - Profit per refrigerator: 400  
+     - Profit per stove: 260
+
+5. Key constraints to consider  
+
+   a) Mover time capacity  
+   - Each refrigerator uses 60 minutes of mover time.  
+   - Each stove uses 45 minutes of mover time.  
+   - Total mover time used by all refrigerators and stoves cannot exceed 20,000 minutes.
+
+   b) Setup time capacity  
+   - Each refrigerator uses 20 minutes of setup time.  
+   - Each stove uses 25 minutes of setup time.  
+   - Total setup time used by all refrigerators and stoves cannot exceed 13,000 minutes.
+
+   c) Nonnegativity  
+   - Number of refrigerators ≥ 0  
+   - Number of stoves ≥ 0  
+
+   d) (Optional) Integrality  
+   - If desired, enforce that the number of refrigerators and stoves are integers, since you cannot sell fractional appliances. This turns the model into an Integer Linear Program (ILP), but given large capacities, continuous LP will likely produce integer or near-integer solutions.
+
+6. Modelling / solution approach  
+
+   - Set up the LP with:
+     - Two decision variables as defined above.
+     - One linear objective function (profit).
+     - Two linear inequality constraints for resource capacities plus nonnegativity constraints.
+   - Solve graphically (since 2 variables) or via any LP solver (e.g., simplex method).  
+   - Check profit at corner points (intersection of constraints and axes) to identify the optimal production mix.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model for the problem, plus how you would set it up in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x \ge 0\): number of refrigerators sold and installed  
+- \(y \ge 0\): number of stoves sold and installed  
+
+(Optionally, \(x, y \in \mathbb{Z}_{\ge 0}\) if you require integer quantities.)
+
+---
+
+## 2. Objective function
+
+Maximise total profit:
+
+\[
+\max\; Z = 400x + 260y
+\]
+
+where:
+
+- 400 = profit per refrigerator  
+- 260 = profit per stove  
+
+---
+
+## 3. Constraints
+
+### a) Mover time capacity
+
+Each refrigerator uses 60 minutes of mover time; each stove uses 45 minutes. Total mover time is limited to 20,000 minutes:
+
+\[
+60x + 45y \le 20000
+\]
+
+### b) Setup time capacity
+
+Each refrigerator uses 20 minutes of setup time; each stove uses 25 minutes. Total setup time is limited to 13,000 minutes:
+
+\[
+20x + 25y \le 13000
+\]
+
+### c) Nonnegativity
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+### d) (Optional) Integrality
+
+If you want integer solutions:
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete model (LP form)
+
+\[
+\begin{aligned}
+\max\quad & 400x + 260y \\
+\text{s.t.}\quad 
+& 60x + 45y \le 20000 \quad\text{(mover time)}\\
+& 20x + 25y \le 13000 \quad\text{(setup time)}\\
+& x \ge 0,\ y \ge 0
+\end{aligned}
+\]
+
+(And optionally \(x, y\) integer.)
+
+---
+
+## 5. Suitable Python libraries
+
+You can easily implement and solve this model with:
+
+- **PuLP** (`pulp`): simple and intuitive for linear and integer problems.
+- **OR-Tools Linear Solver** (`ortools.linear_solver`): robust and efficient, supports LP and MIP.
+- **SciPy** (`scipy.optimize.linprog`): good for continuous LP (no integrality).
+
+Because this is a small linear model, **PuLP** or **OR-Tools** are ideal.
+
+---
+
+## 6. Example in PuLP (continuous LP)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Appliance_Profit_Max", pl.LpMaximize)
+
+# Decision variables (continuous, nonnegative)
+x = pl.LpVariable('Refrigerators', lowBound=0)
+y = pl.LpVariable('Stoves', lowBound=0)
+
+# Objective
+prob += 400 * x + 260 * y
+
+# Constraints
+prob += 60 * x + 45 * y <= 20000, "Mover_time"
+prob += 20 * x + 25 * y <= 13000, "Setup_time"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Refrigerators =", x.value())
+print("Stoves =", y.value())
+print("Max profit =", pl.value(prob.objective))
+```
+
+---
+
+## 7. Example with integer decision variables (ILP, PuLP)
+
+```python
+import pulp as pl
+
+prob = pl.LpProblem("Appliance_Profit_Max_Int", pl.LpMaximize)
+
+# Integer variables
+x = pl.LpVariable('Refrigerators', lowBound=0, cat='Integer')
+y = pl.LpVariable('Stoves', lowBound=0, cat='Integer')
+
+prob += 400 * x + 260 * y
+prob += 60 * x + 45 * y <= 20000
+prob += 20 * x + 25 * y <= 13000
+
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Refrigerators (int) =", x.value())
+print("Stoves (int) =", y.value())
+print("Max profit (int) =", pl.value(prob.objective))
+```
+
+This fully encodes the text problem as a standard linear (or integer linear) optimisation model.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem (maximize profit)
+    prob = pl.LpProblem("Appliance_Profit_Max_Int", pl.LpMaximize)
+
+    # Integer decision variables
+    x = pl.LpVariable('Refrigerators', lowBound=0, cat='Integer')
+    y = pl.LpVariable('Stoves', lowBound=0, cat='Integer')
+
+    # Objective function
+    prob += 400 * x + 260 * y
+
+    # Constraints
+    prob += 60 * x + 45 * y <= 20000  # Mover time
+    prob += 20 * x + 25 * y <= 13000  # Setup time
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print required output
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,132 @@
+[MODELER]:
+**1. Define decision variables**
+
+Let  
+- \(x\): number of hot-air balloon rides (integer, \(x \ge 0\))  
+- \(y\): number of gondola lift rides (integer, \(y \ge 0\))
+
+**2. Objective**
+
+Minimize total pollution.
+
+- Each balloon ride produces 10 units of pollution.  
+- Each gondola ride produces 15 units of pollution.
+
+So the total pollution is:
+\[
+\text{Minimize } Z = 10x + 15y
+\]
+
+**3. Constraints**
+
+1. **Capacity (transport at least 70 visitors)**  
+   - Balloon: 4 visitors per ride  
+   - Gondola: 6 visitors per ride  
+
+   Total visitors carried must be at least 70:
+   \[
+   4x + 6y \ge 70
+   \]
+
+2. **Limit on balloon rides (at most 10)**  
+   \[
+   x \le 10
+   \]
+
+3. **Non-negativity and integrality**  
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+This is an **integer linear programming (ILP)** problem.
+
+---
+
+### Solving the model (by inspection / simple reasoning)
+
+Given \(x \le 10\) and 4 visitors per balloon:
+
+- Maximum visitors from balloons: \(4 \cdot 10 = 40\)
+- Remaining visitors must be transported by gondolas: at least \(70 - 40 = 30\)
+- Gondola capacity: 6 visitors each, so \(6y \ge 30 \Rightarrow y \ge 5\)
+
+Try \(x = 10, y = 5\):
+- Capacity: \(4(10) + 6(5) = 40 + 30 = 70\) (meets requirement)
+- Pollution: \(10(10) + 15(5) = 100 + 75 = 175\)
+
+Check if fewer balloons could help (recall balloons are less polluting per visitor):
+
+- Pollution per visitor:
+  - Balloon: \(10/4 = 2.5\) units/visitor
+  - Gondola: \(15/6 = 2.5\) units/visitor
+
+They are **equally efficient** per visitor. So any combination that carries exactly 70 visitors will have the same pollution:
+\[
+\text{If } 4x + 6y = 70,\quad
+Z = 10x + 15y = 2.5 \cdot 70 = 175
+\]
+
+Thus we just need integer solutions to \(4x + 6y = 70\) with \(x \le 10\).
+
+Divide by 2:
+\[
+2x + 3y = 35
+\]
+Try integer \(y\) values until \(x\) is integer and \(x \le 10\):
+
+- \(y = 5 \Rightarrow 2x + 15 = 35 \Rightarrow 2x = 20 \Rightarrow x = 10\) (valid)
+- Any other integer \(y\) making \(x\) integer gives \(x > 10\) or negative.
+
+So the only feasible combination with exactly 70 visitors is:
+\[
+x = 10,\quad y = 5
+\]
+Pollution \(Z = 175\), and using more rides (i.e., >70 visitors) would only increase pollution because both modes have the same pollution per visitor.
+
+**Optimal solution:**
+- Hot-air balloon rides: **10**  
+- Gondola lift rides: **5**  
+- Minimum total pollution: **175 units**
+
+---
+
+### Suitable Python libraries
+
+This is an ILP and can be solved easily with:
+
+- **PuLP** (`pulp`) – simple modeling of linear and integer programs in Python.
+- **OR-Tools** (`ortools.linear_solver.pywraplp`) – Google’s optimization suite, also good for ILP.
+- **SciPy** (`scipy.optimize.linprog`) – suitable for linear programming, but does not handle integrality directly (you’d need to relax or handle integrality yourself).
+
+For this discrete, small ILP, **PuLP** or **OR-Tools** are the most straightforward choices.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem
+    prob = pulp.LpProblem("Minimize_Pollution", pulp.LpMinimize)
+
+    # Decision variables
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # Balloon rides
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # Gondola rides
+
+    # Objective function: Minimize total pollution
+    prob += 10 * x + 15 * y
+
+    # Constraints
+    prob += 4 * x + 6 * y >= 70   # Capacity
+    prob += x <= 10              # Balloon ride limit
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the final objective value
+    final_obj = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

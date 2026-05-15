@@ -1,0 +1,120 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Minimise the total number of teachers hired (total headcount = number of staff teachers + number of substitute teachers), subject to meeting the required teaching hours and staying within budget.
+
+2. Suggested model type
+- Model: Integer Linear Programming (ILP) / Mixed Integer Programming with two integer decision variables. (A small ILP can also be solved by straightforward enumeration.)
+
+3. Main decision variables
+- Number of staff teachers (integer, ≥ 0). Each staff teacher supplies one shift of 6 hours and costs $300.
+- Number of substitute teachers (integer, ≥ 0). Each substitute supplies one shift of 3 hours and costs $100.
+
+4. Key constraints to consider (described verbally)
+- Total hours constraint: Combined hours provided by staff and substitutes must be at least 1000 hours.
+- Budget constraint: Total payroll for all hired teachers must not exceed $40,000.
+- Integrality and non-negativity: Both decision variables must be whole non‑negative numbers (you cannot hire fractional teachers).
+- Implicit bounds: Upper bounds implied by budget (maximum possible staff = floor(budget / cost_per_staff); similarly for substitutes) can be used to restrict search space.
+
+5. Practical modelling/solution guidance for the Modeller
+- Pre-check feasibility: verify that at least one feasible combination exists (e.g., all substitutes would give 3 hours each; cost to reach 1000 hours with only substitutes is feasible).
+- Objective structure: minimise headcount (staff + subs). Because staff provide more hours per person (6 vs 3), the objective tends to favour staff, but staff are more expensive per teacher and more expensive per hour, so budget may force use of substitutes.
+- Solution method suggestions:
+  - Solve directly with an ILP solver (branch-and-bound) using the two integer variables and the two constraints above.
+  - Or perform small enumeration: iterate feasible values for number of staff (from 0 up to floor(budget/300)), for each compute the minimum number of substitutes required to meet the hours constraint, check the budget constraint, and record headcount; choose combination with smallest headcount (break ties by lower cost or fewer staff depending on policy).
+  - A linear-relaxation (allow fractional teachers) can provide a lower bound on headcount to prune search, but final solution must be integer.
+- Edge cases / checks:
+  - If multiple combinations yield the same minimal headcount, choose the one that better fits secondary preferences (e.g., lower total cost, more staff than substitutes, etc.).
+  - Explicitly report infeasibility if budget and hours cannot be satisfied together.
+  - Provide final outputs: optimal counts for staff and substitutes, total hours supplied, total cost, and verification that all constraints are satisfied.
+
+Deliver these components to the solver/implementation team so they can formulate the ILP, run the solver, and return the concrete optimal counts.
+
+---
+
+[MODELER]:
+Below is a compact, precise ILP formulation, a short analytic solution, and solver/implementation guidance.
+
+1) Decision variables
+- s ∈ Z≥0 : number of staff teachers (6 hours, $300 each)
+- t ∈ Z≥0 : number of substitute teachers (3 hours, $100 each)
+
+2) Objective
+- Minimise total headcount: minimize H = s + t
+
+3) Constraints
+- Hours requirement: 6 s + 3 t ≥ 1000
+- Budget: 300 s + 100 t ≤ 40000
+- Integrality & non-negativity: s, t ∈ Z≥0
+
+4) Simple analytic solution (exact)
+- From hours: t ≥ (1000 − 6s)/3
+- From budget: t ≤ (40000 − 300s)/100 = 400 − 3s
+- For feasibility we need (1000 − 6s)/3 ≤ 400 − 3s, which simplifies to s ≤ 200/3 ≈ 66.666 → s ≤ 66 (integer).
+- To minimize H = s + t, note that for fixed feasible s you should take the smallest feasible t (to meet hours). Thus set t = ceil((1000 − 6s)/3).
+- Since H decreases as s increases (because each extra staff reduces required substitutes faster than it increases headcount), the optimal s is the maximum feasible integer s = 66.
+- Compute t = ceil((1000 − 6·66)/3) = ceil(604/3) = 202.
+- Verify budget: 300·66 + 100·202 = 19800 + 20200 = 40000 (exact).
+- Verify hours: 6·66 + 3·202 = 396 + 606 = 1002 ≥ 1000.
+
+Optimal solution: hire s = 66 staff teachers and t = 202 substitute teachers.
+- Total headcount H = 268 (this is minimal).
+- Total hours = 1002 hours.
+- Total cost = $40,000 (meets budget exactly).
+
+5) Solver / implementation guidance
+- This is a tiny ILP (two integer variables). Methods:
+  - Direct ILP with pulp, ortools (pywraplp), or gurobi/cplex if available.
+  - Simple enumeration over s = 0..floor(40000/300)=133 (or 0..66 using feasibility check) computing minimal t = max(0, ceil((1000 − 6s)/3)) and testing budget — very fast and robust.
+  - Linear relaxation provides a lower bound but is unnecessary here.
+- Suggested Python libraries: pulp, ortools, scipy.optimize (for continuous relaxations), or direct brute-force with plain Python integers.
+
+6) Example outline of enumeration approach (pseudo-code)
+- best = +inf
+- for s in range(0, 67):  # 0..66 (upper bound derived above)
+    t_req = max(0, ceil((1000 - 6*s)/3))
+    if 300*s + 100*t_req <= 40000:
+        if s + t_req < best: record (s,t_req,best)
+- return recorded best (66,202)
+
+7) Edge cases / notes
+- If multiple (s,t) give same minimal headcount, break ties by lower total cost or by preference for more staff/less substitutes as policy requires.
+- If no feasible (s,t) exist, report infeasible (not the case here: all-substitute solution with 334 subs is feasible).
+
+If you want, I can provide ready-to-run Python code using pulp or a short brute-force script to produce the solution.
+
+---
+
+[CODER]:
+import math
+
+# Problem data
+hour_req = 1000
+budget = 40000
+cost_s = 300  # cost per staff teacher (6 hours)
+cost_t = 100  # cost per substitute teacher (3 hours)
+hours_s = 6
+hours_t = 3
+
+# Search bounds
+max_s = budget // cost_s  # upper bound on s by budget
+best = None  # will store tuple (H, total_cost, -s, s, t, total_hours)
+
+for s in range(0, max_s + 1):
+    # minimal t to meet hours requirement
+    t_req = max(0, math.ceil((hour_req - hours_s * s) / hours_t))
+    total_cost = cost_s * s + cost_t * t_req
+    total_hours = hours_s * s + hours_t * t_req
+    if total_cost <= budget and total_hours >= hour_req:
+        H = s + t_req
+        # tie-breaker: prefer lower headcount, then lower cost, then more staff (so use -s)
+        candidate = (H, total_cost, -s, s, t_req, total_hours)
+        if best is None or candidate < best:
+            best = candidate
+
+if best is None:
+    # No feasible solution
+    print(f"FINAL_OBJ: infeasible")
+else:
+    H, total_cost, negs, s_opt, t_opt, total_hours = best
+    # Final required print format
+    print(f"FINAL_OBJ: {H}")

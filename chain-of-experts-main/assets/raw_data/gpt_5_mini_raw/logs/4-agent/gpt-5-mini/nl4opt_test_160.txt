@@ -1,0 +1,117 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Minimise the total number of factories built (count of medium + small factories), while meeting daily production requirement and operator availability.
+
+2) Suggested model type
+- Model: Integer Linear Programming (ILP).  
+  Rationale: objective and constraints are linear in the counts of factories and factories must be integer (discrete counts). For this tiny problem a complete enumeration (bounded integer search) is also practical and straightforward.
+
+3) Main decision variables
+- Number of medium-sized factories (integer, ≥ 0).  
+- Number of small factories (integer, ≥ 0).
+
+(Interpretation note for the modeller: each variable represents how many factories of that type are built.)
+
+4) Key constraints to include (described conceptually)
+- Production constraint: total daily toy output from all factories must be at least 250 toys. (account for 50 toys/day per medium factory and 35 toys/day per small factory)
+- Operator availability constraint: total operators required by all built factories must not exceed 16 operators. (3 operators per medium factory, 2 per small factory)
+- Integrality and non‑negativity: both decision variables must be non‑negative integers (whole numbers).
+- Practical variable bounds (useful to restrict search space):  
+  - Upper bound for medium factories: at most 5 (because 5×50 reaches the 250 target and operator limit also bounds it).  
+  - Upper bound for small factories: at most 8 (because 8×35 exceeds 250 and operator limit also bounds it).  
+  Use these bounds to limit enumeration or solver domain.
+
+5) Optional refinements / tie‑breakers
+- If multiple integer solutions give the same minimal number of factories, add a secondary objective to minimize total operators used (or to minimize total unused capacity), implemented as a lexicographic or weighted objective.
+- If modelling cost differences matter later, extend objective to weighted sum (factories * cost).
+
+6) Recommended solving approach
+- Because the variable ranges are small, perform a simple integer search over the bounded pairs (medium = 0..5, small = 0..8), test feasibility (production and operator constraints), and pick the feasible pair with the smallest sum of factories. Alternatively, formulate as a 2‑variable ILP and solve with any integer solver.
+
+Deliverables expected from the modeller
+- The chosen feasible integer counts (number of medium and number of small factories) that minimize total factories.  
+- Indication of any tie-breaker chosen and the resulting secondary metric (e.g., operators used).
+
+---
+
+[MODELER]:
+Below is a concise formalisation of the problem as an Integer Linear Program, plus the optimal solution and solver suggestions.
+
+1) Decision variables
+- m ∈ Z≥0 : number of medium factories
+- s ∈ Z≥0 : number of small factories
+
+(Practical bounds that keep search small: 0 ≤ m ≤ 5, 0 ≤ s ≤ 8.)
+
+2) Objective
+Minimise total number of factories:
+minimize Z = m + s
+
+3) Constraints
+- Production requirement:
+50 m + 35 s ≥ 250
+- Operator availability:
+3 m + 2 s ≤ 16
+- Integrality and non-negativity:
+m, s ∈ Z≥0
+
+4) Optimal solution (by simple enumeration or ILP)
+Feasible integer pairs (m,s) that satisfy constraints were tested. The optimum minimizing m + s is:
+m = 5, s = 0
+Total factories = 5.
+Operators used = 3·5 + 2·0 = 15 (1 operator unused).
+This is unique: no feasible solution has fewer than 5 factories.
+
+(If a tie-breaker were needed, add a secondary objective like minimizing operators used: min 3m+2s, implemented lexicographically or via a small weight.)
+
+5) Suggested solving approaches / libraries
+- Simple brute force enumeration (very small search space): Python with itertools.
+- ILP solver libraries:
+  - PuLP (interfaces CBC, GLPK) — easy to set up.
+  - OR-Tools CP-SAT (good for small or larger integer problems).
+  - If you prefer commercial solvers: Gurobi / CPLEX.
+- SciPy (scipy.optimize) is not suitable directly because it does not support integer constraints.
+
+6) Example approaches (outline)
+- Brute force: loop m = 0..5, s = 0..8, check constraints, pick pair with minimum m+s (tie-break by operators if desired).
+- PuLP: declare Integer variables m,s; add constraints; set objective m+s; solve.
+
+If you want, I can:
+- provide a short ready-to-run Python snippet for brute-force enumeration, or
+- provide a PuLP / OR-Tools model implementation.
+
+---
+
+[CODER]:
+# Brute-force enumeration to solve the ILP:
+# min Z = m + s
+# s.t. 50 m + 35 s >= 250
+#      3 m + 2 s <= 16
+#      0 <= m <= 5, 0 <= s <= 8, integers
+
+best_obj = None
+best_m = None
+best_s = None
+best_ops = None
+
+for m in range(0, 6):       # 0..5
+    for s in range(0, 9):   # 0..8
+        if 50*m + 35*s >= 250 and 3*m + 2*s <= 16:
+            obj = m + s
+            ops = 3*m + 2*s
+            if best_obj is None:
+                best_obj = obj
+                best_ops = ops
+                best_m = m
+                best_s = s
+            else:
+                # primary objective: minimize obj
+                # tie-breaker: minimize operators used
+                if (obj < best_obj) or (obj == best_obj and ops < best_ops):
+                    best_obj = obj
+                    best_ops = ops
+                    best_m = m
+                    best_s = s
+
+# Print final objective value in required format
+print(f"FINAL_OBJ: {best_obj}")

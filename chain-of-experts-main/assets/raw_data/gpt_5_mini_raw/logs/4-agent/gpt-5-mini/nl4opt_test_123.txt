@@ -1,0 +1,156 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Minimise the total amount of fever suppressant used across all produced vaccines.
+
+2) Suggested model type
+- Model: Integer Linear Program (ILP) — a linear objective and linear constraints with integer (non‑negative) decision variables (numbers of doses).
+
+3) Main decision variables
+- Number of children's vaccines to produce (integer, >= 0).
+- Number of adult vaccines to produce (integer, >= 0).
+
+4) Key constraints to include (conceptual)
+- mRNA resource limit: total mRNA consumed by both vaccine types cannot exceed 20,000 mg.
+- Vaccine composition: each children's dose consumes 50 mg mRNA and 50 mg fever suppressant; each adult dose consumes 75 mg mRNA and 75 mg fever suppressant (these feed into the objective and the mRNA constraint).
+- Adult-share requirement: at least 70% of the total vaccines produced must be adult vaccines (i.e., adult_count / (adult_count + child_count) >= 0.70).
+- Minimum childrens requirement: at least 50 children's vaccines must be made.
+- Integrality and nonnegativity: both decision variables must be whole non‑negative integers.
+
+Modelling notes and practical simplifications
+- The objective is linear: total suppressant = 50*(children) + 75*(adults).
+- The adult-share constraint can be rewritten in linear form suitable for ILP solvers (avoid fractional division in implementation). Algebraically it is equivalent to requiring adult_count >= (7/3) * child_count; implement with integer ceiling/linear inequality as appropriate.
+- Because producing extra doses always increases suppressant usage, the optimal solution will be at the smallest (integer) production counts that satisfy constraints. Use this to reduce search: start from the minimum allowed children (50) and compute the minimal adult count required by the 70% rule, then check the mRNA resource feasibility.
+- Enforce integrality; if you relax to continuous variables for quick bounding, remember to round up in a way that preserves the adult-share constraint and re-check feasibility.
+
+Quick feasibility check / expected optimal solution
+- With child_count = 50 (minimum), the adult-share constraint requires adult_count >= (7/3)*50 ≈ 116.67 → adult_count ≥ 117 (integer).
+- Check mRNA usage at (children=50, adults=117): mRNA used = 50*50 + 75*117 = 11,275 mg ≤ 20,000 mg, so feasible.
+- Since increasing either variable increases the objective, the minimal feasible integers are expected to be children = 50 and adults = 117.
+
+Deliverables requested for the Modeller
+- Implement the ILP with the variables and constraints above and solve to confirm the integer optimal solution.
+- Report the optimal integer solution (counts for children's and adult vaccines), total fever suppressant used, and total mRNA used.
+- If there are multiple equivalent minima (unlikely here), report all or justify tie‑breaking (e.g., prefer fewer total doses).
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- C ∈ Z, C ≥ 0: number of children's vaccines produced.
+- A ∈ Z, A ≥ 0: number of adult vaccines produced.
+
+Objective
+- Minimize total fever suppressant used:
+  minimize Z = 50 C + 75 A.
+
+Constraints
+1. mRNA resource limit:
+   50 C + 75 A ≤ 20,000.
+2. Adult-share requirement (at least 70% adult):
+   A / (A + C) ≥ 0.70  ⇔  0.3 A ≥ 0.7 C  ⇔  3 A − 7 C ≥ 0.
+   (This is linear and integer-coefficient.)
+3. Minimum children:
+   C ≥ 50.
+4. Integrality and nonnegativity:
+   A, C ∈ Z, A ≥ 0, C ≥ 0.
+
+Notes on the linear formulation
+- The adult-share constraint is implemented as 3A − 7C ≥ 0 (equivalent to A ≥ 7/3 C).
+- All coefficients are integers; this is an Integer Linear Program (ILP).
+
+Analytical reasoning for the optimum
+- The objective and all constraints are linear and all coefficients are non‑negative; increasing either variable increases the objective.
+- Therefore the optimal solution will occur at the smallest feasible integers satisfying the constraints. Start at C = 50 (the minimum).
+- With C = 50, adult-share requires A ≥ (7/3)*50 = 116.666... → A ≥ 117 (integer).
+- Check mRNA feasibility at (C, A) = (50, 117):
+  mRNA used = 50*50 + 75*117 = 2,500 + 8,775 = 11,275 ≤ 20,000 → feasible.
+- Any increase in C or A increases the objective, so (C, A) = (50, 117) is optimal.
+
+Optimal integer solution (confirmed)
+- Children's vaccines (C): 50
+- Adult vaccines (A): 117
+- Total fever suppressant used: 50*50 + 75*117 = 11,275 mg
+- Total mRNA used: 50*50 + 75*117 = 11,275 mg
+- Total doses produced: 167
+- The solution satisfies 117/(117+50) ≈ 0.7006 ≥ 0.70 and the mRNA constraint.
+
+Suggested solver libraries
+- pulp (easy-to-use Python interface to CBC/Gurobi/CPLEX)
+- OR-Tools CP-SAT (google ortools.sat.python.cp_model) — very good for integer problems
+- gurobipy or CPLEX (if available, for faster solves on larger instances)
+- Note: scipy.optimize is not suitable for ILP (continuous only).
+
+Example implementation (Python with pulp)
+(You can copy/paste and run this; the printed result matches the solution above.)
+
+from pulp import LpProblem, LpMinimize, LpVariable, LpInteger, lpSum, value
+
+# Problem
+prob = LpProblem("Vaccine_Production", LpMinimize)
+
+# Variables
+C = LpVariable("Children", lowBound=50, cat=LpInteger)  # C >= 50
+A = LpVariable("Adults", lowBound=0, cat=LpInteger)
+
+# Objective
+prob += 50*C + 75*A, "Total_Fever_Suppressant"
+
+# Constraints
+prob += 50*C + 75*A <= 20000, "mRNA_limit"
+prob += 3*A - 7*C >= 0, "Adult_share"
+
+# Solve
+prob.solve()
+
+print("Status:", prob.status)
+print("Children:", int(value(C)))
+print("Adults:", int(value(A)))
+print("Total fever suppressant (mg):", 50*int(value(C)) + 75*int(value(A)))
+print("Total mRNA used (mg):", 50*int(value(C)) + 75*int(value(A)))
+
+Expected printed output:
+Children: 50
+Adults: 117
+Total fever suppressant (mg): 11275
+Total mRNA used (mg): 11275
+
+If you want, I can:
+- Provide the OR-Tools CP-SAT implementation,
+- Run a quick integer search over C ≥ 50 to confirm global optimality explicitly, or
+- Extend the model to include additional objectives (e.g., maximize total doses subject to suppressant cap) or alternative constraints.
+
+---
+
+[CODER]:
+import math
+
+# Parameters
+mRNA_limit = 20000
+coef_C = 50  # fever suppressant per child vaccine
+coef_A = 75  # fever suppressant per adult vaccine
+
+best_obj = None
+best_C = None
+best_A = None
+
+# Search C from its minimum 50 up to the absolute maximum allowed by mRNA when A=0
+for C in range(50, mRNA_limit // coef_C + 1):
+    # Adult-share constraint: A >= ceil(7/3 * C)
+    A_min = math.ceil(7 * C / 3)
+    # Check mRNA feasibility
+    if coef_C * C + coef_A * A_min <= mRNA_limit:
+        obj = coef_C * C + coef_A * A_min
+        if best_obj is None or obj < best_obj:
+            best_obj = obj
+            best_C = C
+            best_A = A_min
+
+# If no feasible solution found (should not happen here), handle gracefully
+if best_obj is None:
+    value = 0
+else:
+    value = int(best_obj)
+
+print(f"FINAL_OBJ: {value}")

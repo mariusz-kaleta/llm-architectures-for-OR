@@ -1,0 +1,177 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise total daily food cost while meeting minimum vitamin and mineral requirements.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with two decision variables (classic diet-type problem).
+
+3. Main decision variables  
+Define non‑negative continuous variables (or integer if servings must be whole numbers):
+
+- \(x_V\): Number of servings of vegetables per day.  
+- \(x_F\): Number of servings of fruits per day.
+
+4. Objective function (conceptual)  
+- Minimise total cost:  
+  - Vegetables: $3 per serving  
+  - Fruits: $5 per serving  
+- Objective: Minimise \(3 \cdot x_V + 5 \cdot x_F\).
+
+5. Key constraints to consider  
+
+Nutritional requirements:
+- Vitamin requirement (at least 20 units):
+  - Each serving of vegetables provides 2 units.
+  - Each serving of fruits provides 4 units.
+  - Constraint: Total vitamins from vegetables and fruits ≥ 20 units.
+
+- Mineral requirement (at least 30 units):
+  - Each serving of vegetables provides 3 units.
+  - Each serving of fruits provides 1 unit.
+  - Constraint: Total minerals from vegetables and fruits ≥ 30 units.
+
+Non-negativity (and integrality if required):
+- \(x_V \ge 0\).  
+- \(x_F \ge 0\).  
+- Optionally, if servings must be whole numbers: \(x_V, x_F\) integer (then it becomes an Integer Linear Programming problem, though with 2 variables continuous LP will also be fine and likely yield integer solutions).
+
+6. Modelling / solution strategy  
+
+- Set up the LP in standard form with the cost function and constraints above.  
+- Plot or conceptually analyse the feasible region in the (vegetable servings, fruit servings) plane:  
+  - Lines for vitamin and mineral constraints, and the non‑negative axes.  
+- Identify the corner (extreme) points of the feasible region by intersecting:  
+  - Vitamin constraint line with mineral constraint line.  
+  - Each constraint line with the axes.  
+- Evaluate the objective function (total cost) at all feasible corner points.  
+- Select the corner point with the minimum cost as the optimal solution.  
+
+7. Sensitivity / interpretation considerations (optional)  
+
+- Check whether the optimal solution uses more than the minimum required nutrients (slack in constraints).  
+- If integrality is enforced and the LP solution is fractional, examine nearby integer points and choose the one with the lowest feasible cost.
+
+---
+
+[MODELER]:
+Here is the optimisation model for the problem.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_V \ge 0\): number of servings of vegetables per day  
+- \(x_F \ge 0\): number of servings of fruits per day  
+
+(If servings must be whole numbers, we additionally require \(x_V, x_F \in \mathbb{Z}\).)
+
+---
+
+## 2. Objective
+
+Minimise total daily cost of food:
+
+- Vegetables: \$3 per serving  
+- Fruits: \$5 per serving  
+
+\[
+\text{Minimise } Z \;=\; 3x_V + 5x_F
+\]
+
+---
+
+## 3. Constraints
+
+### Vitamin requirement (at least 20 units)
+
+- Vegetables: 2 units per serving  
+- Fruits: 4 units per serving  
+
+\[
+2x_V + 4x_F \;\ge\; 20
+\]
+
+### Mineral requirement (at least 30 units)
+
+- Vegetables: 3 units per serving  
+- Fruits: 1 unit per serving  
+
+\[
+3x_V + x_F \;\ge\; 30
+\]
+
+### Non‑negativity
+
+\[
+x_V \ge 0, \quad x_F \ge 0
+\]
+
+If we allow fractional servings, this is a Linear Program (LP).  
+If we require whole servings: Integer Linear Program (ILP).
+
+---
+
+## 4. Model summary (LP form)
+
+\[
+\begin{aligned}
+\min\ & 3x_V + 5x_F \\
+\text{s.t. } 
+& 2x_V + 4x_F \ge 20 \quad \text{(vitamins)} \\
+& 3x_V + x_F \ge 30 \quad \text{(minerals)} \\
+& x_V, x_F \ge 0
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+For solving this model:
+
+- **PuLP** (`pulp`): very straightforward for LP/ILP diet problems.
+- **OR-Tools Linear Solver** (`ortools.linear_solver`): efficient for LP/ILP.
+- **SciPy** (`scipy.optimize.linprog`): good for continuous LP version (no integrality).
+- **Pyomo**: more general algebraic modelling, suitable if you plan larger models later.
+
+Example recommendation:
+
+- If you want a simple LP/ILP formulation with clear syntax → **PuLP**.
+- If performance matters for larger problems → **OR-Tools**.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: minimize cost
+    prob = pulp.LpProblem("Diet_Problem", pulp.LpMinimize)
+
+    # Decision variables: servings of vegetables and fruits (continuous, >= 0)
+    x_V = pulp.LpVariable('x_V', lowBound=0, cat='Continuous')
+    x_F = pulp.LpVariable('x_F', lowBound=0, cat='Continuous')
+
+    # Objective function: minimize cost = 3*x_V + 5*x_F
+    prob += 3 * x_V + 5 * x_F, "Total_Cost"
+
+    # Constraints
+    # Vitamin requirement: 2x_V + 4x_F >= 20
+    prob += 2 * x_V + 4 * x_F >= 20, "Vitamin_Requirement"
+
+    # Mineral requirement: 3x_V + x_F >= 30
+    prob += 3 * x_V + x_F >= 30, "Mineral_Requirement"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

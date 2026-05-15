@@ -1,0 +1,103 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of small bottles used (integer, x ≥ 0)
+  - y = number of large bottles used (integer, y ≥ 0)
+
+- Objective
+  Maximize total honey H = 5x + 20y.
+
+- Constraints
+  1. At most 300 small bottles: x ≤ 300
+  2. At most 100 large bottles: y ≤ 100
+  3. At least twice as many small as large: x ≥ 2y
+  4. At most 200 bottles total: x + y ≤ 200
+  5. At least 50 large bottles: y ≥ 50
+  6. Integrality: x, y ∈ Z
+
+Solution (analytic)
+- Because H = 5(x + 4y) and both x and y enter positively, for a given y we should take x as large as allowed: x = min(300, 200 − y). For y ≥ 50, 200 − y ≤ 150 < 300, so x = 200 − y.
+- Feasibility requires x ≥ 2y ⇒ 200 − y ≥ 2y ⇒ 3y ≤ 200 ⇒ y ≤ 66 (since y integer and y ≥ 50).
+- Objective becomes H/5 = (200 − y) + 4y = 200 + 3y, which is increasing in y on the feasible interval y ∈ {50,...,66}. So choose the largest feasible y = 66.
+- Then x = 200 − 66 = 134.
+
+Maximum total honey = 5·134 + 20·66 = 670 + 1320 = 1990 units.
+
+Recommended Python libraries
+- pulp (easy-to-use LP/MIP, default CBC solver)
+- OR-Tools (Google, fast integer solvers)
+- pyomo (modeling layer, can use CBC/Gurobi/CPLEX)
+- scipy.optimize (not suitable for integer programming; use only for continuous relaxations)
+
+Example (pulp)
+  import pulp
+
+  # Define problem
+  prob = pulp.LpProblem("BeeBottles", pulp.LpMaximize)
+
+  # Variables
+  x = pulp.LpVariable('x', lowBound=0, upBound=300, cat='Integer')  # small
+  y = pulp.LpVariable('y', lowBound=50, upBound=100, cat='Integer')  # large
+
+  # Objective
+  prob += 5*x + 20*y
+
+  # Constraints
+  prob += x >= 2*y
+  prob += x + y <= 200
+
+  # Solve
+  prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+  print("Small bottles x =", int(x.value()))
+  print("Large bottles y =", int(y.value()))
+  print("Total honey =", 5*int(x.value()) + 20*int(y.value()))
+
+This will return x = 134, y = 66, total honey = 1990 units.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained script to solve the integer optimization described and print final objective.
+# No external libraries required.
+
+def main():
+    # Decision variable bounds and constraints (initialized directly)
+    max_small = 300  # x <= 300
+    max_large = 100  # y <= 100
+    min_large = 50   # y >= 50
+    total_cap = 200  # x + y <= 200
+
+    best_obj = None
+    best_x = None
+    best_y = None
+
+    # Iterate over feasible integers
+    for y in range(min_large, max_large + 1):
+        # x must be between 0 and min(max_small, total_cap - y)
+        x_max = min(max_small, total_cap - y)
+        if x_max < 0:
+            continue
+        for x in range(0, x_max + 1):
+            # Constraint: x >= 2y
+            if x < 2 * y:
+                continue
+            # Constraint: x + y <= total_cap already enforced by x_max
+            # Compute objective H = 5x + 20y
+            H = 5 * x + 20 * y
+            if (best_obj is None) or (H > best_obj):
+                best_obj = H
+                best_x = x
+                best_y = y
+
+    # As required, print final objective in exact format as the last line
+    # Ensure best_obj is integer
+    if best_obj is None:
+        best_obj = 0
+    print(f"FINAL_OBJ: {best_obj}")
+
+if __name__ == "__main__":
+    main()
+```

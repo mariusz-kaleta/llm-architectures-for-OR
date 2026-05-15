@@ -1,0 +1,237 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+   - Goal: **Maximise total medicine delivered to the back** from the combination of doses of pain killer 1 and pain killer 2, subject to leg-medicine and sleep-medicine restrictions.
+
+2. **Suggested model type**
+
+   - Model: **Linear Programming (LP)** – continuous decision variables (doses can be treated as real numbers unless the medical context later requires integrality).
+   - Single-objective optimisation: maximise a linear function (back medicine) with linear constraints.
+
+3. **Main decision variables**
+
+   Define one variable per drug type:
+
+   - \(x_1\): Number of doses of **pain killer 1**.
+   - \(x_2\): Number of doses of **pain killer 2**.
+
+   Both should be constrained to be non-negative (no negative doses).
+
+4. **Objective function: what to maximise**
+
+   Use the per-dose contributions to the **back**:
+
+   - Pain killer 1: 0.8 units of back medicine per dose.
+   - Pain killer 2: 0.4 units of back medicine per dose.
+
+   Objective:  
+   - Maximise: `0.8 * x1 + 0.4 * x2` (total back medicine).
+
+5. **Key constraints to consider**
+
+   a) **Leg-medicine minimum requirement**
+
+   - Per-dose leg medicine:
+     - Pain killer 1: 0.5 units to legs.
+     - Pain killer 2: 0.7 units to legs.
+   - Requirement: **At least 4 units** to the legs.
+   - Constraint structure:
+     - `0.5 * x1 + 0.7 * x2 ≥ 4`.
+
+   b) **Sleep-medicine maximum limit**
+
+   - Per-dose sleep medicine:
+     - Pain killer 1: 0.3 units.
+     - Pain killer 2: 0.6 units.
+   - Requirement: **At most 8 units** of sleep medicine.
+   - Constraint structure:
+     - `0.3 * x1 + 0.6 * x2 ≤ 8`.
+
+   c) **Non-negativity**
+
+   - Doses cannot be negative:
+     - `x1 ≥ 0`
+     - `x2 ≥ 0`
+
+6. **Optional aspects / checks for the Modeller**
+
+   - Confirm whether doses must be **integer-valued** (if so, model becomes an Integer LP).
+   - Check if there is any **implicit upper bound** on total doses (e.g., due to safety or time-window limits). If such data is provided, add:
+     - A cap on total doses: `x1 + x2 ≤ max_doses` or separate upper bounds.
+   - Validate **feasibility**:
+     - Ensure that the leg-minimum and sleep-maximum are not contradictory given per-dose values (they are not in the current data, but the modeller should still verify feasible region exists).
+
+7. **Solution strategy guidance**
+
+   - This is a **2-variable LP**, so:
+     - It can be solved algebraically or via a simple graphical method: plot constraints in (x1, x2) space, identify feasible polygon, and evaluate objective at corner points.
+   - For automation, any standard LP solver (Simplex or similar) will efficiently produce the optimal doses.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by how you would implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_1 \ge 0\): number of doses of pain killer 1  
+- \(x_2 \ge 0\): number of doses of pain killer 2  
+
+(Assuming fractional doses are allowed. If not, add integrality: \(x_1, x_2 \in \mathbb{Z}_{\ge 0}\).)
+
+---
+
+## 2. Objective function
+
+Per dose:
+
+- Pain killer 1: 0.8 units to the back  
+- Pain killer 2: 0.4 units to the back  
+
+Maximise total medicine delivered to the back:
+
+\[
+\max \; Z = 0.8 x_1 + 0.4 x_2
+\]
+
+---
+
+## 3. Constraints
+
+### a) Leg medicine minimum
+
+Per dose:
+
+- Pain killer 1: 0.5 units to the legs  
+- Pain killer 2: 0.7 units to the legs  
+
+At least 4 units to the legs:
+
+\[
+0.5 x_1 + 0.7 x_2 \;\ge\; 4
+\]
+
+### b) Sleep medicine maximum
+
+Per dose:
+
+- Pain killer 1: 0.3 units of sleep medicine  
+- Pain killer 2: 0.6 units of sleep medicine  
+
+At most 8 units of sleep medicine:
+
+\[
+0.3 x_1 + 0.6 x_2 \;\le\; 8
+\]
+
+### c) Non-negativity
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+(If medically required, you may later add upper bounds on doses, e.g. \(x_1 \le M_1, x_2 \le M_2\).)
+
+---
+
+## 4. Model summary (LP)
+
+\[
+\begin{aligned}
+\max \quad & 0.8 x_1 + 0.4 x_2 \\
+\text{s.t.} \quad
+& 0.5 x_1 + 0.7 x_2 \ge 4 \quad &\text{(leg minimum)}\\
+& 0.3 x_1 + 0.6 x_2 \le 8 \quad &\text{(sleep maximum)}\\
+& x_1, x_2 \ge 0 \quad &\text{(nonnegativity)}
+\end{aligned}
+\]
+
+Type: Linear Programming (LP).  
+If you require integer doses: Mixed Integer LP with \(x_1, x_2\) integers.
+
+---
+
+## 5. Suitable Python libraries
+
+You can solve this LP easily with:
+
+- **PuLP** – very simple syntax for LP/MILP, good for teaching and small-medium problems.
+- **OR-Tools (Google)** – powerful CP-SAT and LP/MIP solvers, good if you may scale up.
+- **SciPy (`scipy.optimize.linprog`)** – good for pure continuous LPs (no integers).
+
+Given the structure, **PuLP** is ideal.
+
+---
+
+## 6. Example PuLP formulation
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Painkiller_Back_Max", pl.LpMaximize)
+
+# Decision variables (continuous, non-negative)
+x1 = pl.LpVariable("x1", lowBound=0)  # doses of pain killer 1
+x2 = pl.LpVariable("x2", lowBound=0)  # doses of pain killer 2
+
+# Objective: maximize back medicine
+prob += 0.8 * x1 + 0.4 * x2, "Total_Back_Medicine"
+
+# Constraints
+prob += 0.5 * x1 + 0.7 * x2 >= 4, "Leg_Minimum"
+prob += 0.3 * x1 + 0.6 * x2 <= 8, "Sleep_Maximum"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("x1 (doses of pain killer 1) =", x1.value())
+print("x2 (doses of pain killer 2) =", x2.value())
+print("Total back medicine =", pl.value(prob.objective))
+```
+
+If doses must be integer, define the variables as:
+
+```python
+x1 = pl.LpVariable("x1", lowBound=0, cat="Integer")
+x2 = pl.LpVariable("x2", lowBound=0, cat="Integer")
+```
+
+This fully encodes the optimisation problem implied by the original text.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Painkiller_Back_Max", pl.LpMaximize)
+
+    # Decision variables (continuous, non-negative)
+    x1 = pl.LpVariable("x1", lowBound=0)  # doses of pain killer 1
+    x2 = pl.LpVariable("x2", lowBound=0)  # doses of pain killer 2
+
+    # Objective: maximize back medicine
+    prob += 0.8 * x1 + 0.4 * x2, "Total_Back_Medicine"
+
+    # Constraints
+    prob += 0.5 * x1 + 0.7 * x2 >= 4, "Leg_Minimum"
+    prob += 0.3 * x1 + 0.6 * x2 <= 8, "Sleep_Maximum"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Retrieve objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

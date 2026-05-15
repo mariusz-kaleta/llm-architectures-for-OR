@@ -1,0 +1,148 @@
+[MODELER]:
+Here is a mathematical optimization model of the problem.
+
+### Decision variables
+Let  
+- \(x\) = number of wired headphones produced per day  
+- \(y\) = number of wireless headphones produced per day  
+
+Both must be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+### Objective (maximize profit)
+Profit per wired headphone = \$50  
+Profit per wireless headphone = \$20  
+
+Total daily profit:
+\[
+\text{Maximize } Z = 50x + 20y
+\]
+
+### Constraints
+
+1. **Wired production capacity**  
+   Wired team can make at most 100 wired headphones per day:
+   \[
+   x \le 100
+   \]
+
+2. **Wireless production capacity**  
+   Wireless team can make at most 170 wireless headphones per day:
+   \[
+   y \le 170
+   \]
+
+3. **Shared testing machine capacity**  
+   Testing machine can be used for at most 150 headphones per day in total:
+   \[
+   x + y \le 150
+   \]
+
+### Complete linear program
+\[
+\begin{aligned}
+\text{Maximize } & Z = 50x + 20y \\
+\text{subject to } 
+& x \le 100 \\
+& y \le 170 \\
+& x + y \le 150 \\
+& x \ge 0,\ y \ge 0
+\end{aligned}
+\]
+
+### Solving analytically
+
+Check the corner (feasible) points defined by the constraints:
+
+- Intersection of \(x=0\) and \(x+y=150\): \((x,y) = (0,150)\)  
+  Profit: \(Z = 50(0) + 20(150) = 3000\)
+
+- Intersection of \(y=0\) and \(x+y=150\): \((x,y) = (150,0)\), but must respect \(x \le 100\), so the valid corner is actually \((x,y) = (100,0)\)  
+  Profit: \(Z = 50(100) + 20(0) = 5000\)
+
+- Intersection of \(x=100\) and \(x+y=150\): \((x,y) = (100,50)\)  
+  Profit: \(Z = 50(100) + 20(50) = 5000 + 1000 = 6000\)
+
+Also check the point from the wireless limit with machine:
+- Intersection of \(y=170\) and \(x+y=150\) is infeasible (would require \(x=-20\)), so ignore.
+
+Compare profits:  
+- \((0,150)\): 3000  
+- \((100,0)\): 5000  
+- \((100,50)\): 6000  ← best  
+
+**Optimal production plan:**  
+- Wired headphones: **100 per day**  
+- Wireless headphones: **50 per day**  
+- Maximum profit: **\$6000 per day**
+
+### Suitable Python libraries
+
+This is a linear program (LP). Any standard LP solver can handle it:
+
+- `PuLP` (simple, pure Python, good for teaching and small/medium problems)
+- `scipy.optimize.linprog` (from SciPy)
+- `ortools.linear_solver` (Google OR-Tools, powerful and fast)
+
+For example, in Python using PuLP:
+
+```python
+import pulp as pl
+
+# Define problem (maximize)
+prob = pl.LpProblem("Headphone_Production", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('wired', lowBound=0)
+y = pl.LpVariable('wireless', lowBound=0)
+
+# Objective
+prob += 50*x + 20*y
+
+# Constraints
+prob += x <= 100          # wired capacity
+prob += y <= 170          # wireless capacity
+prob += x + y <= 150      # testing machine capacity
+
+# Solve
+prob.solve()
+print("Status:", pl.LpStatus[prob.status])
+print("wired =", x.value())
+print("wireless =", y.value())
+print("Max profit =", pl.value(prob.objective))
+```
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem (maximization)
+    prob = pl.LpProblem("Headphone_Production", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('wired', lowBound=0)
+    y = pl.LpVariable('wireless', lowBound=0)
+
+    # Objective function: Maximize profit
+    prob += 50 * x + 20 * y
+
+    # Constraints
+    prob += x <= 100          # Wired production capacity
+    prob += y <= 170          # Wireless production capacity
+    prob += x + y <= 150      # Shared testing machine capacity
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Retrieve objective value
+    objective_value = pl.value(prob.objective)
+
+    # Final required output
+    print(f"FINAL_OBJ: {objective_value}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,110 @@
+[MODELER]:
+Here is a clean linear programming (LP) formulation of the problem.
+
+### Decision variables
+Let  
+- \(x_d \ge 0\): number of sled-dog trips  
+- \(x_t \ge 0\): number of truck trips  
+
+(If these must be whole trips, we will later enforce \(x_d, x_t \in \mathbb{Z}_{\ge 0}\), making it an integer linear program.)
+
+### Parameters (from the data)
+- Dog carrying capacity per trip: \(C_d = 100\) (kg or units of fish)  
+- Truck carrying capacity per trip: \(C_t = 300\)  
+- Cost per dog trip: \(K_d = 50\)  
+- Cost per truck trip: \(K_t = 100\)  
+- Total budget: \(B_{\max} = 1000\)
+
+### Objective function
+Maximize the total amount of fish transported:
+
+\[
+\max Z = 100 x_d + 300 x_t
+\]
+
+### Constraints
+
+1. **Budget constraint**  
+   Total cost of all trips must not exceed the budget:
+   \[
+   50 x_d + 100 x_t \le 1000
+   \]
+
+2. **Trip relation constraint**  
+   Number of sled-dog trips must be less than the number of truck trips:
+   \[
+   x_d \le x_t
+   \]
+
+3. **Non-negativity (and optionally integrality)**  
+   \[
+   x_d \ge 0,\quad x_t \ge 0
+   \]  
+   If only whole trips make sense:
+   \[
+   x_d, x_t \in \mathbb{Z}_{\ge 0}
+   \]
+
+---
+
+### Final LP model
+
+\[
+\begin{aligned}
+\max\ & 100 x_d + 300 x_t \\
+\text{s.t. } 
+& 50 x_d + 100 x_t \le 1000 \\
+& x_d \le x_t \\
+& x_d \ge 0,\ x_t \ge 0 \quad (\text{and } x_d, x_t \in \mathbb{Z} \text{ if integer trips})
+\end{aligned}
+\]
+
+---
+
+### Suitable Python libraries
+
+To solve this in Python:
+
+- **PuLP**: Very convenient for formulating and solving LP/MIP problems.
+- **OR-Tools (Google OR-Tools)**: Powerful, good for integer programming and larger models.
+- **Pyomo**: Flexible modeling framework, connects to many solvers (CBC, GLPK, Gurobi, CPLEX, etc.).
+- **scipy.optimize.linprog**: Works for continuous LPs only (cannot handle integrality).
+
+For this small model:
+- Use **PuLP** (with CBC solver, which comes bundled) if you want integrality.
+- Use **scipy.optimize.linprog** if fractional trips are allowed and you only need continuous LP.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def main():
+    # Create the problem: maximize total amount of fish
+    prob = pulp.LpProblem("Fish_Transport", pulp.LpMaximize)
+
+    # Decision variables: number of sled-dog trips (x_d) and truck trips (x_t)
+    x_d = pulp.LpVariable('x_d', lowBound=0, cat='Integer')
+    x_t = pulp.LpVariable('x_t', lowBound=0, cat='Integer')
+
+    # Objective function: maximize 100 x_d + 300 x_t
+    prob += 100 * x_d + 300 * x_t
+
+    # Constraints:
+    # 1) Budget: 50 x_d + 100 x_t <= 1000
+    prob += 50 * x_d + 100 * x_t <= 1000
+
+    # 2) Trip relation: x_d <= x_t
+    prob += x_d <= x_t
+
+    # Solve the problem using the default CBC solver
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract the objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print the final objective value in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

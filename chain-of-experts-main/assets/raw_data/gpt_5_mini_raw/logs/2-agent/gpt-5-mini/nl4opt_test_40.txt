@@ -1,0 +1,96 @@
+[MODELER]:
+Variables
+- x = number of senior accountants (per week)
+- y = number of junior accountants (per week)
+
+(If accountants must be whole people, x,y ∈ Z≥0. If you allow fractional in a continuous relaxation, x,y ≥ 0.)
+
+Objective
+- Minimize the weekly wage bill: minimize Z = 3000 x + 1000 y
+
+Constraints
+1. Total staff at least 100:
+   x + y ≥ 100
+2. At least 5 seniors:
+   x ≥ 5
+3. Number of seniors at least one third of juniors:
+   x ≥ (1/3) y  ⇔  3x ≥ y
+4. Weekly wage bill not to exceed the budget (interpret “below $150000” as ≤ 150000; if it is strictly <150000 the problem is infeasible as shown below):
+   3000 x + 1000 y ≤ 150000
+5. Nonnegativity (and integrality if required):
+   x, y ≥ 0   (and integer if required)
+
+Full LP (standard form)
+minimize Z = 3000 x + 1000 y
+subject to
+  x + y ≥ 100
+  x ≥ 5
+  3x − y ≥ 0
+  3000 x + 1000 y ≤ 150000
+  x, y ≥ 0  (and x,y ∈ Z if integrality is required)
+
+Analytic observation / optimal solution
+From x + y ≥ 100 and 3x ≥ y we get x ≥ 25 (since 100 − x ≤ y ≤ 3x ⇒ 100 ≤ 4x). The smallest feasible x is 25, which forces y = 75. That yields Z = 3000·25 + 1000·75 = $150,000. Thus the minimum attainable wage bill (with the ≤150000 budget) is $150,000 at x = 25 seniors and y = 75 juniors. If the budget constraint were strict (3000x + 1000y < 150000), the problem would be infeasible.
+
+Suggested Python libraries
+- pulp (simple LP/MIP modelling in Python; supports integer variables)
+- OR-Tools (CP-SAT / linear solvers; good for integer programs)
+- scipy.optimize.linprog (for continuous LPs only)
+- cvxpy (convex optimization modelling; supports LPs; use integer extension for MIP)
+
+Example (outline) using PuLP
+- Define LpProblem(minimize)
+- Define x = LpVariable('x', lowBound=0, cat='Integer') and y similarly
+- Add constraints as above
+- Solve (LpSolverDefault or CBC)
+- Read x.value(), y.value(), pulp.value(problem.objective)
+
+If you want, I can provide the exact PuLP/OR-Tools code to solve this LP and display the optimal solution.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained script to solve the described LP/MIP by integer enumeration
+# Variables:
+#  x = number of senior accountants (per week), integer >= 0
+#  y = number of junior accountants (per week), integer >= 0
+#
+# Objective: minimize Z = 3000*x + 1000*y
+# Constraints:
+#  x + y >= 100
+#  x >= 5
+#  3*x >= y
+#  3000*x + 1000*y <= 150000
+
+min_obj = None
+best_solution = None
+
+# Upper bounds derived from budget: x <= 150000/3000 = 50, y <= 150000/1000 = 150
+for x in range(0, 51):  # 0..50
+    for y in range(0, 151):  # 0..150
+        # constraints
+        if x + y < 100:
+            continue
+        if x < 5:
+            continue
+        if 3 * x < y:
+            continue
+        if 3000 * x + 1000 * y > 150000:
+            continue
+        z = 3000 * x + 1000 * y
+        if (min_obj is None) or (z < min_obj):
+            min_obj = z
+            best_solution = (x, y)
+
+# If no feasible solution found, set min_obj to None and handle accordingly.
+# According to the problem statement, there is a feasible solution: x=25, y=75 with Z=150000.
+if min_obj is None:
+    # Represent infeasible with None as 0 (but specification requires printing a value).
+    # We'll print 0 to have numeric output; adjust if a different behavior is desired.
+    value = 0
+else:
+    value = min_obj
+
+print(f"FINAL_OBJ: {value}")
+```

@@ -1,0 +1,193 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total number of factories built (medium + small) while meeting toy production and operator availability requirements.
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP) – a small 2-variable integer optimisation problem.  
+- Integer (not continuous) because you can only build whole factories.
+
+3. Main decision variables  
+Define non-negative integer decision variables such as:
+- Number of medium-sized factories to build.  
+- Number of small-sized factories to build.
+
+4. Key constraints to consider  
+
+a) Production capacity constraint  
+- Each medium factory produces 50 toys/day.  
+- Each small factory produces 35 toys/day.  
+- Total daily production from all factories must be at least 250 toys.  
+Form: (production from mediums) + (production from smalls) ≥ required production.
+
+b) Operator availability constraint  
+- Each medium factory uses 3 operators.  
+- Each small factory uses 2 operators.  
+- Total operators used across all factories cannot exceed 16.  
+Form: (operators for mediums) + (operators for smalls) ≤ available operators.
+
+c) Non-negativity and integrality  
+- The number of each type of factory cannot be negative.  
+- Both decision variables must be integers.
+
+5. Modelling and solution strategy  
+
+- Use a very small integer programming model with 2 variables and 2 main constraints.  
+- Because the problem is tiny, you can:  
+  - Either solve via an ILP solver, or  
+  - Enumerate feasible integer combinations that satisfy both constraints and pick the one with the smallest total number of factories.
+
+- When searching for the optimal solution, focus on:  
+  - Trying combinations with fewer total factories first (e.g., 3, then 4, etc.).  
+  - For each candidate total number of factories, distribute them between medium and small, then check:  
+    - Does production ≥ 250 toys?  
+    - Do operators used ≤ 16?
+
+6. Possible extensions (optional for modeller)  
+
+- If costs per factory type were given, you could change the objective to minimise total cost instead of number of factories.  
+- If production had to equal exactly 250, adjust the production constraint from “≥” to “=”.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, plus how you could solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x \in \mathbb{Z}_{\ge 0}\): number of medium factories to build  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of small factories to build  
+
+Both must be non‑negative integers (you can’t build fractional factories).
+
+---
+
+## 2. Objective
+
+Minimise the total number of factories:
+
+\[
+\min \; z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Production capacity
+
+Each medium factory makes 50 toys/day; each small factory makes 35 toys/day.  
+The company must produce at least 250 toys/day:
+
+\[
+50x + 35y \;\ge\; 250
+\]
+
+### b) Operator availability
+
+Each medium factory uses 3 operators; each small factory uses 2 operators.  
+There are only 16 operators available:
+
+\[
+3x + 2y \;\le\; 16
+\]
+
+### c) Non‑negativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+So the complete ILP model is:
+
+\[
+\begin{aligned}
+\min \quad & x + y \\
+\text{s.t.} \quad
+& 50x + 35y \ge 250 \\
+& 3x + 2y \le 16 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 4. Suitable Python libraries
+
+Any basic MILP/ILP solver will handle this easily. Good choices:
+
+- **PuLP** (pure Python, easy to use, common in teaching)
+- **OR‑Tools** (Google, very fast, supports MILP via CBC or other solvers)
+- **Pyomo** (more general algebraic modeling, heavier but powerful)
+- **SciPy** is *not* ideal here because this is an integer problem, not purely continuous linear programming.
+
+For a problem this small, **PuLP** or **OR‑Tools** is perfectly suited.
+
+---
+
+## 5. Example with PuLP (Python)
+
+```python
+import pulp as pl
+
+# 1. Define the problem
+prob = pl.LpProblem("Toy_Factory_Planning", pl.LpMinimize)
+
+# 2. Decision variables (integer, non-negative)
+x = pl.LpVariable('medium_factories', lowBound=0, cat='Integer')
+y = pl.LpVariable('small_factories',  lowBound=0, cat='Integer')
+
+# 3. Objective: minimize total number of factories
+prob += x + y
+
+# 4. Constraints
+prob += 50*x + 35*y >= 250, "Production"
+prob += 3*x  + 2*y  <= 16,  "Operators"
+
+# 5. Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Medium factories (x):", x.value())
+print("Small factories (y):", y.value())
+print("Total factories:", x.value() + y.value())
+```
+
+This directly implements the model above and will return the optimal integer numbers of medium and small factories.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Toy_Factory_Planning", pl.LpMinimize)
+
+    # Decision variables (integer, non-negative)
+    x = pl.LpVariable('medium_factories', lowBound=0, cat='Integer')
+    y = pl.LpVariable('small_factories', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of factories
+    prob += x + y
+
+    # Constraints
+    prob += 50 * x + 35 * y >= 250, "Production"
+    prob += 3 * x + 2 * y <= 16, "Operators"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute final objective value
+    final_obj = x.value() + y.value()
+
+    # Print final objective as required
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

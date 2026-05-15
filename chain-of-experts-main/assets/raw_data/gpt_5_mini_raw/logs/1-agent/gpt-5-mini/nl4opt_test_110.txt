@@ -1,0 +1,31 @@
+[MONOLITH]:
+import pulp
+
+# Problem data (initialized directly)
+total_time = 10000  # minutes available
+time_per_pill = 10  # minutes per pill vaccine
+time_per_shot = 20  # minutes per shot vaccine
+
+# Create the MILP
+prob = pulp.LpProblem("Maximize_Vaccinations", pulp.LpMaximize)
+
+# Decision variables: number of pill and shot vaccines (integers, nonnegative)
+pill = pulp.LpVariable("pill", lowBound=0, cat='Integer')
+shot = pulp.LpVariable("shot", lowBound=0, cat='Integer')
+
+# Objective: maximize total patients vaccinated
+prob += pill + shot, "Total_Patients"
+
+# Constraints
+prob += time_per_pill * pill + time_per_shot * shot <= total_time, "Time_Limit"
+prob += shot >= 3 * pill, "Shot_at_least_3x_pill"
+prob += pill >= 30, "At_least_30_pills"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve objective value
+obj_val = int(pulp.value(prob.objective))
+
+# Final required print
+print(f"FINAL_OBJ: {obj_val}")

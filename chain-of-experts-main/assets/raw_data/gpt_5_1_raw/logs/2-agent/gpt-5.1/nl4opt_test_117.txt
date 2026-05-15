@@ -1,0 +1,187 @@
+[MODELER]:
+Here is a clean mathematical model of the problem and how you’d solve it with an optimization solver.
+
+---
+
+## 1. Define decision variables
+
+Let  
+- \(x_1\) = number of times we use **Beaker 1**  
+- \(x_2\) = number of times we use **Beaker 2**
+
+We will assume \(x_1, x_2 \ge 0\). If the camp must use whole beakers only, then \(x_1, x_2\) should be integers (we can handle that with an Integer Linear Program).
+
+---
+
+## 2. Objective: maximize slime produced
+
+Each use of:
+- Beaker 1 produces 5 units of slime
+- Beaker 2 produces 3 units of slime
+
+Total slime:
+\[
+Z = 5x_1 + 3x_2
+\]
+
+**Objective:**
+\[
+\text{Maximize } Z = 5x_1 + 3x_2
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Flour availability
+
+Each use of:
+- Beaker 1 uses 4 units of flour
+- Beaker 2 uses 6 units of flour
+
+Total flour used cannot exceed 150 units:
+
+\[
+4x_1 + 6x_2 \le 150
+\]
+
+---
+
+### 3.2 Special liquid availability
+
+Each use of:
+- Beaker 1 uses 6 units of special liquid
+- Beaker 2 uses 3 units of special liquid
+
+Total special liquid used cannot exceed 100 units:
+
+\[
+6x_1 + 3x_2 \le 100
+\]
+
+---
+
+### 3.3 Waste limit
+
+Each use of:
+- Beaker 1 creates 4 units of waste
+- Beaker 2 creates 2 units of waste
+
+Total waste cannot exceed 30 units:
+
+\[
+4x_1 + 2x_2 \le 30
+\]
+
+---
+
+### 3.4 Non-negativity and integrality
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+If only whole beakers are allowed:
+
+\[
+x_1, x_2 \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Full mathematical program
+
+**Continuous version (LP):**
+
+\[
+\begin{aligned}
+\max_{x_1, x_2} \quad & 5x_1 + 3x_2 \\
+\text{s.t.} \quad
+& 4x_1 + 6x_2 \le 150 \quad \text{(flour)} \\
+& 6x_1 + 3x_2 \le 100 \quad \text{(special liquid)} \\
+& 4x_1 + 2x_2 \le 30 \quad \text{(waste)} \\
+& x_1 \ge 0,\; x_2 \ge 0
+\end{aligned}
+\]
+
+**Integer version (MILP):** add \(x_1, x_2 \in \mathbb{Z}\).
+
+---
+
+## 5. Suitable Python libraries
+
+This is a small linear (or integer linear) optimization problem. Good choices:
+
+- **PuLP** – simple modeling, ships with CBC MILP solver.
+- **OR-Tools (from Google)** – powerful MILP/LP solver, good for integer constraints.
+- **SciPy (`scipy.optimize.linprog`)** – good for continuous LP (no integrality).
+- **Pyomo** – more general algebraic modeling, can call various solvers (CBC, GLPK, Gurobi, CPLEX, etc.).
+
+For integer variables, I’d recommend **PuLP** or **OR-Tools**.
+
+---
+
+## 6. Example model in PuLP (MILP with integer beakers)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Slime_Maximization", pl.LpMaximize)
+
+# Decision variables (integers)
+x1 = pl.LpVariable('x1', lowBound=0, cat='Integer')  # Beaker 1 uses
+x2 = pl.LpVariable('x2', lowBound=0, cat='Integer')  # Beaker 2 uses
+
+# Objective: maximize slime
+prob += 5*x1 + 3*x2, "Total_Slime"
+
+# Constraints
+prob += 4*x1 + 6*x2 <= 150, "Flour"
+prob += 6*x1 + 3*x2 <= 100, "Special_Liquid"
+prob += 4*x1 + 2*x2 <= 30,  "Waste"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Results
+print("Status:", pl.LpStatus[prob.status])
+print("Beaker 1 uses (x1):", pl.value(x1))
+print("Beaker 2 uses (x2):", pl.value(x2))
+print("Max slime:", pl.value(prob.objective))
+```
+
+This code directly implements the mathematical model above.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the MILP problem
+    prob = pl.LpProblem("Slime_Maximization", pl.LpMaximize)
+
+    # Decision variables (integers, non-negative)
+    x1 = pl.LpVariable('x1', lowBound=0, cat='Integer')  # Beaker 1 uses
+    x2 = pl.LpVariable('x2', lowBound=0, cat='Integer')  # Beaker 2 uses
+
+    # Objective: maximize slime produced
+    prob += 5 * x1 + 3 * x2, "Total_Slime"
+
+    # Constraints
+    prob += 4 * x1 + 6 * x2 <= 150, "Flour"
+    prob += 6 * x1 + 3 * x2 <= 100, "Special_Liquid"
+    prob += 4 * x1 + 2 * x2 <= 30, "Waste"
+
+    # Solve using CBC solver
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(prob.objective)
+
+    # Final required print
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

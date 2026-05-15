@@ -1,0 +1,314 @@
+[PLANNER]:
+1. Key optimisation goal
+- Maximise total minty foam produced across both demonstrations.
+
+2. Suggested model type
+- Linear programming (LP).  
+- If the number of demonstrations must be whole (no fractional demos), use an Integer Linear Program (ILP / MILP).
+
+3. Main decision variables
+- x1 = number of times demonstration 1 is performed.
+- x2 = number of times demonstration 2 is performed.
+(If integrality is required, x1 and x2 are nonnegative integers; otherwise they are nonnegative continuous variables.)
+
+4. Key parameters (per one demonstration)
+- Demonstration 1: uses 10 units mint, 20 units active ingredient; produces 25 units minty foam and 5 units black tar.
+- Demonstration 2: uses 12 units mint, 15 units active ingredient; produces 18 units minty foam and 3 units black tar.
+- Available resources: 120 units mint, 100 units active ingredient.
+- Black-tar production limit: at most 50 units.
+
+5. Key constraints to include (described, not as equations)
+- Mint resource constraint: total mint consumed by both demos cannot exceed 120.
+- Active-ingredient resource constraint: total active ingredient consumed cannot exceed 100.
+- Black-tar production limit: total black tar produced by both demos cannot exceed 50.
+- Non-negativity: x1 and x2 must be >= 0.
+- Integrality (optional): require x1 and x2 to be integers if demonstrations cannot be fractional.
+
+6. Objective (described)
+- Maximise total minty foam produced, i.e., the sum of minty foam produced by x1 instances of demo 1 and x2 instances of demo 2.
+
+7. Modelling and solution notes for the modeller
+- Build the LP/ILP using the parameters above. Check whether the tar cap or a resource cap is binding in the optimal solution.
+- If you solve the continuous LP first, compare to the integer solution (if integrality is required); use a MILP solver if needed.
+- Report the optimal x1 and x2, the maximum foam produced, and the binding constraints (shadow prices if LP).
+- Optionally perform sensitivity analysis on resource availabilities (mint, active ingredient) and the tar limit to see how much additional foam could be gained by relaxing each constraint.
+
+---
+
+[MODELER]:
+Below I convert the textual description into a clear optimization model, give the solved optimal plan (continuous and integer), identify the binding constraint(s) and give solver recommendations and a short solver code sketch.
+
+1) Decision variables
+- x1 = number of times demonstration 1 is performed (≥ 0).
+- x2 = number of times demonstration 2 is performed (≥ 0).
+(If demonstrations cannot be fractional, impose x1, x2 ∈ Z≥0; otherwise continuous.)
+
+2) Parameters (per one demonstration)
+- Demo 1: mint 10, active 20, foam 25, tar 5.
+- Demo 2: mint 12, active 15, foam 18, tar 3.
+- Available: mint = 120, active = 100.
+- Tar limit: ≤ 50.
+
+3) Objective
+Maximise total minty foam:
+Maximise Z = 25 x1 + 18 x2.
+
+4) Constraints (equations)
+- Mint: 10 x1 + 12 x2 ≤ 120
+- Active ingredient: 20 x1 + 15 x2 ≤ 100
+- Black tar: 5 x1 + 3 x2 ≤ 50
+- Non-negativity: x1 ≥ 0, x2 ≥ 0
+- Optional integrality: x1, x2 integer
+
+5) Analytical solution (continuous LP)
+Examine constraints — the active-ingredient constraint is the tightest in the positive quadrant; mint and tar are slack for the region of interest. Compare foam per unit of active ingredient:
+- Demo 1: 25 foam / 20 active = 1.25 foam per active unit
+- Demo 2: 18 / 15 = 1.20 foam per active unit
+
+Since demo 1 is better per unit of the scarce active ingredient, use all active ingredient on demo 1:
+x1 = 100 / 20 = 5, x2 = 0.
+
+Feasibility checks:
+- Mint used = 10*5 = 50 ≤ 120 (slack 70)
+- Tar produced = 5*5 = 25 ≤ 50 (slack 25)
+
+Objective value: Z = 25*5 + 18*0 = 125 units of minty foam.
+
+This is also the optimal integer solution (x1 = 5, x2 = 0).
+
+6) Binding constraints and dual information
+- Binding: active ingredient constraint (20 x1 + 15 x2 ≤ 100).
+- Slack: mint and tar constraints.
+- Shadow price (marginal value) of the active ingredient = 1.25 foam per additional active unit (while this constraint remains binding and the basis does not change). Shadow prices for mint and tar are 0 in the current optimum.
+
+7) Sensitivity remarks (brief)
+- Each extra unit of active ingredient increases foam by ≈ 1.25 (until another constraint becomes binding).
+- To make tar binding while still using only demo 1, you would need x1 = 10 (tar limit 50 ⇒ 5 x1 ≤ 50 ⇒ x1 ≤ 10), which would require active = 20*10 = 200 (i.e., +100 active units).
+- To make mint binding while using only demo 1, x1 = 12 (mint limit 120 ⇒ 10 x1 ≤ 120 ⇒ x1 ≤ 12), requiring active = 240 (+140 active units). Tar would bind earlier (at x1=10), so tar would be the next limit as active increases.
+
+8) Solver recommendations and short code sketch
+- LP solvers: scipy.optimize.linprog (continuous LP), cvxpy.
+- MILP solvers (if integrality required): pulp (CBC), OR-Tools CP-SAT, Gurobi/CPLEX if available.
+- Example using PuLP (Python):
+
+from pulp import LpProblem, LpMaximize, LpVariable, lpSum, LpStatus, value
+
+prob = LpProblem("minty_foam", LpMaximize)
+x1 = LpVariable('x1', lowBound=0, cat='Integer')   # or cat='Continuous'
+x2 = LpVariable('x2', lowBound=0, cat='Integer')
+
+prob += 25*x1 + 18*x2
+prob += 10*x1 + 12*x2 <= 120
+prob += 20*x1 + 15*x2 <= 100
+prob += 5*x1 + 3*x2 <= 50
+
+prob.solve()
+print(LpStatus[prob.status], value(x1), value(x2), "foam =", value(prob.objective))
+
+(Using continuous variables will give x1=5, x2=0; integrality gives the same integer solution.)
+
+Summary answer: Perform demonstration 1 five times and demonstration 2 zero times. This yields 125 units of minty foam, with the active-ingredient constraint binding.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import itertools
+import math
+import numpy as np
+
+# Problem data
+# Decision vars: x1, x2 >= 0
+# Objective: maximize Z = 25 x1 + 18 x2
+c = np.array([25.0, 18.0])
+
+# Constraints (A x <= b)
+# 10 x1 + 12 x2 <= 120   (mint)
+# 20 x1 + 15 x2 <= 100   (active)
+# 5  x1 + 3  x2 <= 50    (tar)
+A = np.array([
+    [10.0, 12.0],
+    [20.0, 15.0],
+    [5.0,  3.0]
+])
+b = np.array([120.0, 100.0, 50.0])
+
+tolerance = 1e-9
+
+# Helper: check feasibility (A x <= b + tol and x >= -tol)
+def is_feasible(x):
+    if (x < -tolerance).any():
+        return False
+    if (A.dot(x) - b > tolerance).any():
+        return False
+    return True
+
+# 1) Enumerate candidate vertices of the feasible polygon (intersection of pairs of constraints and axes)
+candidates = []
+
+# Intersections of pairs of constraint equalities
+num_constraints = A.shape[0]
+for i, j in itertools.combinations(range(num_constraints), 2):
+    Ai = A[[i, j], :]
+    bi = b[[i, j]]
+    try:
+        sol = np.linalg.solve(Ai, bi)
+    except np.linalg.LinAlgError:
+        continue
+    if is_feasible(sol):
+        candidates.append(sol)
+
+# Intersections with axes: x1 = 0 solve A[:,1]*x2 <= b ; x2 = 0 solve A[:,0]*x1 <= b
+# For each constraint, compute x when the other var = 0 (if non-negative)
+# x1 = 0 => for each constraint equality compute x2 = b_i / A[i,1] (if A[i,1] > 0)
+for i in range(num_constraints):
+    a21 = A[i, 1]
+    if abs(a21) > tolerance:
+        x2 = b[i] / a21
+        x = np.array([0.0, x2])
+        if is_feasible(x):
+            candidates.append(x)
+
+# x2 = 0 => for each constraint equality compute x1 = b_i / A[i,0] (if A[i,0] > 0)
+for i in range(num_constraints):
+    a10 = A[i, 0]
+    if abs(a10) > tolerance:
+        x1 = b[i] / a10
+        x = np.array([x1, 0.0])
+        if is_feasible(x):
+            candidates.append(x)
+
+# Include origin
+if is_feasible(np.array([0.0, 0.0])):
+    candidates.append(np.array([0.0, 0.0]))
+
+# Remove duplicates (within tolerance)
+unique_candidates = []
+for cand in candidates:
+    good = True
+    for uc in unique_candidates:
+        if np.linalg.norm(cand - uc) < 1e-7:
+            good = False
+            break
+    if good:
+        unique_candidates.append(cand)
+
+# Evaluate objective at each candidate
+best_continuous = None
+best_continuous_obj = -math.inf
+for x in unique_candidates:
+    val = c.dot(x)
+    if val > best_continuous_obj + 1e-9:
+        best_continuous_obj = val
+        best_continuous = x.copy()
+
+# 2) Integer (brute force small search)
+# Determine conservative upper bounds for search
+# For x1 alone (x2=0): ub1 = floor(min(b_i / A[i,0] for i where A[i,0]>0))
+# For x2 alone (x1=0): ub2 = floor(min(b_i / A[i,1] for i where A[i,1]>0))
+ub1 = math.floor(min((b[i] / A[i,0]) for i in range(num_constraints) if A[i,0] > tolerance))
+ub2 = math.floor(min((b[i] / A[i,1]) for i in range(num_constraints) if A[i,1] > tolerance))
+# To be safe, search a bit beyond (but keep small)
+ub1 = max(ub1, 0)
+ub2 = max(ub2, 0)
+
+best_int = None
+best_int_obj = -math.inf
+for i1 in range(0, ub1 + 1):
+    for i2 in range(0, ub2 + 1):
+        x = np.array([float(i1), float(i2)])
+        if is_feasible(x):
+            val = c.dot(x)
+            if val > best_int_obj + 1e-9:
+                best_int_obj = val
+                best_int = (i1, i2)
+
+# 3) Identify binding constraints at continuous optimum
+binding = []
+if best_continuous is not None:
+    residuals = A.dot(best_continuous) - b
+    for idx, res in enumerate(residuals):
+        if abs(res) <= 1e-7:
+            binding.append(idx)  # index of binding constraint
+
+# 4) Numerical shadow price for 'active' resource (constraint index 1) via one-unit perturbation
+def continuous_opt_with_rhs(bvec):
+    # recompute vertices given new RHS bvec
+    cand = []
+    for i, j in itertools.combinations(range(num_constraints), 2):
+        Ai = A[[i, j], :]
+        bi = bvec[[i, j]]
+        try:
+            sol = np.linalg.solve(Ai, bi)
+        except np.linalg.LinAlgError:
+            continue
+        if is_feasible(sol):
+            cand.append(sol)
+    for i in range(num_constraints):
+        a21 = A[i, 1]
+        if abs(a21) > tolerance:
+            x2 = bvec[i] / a21
+            x = np.array([0.0, x2])
+            if is_feasible(x):
+                cand.append(x)
+    for i in range(num_constraints):
+        a10 = A[i, 0]
+        if abs(a10) > tolerance:
+            x1 = bvec[i] / a10
+            x = np.array([x1, 0.0])
+            if is_feasible(x):
+                cand.append(x)
+    if is_feasible(np.array([0.0, 0.0])):
+        cand.append(np.array([0.0, 0.0]))
+    unique = []
+    for cc in cand:
+        good = True
+        for uc in unique:
+            if np.linalg.norm(cc - uc) < 1e-7:
+                good = False
+                break
+        if good:
+            unique.append(cc)
+    best_val = -math.inf
+    best_x = None
+    for x in unique:
+        val = c.dot(x)
+        if val > best_val + 1e-9:
+            best_val = val
+            best_x = x.copy()
+    return best_x, best_val
+
+# Compute shadow price for active constraint (index 1)
+delta = 1.0
+b_pert = b.copy()
+b_pert[1] += delta
+x_pert, val_pert = continuous_opt_with_rhs(b_pert)
+# If perturbation leads to different feasible set but we can compute approximate shadow
+if best_continuous is not None:
+    shadow_active_numeric = val_pert - best_continuous_obj
+else:
+    shadow_active_numeric = None
+
+# Print results (informational)
+print("Continuous optimal solution (vertices search):")
+print(f" x1 = {best_continuous[0]:.6f}, x2 = {best_continuous[1]:.6f}, objective = {best_continuous_obj:.6f}")
+print("Integer optimal solution (brute force):")
+print(f" x1 = {best_int[0]}, x2 = {best_int[1]}, objective = {best_int_obj:.6f}")
+constraint_names = ["mint (10 x1 + 12 x2 <= 120)", "active (20 x1 + 15 x2 <= 100)", "tar (5 x1 + 3 x2 <= 50)"]
+if binding:
+    print("Binding constraints at continuous optimum:")
+    for idx in binding:
+        print(f" - {constraint_names[idx]}")
+else:
+    print("No binding constraints detected (within tolerance).")
+
+print(f"Numeric shadow price for active resource (one-unit increase): {shadow_active_numeric:.6f}")
+print("Analytical foam per active unit for demo 1:", 25.0 / 20.0)
+print("Analytical foam per active unit for demo 2:", 18.0 / 15.0)
+
+# Final required single-line output (must be the very last printed line)
+# As integer and continuous optima coincide here, print integer optimum objective as final value.
+final_value = int(round(best_int_obj))
+print(f"FINAL_OBJ: {final_value}")
+```

@@ -1,0 +1,134 @@
+[MODELER]:
+Formulate this as a **linear programming (LP)** problem.
+
+### Decision variables
+- \(x_1 \ge 0\): number of regular tacos to make
+- \(x_2 \ge 0\): number of deluxe tacos to make
+
+### Objective
+Maximize total profit:
+
+\[
+\text{Maximize } Z = 2.50x_1 + 3.55x_2
+\]
+
+### Constraints
+
+1. Demand limit on regular tacos:
+\[
+x_1 \le 50
+\]
+
+2. Demand limit on deluxe tacos:
+\[
+x_2 \le 40
+\]
+
+3. Supply limit on total tacos:
+\[
+x_1 + x_2 \le 70
+\]
+
+4. Nonnegativity:
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+### Solving (reasoning)
+
+The per-unit profit is higher for deluxe tacos (3.55 > 2.50), so we want as many deluxe tacos as possible, within constraints.
+
+- Take the maximum deluxe: \(x_2 = 40\).
+- Then supply limit: \(x_1 + 40 \le 70 \Rightarrow x_1 \le 30\), which is also within the regular limit (50).
+
+So:
+
+\[
+x_1 = 30,\quad x_2 = 40
+\]
+
+Check total tacos: \(30 + 40 = 70\) (meets supply limit exactly).
+
+Profit:
+
+\[
+Z = 2.50(30) + 3.55(40) = 75 + 142 = 217
+\]
+
+### Optimal solution
+
+- Regular tacos: **30**
+- Deluxe tacos: **40**
+- Maximum profit: **\$217**
+
+### Suitable Python libraries
+
+To solve this LP programmatically, you could use:
+
+- `PuLP` (very straightforward LP modeling)
+- `scipy.optimize.linprog`
+- `ortools.linear_solver` from Google OR-Tools
+
+Example with PuLP (sketch):
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Taco_Profit_Maximization", pl.LpMaximize)
+
+# Variables
+x1 = pl.LpVariable('x1', lowBound=0)
+x2 = pl.LpVariable('x2', lowBound=0)
+
+# Objective
+prob += 2.50 * x1 + 3.55 * x2
+
+# Constraints
+prob += x1 <= 50
+prob += x2 <= 40
+prob += x1 + x2 <= 70
+
+# Solve
+prob.solve()
+print(pl.value(x1), pl.value(x2), pl.value(prob.objective))
+```
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the LP problem: maximize profit
+    prob = pl.LpProblem("Taco_Profit_Maximization", pl.LpMaximize)
+
+    # Decision variables
+    x1 = pl.LpVariable('x1', lowBound=0)  # regular tacos
+    x2 = pl.LpVariable('x2', lowBound=0)  # deluxe tacos
+
+    # Objective function: Maximize Z = 2.50x1 + 3.55x2
+    prob += 2.50 * x1 + 3.55 * x2
+
+    # Constraints
+    prob += x1 <= 50          # Demand limit on regular tacos
+    prob += x2 <= 40          # Demand limit on deluxe tacos
+    prob += x1 + x2 <= 70     # Supply limit on total tacos
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Retrieve optimal values
+    x1_opt = pl.value(x1)
+    x2_opt = pl.value(x2)
+    obj_val = pl.value(prob.objective)
+
+    # Optional: show the solution (not required by instructions)
+    # print(f"x1 (regular tacos): {x1_opt}")
+    # print(f"x2 (deluxe tacos): {x2_opt}")
+    # print(f"Maximum profit: {obj_val}")
+
+    print(f"FINAL_OBJ: {obj_val}")
+
+if __name__ == "__main__":
+    main()

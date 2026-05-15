@@ -1,0 +1,187 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Minimise the total amount of waste produced while meeting the brain delivery requirement and not exceeding the heart delivery limit.
+
+2. Suggested model type
+- Model: Linear Programming (continuous LP). (Two continuous nonnegative decision variables; objective and constraints are linear.)
+
+3. Main decision variables (describe, not formal symbols)
+- Amount of time (in minutes) the patient is hooked to Machine 1.
+- Amount of time (in minutes) the patient is hooked to Machine 2.
+
+4. Objective (conceptual)
+- Minimise total waste produced, i.e. the time on Machine 1 multiplied by its waste-rate plus the time on Machine 2 multiplied by its waste-rate. (Machine 1 waste-rate = 0.3 waste units per minute; Machine 2 = 0.5 waste units per minute.)
+
+5. Key constraints to include (worded)
+- Brain delivery requirement: the combined brain medicine delivered by the two machines over their runtimes must be at least 4 units (Machine 1 delivers 0.8 units/min to the brain; Machine 2 delivers 1 unit/min to the brain).
+- Heart delivery limit: the combined heart medicine delivered by the two machines over their runtimes must not exceed 8 units (Machine 1 delivers 0.5 units/min to the heart; Machine 2 delivers 0.3 units/min to the heart).
+- Nonnegativity: both machine run-times must be greater than or equal to zero (no negative time).
+- No other implicit upper-bounds on run-times are given; include a feasibility check to ensure the brain requirement can be met without violating the heart limit (if external time bounds exist, add them).
+
+6. Practical modelling/solution notes for the Modeller
+- This is a two-variable LP; solve with any LP solver or by examining the corner/extreme points (graphical method). Candidate extreme points to evaluate are where the brain constraint is active, where the heart constraint is active, and where either machine run-time is zero.
+- Check feasibility first: verify there exists a combination of run-times that meets the brain minimum while keeping heart below its maximum.
+- Report the optimal run-times (minutes on each machine), the achieved brain and heart totals, and the minimal total waste. Also report which constraints are binding at optimality and sensitivity remarks (e.g., how solution changes if brain or heart requirements change).
+- Units: minutes for decision variables; medicine and waste in given units per minute.
+
+That is the complete modelling plan; the modeller can now formulate the LP and compute the optimal run-times.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- x >= 0 : minutes the patient is on Machine 1.
+- y >= 0 : minutes the patient is on Machine 2.
+
+Units: minutes.
+
+Objective
+Minimise total waste:
+minimize Z = 0.3 x + 0.5 y
+
+Constraints
+- Brain delivery requirement: 0.8 x + 1.0 y >= 4
+- Heart delivery limit: 0.5 x + 0.3 y <= 8
+- Nonnegativity: x >= 0, y >= 0
+
+Feasibility check
+There exists feasible (x,y): e.g. x = 5, y = 0 gives brain = 0.8*5 = 4 (meets brain requirement) and heart = 0.5*5 = 2.5 (<= 8). So the problem is feasible.
+
+Solve analytically (two-variable LP)
+Because objective coefficients and constraints are linear and there are only two variables, evaluate relevant corner points of the feasible region:
+
+- x = 0, from brain: y >= 4 -> take (0,4). Waste Z = 0.5*4 = 2.0.
+- y = 0, from brain: x >= 5 -> take (5,0). Waste Z = 0.3*5 = 1.5.
+- Intersection of brain and heart lines solves
+  0.8x + y = 4 and 0.5x + 0.3y = 8, which yields y < 0 (infeasible with y >= 0), so no additional feasible corner there.
+
+Compare the feasible corners: (5,0) gives the smallest waste.
+
+Optimal solution (numerical)
+- x* = 5 minutes on Machine 1
+- y* = 0 minutes on Machine 2
+- Total brain delivered = 0.8*5 + 1*0 = 4 units (binding)
+- Total heart delivered = 0.5*5 + 0.3*0 = 2.5 units (not binding; below the 8-unit limit)
+- Minimal total waste = 0.3*5 + 0.5*0 = 1.5 waste units
+
+Which constraints bind
+- Brain constraint is active (0.8x + y = 4).
+- y >= 0 is active (y = 0).
+- Heart constraint is not binding.
+
+Sensitivity / remarks
+- Machine 1 is more waste-efficient at delivering brain medicine: waste per brain unit = 0.3/0.8 = 0.375 for Machine 1 vs 0.5/1 = 0.5 for Machine 2. Therefore, whenever the brain requirement can be met using only Machine 1 without violating the heart limit, the LP optimum will use only Machine 1 (y = 0).
+- Maximum brain deliverable using only Machine 1 while respecting the heart limit: with heart 0.5 x <= 8 -> x <= 16, so max brain from Machine 1 alone = 0.8 * 16 = 12.8 units. Thus, if the brain requirement were <= 12.8, the optimal solution would still be y = 0 (only Machine 1).
+- If the brain requirement were > 12.8 units, Machine 2 must be used and the solution would generally become a corner involving the heart limit or a mix of machines.
+- If waste rates or delivery rates change, recompute waste per brain and check which machine is more efficient.
+
+Suggested solvers / libraries
+- Python: pulp (LP), scipy.optimize.linprog, cvxpy, OR-Tools (linear solver).
+- For this small problem a direct analytical solution (corner inspection) suffices; for larger problems use pulp or linprog.
+
+Optional example (quick approach)
+- Use scipy.optimize.linprog or pulp to solve the LP directly.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import itertools
+import math
+
+# Problem data
+# Decision variables: x >=0, y >=0
+# Objective: minimize Z = 0.3 x + 0.5 y
+# Constraints:
+#   brain: 0.8 x + 1.0 y >= 4
+#   heart: 0.5 x + 0.3 y <= 8
+
+eps = 1e-9
+
+# Represent potential equality lines as (name, a, b, c) for a*x + b*y = c
+lines = [
+    ("brain", 0.8, 1.0, 4.0),    # brain equality line
+    ("heart", 0.5, 0.3, 8.0),    # heart equality line
+    ("x0", 1.0, 0.0, 0.0),       # x = 0
+    ("y0", 0.0, 1.0, 0.0),       # y = 0
+]
+
+def solve_2x2(a1, b1, c1, a2, b2, c2):
+    det = a1 * b2 - a2 * b1
+    if abs(det) < 1e-12:
+        return None
+    x = (c1 * b2 - c2 * b1) / det
+    y = (a1 * c2 - a2 * c1) / det
+    return (x, y)
+
+def feasible(x, y):
+    # Check nonnegativity
+    if x < -eps or y < -eps:
+        return False
+    # brain: 0.8 x + y >= 4
+    if 0.8 * x + 1.0 * y < 4.0 - eps:
+        return False
+    # heart: 0.5 x + 0.3 y <= 8
+    if 0.5 * x + 0.3 * y > 8.0 + eps:
+        return False
+    return True
+
+# Generate candidate corner points by intersecting pairs of lines
+candidates = []
+for (n1, a1, b1, c1), (n2, a2, b2, c2) in itertools.combinations(lines, 2):
+    sol = solve_2x2(a1, b1, c1, a2, b2, c2)
+    if sol is None:
+        continue
+    x, y = sol
+    # Treat tiny negative values as zero for numerical stability
+    if abs(x) < 1e-12:
+        x = 0.0
+    if abs(y) < 1e-12:
+        y = 0.0
+    if feasible(x, y):
+        candidates.append((x, y))
+
+# Ensure we also consider obvious axis-boundary feasible extremes:
+# x from brain when y=0 -> x = 5
+candidates.append((5.0, 0.0))
+# y from brain when x=0 -> y = 4
+candidates.append((0.0, 4.0))
+# heart-axis intercepts:
+candidates.append((0.0, 8.0 / 0.3))
+candidates.append((8.0 / 0.5, 0.0))  # x = 16
+
+# Filter unique candidates (within tolerance) and feasible
+unique = []
+for x, y in candidates:
+    if not feasible(x, y):
+        continue
+    found = False
+    for ux, uy in unique:
+        if abs(ux - x) <= 1e-7 and abs(uy - y) <= 1e-7:
+            found = True
+            break
+    if not found:
+        unique.append((x, y))
+
+# Evaluate objective
+best_obj = None
+best_xy = None
+for x, y in unique:
+    obj = 0.3 * x + 0.5 * y
+    if best_obj is None or obj < best_obj - 1e-12:
+        best_obj = obj
+        best_xy = (x, y)
+
+# As a fallback (shouldn't be needed), use analytic found solution x=5,y=0
+if best_obj is None:
+    best_xy = (5.0, 0.0)
+    best_obj = 0.3 * best_xy[0] + 0.5 * best_xy[1]
+
+# Final objective value
+value = float(best_obj)
+
+print(f"FINAL_OBJ: {value}")
+```

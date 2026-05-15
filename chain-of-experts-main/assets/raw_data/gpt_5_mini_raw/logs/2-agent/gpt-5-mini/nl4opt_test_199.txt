@@ -1,0 +1,135 @@
+[MODELER]:
+Below is a clean mathematical model, followed by the optimal solution and practical solver suggestions.
+
+Decision variables
+- x_P ∈ Z≥0 : number of Pi TV commercials
+- x_B ∈ Z≥0 : number of Beta Video commercials
+- x_G ∈ Z≥0 : number of Gamma Live commercials
+
+Objective
+Maximize total audience:
+maximize Z = 2000 x_P + 5000 x_B + 9000 x_G
+
+Constraints
+1) Budget:
+1200 x_P + 2000 x_B + 4000 x_G ≤ 20000
+
+2) Beta limit:
+x_B ≤ 8
+
+3) At most one third on Gamma:
+x_G ≤ (x_P + x_B + x_G) / 3
+equivalently: x_P + x_B ≥ 2 x_G
+
+4) At least 20% on Pi:
+x_P ≥ 0.2 (x_P + x_B + x_G)
+equivalently: 4 x_P ≥ x_B + x_G
+
+5) Integrality and nonnegativity:
+x_P, x_B, x_G ∈ Z≥0
+
+Remarks: constraints 3 and 4 are linear when written in the alternative forms shown.
+
+Recommended solvers / Python libraries
+- PuLP (uses CBC by default) — simple to model and solve integer LPs.
+- OR-Tools CP-SAT — very effective for integer/CP problems.
+- Gurobi or CPLEX — commercial high-performance solvers if available.
+
+Optimal solution (integer)
+Solving the integer program yields:
+- x_P = 3 (Pi TV)
+- x_B = 8 (Beta Video)
+- x_G = 0 (Gamma Live)
+
+This uses cost 1200·3 + 2000·8 = $19,600 (within $20,000), reaches audience 2000·3 + 5000·8 = 46,000 viewers, and satisfies the platform-share constraints:
+- Pi share = 3/11 ≈ 27.3% (≥20%)
+- Gamma share = 0% (≤33%)
+- Beta limit used (8 commercials)
+
+Short example (PuLP) — run in Python
+from pulp import LpProblem, LpVariable, lpSum, LpMaximize, LpInteger, PULP_CBC_CMD
+
+prob = LpProblem("Ads", LpMaximize)
+xP = LpVariable("xP", lowBound=0, cat=LpInteger)
+xB = LpVariable("xB", lowBound=0, upBound=8, cat=LpInteger)
+xG = LpVariable("xG", lowBound=0, cat=LpInteger)
+
+prob += 2000*xP + 5000*xB + 9000*xG
+prob += 1200*xP + 2000*xB + 4000*xG <= 20000
+prob += xP + xB >= 2*xG
+prob += 4*xP >= xB + xG
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print(xP.value(), xB.value(), xG.value(), "audience:", 2000*xP.value()+5000*xB.value()+9000*xG.value())
+
+That code returns the solution (3, 8, 0) and total audience 46,000.
+
+If you want, I can provide a full script, try alternative objective variants (e.g., minimize cost for a target reach), or run this with OR-Tools.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+# Brute-force search solution for the integer advertising problem
+# Self-contained: no external solvers required.
+
+def main():
+    # Parameters
+    budget = 20000
+    cost_P = 1200
+    cost_B = 2000
+    cost_G = 4000
+    aud_P = 2000
+    aud_B = 5000
+    aud_G = 9000
+    beta_limit = 8
+
+    # Upper bounds from budget (and beta limit)
+    max_xP = budget // cost_P  # 16
+    max_xB = min(beta_limit, budget // cost_B)  # min(8,10) -> 8
+    max_xG = budget // cost_G  # 5
+
+    best_obj = -1
+    best_solutions = []
+
+    for xP in range(max_xP + 1):
+        for xB in range(max_xB + 1):
+            for xG in range(max_xG + 1):
+                # Budget constraint
+                total_cost = cost_P * xP + cost_B * xB + cost_G * xG
+                if total_cost > budget:
+                    continue
+                # Beta limit already enforced by loop range but keep for clarity
+                if xB > beta_limit:
+                    continue
+                # At most one third on Gamma: x_P + x_B >= 2*x_G
+                if xP + xB < 2 * xG:
+                    continue
+                # At least 20% on Pi: 4*x_P >= x_B + x_G
+                if 4 * xP < xB + xG:
+                    continue
+                # All nonnegative integers by construction
+
+                # Objective: maximize total audience
+                audience = aud_P * xP + aud_B * xB + aud_G * xG
+
+                if audience > best_obj:
+                    best_obj = audience
+                    best_solutions = [(xP, xB, xG, total_cost)]
+                elif audience == best_obj:
+                    best_solutions.append((xP, xB, xG, total_cost))
+
+    # Choose one optimal solution (first)
+    if best_solutions:
+        xP_opt, xB_opt, xG_opt, cost_opt = best_solutions[0]
+        # Print chosen optimal solution details (optional)
+        print(f"Optimal integer solution found: x_P={xP_opt}, x_B={xB_opt}, x_G={xG_opt}")
+        print(f"Total cost = {cost_opt}, Total audience = {best_obj}")
+    else:
+        print("No feasible solution found.")
+        best_obj = 0
+
+    # FINAL required output line
+    print(f"FINAL_OBJ: {best_obj}")
+
+if __name__ == "__main__":
+    main()

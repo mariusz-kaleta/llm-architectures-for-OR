@@ -1,0 +1,143 @@
+[MODELER]:
+Here’s a clean mathematical model of the problem and how you’d solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of type II ambulance shifts per day  
+- \(y\) = number of hospital van shifts per day  
+
+Both are nonnegative and, in reality, should be integers:
+
+\[
+x \ge 0,\quad y \ge 0,\quad x,y \in \mathbb{Z}
+\]
+
+---
+
+## 2. Objective function
+
+Minimize the total daily transportation cost:
+
+- Each ambulance shift costs \$820  
+- Each van shift costs \$550  
+
+So the total cost is:
+
+\[
+\min\; C = 820x + 550y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Patient transport requirement
+
+Each shift transports:
+
+- 20 patients per ambulance shift  
+- 15 patients per van shift  
+
+Need to transport at least 320 patients:
+
+\[
+20x + 15y \;\ge\; 320
+\]
+
+### b) Union limitation on van shifts
+
+“At most 60% of shifts can be hospital vans” means:
+
+\[
+\frac{y}{x + y} \;\le\; 0.6
+\]
+
+Assuming \(x + y > 0\), multiply both sides:
+
+\[
+y \;\le\; 0.6(x + y)
+\]
+
+\[
+y \;\le\; 0.6x + 0.6y
+\]
+
+\[
+0.4y \;\le\; 0.6x
+\]
+
+\[
+y \;\le\; 1.5x
+\]
+
+So the linear constraint is:
+
+\[
+y \le 1.5x
+\]
+
+---
+
+## 4. Full optimization model
+
+\[
+\begin{aligned}
+\min\quad & 820x + 550y \\
+\text{s.t.}\quad 
+& 20x + 15y \ge 320 \\
+& y \le 1.5x \\
+& x, y \ge 0 \\
+& x, y \in \mathbb{Z}
+\end{aligned}
+\]
+
+---
+
+## 5. Suggested Python libraries
+
+This is a small integer linear program (ILP). Appropriate Python tools:
+
+- **PuLP** (`pulp`): Simple, pure-Python modeling library; good for teaching/tutorials.
+- **OR-Tools** (Google OR-Tools, `ortools.linear_solver`): Very efficient for linear and mixed-integer problems.
+- **Pyomo**: More general algebraic modeling language in Python.
+
+Any of these can express the model exactly as written and find the optimal integer solution.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem
+    prob = pulp.LpProblem("Ambulance_Van_Shifts_Optimization", pulp.LpMinimize)
+
+    # Decision variables (integers, nonnegative)
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # ambulance shifts
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # van shifts
+
+    # Objective function: Minimize total daily cost
+    prob += 820 * x + 550 * y
+
+    # Constraints
+    # Patient transport requirement: 20x + 15y >= 320
+    prob += 20 * x + 15 * y >= 320, "Patient_Requirement"
+
+    # Union limitation: y <= 1.5x
+    prob += y <= 1.5 * x, "Union_Limitation"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the final objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print the final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

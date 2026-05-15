@@ -1,0 +1,278 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Maximise monthly profit from producing scooters and bikes.
+
+2) Suggested model type
+- Model: Linear Programming (continuous LP). Note: if production must be whole units, solve as an Integer LP (but with large quantities LP relaxation is typically adequate).
+
+3) Main decision variables (describe, not formula)
+- Variable: number of scooters to produce per month.
+- Variable: number of bikes to produce per month.
+- Variable domains: nonnegative (and integer if required).
+
+4) Key constraints to include (described in words)
+- Design-team capacity constraint: total design hours consumed by all scooters and bikes cannot exceed the 5,000 design hours available per month. (Account for the per-unit design time of each product.)
+- Engineering-team capacity constraint: total engineering hours consumed by all scooters and bikes cannot exceed the 6,000 engineering hours available per month. (Account for the per-unit engineering time of each product.)
+- Non-negativity constraint: production quantities cannot be negative.
+- Optional/contingent constraints to consider (ask the decision maker whether they apply):
+  - Market demand limits for scooters and/or bikes (maximum customers per month).
+  - Minimum production requirements or contractual commitments.
+  - Integrality requirement: enforce integer units if needed.
+  - Resource sharing or setup-time constraints if production has batching or sequence effects.
+
+5) Objective components and data to use
+- Per-unit profit contributions: scooter contributes $200 profit each; bike contributes $300 profit each.
+- Use these per-unit profits in the objective to maximise total profit.
+
+6) Solution strategy and modelling notes for the Modeller
+- With two decision variables, solve graphically or by evaluating corner points of the feasible region determined by the design and engineering constraints and the axes. Candidate corner solutions to evaluate include production limited by design capacity only, by engineering capacity only, the intersection point where both capacities bind, and producing only one product.
+- If using a solver, set up the LP and run simplex (or any LP solver). If integrality is necessary, solve as an integer program.
+- After solving, report: optimal number of scooters and bikes, total profit, which constraints are binding (i.e., fully used), slack in other constraints, and shadow prices (marginal value of additional design or engineering hours).
+- Perform a sensitivity check on per-unit profits and available hours to see how robust the solution is to changes in data.
+
+Deliverable expected from Modeller
+- A model implementation (LP formulation without algebraic display if requested), the numeric optimal production plan (units of scooters and bikes per month), total profit, list of binding constraints, and a brief sensitivity summary (especially whether integrality changes the solution).
+
+---
+
+[MODELER]:
+Below I convert the textual statement into a formal LP, solve it, report the numeric optimum and provide sensitivity information and solver suggestions.
+
+1) Decision variables
+- x = number of scooters produced per month (≥ 0).
+- y = number of bikes produced per month (≥ 0).
+(If production must be integer, enforce x,y ∈ Z≥0; otherwise treat as continuous.)
+
+2) Objective
+Maximise total monthly profit:
+Maximise Z = 200 x + 300 y
+
+3) Constraints
+- Design-team hours: 2 x + 4 y ≤ 5000
+- Engineering-team hours: 3 x + 5 y ≤ 6000
+- Non-negativity: x ≥ 0, y ≥ 0
+
+4) Solution (analytic)
+Feasible region is defined by the two resource constraints and axes. The two constraint lines intersect at (x,y) = (−500,1500) which lies outside the nonnegative quadrant, so the feasible polygon is the triangle with vertices (0,0), (2000,0) and (0,1200) (these last two are the engineering-hours intercepts).
+
+Evaluate objective at vertices:
+- (0,0): Z = 0
+- (2000,0): Z = 200 * 2000 + 300 * 0 = $400,000
+- (0,1200): Z = 300 * 1200 = $360,000
+
+Optimal solution: produce x = 2000 scooters and y = 0 bikes.
+Maximum profit Z* = $400,000 per month.
+
+5) Binding constraints, slacks, dual/shadow prices
+- Binding constraint(s): engineering-team hours: 3x + 5y = 6000 is binding (3·2000 + 5·0 = 6000).
+- Non-binding: design-team constraint is not binding. Slack on design = 5000 − (2·2000 + 4·0) = 1000 design hours unused.
+- Shadow price (dual value) for engineering hours = marginal profit per additional engineering hour = profit-per-engineering-hour of the produced product = 200 / 3 ≈ $66.6667 per hour. (Interpretation: a small increase of 1 engineering hour raises max profit by ≈ $66.67, until the basis changes.)
+- Shadow price for design hours = 0 (since design capacity is not binding).
+
+6) Sensitivity / ranges of validity (brief)
+- The current optimum uses engineering capacity fully and produces only scooters because scooters yield higher profit per engineering hour: 200/3 ≈ 66.67 $/eng-hr vs bikes 300/5 = 60 $/eng-hr.
+- The engineering-hour shadow price of 200/3 is valid until the design constraint becomes binding. Current design slack is 1000 hours; each additional scooter uses 2 design hours, so you could produce at most 500 additional scooters before design binds. Producing 500 more scooters requires 1500 additional engineering hours (3·500). So the current dual remains valid up to about +1500 engineering hours. Beyond that, the structure changes and the dual value will change.
+- To make bikes part of the optimum (with current capacities), bike profit would need to increase so that profit per engineering hour for bikes ≥ scooters: required bike profit pb satisfies pb/5 ≥ 200/3 → pb ≥ (5/3)·200 ≈ $333.33. Current pb = 300, so bikes are less efficient on the scarce resource (engineering) and are not produced.
+- Integrality: the LP solution (2000,0) is integer so integrality does not change the solution here. If optimum were fractional and integer units were required, solve as an integer program.
+
+7) Suggested solvers / libraries
+- Python: PuLP (easy modelling, uses CBC by default), OR-Tools (CP-SAT for MIP, or linear solvers), cvxpy, scipy.optimize.linprog (for continuous LP), Pyomo (for larger models).
+- For this small LP PuLP or scipy.optimize.linprog are simplest. For integer requirements use PuLP with CBC or OR-Tools CP-SAT.
+
+8) Example Python (PuLP) implementation
+(Conceptual snippet — run in a Python environment with pulp installed.)
+
+from pulp import LpProblem, LpMaximize, LpVariable, value
+
+# Model
+prob = LpProblem("ScooterBike", LpMaximize)
+x = LpVariable("scooters", lowBound=0)
+y = LpVariable("bikes", lowBound=0)
+
+# Objective
+prob += 200*x + 300*y
+
+# Constraints
+prob += 2*x + 4*y <= 5000   # design hours
+prob += 3*x + 5*y <= 6000   # engineering hours
+
+prob.solve()
+print("Status:", prob.status)
+print("Optimal scooters x =", value(x))
+print("Optimal bikes   y =", value(y))
+print("Max profit Z =", value(prob.objective))
+
+This yields x = 2000, y = 0, Max profit = 400000.
+
+Summary (deliverable)
+- LP formulation: given above (objective, variables, constraints).
+- Optimal monthly plan: produce 2000 scooters and 0 bikes.
+- Total profit: $400,000 / month.
+- Binding constraint: engineering hours (fully used). Design hours slack = 1000.
+- Shadow prices: engineering ≈ $66.67/hour, design = $0/hour.
+- Sensitivity notes: bikes are suboptimal because they give lower profit per engineering-hour; integrality does not change the solution here.
+
+---
+
+[CODER]:
+import math
+
+# Problem data
+# Maximize Z = 200 x + 300 y
+c = [200.0, 300.0]
+
+# Constraints: A x <= b
+A = [
+    [2.0, 4.0],   # design-team hours
+    [3.0, 5.0],   # engineering-team hours
+]
+b = [5000.0, 6000.0]
+
+tol = 1e-9
+
+# Helper: check feasibility (Ax <= b and x >= 0)
+def is_feasible(pt):
+    x, y = pt
+    if x < -tol or y < -tol:
+        return False
+    for (ai, aj), bi in zip(A, b):
+        if ai * x + aj * y - bi > tol:
+            return False
+    return True
+
+# Generate candidate corner points:
+candidates = []
+
+# origin
+candidates.append((0.0, 0.0))
+
+# intersections of each constraint with axes
+for (ai, aj), bi in zip(A, b):
+    if abs(ai) > tol:
+        candidates.append((bi/ai, 0.0))
+    if abs(aj) > tol:
+        candidates.append((0.0, bi/aj))
+
+# intersection of the two constraint lines (solve A x = b)
+# Solve:
+# [a11 a12][x] = [b1]
+# [a21 a22][y]   [b2]
+a11, a12 = A[0]
+a21, a22 = A[1]
+det = a11 * a22 - a12 * a21
+if abs(det) > tol:
+    x_int = (b[0] * a22 - a12 * b[1]) / det
+    y_int = (a11 * b[1] - b[0] * a21) / det
+    candidates.append((x_int, y_int))
+
+# Filter feasible candidates and evaluate objective
+feasible_points = []
+for pt in candidates:
+    if is_feasible(pt):
+        x, y = pt
+        Z = c[0]*x + c[1]*y
+        feasible_points.append((pt, Z))
+
+# Find best
+if not feasible_points:
+    raise RuntimeError("No feasible solution found (unexpected).")
+
+best_pt, best_obj = max(feasible_points, key=lambda t: t[1])
+x_opt, y_opt = best_pt
+
+# Compute slacks for primal constraints
+slacks = []
+for (ai, aj), bi in zip(A, b):
+    slack = bi - (ai * x_opt + aj * y_opt)
+    # clean small numerical negatives to zero
+    if abs(slack) < 1e-8:
+        slack = 0.0
+    slacks.append(slack)
+
+# Determine binding constraints
+binding = []
+for i, s in enumerate(slacks):
+    if abs(s) <= 1e-8:
+        binding.append(i)  # index of constraint (0-based)
+
+# Compute dual (shadow prices) by solving the dual LP:
+# Dual variables y1,y2 >= 0 minimize 5000*y1 + 6000*y2
+# s.t. 2*y1 + 3*y2 >= 200
+#      4*y1 + 5*y2 >= 300
+# We'll enumerate candidate dual corner points (intersections with axes and equalities)
+dual_candidates = []
+
+# axes intersections (y1=0 or y2=0 and satisfy inequalities)
+# y1 = 0 -> constraints give lower bounds on y2
+# Solve equality of each constraint with y1=0
+# 3*y2 = 200 -> y2 = 200/3
+dual_candidates.append((0.0, 200.0/3.0))
+# 5*y2 = 300 -> y2 = 300/5
+dual_candidates.append((0.0, 300.0/5.0))
+
+# y2 = 0 -> solve for y1
+# 2*y1 = 200 -> y1 = 100
+dual_candidates.append((100.0, 0.0))
+# 4*y1 = 300 -> y1 = 75
+dual_candidates.append((75.0, 0.0))
+
+# intersection of the two constraint equalities (if any)
+det_dual = 2.0 * 5.0 - 3.0 * 4.0
+if abs(det_dual) > tol:
+    y1_int = (200.0 * 5.0 - 3.0 * 300.0) / det_dual
+    y2_int = (2.0 * 300.0 - 4.0 * 200.0) / det_dual
+    dual_candidates.append((y1_int, y2_int))
+
+# Filter feasible dual candidates (satisfy both inequalities and nonnegativity)
+dual_feasible = []
+for y1, y2 in dual_candidates:
+    if y1 >= -tol and y2 >= -tol:
+        c1 = 2.0*y1 + 3.0*y2
+        c2 = 4.0*y1 + 5.0*y2
+        if c1 + tol >= 200.0 and c2 + tol >= 300.0:
+            # compute dual objective
+            val = 5000.0*y1 + 6000.0*y2
+            dual_feasible.append(((y1, y2), val))
+
+if not dual_feasible:
+    # as fallback, compute dual by complementary slackness for this small problem
+    # If engineering constraint binding and design slack, dual = (0, 200/3)
+    if 1 in binding and 0 not in binding:
+        dual_solution = (0.0, 200.0/3.0)
+        dual_value = 5000.0*dual_solution[0] + 6000.0*dual_solution[1]
+    else:
+        raise RuntimeError("No feasible dual candidate found (unexpected).")
+else:
+    # choose the minimal dual objective (since dual is minimization)
+    dual_solution, dual_value = min(dual_feasible, key=lambda t: t[1])
+
+# Clean tiny negative zeros
+y1_opt = dual_solution[0] if abs(dual_solution[0])>1e-12 else 0.0
+y2_opt = dual_solution[1] if abs(dual_solution[1])>1e-12 else 0.0
+
+# Display results (not required by final format, but useful)
+print("Primal optimal point (x, y):", (x_opt, y_opt))
+print("Primal objective value Z =", best_obj)
+print()
+print("Constraint slacks (design, engineering):", slacks)
+print("Binding constraint indices (0=design,1=engineering):", binding)
+print()
+print("Dual (shadow prices) y1 (design) =", y1_opt, ", y2 (engineering) =", y2_opt)
+print("Dual objective (should equal primal) =", dual_value)
+print()
+# Sensitivity brief notes
+print("Interpretation:")
+print("- Engineering hours are binding." if 1 in binding else "- Engineering not binding.")
+print("- Design hours are binding." if 0 in binding else "- Design not binding.")
+print(f"- Shadow price engineering ≈ {y2_opt:.6f} $/eng-hr")
+print(f"- Shadow price design ≈ {y1_opt:.6f} $/design-hr")
+print("- Current optimum produces scooters only because 200/3 > 300/5.")
+
+# Final required print line (exact format)
+# If objective is numerically integer, print as int, else as float
+if abs(best_obj - round(best_obj)) < 1e-8:
+    value = int(round(best_obj))
+else:
+    value = float(best_obj)
+
+print(f"FINAL_OBJ: {value}")

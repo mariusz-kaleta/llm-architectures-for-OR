@@ -1,0 +1,197 @@
+[MODELER]:
+Here is a clean optimization model for this problem.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of carts (integer, \(x \ge 0\))  
+- \(y\) = number of trolleys (integer, \(y \ge 0\))
+
+---
+
+## 2. Parameters
+
+- Cart transport rate: \(r_c = 5\) kg/min  
+- Trolley transport rate: \(r_t = 7\) kg/min  
+- Workers per cart: \(w_c = 2\)  
+- Workers per trolley: \(w_t = 4\)  
+- Required total rate: \(R = 100\) kg/min  
+- Minimum number of trolleys: \(y \ge 12\)  
+- Maximum fraction of transport done by trolleys: at most 40%
+
+---
+
+## 3. Constraints
+
+### 3.1. Throughput requirement
+
+Total transport capacity must meet or exceed the required \(100\) kg/min:
+
+\[
+5x + 7y \;\ge\; 100
+\]
+
+### 3.2. Minimum number of trolleys
+
+\[
+y \;\ge\; 12
+\]
+
+### 3.3. At most 40% of transportation by trolleys
+
+“Only a maximum of 40% of the transportation can be using trolleys” means:
+
+\[
+\frac{\text{transport by trolleys}}{\text{total transport}} \;\le\; 0.4
+\]
+
+i.e.,
+
+\[
+\frac{7y}{5x + 7y} \;\le\; 0.4
+\]
+
+Assuming \(5x + 7y > 0\), multiply both sides:
+
+\[
+7y \;\le\; 0.4(5x + 7y)
+\]
+
+\[
+7y \;\le\; 2x + 2.8y
+\]
+
+\[
+7y - 2.8y \;\le\; 2x
+\]
+
+\[
+4.2y \;\le\; 2x
+\]
+
+\[
+x \;\ge\; 2.1y
+\]
+
+This is a linear constraint in \(x\) and \(y\).
+
+### 3.4. Integrality and non-negativity
+
+\[
+x, y \in \mathbb{Z},\quad x \ge 0,\; y \ge 0
+\]
+
+---
+
+## 4. Objective function
+
+We want to **minimize the total number of workers**:
+
+\[
+\text{Minimize } Z = 2x + 4y
+\]
+
+---
+
+## 5. Complete mathematical model
+
+\[
+\begin{aligned}
+\text{Minimize}\quad & Z = 2x + 4y \\
+\text{subject to}\quad 
+& 5x + 7y \;\ge\; 100 \\
+& y \;\ge\; 12 \\
+& x \;\ge\; 2.1y \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is an **integer linear programming (ILP)** problem.
+
+---
+
+## 6. Suitable Python libraries
+
+You can solve this model using standard MILP/LP libraries in Python:
+
+- **PuLP**  
+  - Simple modeling of linear and integer programs.  
+  - Works with open-source solvers such as CBC (included) and can connect to commercial solvers (Gurobi, CPLEX, etc.).
+
+- **OR-Tools (Google OR-Tools)**  
+  - Very good for integer and combinatorial optimization.  
+  - Use `pywraplp.Solver` with `CBC_MIXED_INTEGER_PROGRAMMING` or other backends.
+
+- **Pyomo**  
+  - More general algebraic modeling language; good for larger or more complex models.  
+  - Supports many solvers (GLPK, CBC, Gurobi, CPLEX, etc.).
+
+For a quick start, **PuLP** or **OR-Tools** are ideal.
+
+---
+
+## 7. Example PuLP formulation (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Transport_Optimization", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('carts', lowBound=0, cat='Integer')
+y = pl.LpVariable('trolleys', lowBound=0, cat='Integer')
+
+# Objective
+prob += 2*x + 4*y
+
+# Constraints
+prob += 5*x + 7*y >= 100          # throughput
+prob += y >= 12                   # min trolleys
+prob += x >= 2.1*y                # at most 40% capacity by trolleys
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("carts =", x.value())
+print("trolleys =", y.value())
+print("workers =", 2*x.value() + 4*y.value())
+```
+
+This directly encodes the mathematical model above and will return the optimal numbers of carts and trolleys.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Transport_Optimization", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('carts', lowBound=0, cat='Integer')
+    y = pl.LpVariable('trolleys', lowBound=0, cat='Integer')
+
+    # Objective: minimize number of workers
+    prob += 2 * x + 4 * y
+
+    # Constraints
+    prob += 5 * x + 7 * y >= 100        # Throughput requirement
+    prob += y >= 12                     # Minimum trolleys
+    prob += x >= 2.1 * y                # At most 40% transport by trolleys
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(prob.objective)
+
+    # Final required print
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

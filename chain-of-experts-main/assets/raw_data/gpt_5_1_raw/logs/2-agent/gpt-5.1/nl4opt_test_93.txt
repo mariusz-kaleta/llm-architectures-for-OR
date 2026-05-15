@@ -1,0 +1,253 @@
+[MODELER]:
+Let’s turn this into an optimization model and then solve it.
+
+---
+
+## 1. Define decision variables
+
+Let
+
+- \(x\) = number of circular tables  
+- \(y\) = number of rectangular tables  
+
+We assume \(x, y \ge 0\) and integer.
+
+---
+
+## 2. Parameters (from the problem)
+
+Per **circular table**:
+- Participants seated: 5
+- Poster boards displayed: 4
+- Guests catered: 8
+- Space used: 15 units
+
+Per **rectangular table**:
+- Participants seated: 4
+- Poster boards displayed: 4
+- Guests catered: 12
+- Space used: 20 units
+
+Requirements / limits:
+- At least 500 participants
+- At least 300 poster boards
+- At most 1900 units of space
+
+---
+
+## 3. Constraints
+
+### a) Participants capacity
+
+Total participant capacity from all tables must be at least 500:
+
+\[
+5x + 4y \;\ge\; 500
+\]
+
+### b) Poster board capacity
+
+Total poster boards capacity must be at least 300:
+
+\[
+4x + 4y \;\ge\; 300
+\]
+
+You can simplify the second constraint by dividing by 4:
+
+\[
+x + y \;\ge\; 75
+\]
+
+### c) Space limit
+
+Total space used by all tables must not exceed 1900 units:
+
+\[
+15x + 20y \;\le\; 1900
+\]
+
+### d) Nonnegativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Objective function
+
+We want to **maximize the number of guests catered**.
+
+Total guests:
+
+- Circular tables: \(8x\)
+- Rectangular tables: \(12y\)
+
+So the objective is:
+
+\[
+\text{Maximize } Z = 8x + 12y
+\]
+
+---
+
+## 5. Complete mathematical model
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 8x + 12y \\
+\text{subject to} \quad
+& 5x + 4y \ge 500 \quad &\text{(participants)} \\
+& 4x + 4y \ge 300 \quad &\text{(posters)} \\
+& 15x + 20y \le 1900 \quad &\text{(space)} \\
+& x, y \ge 0,\; x, y \in \mathbb{Z} \quad &\text{(integrality)}
+\end{aligned}
+\]
+
+---
+
+## 6. Solving the model (continuous relaxation first)
+
+Temporarily relax integrality (\(x, y\) real) to locate the optimal region; then check nearby integers.
+
+From poster constraint:
+\[
+x + y \ge 75 \Rightarrow x = 75 - y \text{ on boundary}
+\]
+
+From participants:
+\[
+5x + 4y \ge 500
+\]
+
+From space:
+\[
+15x + 20y \le 1900
+\]
+
+Check intersection of participants and space constraints as equalities:
+
+\[
+\begin{cases}
+5x + 4y = 500 \\
+15x + 20y = 1900
+\end{cases}
+\]
+
+Multiply the first by 5:
+
+\[
+25x + 20y = 2500
+\]
+
+Subtract the second:
+
+\[
+(25x + 20y) - (15x + 20y) = 2500 - 1900 \Rightarrow 10x = 600 \Rightarrow x = 60
+\]
+
+Then:
+
+\[
+5(60) + 4y = 500 \Rightarrow 300 + 4y = 500 \Rightarrow 4y = 200 \Rightarrow y = 50
+\]
+
+At \((x, y) = (60, 50)\):
+- Posters: \(4(60) + 4(50) = 440 \ge 300\) (satisfied)
+- Guests: \(Z = 8(60) + 12(50) = 480 + 600 = 1080\)
+
+This point is feasible and has both participants and space tight, which is a strong indicator of optimality for the linear program.
+
+To ensure it respects the poster constraint: \(x + y = 60 + 50 = 110 \ge 75\), fine.
+
+Any move that increases guests significantly would need more tables and thus more space; but space is already tight (exactly 1900). Among combinations that use full space, rectangular tables produce more guests per unit space (12 guests / 20 space = 0.6) than circular tables (8 / 15 ≈ 0.533), so the solution tends to use as many rectangular tables as allowed by the participants constraint. At the found solution, both key resource constraints are binding, which is typical of an optimum.
+
+Because \((60, 50)\) is integer, this is also optimal for the integer problem.
+
+**Optimal solution:**
+- Circular tables: \(x = 60\)
+- Rectangular tables: \(y = 50\)
+- Maximum guests: \(Z = 1080\)
+
+---
+
+## 7. Python implementation suggestions
+
+This is a small mixed-integer linear program (MILP). Suitable libraries:
+
+- `pulp` (simple, pure Python)
+- `ortools.linear_solver` from Google OR-Tools (fast, very good for MILP)
+- `pyomo` (more general modeling framework)
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Science_Fair_Tables", pl.LpMaximize)
+
+# Decision variables (integers)
+x = pl.LpVariable('x_circular', lowBound=0, cat='Integer')
+y = pl.LpVariable('y_rectangular', lowBound=0, cat='Integer')
+
+# Objective: maximize guests
+prob += 8 * x + 12 * y, "Total_Guests"
+
+# Constraints
+prob += 5 * x + 4 * y >= 500, "Participants"
+prob += 4 * x + 4 * y >= 300, "Posters"
+prob += 15 * x + 20 * y <= 1900, "Space"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Circular tables (x):", pl.value(x))
+print("Rectangular tables (y):", pl.value(y))
+print("Max guests:", pl.value(prob.objective))
+```
+
+This will output:
+- Circular tables: 60  
+- Rectangular tables: 50  
+- Max guests: 1080
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Create the problem: maximize total guests
+    prob = pl.LpProblem("Science_Fair_Tables", pl.LpMaximize)
+
+    # Decision variables (integers, non-negative)
+    x = pl.LpVariable('x_circular', lowBound=0, cat='Integer')
+    y = pl.LpVariable('y_rectangular', lowBound=0, cat='Integer')
+
+    # Objective function: maximize 8x + 12y
+    prob += 8 * x + 12 * y, "Total_Guests"
+
+    # Constraints
+    # Participants: 5x + 4y >= 500
+    prob += 5 * x + 4 * y >= 500, "Participants"
+
+    # Posters: 4x + 4y >= 300
+    prob += 4 * x + 4 * y >= 300, "Posters"
+
+    # Space: 15x + 20y <= 1900
+    prob += 15 * x + 20 * y <= 1900, "Space"
+
+    # Solve the problem using CBC (default solver)
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

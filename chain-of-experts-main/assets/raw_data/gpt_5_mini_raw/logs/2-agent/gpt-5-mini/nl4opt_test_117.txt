@@ -1,0 +1,148 @@
+[MODELER]:
+I'll convert this to a linear programming model, state the objective, variables and constraints, solve it, and give solver suggestions (with a short PuLP example).
+
+1) Decision variables
+- x1 = number of times beaker 1 is used (batches)
+- x2 = number of times beaker 2 is used
+
+(You can treat x1,x2 as continuous ≥0 for a linear relaxation, or integer if you require whole batches. The continuous optimum here is integral.)
+
+2) Objective
+Maximize total slime produced:
+maximize Z = 5 x1 + 3 x2
+
+3) Constraints
+Resource limits and waste limit:
+- Flour: 4 x1 + 6 x2 ≤ 150
+- Special liquid: 6 x1 + 3 x2 ≤ 100
+- Waste: 4 x1 + 2 x2 ≤ 30
+- Nonnegativity: x1 ≥ 0, x2 ≥ 0
+
+4) Solve (analysis)
+Examine feasible region. The waste constraint 4x1 + 2x2 ≤ 30 (equivalently 2x1 + x2 ≤ 15) is the tightest bound on x2. Along that waste boundary x2 = 15 − 2 x1 the objective becomes
+Z = 5 x1 + 3(15 − 2 x1) = 45 − x1,
+which is maximized by minimizing x1. With x1 ≥ 0 the best choice on that line is x1 = 0, x2 = 15. This point satisfies the flour and liquid constraints:
+4·0 + 6·15 = 90 ≤ 150
+6·0 + 3·15 = 45 ≤ 100
+
+So the optimal solution is
+x1* = 0, x2* = 15
+Maximum slime = Z* = 5·0 + 3·15 = 45 units.
+
+5) Remarks
+- If you require integer batches, the same solution applies (x2 = 15 is integer).
+- If you want alternative solver options, libraries that can solve this linear program:
+  - PuLP (Python) — user friendly, uses CBC by default
+  - scipy.optimize.linprog — good for continuous LPs
+  - OR-Tools (linear solver) — fast and supports integer programming
+  - CVXPY — expressive modeling interface (for convex programs)
+
+6) Example PuLP implementation (Python)
+(Conceptual snippet)
+from pulp import LpProblem, LpMaximize, LpVariable, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("Maximize_Slime", LpMaximize)
+x1 = LpVariable('x1', lowBound=0)
+x2 = LpVariable('x2', lowBound=0)
+
+prob += 5*x1 + 3*x2
+prob += 4*x1 + 6*x2 <= 150
+prob += 6*x1 + 3*x2 <= 100
+prob += 4*x1 + 2*x2 <= 30
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print(x1.varValue, x2.varValue, "Total slime =", 5*x1.varValue + 3*x2.varValue)
+
+This will return x1=0, x2=15 and total slime = 45.
+
+Answer: Use beaker 1 zero times and beaker 2 fifteen times to produce 45 units of slime.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import numpy as np
+
+# Problem data
+# Maximize Z = c^T x
+c = np.array([5.0, 3.0])
+
+# Constraints A x <= b
+A = np.array([
+    [4.0, 6.0],  # Flour
+    [6.0, 3.0],  # Special liquid
+    [4.0, 2.0],  # Waste
+])
+b = np.array([150.0, 100.0, 30.0])
+
+tol = 1e-9
+
+candidates = []
+
+# Add the origin
+candidates.append(np.array([0.0, 0.0]))
+
+# Intersections with axes (x1=0 and x2=0)
+for i in range(A.shape[0]):
+    a1, a2 = A[i]
+    bi = b[i]
+    # x1 = 0 -> solve for x2 if possible
+    if abs(a2) > tol:
+        x = np.array([0.0, bi / a2])
+        candidates.append(x)
+    # x2 = 0 -> solve for x1 if possible
+    if abs(a1) > tol:
+        x = np.array([bi / a1, 0.0])
+        candidates.append(x)
+
+# Intersections of pairs of constraint lines (set equalities)
+m = A.shape[0]
+for i in range(m):
+    for j in range(i + 1, m):
+        Ai = A[[i, j], :]
+        bi = b[[i, j]]
+        det = np.linalg.det(Ai)
+        if abs(det) < tol:
+            continue
+        x = np.linalg.solve(Ai, bi)
+        candidates.append(x)
+
+# Evaluate candidates, keep feasible ones
+best_obj = -np.inf
+best_x = None
+
+for x in candidates:
+    x1, x2 = x
+    # feasibility check
+    if x1 < -tol or x2 < -tol:
+        continue
+    lhs = A.dot(x)
+    if np.all(lhs <= b + 1e-7):
+        obj = c.dot(x)
+        if obj > best_obj + 1e-12:
+            best_obj = obj
+            best_x = x.copy()
+
+# As a fallback (shouldn't be needed), also check the corners of the bounding box
+# derived from simple variable upper bounds computed from each constraint assuming the other var = 0
+if best_x is None:
+    # numeric fallback: sample grid
+    x1_max = max(0.0, max(b[i] / A[i, 0] if A[i, 0] > tol else 0.0 for i in range(m)))
+    x2_max = max(0.0, max(b[i] / A[i, 1] if A[i, 1] > tol else 0.0 for i in range(m)))
+    xs1 = np.linspace(0, x1_max, 201)
+    xs2 = np.linspace(0, x2_max, 201)
+    for xi in xs1:
+        for xj in xs2:
+            x = np.array([xi, xj])
+            if np.all(A.dot(x) <= b + 1e-7):
+                obj = c.dot(x)
+                if obj > best_obj:
+                    best_obj = obj
+                    best_x = x.copy()
+
+# Ensure best_obj is a plain Python float
+if best_obj is None or best_x is None:
+    best_obj = 0.0
+    best_x = np.array([0.0, 0.0])
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {float(best_obj)}")

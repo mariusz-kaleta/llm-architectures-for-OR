@@ -1,0 +1,187 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximize total profit from producing desks and drawers subject to assembly and sanding time limitations.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with two decision variables (a simple 2-variable resource allocation problem).
+
+3. Main decision variables  
+Define:
+- Variable 1: Number of desks to produce (non-negative, can be taken as continuous; later interpret as integer if needed).
+- Variable 2: Number of drawers to produce (non-negative, same note).
+
+4. Objective function (conceptual)  
+- Total profit = (profit per desk × number of desks) + (profit per drawer × number of drawers).
+- With given data: profit per desk = 100, profit per drawer = 90.
+- So: Maximize 100 × (desks) + 90 × (drawers).
+
+5. Key constraints to consider  
+
+   a) Assembly time constraint  
+   - Each desk requires 40 minutes of assembly.  
+   - Each drawer requires 30 minutes of assembly.  
+   - Total assembly time available: 4000 minutes.  
+   - Constraint structure:  
+     (time per desk × number of desks) + (time per drawer × number of drawers) ≤ total assembly time available.
+
+   b) Sanding time constraint  
+   - Each desk requires 20 minutes of sanding.  
+   - Each drawer requires 10 minutes of sanding.  
+   - Total sanding time available: 3500 minutes.  
+   - Constraint structure:  
+     (time per desk × number of desks) + (time per drawer × number of drawers) ≤ total sanding time available.
+
+   c) Non-negativity constraints  
+   - Number of desks ≥ 0.  
+   - Number of drawers ≥ 0.
+
+6. Modelling/solution strategy for the Modeller  
+
+   - Step 1: Set up the two decision variables as real, non-negative. Integer restriction is not strictly necessary here because optimal LP corner points will be near integers; they can be rounded and checked if desired.
+   - Step 2: Form the objective function using the given profit rates.
+   - Step 3: Encode assembly and sanding constraints as simple linear inequalities using the given times and capacities.
+   - Step 4: Use a graphical method (since there are only two variables) or a simplex solver to:
+     - Identify the feasible region defined by the two time constraints and non-negativity.
+     - Determine the corner points (intersections of constraint lines and axes).
+     - Evaluate the objective function at each corner point.
+   - Step 5: Select the corner point with the largest total profit as the optimal solution.
+   - Step 6: If necessary, adjust for integrality by checking nearby integer points around the optimal LP solution and confirm which yields the maximum profit while respecting constraints.
+
+---
+
+[MODELER]:
+Below is a formal optimisation model of the problem, followed by suggestions for solving it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_1 \ge 0\): number of desks to produce  
+- \(x_2 \ge 0\): number of drawers to produce  
+
+(You can treat \(x_1, x_2\) as continuous for an LP; if the final solution is not integral, you can later enforce integrality.)
+
+---
+
+## 2. Objective function
+
+Profit per unit:
+
+- Desk: 100  
+- Drawer: 90  
+
+Maximize total profit:
+
+\[
+\max \; Z = 100 x_1 + 90 x_2
+\]
+
+---
+
+## 3. Constraints
+
+### a) Assembly time constraint
+
+Each desk requires 40 minutes, each drawer 30 minutes, total available 4000 minutes:
+
+\[
+40 x_1 + 30 x_2 \le 4000
+\]
+
+### b) Sanding time constraint
+
+Each desk requires 20 minutes, each drawer 10 minutes, total available 3500 minutes:
+
+\[
+20 x_1 + 10 x_2 \le 3500
+\]
+
+(Usually this will be non-binding given the parameters, but it is part of the model.)
+
+### c) Non-negativity
+
+\[
+x_1 \ge 0, \quad x_2 \ge 0
+\]
+
+If integer production quantities are required, add:
+
+\[
+x_1, x_2 \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete mathematical model
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 100 x_1 + 90 x_2 \\
+\text{subject to} \quad
+& 40 x_1 + 30 x_2 \le 4000 \quad \text{(assembly time)} \\
+& 20 x_1 + 10 x_2 \le 3500 \quad \text{(sanding time)} \\
+& x_1 \ge 0, \; x_2 \ge 0
+\end{aligned}
+\]
+
+(Optional integer version: add \(x_1, x_2 \in \mathbb{Z}\).)
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard LP solver can handle this:
+
+- **PuLP**  
+  - High-level, easy modeling of LP/MIP.
+  - Integrates with CBC (open source) by default.
+- **OR-Tools (Google OR-Tools)**  
+  - `pywraplp` for linear and mixed-integer programming.
+  - Very good for discrete/integer formulations.
+- **SciPy**  
+  - `scipy.optimize.linprog` for continuous LP (no integer support).
+
+For this problem:
+
+- If you **only need the LP solution** (continuous variables):  
+  - `scipy.optimize.linprog` or PuLP are both suitable.
+- If you may **require integer solutions** (whole desks/drawers explicitly enforced):  
+  - PuLP or OR-Tools are better choices.
+
+---
+
+If you want, I can write a short PuLP or OR-Tools code snippet that encodes this model.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: maximize profit
+    prob = pulp.LpProblem("Desk_Drawer_Production", pulp.LpMaximize)
+
+    # Decision variables (non-negative, integer or continuous as needed)
+    x1 = pulp.LpVariable('x1', lowBound=0, cat='Integer')  # desks
+    x2 = pulp.LpVariable('x2', lowBound=0, cat='Integer')  # drawers
+
+    # Objective function
+    prob += 100 * x1 + 90 * x2, "Total_Profit"
+
+    # Constraints
+    prob += 40 * x1 + 30 * x2 <= 4000, "Assembly_Time"
+    prob += 20 * x1 + 10 * x2 <= 3500, "Sanding_Time"
+
+    # Solve
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get final objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print strictly in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

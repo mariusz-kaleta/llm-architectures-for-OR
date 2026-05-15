@@ -1,0 +1,44 @@
+[MONOLITH]:
+import pulp
+
+# Define the LP problem: minimize fat intake
+prob = pulp.LpProblem("Minimize_Fat", pulp.LpMinimize)
+
+# Decision variables: number of turkey dinners (x) and tuna sandwiches (y)
+# Meals must be whole, so use integer variables
+x = pulp.LpVariable('turkey_dinners', lowBound=0, cat='Integer')
+y = pulp.LpVariable('tuna_sandwiches', lowBound=0, cat='Integer')
+
+# Nutritional data (directly initialized)
+# Turkey dinner: 20g protein, 30g carbs, 12g fat
+# Tuna sandwich: 18g protein, 25g carbs, 8g fat
+
+# Objective: minimize total fat
+prob += 12 * x + 8 * y, "Total_Fat"
+
+# Constraints
+prob += 20 * x + 18 * y >= 150, "Protein_requirement"
+prob += 30 * x + 25 * y >= 200, "Carb_requirement"
+
+# At most 40% of meals should be turkey: x <= 0.4*(x+y) -> 3x <= 2y
+prob += 3 * x - 2 * y <= 0, "Turkey_fraction_limit"
+
+# Solve the problem
+prob.solve()
+
+# Extract results
+x_val = pulp.value(x)
+y_val = pulp.value(y)
+obj_val = pulp.value(prob.objective)
+
+# If objective is very close to an integer, cast to int for cleaner output
+if abs(obj_val - round(obj_val)) < 1e-8:
+    obj_val = int(round(obj_val))
+
+# Print solution details
+print(f"Optimal number of turkey dinners: {int(x_val)}")
+print(f"Optimal number of tuna sandwiches: {int(y_val)}")
+print(f"Total fat (objective): {obj_val}")
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {obj_val}")

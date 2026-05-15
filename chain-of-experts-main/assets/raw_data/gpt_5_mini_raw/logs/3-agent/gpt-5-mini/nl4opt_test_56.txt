@@ -1,0 +1,120 @@
+[MODELER]:
+Summary answer (optimal plan)
+- Use 5 high-volume pipes and 20 low-volume pipes.
+- Total pipes = 25 (this is minimum).  
+- Checks:
+  - Volume: 5·10000 + 20·5000 = 50,000 + 100,000 = 150,000 (meets demand).
+  - Technicians: 5·12 + 20·5 = 60 + 100 = 160 (within staff).
+  - High-pipe fraction: 5 / 25 = 0.20 ≤ 0.35 (OK).
+  - Low-pipe minimum: 20 ≥ 8 (OK).
+
+Mathematical model (integer linear program)
+
+Decision variables
+- x ∈ Z≥0 : number of high-volume pipes
+- y ∈ Z≥0 : number of low-volume pipes
+
+Objective
+- Minimize total number of pipes:
+  minimize z = x + y
+
+Constraints
+- Capacity (meet daily demand):
+  10000 x + 5000 y ≥ 150000
+  (equivalently 2x + y ≥ 30)
+
+- Technician availability:
+  12 x + 5 y ≤ 160
+
+- High-pipe share at most 35% of total (linearized):
+  x ≤ 0.35 (x + y)
+  ⇔ 0.65 x ≤ 0.35 y
+  ⇔ x ≤ (7/13) y
+
+- Minimum low-volume pipes:
+  y ≥ 8
+
+- Integrality and nonnegativity:
+  x, y ∈ Z≥0
+
+Solution method suggestions
+- This is a small integer linear program; any MIP solver will solve it easily. Suggested Python libraries:
+  - pulp (PuLP) — easy to use, interfaces CBC/GUROBI/CPLEX
+  - OR-Tools (CP-SAT or MIP) — fast and robust
+  - pyomo (with a solver) or cvxpy (with integer solver) also OK
+  - Commercial solvers: Gurobi, CPLEX (if available)
+
+Example (PuLP) code snippet
+(you can run this in Python if PuLP is installed)
+
+from pulp import LpProblem, LpMinimize, LpVariable, LpInteger, lpSum, LpStatus, value
+
+prob = LpProblem("Pipes", LpMinimize)
+x = LpVariable('x', lowBound=0, cat=LpInteger)  # high-volume
+y = LpVariable('y', lowBound=0, cat=LpInteger)  # low-volume
+
+prob += x + y  # objective
+prob += 10000*x + 5000*y >= 150000
+prob += 12*x + 5*y <= 160
+prob += 0.65*x <= 0.35*y   # high ≤ 35% of total
+prob += y >= 8
+
+prob.solve()
+print(LpStatus[prob.status], value(x), value(y), "total", value(x)+value(y))
+
+This returns x=5, y=20, total 25.
+
+If you want, I can provide a ready-to-run script, or show the algebraic reasoning used to get the optimal integers.
+
+---
+
+[CODER]:
+import math
+
+# Data
+demand = 150000        # required total volume per day
+cap_high = 10000      # volume per high-volume pipe
+cap_low = 5000        # volume per low-volume pipe
+tech_high = 12        # technicians needed per high-volume pipe
+tech_low = 5          # technicians needed per low-volume pipe
+tech_available = 160  # total technicians available
+max_high_fraction = 0.35
+min_low = 8
+
+# Derived integer-safe constraint for high-pipe share:
+# x <= 0.35*(x+y)  <=>  0.65 x <= 0.35 y  <=>  13 x <= 7 y
+# so use 13*x <= 7*y
+
+# Search bounds
+# x max: technician bound 12x <= 160 => x <= 13.33 => 13
+x_max = 13
+# y max: technician bound 5y <=160 => y <= 32
+y_max = 32
+
+best_z = None
+best_solutions = []
+
+for x in range(0, x_max + 1):
+    for y in range(min_low, y_max + 1):
+        # capacity
+        if cap_high * x + cap_low * y < demand:
+            continue
+        # technicians
+        if tech_high * x + tech_low * y > tech_available:
+            continue
+        # high-pipe share (integer-safe)
+        if 13 * x > 7 * y:
+            continue
+        # feasible
+        z = x + y
+        if (best_z is None) or (z < best_z):
+            best_z = z
+            best_solutions = [(x, y)]
+        elif z == best_z:
+            best_solutions.append((x, y))
+
+# Prepare final objective value
+value = best_z
+
+# Print final objective in required format
+print(f"FINAL_OBJ: {value}")

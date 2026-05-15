@@ -1,0 +1,239 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- **Goal:** Minimize the total daily cost of milk and vegetables while meeting minimum requirements of calcium and iron.
+
+2. **Suggested model type**
+
+- **Model:** Linear Programming (LP), two-variable minimization problem.
+
+3. **Main decision variables**
+
+Define:
+- **x** = number of glasses of milk consumed per day (continuous, nonnegative; can be later constrained to integer if needed).
+- **y** = number of plates of vegetables consumed per day (continuous, nonnegative; can be later constrained to integer if needed).
+
+4. **Objective function (conceptual)**
+
+- Total cost per day = (cost of milk) + (cost of vegetables)
+- Each glass of milk costs 1 dollar.
+- Each plate of vegetables costs 2 dollars.
+
+So the objective is to:
+- **Minimize total cost = 1·x + 2·y**
+
+5. **Key constraints to consider**
+
+Nutrient requirements:
+
+1. **Calcium requirement**
+   - Each glass of milk provides 40 units of calcium.
+   - Each plate of vegetables provides 15 units of calcium.
+   - Daily requirement: at least 100 units of calcium.
+   - Constraint (conceptual):  
+     - Calcium from milk + calcium from vegetables ≥ 100.
+     - 40·x + 15·y ≥ 100.
+
+2. **Iron requirement**
+   - Each glass of milk provides 25 units of iron.
+   - Each plate of vegetables provides 30 units of iron.
+   - Daily requirement: at least 50 units of iron.
+   - Constraint (conceptual):  
+     - Iron from milk + iron from vegetables ≥ 50.
+     - 25·x + 30·y ≥ 50.
+
+Feasibility constraints:
+
+3. **Non-negativity**
+   - The boy cannot consume a negative quantity.
+   - x ≥ 0
+   - y ≥ 0
+
+4. **(Optional) Integrality**
+   - In a realistic setting, x and y should be integers (e.g., whole glasses/plates).  
+   - The base LP can be solved in continuous form first; check if the optimal solution is already integral. If not, consider an Integer Linear Program (ILP) or rounding with feasibility check.
+
+6. **Modelling and solution strategy**
+
+- Represent the problem in a standard LP form with:
+  - 2 variables: x, y
+  - 2 main nutrient constraints + non-negativity
+- Solve graphically (since 2 variables) or using an LP solver:
+  - Identify the feasible region defined by the calcium and iron inequalities.
+  - Evaluate the objective function at each corner (extreme) point of the feasible region.
+  - Choose the corner point with the minimum cost that satisfies all constraints.
+- After obtaining the optimal (x, y):
+  - Verify that calcium ≥ 100 and iron ≥ 50.
+  - Verify cost is minimized among feasible corner points.
+  - If the optimal solution is non-integer and integrality is required, examine nearby integer points that satisfy the constraints and compare their costs.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, plus how you would implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x \ge 0\): number of glasses of milk consumed per day  
+- \(y \ge 0\): number of plates of vegetables consumed per day  
+
+(Continuous variables. You can later require \(x,y \in \mathbb{Z}\) if you want integrality.)
+
+---
+
+## 2. Objective function
+
+Cost per day:
+
+- Milk: \$1 per glass → total cost from milk = \(1x\)
+- Vegetables: \$2 per plate → total cost from vegetables = \(2y\)
+
+Minimize total daily cost:
+\[
+\min\; Z = 1x + 2y
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Calcium requirement
+
+- Each glass of milk: 40 units of calcium
+- Each plate of vegetables: 15 units of calcium
+- Required: at least 100 units
+
+\[
+40x + 15y \;\ge\; 100
+\]
+
+### 3.2 Iron requirement
+
+- Each glass of milk: 25 units of iron
+- Each plate of vegetables: 30 units of iron
+- Required: at least 50 units
+
+\[
+25x + 30y \;\ge\; 50
+\]
+
+### 3.3 Non-negativity
+
+\[
+x \;\ge\; 0,\quad y \;\ge\; 0
+\]
+
+Optionally, if you want integer numbers of glasses/plates:
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Model summary (standard LP form)
+
+\[
+\begin{aligned}
+\min\; & Z = x + 2y \\
+\text{s.t.}\;& 40x + 15y \;\ge\; 100 \quad \text{(calcium)}\\
+& 25x + 30y \;\ge\; 50 \quad \text{(iron)}\\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+This is a linear programming problem with 2 variables and 2 functional constraints.
+
+---
+
+## 5. Suitable Python libraries
+
+For this small LP, any standard LP/MIP package will work:
+
+- **PuLP**  
+  - Very simple modeling syntax, pure Python.  
+  - Can use CBC (default), GLPK, or commercial solvers.
+- **OR-Tools (LinearSolver or MPSolver)**  
+  - From Google; supports LP and MIP with multiple backends.
+- **SciPy (`scipy.optimize.linprog`)**  
+  - Good for continuous LP, but less convenient if you need integrality.
+
+For this problem:
+
+- If **continuous** decision variables are fine → `scipy.optimize.linprog` or `PuLP`.
+- If you want **integer** numbers of glasses/plates → `PuLP` or OR-Tools with MILP.
+
+---
+
+## 6. Example PuLP model (continuous version)
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("DietProblem", pl.LpMinimize)
+
+# Decision variables (continuous, >= 0)
+x = pl.LpVariable("milk_glasses", lowBound=0)
+y = pl.LpVariable("veg_plates", lowBound=0)
+
+# Objective function: minimize cost = x + 2y
+prob += x + 2*y, "Total_Cost"
+
+# Constraints
+prob += 40*x + 15*y >= 100, "Calcium_requirement"
+prob += 25*x + 30*y >= 50,  "Iron_requirement"
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal milk glasses (x):", x.value())
+print("Optimal veg plates (y):", y.value())
+print("Minimum cost:", pl.value(prob.objective))
+```
+
+To enforce integrality instead, define:
+
+```python
+x = pl.LpVariable("milk_glasses", lowBound=0, cat="Integer")
+y = pl.LpVariable("veg_plates", lowBound=0, cat="Integer")
+```
+
+This fully specifies the formal LP model and how to solve it programmatically.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("DietProblem", pl.LpMinimize)
+
+    # Decision variables (continuous, >= 0)
+    x = pl.LpVariable("milk_glasses", lowBound=0)
+    y = pl.LpVariable("veg_plates", lowBound=0)
+
+    # Objective function: minimize cost = x + 2y
+    prob += x + 2 * y, "Total_Cost"
+
+    # Constraints
+    prob += 40 * x + 15 * y >= 100, "Calcium_requirement"
+    prob += 25 * x + 30 * y >= 50, "Iron_requirement"
+
+    # Solve
+    prob.solve()
+
+    # Get objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print objective in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

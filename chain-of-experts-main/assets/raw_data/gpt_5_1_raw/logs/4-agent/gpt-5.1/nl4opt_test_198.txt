@@ -1,0 +1,210 @@
+[PLANNER]:
+1. **Key optimization goal**
+
+- **Goal:** Minimize the *total number of transportation units* (trains + trams) while ensuring a minimum hourly passenger capacity and satisfying fleet composition rules.
+
+---
+
+2. **Suggested model type**
+
+- **Model:** Integer Linear Programming (ILP)  
+  (Both decision variables are naturally integer counts of units; linear capacity and ratio constraints.)
+
+---
+
+3. **Main decision variables**
+
+Define integer decision variables:
+
+- \(T\): Number of trains to build/deploy.
+- \(M\): Number of trams to build/deploy.
+
+Both are nonnegative integers.
+
+---
+
+4. **Key constraints to consider**
+
+a) **Passenger capacity requirement**
+
+- Each train carries 120 people per hour.
+- Each tram carries 30 people per hour.
+- Total capacity must be at least 600 people per hour.
+
+  Strategic statement:  
+  - Add a capacity constraint ensuring:
+    - 120 × (number of trains) + 30 × (number of trams) ≥ 600.
+
+b) **Fleet composition (build-time/priority) constraint**
+
+- Trains take longer to build, so the number of trams must be at least twice the number of trains.
+
+  Strategic statement:  
+  - Add a constraint enforcing:
+    - (number of trams) ≥ 2 × (number of trains).
+
+c) **Non-negativity and integrality**
+
+- The company cannot build a negative or fractional number of units.
+
+  Strategic statement:
+  - Enforce:
+    - Trains ≥ 0, integer.
+    - Trams ≥ 0, integer.
+
+---
+
+5. **Objective function structure**
+
+- Objective: Minimize total units = (number of trains) + (number of trams).
+
+  Strategic statement:
+  - Define objective as minimizing T + M, using equal weight (1) for both trains and trams, since problem states “minimize number of transportation units” without differentiating cost or value.
+
+---
+
+6. **Notes for modelling**
+
+- The problem is small and would be solvable even by enumeration, but model it as a general ILP to keep it scalable (e.g., if extended to multiple transport types or additional constraints).
+- If needed for sensitivity, you can later extend:
+  - Different “costs” per train/tram instead of just counts.
+  - Upper bounds on number of trains or trams due to space/budget limits.
+- For now, keep it as a simple 2-variable ILP with:
+  - Linear objective
+  - Linear capacity constraint
+  - Linear ratio constraint
+  - Integrality conditions.
+
+---
+
+[MODELER]:
+Below is a compact mathematical model and how you’d implement/solve it in Python.
+
+---
+
+## 1. Mathematical model (ILP formulation)
+
+**Decision variables**
+
+- \(T \in \mathbb{Z}_{\ge 0}\): number of trains.
+- \(M \in \mathbb{Z}_{\ge 0}\): number of trams.
+
+---
+
+**Objective**
+
+Minimize the total number of transportation units:
+
+\[
+\min \; Z = T + M
+\]
+
+---
+
+**Constraints**
+
+1. **Passenger capacity constraint**
+
+Total hourly capacity must be at least 600 passengers:
+
+\[
+120T + 30M \;\ge\; 600
+\]
+
+2. **Fleet composition (trams vs. trains)**
+
+Number of trams must be at least twice the number of trains:
+
+\[
+M \;\ge\; 2T
+\]
+
+3. **Non-negativity and integrality**
+
+\[
+T \ge 0,\; M \ge 0,\; T, M \in \mathbb{Z}
+\]
+
+This is a pure integer linear programming (ILP) problem with a linear objective and linear constraints.
+
+---
+
+## 2. Suitable Python libraries
+
+Any standard MILP/ILP solver or interface will handle this easily:
+
+- **PuLP**: simple modeling interface in pure Python.
+- **OR-Tools** (Google): powerful CP-SAT and linear solver.
+- **Pyomo**: more general algebraic modeling language.
+- **SciPy** is not ideal here, as `scipy.optimize.linprog` is for continuous LP (no integrality).
+
+For a problem this small, **PuLP** or **OR-Tools** is sufficient and straightforward.
+
+---
+
+## 3. Example PuLP implementation (sketch)
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("TrainTramPlanning", pl.LpMinimize)
+
+# Decision variables
+T = pl.LpVariable('Trains', lowBound=0, cat='Integer')
+M = pl.LpVariable('Trams',  lowBound=0, cat='Integer')
+
+# Objective: minimize total units
+prob += T + M
+
+# Capacity constraint: 120T + 30M >= 600
+prob += 120*T + 30*M >= 600
+
+# Fleet composition: M >= 2T
+prob += M >= 2*T
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Trains:", pl.value(T))
+print("Trams:", pl.value(M))
+print("Total units:", pl.value(T + M))
+```
+
+You can analogously model this in **OR-Tools** with `pywraplp.Solver` or `cp_model.CpModel` (using integer variables and linear constraints).
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the ILP problem
+    prob = pl.LpProblem("TrainTramPlanning", pl.LpMinimize)
+
+    # Decision variables
+    T = pl.LpVariable('Trains', lowBound=0, cat='Integer')
+    M = pl.LpVariable('Trams',  lowBound=0, cat='Integer')
+
+    # Objective: minimize total units
+    prob += T + M
+
+    # Constraints
+    # 1. Capacity constraint: 120T + 30M >= 600
+    prob += 120 * T + 30 * M >= 600
+
+    # 2. Fleet composition: M >= 2T
+    prob += M >= 2 * T
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    objective_value = pl.value(T + M)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {objective_value}")
+
+if __name__ == "__main__":
+    main()

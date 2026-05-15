@@ -1,0 +1,34 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Aquarium_Tricks_Maximization", pulp.LpMaximize)
+
+# Decision variables: number of otters (O) and dolphins (D), integers
+O = pulp.LpVariable("Otters", lowBound=0, cat="Integer")
+D = pulp.LpVariable("Dolphins", lowBound=10, cat="Integer")  # at least 10 dolphins
+
+# Objective: maximize total tricks = 3 tricks per otter + 1 trick per dolphin
+prob += 3 * O + 1 * D, "Total_Tricks"
+
+# Constraints:
+# Treats: 3 treats per otter + 5 treats per dolphin <= 200
+prob += 3 * O + 5 * D <= 200, "Treats_Limit"
+
+# At most 30% of the performers can be otters:
+# O <= 0.3*(O + D)  -> 7*O <= 3*D (after rearranging and clearing decimals)
+prob += 7 * O <= 3 * D, "Otter_Percentage_Limit"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract objective value (round to nearest integer)
+value_raw = pulp.value(prob.objective)
+value = int(round(value_raw)) if value_raw is not None else None
+
+# Optional: print variable values (not required, but informative)
+print(f"Otters = {int(pulp.value(O))}")
+print(f"Dolphins = {int(pulp.value(D))}")
+
+# FINAL objective print as required
+print(f"FINAL_OBJ: {value}")

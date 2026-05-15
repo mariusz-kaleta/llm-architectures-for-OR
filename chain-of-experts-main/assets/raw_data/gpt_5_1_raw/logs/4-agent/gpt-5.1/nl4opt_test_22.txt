@@ -1,0 +1,213 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximise the total conversion rate of carbon monoxide to carbon dioxide (units per second) achieved by choosing how many palladium‑heavy and platinum‑heavy catalysts to use.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with nonnegative decision variables (likely integer, but the structure is linear).
+
+3. Main decision variables  
+Define two decision variables representing how many of each catalyst type are used:
+
+- Variable 1: Number of palladium-heavy catalysts used.  
+- Variable 2: Number of platinum-heavy catalysts used.
+
+(If needed, you can later specify them as integers, but initially model them as continuous nonnegative variables.)
+
+4. Key constraints and objective structure  
+
+a) Objective function (to maximise)  
+- Each palladium-heavy catalyst converts 5 units of CO per second.  
+- Each platinum-heavy catalyst converts 4 units of CO per second.  
+
+So the objective is:  
+- Maximise total conversion rate = 5 × (palladium-heavy catalysts) + 4 × (platinum-heavy catalysts).
+
+b) Platinum availability constraint  
+- Palladium-heavy catalyst uses 15 units of platinum each.  
+- Platinum-heavy catalyst uses 20 units of platinum each.  
+- Total platinum available: 450 units.  
+
+Constraint form (conceptually):  
+- 15 × (palladium-heavy catalysts) + 20 × (platinum-heavy catalysts) ≤ 450.
+
+c) Palladium availability constraint  
+- Palladium-heavy catalyst uses 25 units of palladium each.  
+- Platinum-heavy catalyst uses 14 units of palladium each.  
+- Total palladium available: 390 units.  
+
+Constraint form (conceptually):  
+- 25 × (palladium-heavy catalysts) + 14 × (platinum-heavy catalysts) ≤ 390.
+
+d) Non-negativity and integrality  
+- Both decision variables must be ≥ 0.  
+- If the context requires whole catalysts (which it does in practice), add integrality: both variables should be integers. Start with an LP relaxation; if needed, upgrade to an integer LP (ILP).
+
+5. Additional modelling notes / checks for the Modeller  
+
+- Confirm feasibility range:  
+  - A corner case with only palladium-heavy catalysts: check platinum (450/15) and palladium (390/25) limits to understand upper bounds.  
+  - A corner case with only platinum-heavy catalysts: check platinum (450/20) and palladium (390/14) limits similarly.  
+  - This also helps confirm the constraint system is not inconsistent.
+
+- Solution approach:  
+  - For a simple 2-variable LP, you can use graphical analysis or solve via standard LP techniques (simplex) to find the optimal combination at a vertex of the feasible region.  
+  - If integrality is enforced, verify that the optimal LP corner solution is already integer; otherwise, use an ILP solver or check nearby integer points.
+
+- Sensitivity considerations (if needed later):  
+  - You can examine how changes in available platinum or palladium affect the optimal catalyst mix.  
+  - You can also test sensitivity to the per-catalyst conversion rates (5 vs 4 units/sec).
+
+---
+
+[MODELER]:
+Here is a clear mathematical model of the problem:
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_1 \ge 0\): number of palladium‑heavy catalysts used  
+- \(x_2 \ge 0\): number of platinum‑heavy catalysts used  
+
+In practice, \(x_1, x_2\) should be integers (you can’t use a fraction of a catalyst), so we’ll later set:
+
+- \(x_1, x_2 \in \mathbb{Z}_{\ge 0}\)
+
+---
+
+## 2. Objective function
+
+Each catalyst’s CO → CO₂ conversion rate:
+
+- Palladium-heavy: 5 units/s
+- Platinum-heavy: 4 units/s
+
+Total conversion rate (units/s):
+
+\[
+\text{Conversion rate} = 5 x_1 + 4 x_2
+\]
+
+Objective: **maximize** this rate.
+
+\[
+\max\; Z = 5 x_1 + 4 x_2
+\]
+
+---
+
+## 3. Constraints
+
+### a) Platinum availability
+
+Each catalyst type uses platinum:
+
+- Palladium-heavy: 15 units Pt per catalyst  
+- Platinum-heavy: 20 units Pt per catalyst  
+- Total platinum available: 450 units
+
+Constraint:
+
+\[
+15 x_1 + 20 x_2 \le 450
+\]
+
+### b) Palladium availability
+
+Each catalyst type uses palladium:
+
+- Palladium-heavy: 25 units Pd per catalyst  
+- Platinum-heavy: 14 units Pd per catalyst  
+- Total palladium available: 390 units
+
+Constraint:
+
+\[
+25 x_1 + 14 x_2 \le 390
+\]
+
+### c) Non-negativity and integrality
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+\[
+x_1, x_2 \in \mathbb{Z} \quad \text{(if integrality enforced)}
+\]
+
+---
+
+## 4. Full formal model
+
+**Integer Linear Program (ILP):**
+
+\[
+\begin{aligned}
+\max\quad & 5x_1 + 4x_2 \\
+\text{s.t.}\quad
+& 15 x_1 + 20 x_2 \le 450 \quad &&\text{(platinum)}\\
+& 25 x_1 + 14 x_2 \le 390 \quad &&\text{(palladium)}\\
+& x_1, x_2 \ge 0 \\
+& x_1, x_2 \in \mathbb{Z}
+\end{aligned}
+\]
+
+If you first want the LP relaxation (ignoring integrality), just drop the last line and allow \(x_1, x_2\) to be continuous.
+
+---
+
+## 5. Suitable Python libraries
+
+For this small linear (and integer) optimization problem, several choices are appropriate:
+
+- **PuLP**  
+  - Very straightforward modeling syntax.  
+  - Can use CBC (default) as the MILP solver.  
+  - Good for teaching and quick prototypes.
+
+- **OR-Tools (Google OR-Tools)**  
+  - `ortools.linear_solver.pywraplp` for LP/MIP.  
+  - `ortools.sat.python.cp_model` also works well for integer problems.  
+  - Industrial-strength; good performance.
+
+- **SciPy (`scipy.optimize.linprog`)**  
+  - Can solve the LP relaxation (continuous variables only).  
+  - Does *not* handle integrality, so you’d need an external MILP solver if you require integer solutions.
+
+For a clean exact solution with integer catalysts, I’d recommend **PuLP** or **OR-Tools**.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: maximize objective
+    prob = pulp.LpProblem("Catalyst_Optimization", pulp.LpMaximize)
+
+    # Decision variables: integers >= 0
+    x1 = pulp.LpVariable('x1', lowBound=0, cat='Integer')  # palladium-heavy
+    x2 = pulp.LpVariable('x2', lowBound=0, cat='Integer')  # platinum-heavy
+
+    # Objective function: maximize 5 x1 + 4 x2
+    prob += 5 * x1 + 4 * x2
+
+    # Constraints
+    # Platinum availability: 15 x1 + 20 x2 <= 450
+    prob += 15 * x1 + 20 * x2 <= 450, "Platinum"
+
+    # Palladium availability: 25 x1 + 14 x2 <= 390
+    prob += 25 * x1 + 14 * x2 <= 390, "Palladium"
+
+    # Solve the problem using default solver (CBC)
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the final objective value
+    final_obj = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

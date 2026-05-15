@@ -1,0 +1,117 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = kilograms of regular mix to produce (kg), x ≥ 0
+  - y = kilograms of sour surprise mix to produce (kg), y ≥ 0
+
+- Objective
+  - Maximize profit P = 3x + 5y  (dollars)
+
+- Constraints (ingredient availability)
+  - regular candy: 0.8x + 0.1y ≤ 80  (kg)
+  - sour candy:   0.2x + 0.9y ≤ 60  (kg)
+
+Mathematical formulation
+  maximize   P = 3x + 5y
+  subject to 0.8x + 0.1y ≤ 80
+             0.2x + 0.9y ≤ 60
+             x ≥ 0, y ≥ 0
+
+Solve analytically (intersection of the two binding constraints)
+
+Solve
+  0.8x + 0.1y = 80
+  0.2x + 0.9y = 60
+
+From these equations:
+  y = 320/7 ≈ 45.7142857 kg
+  x = 660/7 ≈ 94.2857143 kg
+
+Profit at this solution:
+  P = 3x + 5y = 3580/7 ≈ $511.43
+
+Conclusion
+- Produce approximately 94.29 kg of the regular mix and 45.71 kg of the sour surprise mix to maximize profit (profit ≈ $511.43).
+
+Suggested Python solvers/libraries
+- pulp (linear programming, nice modeling interface)
+- scipy.optimize.linprog (simple LP solver)
+- OR-Tools (CP-SAT and linear solver, industrial-strength)
+- CVXOPT (convex optimization)
+
+Example (pulp) — minimal code sketch
+  import pulp
+  x = pulp.LpVariable('x', lowBound=0)
+  y = pulp.LpVariable('y', lowBound=0)
+  prob = pulp.LpProblem('Mix', pulp.LpMaximize)
+  prob += 3*x + 5*y
+  prob += 0.8*x + 0.1*y <= 80
+  prob += 0.2*x + 0.9*y <= 60
+  prob.solve()
+  print(x.varValue, y.varValue, pulp.value(prob.objective))
+
+You can use any of the suggested libraries to get the same numeric solution shown above.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import numpy as np
+
+# Coefficients for constraints
+# 0.8x + 0.1y <= 80
+# 0.2x + 0.9y <= 60
+A = np.array([[0.8, 0.1],
+              [0.2, 0.9]], dtype=float)
+b = np.array([80.0, 60.0], dtype=float)
+
+# Solve intersection of the two binding constraints
+solution = np.linalg.solve(A, b)
+x_int, y_int = solution[0], solution[1]
+
+# Other corner points: intersections with axes
+# Constraint 1 with y=0 -> 0.8x = 80 -> x = 100
+corner1 = (100.0, 0.0)
+# Constraint 2 with y=0 -> 0.2x = 60 -> x = 300, but constraint1 tighter so (100,0) already considered
+# Constraint 1 with x=0 -> 0.1y = 80 -> y = 800, but constraint2 tighter
+# Constraint 2 with x=0 -> 0.9y = 60 -> y = 60/0.9 = 66.666...
+corner2 = (0.0, 60.0/0.9)
+
+# Include origin
+corner0 = (0.0, 0.0)
+
+candidates = [corner0, corner1, corner2, (x_int, y_int)]
+
+def feasible(pt, tol=1e-9):
+    x, y = pt
+    if x < -tol or y < -tol:
+        return False
+    if 0.8*x + 0.1*y - 80 > tol:
+        return False
+    if 0.2*x + 0.9*y - 60 > tol:
+        return False
+    return True
+
+def profit(pt):
+    x, y = pt
+    return 3.0*x + 5.0*y
+
+feasible_candidates = [pt for pt in candidates if feasible(pt)]
+
+# Evaluate profits and find best
+best_pt = None
+best_profit = -np.inf
+for pt in feasible_candidates:
+    p = profit(pt)
+    if p > best_profit:
+        best_profit = p
+        best_pt = pt
+
+# Print detailed solution (not the final required line)
+x_opt, y_opt = best_pt
+print(f"Optimal x = {x_opt:.8f} kg")
+print(f"Optimal y = {y_opt:.8f} kg")
+print(f"Profit = {best_profit:.8f} dollars")
+
+# Final required print (this must be the last printed line)
+print(f"FINAL_OBJ: {best_profit}")

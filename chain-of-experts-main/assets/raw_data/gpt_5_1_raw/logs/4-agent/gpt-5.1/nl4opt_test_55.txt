@@ -1,0 +1,189 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximize John’s total profit from planting blueberries and raspberries on his 300-acre farm, subject to labor, watering budget, and land limits.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP), deterministic, single-period.
+
+3. Main decision variables  
+   Define continuous nonnegative variables representing acres planted of each crop:
+   - \(x_B\): Acres of blueberries to plant.
+   - \(x_R\): Acres of raspberries to plant.
+
+4. Objective function (conceptual description)  
+   - Maximize total profit = (profit per acre of blueberries × acres of blueberries) + (profit per acre of raspberries × acres of raspberries).
+   - Numerically: Maximize \(56 \cdot x_B + 75 \cdot x_R\).
+
+5. Key constraints to consider  
+
+   a) Land availability  
+   - Total acres of crops cannot exceed 300 acres of land.  
+   - \(x_B + x_R \le 300\).
+
+   b) Labor availability  
+   - Total labor days used for planting and maintaining both crops cannot exceed 575 days.  
+   - Each acre of blueberries uses 6 days; each acre of raspberries uses 3 days.  
+   - Labor constraint: \(6 \cdot x_B + 3 \cdot x_R \le 575\).
+
+   c) Watering budget  
+   - Total watering cost cannot exceed $10,000.  
+   - Blueberries: $22 per acre; raspberries: $25 per acre.  
+   - Watering cost constraint: \(22 \cdot x_B + 25 \cdot x_R \le 10000\).
+
+   d) Nonnegativity of decision variables  
+   - Cannot plant a negative number of acres.  
+   - \(x_B \ge 0\), \(x_R \ge 0\).
+
+6. Modelling notes / refinements  
+   - Acres are treated as continuous (fractional) for an LP; if they must be whole acres, the model type would become an Integer Program, but the problem as stated suggests a standard LP.  
+   - There are no explicit upper bounds on acres of a specific crop beyond the land, labor, and budget constraints; these implicit bounds are sufficient.
+
+---
+
+[MODELER]:
+Here is a clean mathematical formulation of the problem as a Linear Program, plus how you’d set it up in a Python optimization library.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_B \ge 0\): acres of blueberries to plant  
+- \(x_R \ge 0\): acres of raspberries to plant  
+
+(They are continuous; if acres must be integers, this becomes an Integer Linear Program.)
+
+---
+
+## 2. Objective function
+
+Maximize total profit from both crops:
+
+\[
+\text{Maximize } Z = 56x_B + 75x_R
+\]
+
+where  
+- 56 = profit per acre of blueberries (\$/acre)  
+- 75 = profit per acre of raspberries (\$/acre)
+
+---
+
+## 3. Constraints
+
+1. **Land availability (300 acres total)**  
+   \[
+   x_B + x_R \le 300
+   \]
+
+2. **Labor days (575 days available)**  
+   Each acre of blueberries uses 6 days; each acre of raspberries uses 3 days:
+   \[
+   6x_B + 3x_R \le 575
+   \]
+
+3. **Watering budget (\$10,000)**  
+   Blueberries cost \$22/acre; raspberries \$25/acre to water:
+   \[
+   22x_B + 25x_R \le 10000
+   \]
+
+4. **Nonnegativity**  
+   \[
+   x_B \ge 0,\quad x_R \ge 0
+   \]
+
+---
+
+## 4. Complete LP model
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & 56x_B + 75x_R \\
+\text{subject to} \quad
+& x_B + x_R \le 300 && \text{(land)} \\
+& 6x_B + 3x_R \le 575 && \text{(labor)} \\
+& 22x_B + 25x_R \le 10000 && \text{(watering budget)} \\
+& x_B \ge 0,\ x_R \ge 0 && \text{(nonnegativity)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+You can model and solve this LP with any of:
+
+- `PuLP` – very simple modeling interface, good for teaching and small/medium problems.  
+- `scipy.optimize.linprog` – direct LP solver, more low-level (you build matrices).  
+- `ortools.linear_solver` – from Google OR-Tools, robust and industrial-strength.  
+- `Pyomo` – more general algebraic modeling language, good for larger modeling projects.
+
+For this problem, `PuLP` or OR-Tools are both excellent choices.
+
+---
+
+## 6. Example in Python using PuLP
+
+```python
+import pulp as pl
+
+# Create the LP problem: maximize profit
+prob = pl.LpProblem("Berry_Farm_Profit_Max", pl.LpMaximize)
+
+# Decision variables
+x_B = pl.LpVariable("Blueberries_acres", lowBound=0)
+x_R = pl.LpVariable("Raspberries_acres", lowBound=0)
+
+# Objective function
+prob += 56 * x_B + 75 * x_R, "Total_Profit"
+
+# Constraints
+prob += x_B + x_R <= 300, "Land"
+prob += 6 * x_B + 3 * x_R <= 575, "Labor"
+prob += 22 * x_B + 25 * x_R <= 10000, "Water_Budget"
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal acres of blueberries:", x_B.value())
+print("Optimal acres of raspberries:", x_R.value())
+print("Maximum profit:", pl.value(prob.objective))
+```
+
+Replace PuLP with OR-Tools or `scipy.optimize.linprog` if you prefer those APIs.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the LP problem: maximize profit
+    prob = pl.LpProblem("Berry_Farm_Profit_Max", pl.LpMaximize)
+
+    # Decision variables
+    x_B = pl.LpVariable("Blueberries_acres", lowBound=0)
+    x_R = pl.LpVariable("Raspberries_acres", lowBound=0)
+
+    # Objective function
+    prob += 56 * x_B + 75 * x_R, "Total_Profit"
+
+    # Constraints
+    prob += x_B + x_R <= 300, "Land"
+    prob += 6 * x_B + 3 * x_R <= 575, "Labor"
+    prob += 22 * x_B + 25 * x_R <= 10000, "Water_Budget"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective strictly in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

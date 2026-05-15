@@ -1,0 +1,146 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = acres of turnips (>= 0)
+  - y = acres of pumpkins (>= 0)
+
+- Objective
+  - Maximize total revenue: maximize Z = 300x + 450y
+
+- Constraints
+  - Land: x + y ≤ 500
+  - Water: 50x + 90y ≤ 40000 (minutes)
+  - Pesticide cost: 80x + 50y ≤ 34000 (dollars)
+  - Nonnegativity: x ≥ 0, y ≥ 0
+
+This is a linear program (continuous variables; if acres must be integer you would add integer constraints).
+
+Solution (analysis)
+- Feasible corner points to check are: (x,y) = (425,0), (300,200), (125,375), (0,40000/90 ≈ 0,444.444). Evaluating the objective:
+  - (425,0) → Z = 127,500
+  - (300,200) → Z = 180,000
+  - (125,375) → Z = 206,250  (maximum)
+  - (0,444.444) → Z = 200,000
+
+Optimal solution: x = 125 acres of turnips, y = 375 acres of pumpkins, giving maximum revenue Z = $206,250.
+
+Recommended solvers / Python libraries
+- pulp (simple modeling with CBC or other solvers)
+- scipy.optimize.linprog (for continuous LP)
+- ortools.linear_solver (Google OR-Tools)
+- cvxpy (convex optimization modeling)
+
+Example using PuLP (Python)
+- Formulation in pulp:
+  from pulp import LpProblem, LpMaximize, LpVariable, value
+
+  prob = LpProblem("Farm", LpMaximize)
+  x = LpVariable("turnips", lowBound=0)
+  y = LpVariable("pumpkins", lowBound=0)
+
+  prob += 300*x + 450*y
+  prob += x + y <= 500
+  prob += 50*x + 90*y <= 40000
+  prob += 80*x + 50*y <= 34000
+
+  prob.solve()
+  print(value(x), value(y), value(prob.objective))
+
+This will return the optimal solution x = 125, y = 375, objective = 206250.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Define the LP:
+# Maximize Z = 300 x + 450 y
+# Subject to:
+# 1) x + y <= 500
+# 2) 50 x + 90 y <= 40000
+# 3) 80 x + 50 y <= 34000
+# x, y >= 0
+
+# Represent constraint equalities as (a, b, c) for a*x + b*y = c
+lines = [
+    (1.0, 1.0, 500.0),      # x + y = 500
+    (50.0, 90.0, 40000.0),  # 50x + 90y = 40000
+    (80.0, 50.0, 34000.0),  # 80x + 50y = 34000
+    (1.0, 0.0, 0.0),        # x = 0 (y-axis)
+    (0.0, 1.0, 0.0),        # y = 0 (x-axis)
+]
+
+def intersect(line1, line2, tol=1e-12):
+    a1, b1, c1 = line1
+    a2, b2, c2 = line2
+    det = a1 * b2 - a2 * b1
+    if abs(det) < tol:
+        return None
+    x = (c1 * b2 - c2 * b1) / det
+    y = (a1 * c2 - a2 * c1) / det
+    return (x, y)
+
+# Compute candidate vertices: intersections of all pairs of lines
+candidates = set()
+for i in range(len(lines)):
+    for j in range(i+1, len(lines)):
+        pt = intersect(lines[i], lines[j])
+        if pt is not None:
+            # Round small numerical noise
+            x, y = pt
+            # Avoid adding NaN or inf
+            if not (math.isfinite(x) and math.isfinite(y)):
+                continue
+            # Snap tiny negatives to zero
+            if abs(x) < 1e-9:
+                x = 0.0
+            if abs(y) < 1e-9:
+                y = 0.0
+            candidates.add( (round(x,10), round(y,10)) )
+
+# Also include origin explicitly
+candidates.add((0.0, 0.0))
+
+# Constraints for feasibility check
+def feasible(x, y, tol=1e-7):
+    if x < -tol or y < -tol:
+        return False
+    if x + y - 500.0 > tol:
+        return False
+    if 50.0*x + 90.0*y - 40000.0 > tol:
+        return False
+    if 80.0*x + 50.0*y - 34000.0 > tol:
+        return False
+    return True
+
+# Objective
+def objective(x, y):
+    return 300.0*x + 450.0*y
+
+# Evaluate feasible candidates
+feasible_points = []
+for x, y in candidates:
+    if feasible(x, y):
+        feasible_points.append( (x, y, objective(x,y)) )
+
+# If no feasible points found (should not happen), exit with zero
+if not feasible_points:
+    max_obj = 0.0
+else:
+    # Find point with maximum objective
+    best = max(feasible_points, key=lambda t: t[2])
+    best_x, best_y, max_obj = best
+
+# Round objective to nearest integer if very close
+if abs(round(max_obj) - max_obj) < 1e-6:
+    max_obj = int(round(max_obj))
+else:
+    # keep reasonable numeric precision
+    max_obj = float(round(max_obj, 6))
+
+# Final required print (last line)
+print(f"FINAL_OBJ: {max_obj}")
+```

@@ -1,0 +1,164 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Minimise the total number of vehicles used (number of limousines + number of buses).
+
+2) Suggested model type
+- Model: Integer Linear Programming (ILP) — two integer decision variables (counts of vehicles).
+
+3) Main decision variables
+- L = number of limousines (non‑negative integer).
+- B = number of buses (non‑negative integer).
+
+4) Key constraints to include (described, not as a formal LP)
+- Capacity constraint: total passenger capacity must be at least 400. (Each limousine carries 12 people, each bus 18 people.)
+- Limousine proportion constraint: at least 70% of the vehicles must be limousines. Express this as a linear relation (avoid fractions in implementation).
+- Integrality and nonnegativity: L and B must be integers ≥ 0.
+
+5) Linearisation / implementable forms (practical notes for the modeller)
+- Convert the 70% requirement to a linear integer-friendly form by clearing decimals. The 70% rule implies a linear inequality between L and B that can be written without fractions for the solver.
+- Use the capacity relation directly as a linear inequality involving L and B.
+
+6) Solution strategy recommendations
+- Direct ILP: feed the objective (minimise L + B) with the constraints into any ILP solver.
+- Simple enumeration (very easy given only two variables): loop over feasible B values (0 up to the maximum number of buses needed if only buses were used) and for each B compute the minimal integer L that simultaneously (a) provides enough remaining passenger capacity and (b) satisfies the 70% vehicle requirement. Record L + B and pick the combination with smallest total vehicles.
+- Bounds to tighten search:
+  - B upper bound: at most ceil(400 / 18) (if only buses are used).
+  - L upper bound: at most ceil(400 / 12) (if only limousines are used).
+  - For a given B, L must be at least large enough to cover any remaining capacity and at least large enough to meet the 70% proportion — take the maximum of those two requirements and round up to an integer.
+
+7) Output / verification
+- Return the integer pair (L, B) that minimises L + B.
+- Verify feasibility by checking both the capacity and the 70% rule on the returned solution.
+
+Optional tie‑breaking policy (if multiple (L,B) give same total vehicles)
+- If desired, specify a secondary objective (e.g., prefer more limousines or fewer buses) and add it lexicographically after the primary objective.
+
+---
+
+[MODELER]:
+Below is a clear mathematical model, practical linearisation of the 70% rule, a recommended simple solution strategy (exact enumeration), solver suggestions, and the optimal result.
+
+1) Decision variables
+- L ∈ Z≥0 : number of limousines
+- B ∈ Z≥0 : number of buses
+
+2) Objective
+Minimise total vehicles:
+minimise T = L + B
+
+3) Constraints (linear)
+- Capacity: 12 L + 18 B ≥ 400
+- Limousine proportion (at least 70% limousines):
+  L ≥ 0.7 (L + B)
+  Multiply out and clear decimals to get an integer‑friendly linear inequality:
+  0.3 L ≥ 0.7 B  ⇔  3 L ≥ 7 B
+- Integrality and nonnegativity: L,B integers ≥ 0
+
+So the ILP is:
+minimise L + B
+subject to
+12 L + 18 B ≥ 400
+3 L − 7 B ≥ 0
+L, B ∈ Z≥0
+
+4) Simple exact solution approach (recommended)
+Because there are only two integer variables you can either feed the ILP to any integer solver or do a tiny enumeration:
+
+- Upper bounds:
+  B_max = ceil(400 / 18) = 23
+  L_max = ceil(400 / 12) = 34
+- Loop B from 0..B_max. For each B compute the smallest feasible L:
+  L_capacity = max(0, ceil((400 − 18 B) / 12))
+  L_proportion = ceil(7 B / 3)   (from 3L ≥ 7B)
+  L = max(L_capacity, L_proportion)
+  Evaluate T = L + B and keep the minimal T and corresponding (L,B).
+- If multiple (L,B) give equal minimum T, pick a tie-breaker (e.g., prefer larger L or fewer B).
+
+5) Solver / library suggestions
+- pulp (pure Python ILP interface, uses CBC by default)
+- ortools (CP-SAT solver is very fast for integer problems)
+- python-mip (uses CBC or Gurobi if available)
+- pyomo with a solver backend
+(scikit-learn / scipy.optimize are not suited for integer problems)
+
+6) Result (optimal solution)
+Applying the enumeration/ILP yields minimum total vehicles T = 30. Feasible minimisers are:
+- L = 23, B = 7  (23 limousines, 7 buses)  — 23/30 ≈ 76.67% limousines, capacity = 12·23 + 18·7 = 276 + 126 = 402
+- L = 22, B = 8  — capacity = 396 + 144 = 540? (actually 12·22 + 18·8 = 264 + 144 = 408)
+- L = 21, B = 9  — capacity = 252 + 162 = 414 (L/(L+B) = 21/30 = 70% exactly)
+
+All three give T = 30. If you prefer to maximize limousines (or minimize buses) as a secondary criterion, choose L = 23, B = 7.
+
+7) Quick verification (for L=23, B=7)
+- Capacity: 12·23 + 18·7 = 402 ≥ 400 ✓
+- Proportion: 23/(23+7) = 23/30 ≈ 0.7667 ≥ 0.70 ✓
+- Total vehicles = 30 (minimum)
+
+If you want, I can provide a short pulp or ortools Python script that constructs and solves the ILP or implements the enumeration routine.
+
+---
+
+[CODER]:
+#!/usr/bin/env python3
+import math
+
+# Problem data
+capacity_required = 400
+cap_L = 12
+cap_B = 18
+
+# Upper bounds from problem description
+B_max = math.ceil(capacity_required / cap_B)  # 23
+L_max = math.ceil(capacity_required / cap_L)  # 34
+
+best_T = None
+best_L = None
+best_B = None
+
+for B in range(0, B_max + 1):
+    # Minimum L to satisfy capacity: ceil((400 - 18B) / 12), but not less than 0
+    remaining = capacity_required - cap_B * B
+    if remaining <= 0:
+        L_capacity = 0
+    else:
+        L_capacity = math.ceil(remaining / cap_L)
+    # Minimum L to satisfy proportion: 3L >= 7B -> L >= ceil(7B / 3)
+    L_proportion = (7 * B + 2) // 3  # integer ceil
+    L = max(L_capacity, L_proportion)
+    # Ensure non-negative integer
+    if L < 0:
+        L = 0
+
+    # Verify constraints (safety)
+    if 12 * L + 18 * B < capacity_required:
+        continue
+    if 3 * L - 7 * B < 0:
+        continue
+
+    T = L + B
+
+    if best_T is None:
+        update = True
+    else:
+        # Prefer smaller total T. On ties prefer larger L (more limousines).
+        if T < best_T:
+            update = True
+        elif T == best_T and L > best_L:
+            update = True
+        else:
+            update = False
+
+    if update:
+        best_T = T
+        best_L = L
+        best_B = B
+
+# Final check: there should be a solution
+if best_T is None:
+    raise RuntimeError("No feasible solution found.")
+
+# Optional informative print (not the required final line)
+print(f"Optimal solution found: L={best_L}, B={best_B}, total vehicles={best_T}")
+
+# Required final line exactly in this format
+print(f"FINAL_OBJ: {best_T}")

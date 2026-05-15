@@ -1,0 +1,165 @@
+[MODELER]:
+Here is a clean mathematical model and how you could solve it.
+
+---
+
+## 1. Decision Variables
+
+Let  
+- \(x\) = number of densely-seated ski lifts (integer, \(x \ge 0\))  
+- \(y\) = number of loosely-seated ski lifts (integer, \(y \ge 0\))
+
+---
+
+## 2. Objective
+
+Minimize the **total number of lifts**:
+
+\[
+\min \; Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Capacity (guest flow) constraint  
+Each minute:
+- Dense lift: 45 guests  
+- Loose lift: 20 guests  
+
+The resort needs at least 1000 guests per minute:
+
+\[
+45x + 20y \;\ge\; 1000
+\]
+
+---
+
+### 3.2 Electricity usage constraint  
+Each minute:
+- Dense lift: 30 units of electricity  
+- Loose lift: 22 units of electricity  
+
+Total available electricity is 940 units:
+
+\[
+30x + 22y \;\le\; 940
+\]
+
+---
+
+### 3.3 Minimum number of loosely-seated lifts
+
+There must be at least 5 loosely-seated lifts:
+
+\[
+y \;\ge\; 5
+\]
+
+---
+
+### 3.4 Integrality and nonnegativity
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete Mathematical Model
+
+\[
+\begin{aligned}
+\text{Minimize} \quad & Z = x + y \\
+\text{subject to} \quad
+& 45x + 20y \;\ge\; 1000 \quad &\text{(capacity)}\\
+& 30x + 22y \;\le\; 940 \quad &\text{(electricity)}\\
+& y \;\ge\; 5 \quad &\text{(beginner-friendly)}\\
+& x, y \in \mathbb{Z}_{\ge 0} &\text{(integrality)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python Libraries
+
+This is a **small integer linear program (ILP)**. Any standard MILP solver will handle it easily. Recommended libraries:
+
+- **PuLP** (pure Python, easy to use, can use CBC or external solvers)
+- **OR-Tools** (`ortools.linear_solver`) from Google (very efficient for MILP)
+- **Pyomo** (if you want a more general modeling framework)
+- **scipy.optimize** is less suited here because it does not handle integer constraints natively; you’d need a custom search around an LP relaxation.
+
+---
+
+## 6. Example in PuLP (sketch)
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Ski_Lift_Planning", pl.LpMinimize)
+
+# Variables
+x = pl.LpVariable('dense_lifts', lowBound=0, cat='Integer')
+y = pl.LpVariable('loose_lifts', lowBound=0, cat='Integer')
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 45*x + 20*y >= 1000         # capacity
+prob += 30*x + 22*y <= 940          # electricity
+prob += y >= 5                      # minimum loose lifts
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Dense lifts (x):", x.value())
+print("Loose lifts (y):", y.value())
+print("Total lifts:", x.value() + y.value())
+```
+
+This will return the optimal number of each type of ski lift that minimizes total installations while satisfying all constraints.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Ski_Lift_Planning", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('dense_lifts', lowBound=0, cat='Integer')
+    y = pl.LpVariable('loose_lifts', lowBound=0, cat='Integer')
+
+    # Objective function: minimize total number of lifts
+    prob += x + y
+
+    # Constraints
+    prob += 45 * x + 20 * y >= 1000    # Capacity constraint
+    prob += 30 * x + 22 * y <= 940     # Electricity constraint
+    prob += y >= 5                     # Minimum number of loosely-seated lifts
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    x_val = x.value()
+    y_val = y.value()
+    total_lifts = x_val + y_val
+
+    # Print results (not required by instructions, but useful)
+    print(f"Dense lifts (x): {x_val}")
+    print(f"Loose lifts (y): {y_val}")
+    print(f"Total lifts: {total_lifts}")
+
+    # Final objective value in required format
+    print(f"FINAL_OBJ: {total_lifts}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,131 @@
+[PLANNER]:
+1. Key optimisation goal:
+- Goal: Maximise the total amount of honey transported (total honey volume loaded into bottles).
+
+2. Suggested model type:
+- Model: Integer Linear Programming (ILP). (Two integer decision variables: counts of small and large bottles.)
+
+3. Main decision variables:
+- S = number of small bottles to use (integer, >= 0).
+- L = number of large bottles to use (integer, >= 0).
+
+(Clarify units: small bottle holds 5 units of honey, large holds 20 units.)
+
+4. Key constraints to include (verbal form, not formal equations):
+- Availability upper bounds: at most 300 small bottles available; at most 100 large bottles available.
+- Sales preference relation: at least twice as many small bottles must be used as large bottles (small count >= 2 × large count).
+- Total bottles capacity: at most 200 bottles may be transported in total.
+- Minimum large-bottle requirement: at least 50 large bottles must be used.
+- Nonnegativity and integrality: S and L must be integer and nonnegative.
+
+5. Modelling notes and suggestions for the Modeller (practical guidance):
+- Objective function (verbal): maximize 5×S + 20×L.
+- Enforce integrality (S, L integer) because bottles are discrete.
+- Check for redundant/tighter bounds: the total-bottle limit (≤200) makes the small-bottle upper bound (≤300) nonbinding; note and prune such redundancies.
+- Feasibility pruning: use the S >= 2L and S + L ≤ 200 constraints to limit feasible L (this gives a small integer range for L which can be enumerated easily). Solving by simple enumeration of L (within its feasible integer range) and selecting the best S per L is a quick, exact option.
+- Solver suggestion: a small ILP solver (or exact enumeration) is sufficient; an LP relaxation can be used for bounds and quick checks, but final solution must be integer.
+- Report: final model should return S and L, total bottles used, and total honey transported.
+
+Deliver these components to the solver/modeller so they can implement and solve the ILP (or enumerate feasible L values and compute the corresponding S) and report the optimal bottle counts and total honey.
+
+---
+
+[MODELER]:
+Below is a compact, formal model of the problem, modelling notes, solver suggestions and the optimal solution.
+
+1) Decision variables
+- S ∈ Z≥0 : number of small bottles used.
+- L ∈ Z≥0 : number of large bottles used.
+
+(Units: small bottle = 5 units honey, large bottle = 20 units honey.)
+
+2) Objective
+Maximise total honey transported:
+maximize Z = 5·S + 20·L
+
+3) Constraints (formal)
+- Availability (upper bounds):
+  S ≤ 300
+  L ≤ 100
+- Sales preference:
+  S ≥ 2·L
+- Total bottles limit:
+  S + L ≤ 200
+- Minimum large-bottle requirement:
+  L ≥ 50
+- Integrality and nonnegativity:
+  S, L ∈ Z, S ≥ 0, L ≥ 0
+
+4) Redundancy / tightening observations
+- Because S + L ≤ 200, the S ≤ 300 bound is nonbinding and can be dropped.
+- From S ≥ 2L and S + L ≤ 200 we get 3L ≤ 200 ⇒ L ≤ 66 (integer upper bound).
+- Combining L ≥ 50 and L ≤ 66 yields the feasible integer range L ∈ {50, …, 66}. This small range makes exact enumeration trivial and fast.
+
+5) Quick exact solution (enumeration / greedy within L)
+For any feasible L in {50,…,66}, to maximize Z choose S as large as allowed by S + L ≤ 200 (since small bottles still add positive honey), so take S = 200 − L (this also satisfies S ≥ 2L for L ≤ 66). The objective then becomes
+Z(L) = 5·(200 − L) + 20·L = 1000 + 15·L,
+which is increasing in L, so pick the largest feasible L = 66.
+
+6) Optimal solution (integer)
+- L* = 66 large bottles
+- S* = 200 − 66 = 134 small bottles
+- Total bottles used = 200
+- Total honey = 5·134 + 20·66 = 670 + 1320 = 1990 units
+
+7) Solver / implementation suggestions
+- Exact ILP solvers: pulp (CBC), ortools linear solver, OR-Tools CP-SAT (recommended for small integer problems).
+- For quick exact enumeration: plain Python (loop L in range(50,67)) or numpy/pandas.
+- For LP relaxation / bounds: scipy.optimize.linprog (but LP relaxation only).
+- For small problems the simplest approach is brute-force enumeration of L in [50,66] and compute S = 200 − L; no heavy solver required.
+
+If you want, I can:
+- provide a short Python snippet using pulp or a tiny enumeration script that returns S, L and total honey; or
+- produce a formal .lp file for an ILP solver.
+
+---
+
+[CODER]:
+```python
+# Self-contained script to solve the integer optimisation problem by enumeration
+
+# Problem data (initialized directly)
+SMALL_CAP = 300   # S ≤ 300
+LARGE_CAP = 100   # L ≤ 100
+TOTAL_BOTTLES_LIMIT = 200  # S + L ≤ 200
+MIN_LARGE = 50    # L ≥ 50
+
+# Coefficients
+SMALL_VOLUME = 5
+LARGE_VOLUME = 20
+
+best_obj = None
+best_S = None
+best_L = None
+
+# Enumerate feasible L (0..LARGE_CAP)
+for L in range(0, LARGE_CAP + 1):
+    if L < MIN_LARGE:
+        continue
+    # Maximum S allowed by availability and total bottles constraint
+    s_max_by_total = TOTAL_BOTTLES_LIMIT - L
+    if s_max_by_total < 0:
+        continue
+    S_max = min(SMALL_CAP, s_max_by_total)
+    # Sales preference: S >= 2L
+    if S_max < 2 * L:
+        continue
+    # Since objective coefficient for S is positive, pick S as large as allowed
+    S = S_max
+    obj = SMALL_VOLUME * S + LARGE_VOLUME * L
+    if (best_obj is None) or (obj > best_obj):
+        best_obj = obj
+        best_S = S
+        best_L = L
+
+# Final check that a solution was found
+if best_obj is None:
+    raise RuntimeError("No feasible solution found.")
+
+# (Do not print any other text on the final line)
+print(f"FINAL_OBJ: {best_obj}")
+```

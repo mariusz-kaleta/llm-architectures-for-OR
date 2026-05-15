@@ -1,0 +1,120 @@
+[MODELER]:
+Model type
+- Linear program (LP). If hamburgers/wraps must be whole items, an integer linear program (ILP).
+
+Decision variables
+- x = number of hamburgers (>= 0)
+- y = number of chicken wraps (>= 0)
+
+Objective
+- Minimize cost: minimize C = 6.5 x + 4 y
+
+Constraints (nutritional requirements)
+- Calories: 800 x + 450 y >= 2200
+- Protein: 19 x + 12 y >= 50
+- Carbohydrates: 20 x + 10 y >= 70
+- x >= 0, y >= 0
+(If integrality required: x, y are integers.)
+
+Matrix form
+- min [6.5  4] [x y]^T
+- s.t.  [[800 450], [19 12], [20 10]] [x y]^T >= [2200, 50, 70]^T
+- x,y >= 0 (and integer if required)
+
+Solution (continuous variables)
+- Solve the LP. The optimal continuous solution is:
+  x = 3.5 hamburgers, y = 0 wraps, cost = 6.5 * 3.5 = $22.75.
+  (At this point the carbohydrate constraint is binding: 20·3.5 = 70; other constraints have slack.)
+
+If integer (whole items) are required
+- The best integer-feasible solution is x = 3 hamburgers and y = 1 wrap:
+  cost = 3·6.5 + 1·4 = $23.50.
+  (This is cheaper than the other integer candidates such as x = 4, y = 0 which costs $26.)
+
+Recommended Python libraries
+- For LP (continuous): scipy.optimize.linprog, PuLP (with LpContinuous), CVXOPT.
+- For ILP (integer): PuLP (with LpInteger), OR-Tools (pywraplp), CBC/Gurobi/CPLEX via their Python APIs.
+
+Example (PuLP sketch)
+- Continuous:
+  - Define LpProblem(minimize), LpVariable("x", lowBound=0), LpVariable("y", lowBound=0)
+  - Add constraints 800*x + 450*y >= 2200, etc.
+  - Solve and read x.value(), y.value(), and objective.
+- Integer: declare variables with cat='Integer' and resolve.
+
+If you want, I can provide runnable Python code (LP and ILP) that solves this and prints the optimal solution.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+# Complete, run-ready script to solve the hamburger/wrap LP and ILP described.
+# Uses PuLP for both continuous LP and integer ILP.
+
+import pulp
+
+# Data
+costs = {"x": 6.5, "y": 4.0}  # x = hamburgers, y = chicken wraps
+
+# Nutritional coefficients for constraints (left-hand side)
+# Each constraint is of the form: a_x * x + a_y * y >= rhs
+constraints = {
+    "calories": {"coeffs": {"x": 800, "y": 450}, "rhs": 2200},
+    "protein":  {"coeffs": {"x": 19,  "y": 12},  "rhs": 50},
+    "carbs":    {"coeffs": {"x": 20,  "y": 10},  "rhs": 70},
+}
+
+# 1) Continuous LP
+prob_lp = pulp.LpProblem("MinCost_Continuous", pulp.LpMinimize)
+x = pulp.LpVariable("x", lowBound=0, cat="Continuous")
+y = pulp.LpVariable("y", lowBound=0, cat="Continuous")
+
+# Objective
+prob_lp += costs["x"] * x + costs["y"] * y
+
+# Constraints
+for name, c in constraints.items():
+    prob_lp += c["coeffs"]["x"] * x + c["coeffs"]["y"] * y >= c["rhs"], name
+
+# Solve
+prob_lp.solve(pulp.PULP_CBC_CMD(msg=False))
+lp_status = pulp.LpStatus[prob_lp.status]
+lp_x = x.varValue if x.varValue is not None else 0.0
+lp_y = y.varValue if y.varValue is not None else 0.0
+lp_obj = pulp.value(prob_lp.objective)
+
+# 2) Integer ILP
+prob_ilp = pulp.LpProblem("MinCost_Integer", pulp.LpMinimize)
+xi = pulp.LpVariable("x_int", lowBound=0, cat="Integer")
+yi = pulp.LpVariable("y_int", lowBound=0, cat="Integer")
+
+# Objective
+prob_ilp += costs["x"] * xi + costs["y"] * yi
+
+# Constraints
+for name, c in constraints.items():
+    prob_ilp += c["coeffs"]["x"] * xi + c["coeffs"]["y"] * yi >= c["rhs"], name
+
+# Solve
+prob_ilp.solve(pulp.PULP_CBC_CMD(msg=False))
+ilp_status = pulp.LpStatus[prob_ilp.status]
+ilp_x = xi.varValue if xi.varValue is not None else 0
+ilp_y = yi.varValue if yi.varValue is not None else 0
+ilp_obj = pulp.value(prob_ilp.objective)
+
+# Print readable summaries (these are allowed; final line below must be the required FINAL_OBJ line)
+print("Continuous LP solution:")
+print(f" status: {lp_status}")
+print(f" x = {lp_x:.6g}, y = {lp_y:.6g}")
+print(f" objective (cost) = ${lp_obj:.2f}")
+print()
+print("Integer ILP solution:")
+print(f" status: {ilp_status}")
+print(f" x = {ilp_x}, y = {ilp_y}")
+print(f" objective (cost) = ${ilp_obj:.2f}")
+
+# Final required print line (must be the last line of output and in the exact format)
+value = f"{lp_obj:.2f} (LP), {ilp_obj:.2f} (ILP)"
+print(f"FINAL_OBJ: {value}")
+```

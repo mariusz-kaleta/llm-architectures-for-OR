@@ -1,0 +1,49 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Hospital_Staffing_Problem", pulp.LpMinimize)
+
+# Decision variables
+# x: number of ultrasound technician shifts
+# y: number of graduate researcher shifts
+x = pulp.LpVariable('x', lowBound=0, cat='Integer')
+y = pulp.LpVariable('y', lowBound=0, cat='Integer')
+
+# Parameters
+hours_tech = 8
+hours_grad = 5
+cost_tech = 300
+cost_grad = 100
+min_hours = 500
+budget = 14000
+
+# Constraints
+
+# 1. There must be twice as many ultrasound technician shifts than graduate researcher shifts
+prob += x == 2 * y, "Regulation_Tech_Twice_Grad"
+
+# 2. Hours requirement
+prob += hours_tech * x + hours_grad * y >= min_hours, "Min_Hours_Requirement"
+
+# 3. Budget constraint
+prob += cost_tech * x + cost_grad * y <= budget, "Budget_Constraint"
+
+# Objective: reduce total number of workers (shifts)
+prob += x + y, "Minimize_Total_Workers"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract solution
+x_val = pulp.value(x)
+y_val = pulp.value(y)
+final_obj = pulp.value(prob.objective)
+
+# Print results
+print(f"Ultrasound technician shifts (x): {x_val}")
+print(f"Graduate researcher shifts (y): {y_val}")
+print(f"Total workers (x + y): {final_obj}")
+
+# Required final objective print
+print(f"FINAL_OBJ: {final_obj}")

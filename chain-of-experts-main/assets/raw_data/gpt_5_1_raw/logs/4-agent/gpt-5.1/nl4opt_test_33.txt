@@ -1,0 +1,216 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximise total revenue from growing turnips and pumpkins.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with two decision variables and continuous acreage (unless the context later requires integrality).
+
+3. Main decision variables  
+Define continuous non-negative variables such as:
+- \(T\): Acres of turnips planted.  
+- \(P\): Acres of pumpkins planted.
+
+4. Key constraints to consider  
+
+a) Land availability  
+- Total acres used by both crops cannot exceed 500 acres.  
+  - Structure: (acres of turnips) + (acres of pumpkins) ≤ 500.
+
+b) Watering time availability  
+- Each acre of turnips uses 50 minutes of watering.  
+- Each acre of pumpkins uses 90 minutes of watering.  
+- Total watering time used cannot exceed 40,000 minutes.  
+  - Structure: 50·(acres of turnips) + 90·(acres of pumpkins) ≤ 40,000.
+
+c) Pesticide budget constraint  
+- Each acre of turnips uses $80 of pesticide.  
+- Each acre of pumpkins uses $50 of pesticide.  
+- Total pesticide spending cannot exceed $34,000.  
+  - Structure: 80·(acres of turnips) + 50·(acres of pumpkins) ≤ 34,000.
+
+d) Non-negativity  
+- The farmer cannot plant negative acreage.  
+  - Structure: (acres of turnips) ≥ 0, (acres of pumpkins) ≥ 0.
+
+5. Objective function structure  
+
+- Revenue per acre:
+  - Turnips: $300 per acre.
+  - Pumpkins: $450 per acre.
+- Maximise total revenue:
+  - Structure: Maximise 300·(acres of turnips) + 450·(acres of pumpkins).
+
+6. Modelling and solution strategy for the Modeller  
+
+- Formulate the LP using T and P as the only decision variables.  
+- Include all three resource constraints plus non-negativity.  
+- Since there are only two variables, solution methods can include:
+  - Graphical method (plot feasible region and objective isoprofit lines).
+  - Standard LP solver (Simplex or equivalent) in any optimisation tool.
+- Identify all corner points (intersections of constraints and axes) in the feasible region:
+  - Land–watering intersection.
+  - Land–pesticide intersection.
+  - Watering–pesticide intersection.
+  - Axis intercepts (e.g., all-turnips and all-pumpkins subject to resources).
+- Evaluate the objective at each feasible corner point and select the one giving the maximum revenue.
+- Confirm that all constraints are binding or slack at the optimum and provide the corresponding acreage of turnips and pumpkins, plus the resulting maximum revenue.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model and suggested solution approach.
+
+---
+
+## 1. Decision variables
+
+Let  
+
+- \(T \ge 0\): acres of turnips to plant  
+- \(P \ge 0\): acres of pumpkins to plant  
+
+Both are continuous (fractions of an acre allowed) unless the context requires whole acres.
+
+---
+
+## 2. Objective function
+
+Revenue per acre:
+- Turnips: \$300/acre  
+- Pumpkins: \$450/acre  
+
+Maximise total revenue:
+\[
+\max_{T, P} \; Z = 300T + 450P
+\]
+
+---
+
+## 3. Constraints
+
+### a) Land constraint
+
+Total land cannot exceed 500 acres:
+\[
+T + P \le 500
+\]
+
+### b) Watering time constraint
+
+Watering requirement:
+- Turnips: 50 minutes/acre  
+- Pumpkins: 90 minutes/acre  
+Total watering time ≤ 40,000 minutes:
+\[
+50T + 90P \le 40{,}000
+\]
+
+### c) Pesticide budget constraint
+
+Pesticide requirement:
+- Turnips: \$80/acre  
+- Pumpkins: \$50/acre  
+Total pesticide spending ≤ \$34,000:
+\[
+80T + 50P \le 34{,}000
+\]
+
+### d) Non-negativity
+
+\[
+T \ge 0,\quad P \ge 0
+\]
+
+---
+
+## 4. Full LP model
+
+\[
+\begin{aligned}
+\max \quad & 300T + 450P \\
+\text{s.t.} \quad
+& T + P \le 500 \quad &\text{(Land)} \\
+& 50T + 90P \le 40{,}000 \quad &\text{(Water)} \\
+& 80T + 50P \le 34{,}000 \quad &\text{(Pesticide)} \\
+& T \ge 0,\; P \ge 0 &\text{(Non-negativity)}
+\end{aligned}
+\]
+
+This is a standard 2-variable linear program.
+
+---
+
+## 5. Suitable Python libraries
+
+Any LP solver can handle this easily. Good options:
+
+- `PuLP` (pure Python, linear programming):
+  - Simple modeling interface, uses CBC by default.
+- `scipy.optimize.linprog`:
+  - Useful if you are already in the SciPy ecosystem.
+- `ortools.linear_solver` from Google OR-Tools:
+  - Industrial-grade, supports LP and MIP.
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Farm_Revenue_Maximisation", pl.LpMaximize)
+
+# Decision variables
+T = pl.LpVariable('T', lowBound=0)  # acres of turnips
+P = pl.LpVariable('P', lowBound=0)  # acres of pumpkins
+
+# Objective
+prob += 300*T + 450*P, "Total_Revenue"
+
+# Constraints
+prob += T + P <= 500, "Land"
+prob += 50*T + 90*P <= 40000, "Water"
+prob += 80*T + 50*P <= 34000, "Pesticide"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal acres of turnips (T):", T.value())
+print("Optimal acres of pumpkins (P):", P.value())
+print("Maximum revenue:", pl.value(prob.objective))
+```
+
+You can use a similar structure in OR-Tools or SciPy, changing only the modeling API.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the LP problem
+    prob = pl.LpProblem("Farm_Revenue_Maximisation", pl.LpMaximize)
+
+    # Decision variables
+    T = pl.LpVariable('T', lowBound=0)  # acres of turnips
+    P = pl.LpVariable('P', lowBound=0)  # acres of pumpkins
+
+    # Objective function
+    prob += 300 * T + 450 * P, "Total_Revenue"
+
+    # Constraints
+    prob += T + P <= 500, "Land"
+    prob += 50 * T + 90 * P <= 40000, "Water"
+    prob += 80 * T + 50 * P <= 34000, "Pesticide"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

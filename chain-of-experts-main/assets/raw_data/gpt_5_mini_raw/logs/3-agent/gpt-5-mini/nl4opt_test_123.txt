@@ -1,0 +1,80 @@
+[MODELER]:
+Model
+- Decision variables
+  - C ∈ Z, C ≥ 0 : number of children's vaccines
+  - A ∈ Z, A ≥ 0 : number of adult vaccines
+
+- Objective
+  Minimize total fever suppressant used:
+  minimize F = 50·C + 75·A  (milligrams)
+
+- Constraints
+  1. mRNA availability: 50·C + 75·A ≤ 20,000
+  2. At least 70% adult vaccines: A ≥ 0.7·(C + A). Equivalently:
+     0.3·A ≥ 0.7·C  → 3·A ≥ 7·C  → A ≥ (7/3)·C
+  3. At least 50 children's vaccines: C ≥ 50
+  4. Integrality: C, A ∈ Z≥0
+
+Remarks on structure
+- The objective F uses the same per-vaccine coefficients as the mRNA constraint, so F = mRNA used. Thus minimizing F subject to the upper bound on mRNA is equivalent to minimizing total production subject to the other lower-bound constraints. Therefore the minimum will be at the smallest feasible production levels allowed by the constraints (not at the mRNA limit).
+- Given C ≥ 50 and A ≥ (7/3)C, the minimal feasible integer solution is obtained by taking C = 50 and the smallest integer A ≥ (7/3)·50 = 116.666... i.e. A = 117.
+- Check feasibility: mRNA used = 50·50 + 75·117 = 2,500 + 8,775 = 11,275 ≤ 20,000, so constraints satisfied.
+
+Solution
+- Children's vaccines: C = 50
+- Adult vaccines: A = 117
+- Total fever suppressant used: 50·50 + 75·117 = 11,275 mg
+- mRNA used: 11,275 mg (leaving 20,000 − 11,275 = 8,725 mg unused)
+
+Suggested solvers / libraries
+- Integer linear programming: pulp (with CBC), OR-Tools (CP-SAT or linear solver), or gurobi/cplex if available.
+- If you relax integrality (not recommended here), you could use scipy.optimize.linprog, but vaccines are naturally integer.
+
+Example (pulp) sketch
+- Define integer LpVariables C, A
+- Set objective 50*C + 75*A
+- Add constraints: 50*C + 75*A <= 20000; 3*A >= 7*C; C >= 50; C,A >= 0 and integer
+- Solve (CBC) — result will be C=50, A=117.
+
+If you want, I can provide a runnable Python/pulp or OR-Tools script.
+
+---
+
+[CODER]:
+import math
+
+# Problem data
+mRNA_limit = 20000
+coef_C = 50  # fever suppressant per child vaccine (mg) and mRNA per child vaccine
+coef_A = 75  # fever suppressant per adult vaccine (mg) and mRNA per adult vaccine
+
+# Search bounds
+C_min = 50
+C_max = 400  # from 50*C <= 20000 -> C <= 400 (safe upper bound)
+
+best_obj = None
+best_C = None
+best_A = None
+
+for C in range(C_min, C_max + 1):
+    # A must satisfy A >= (7/3) * C
+    A_min = math.ceil(7 * C / 3)
+    # Check mRNA constraint
+    mRNA_used = coef_C * C + coef_A * A_min
+    if mRNA_used <= mRNA_limit:
+        obj = coef_C * C + coef_A * A_min  # same as mRNA_used
+        if best_obj is None or obj < best_obj:
+            best_obj = obj
+            best_C = C
+            best_A = A_min
+
+# Output solution (optional informative prints)
+if best_obj is None:
+    print("No feasible solution found.")
+else:
+    print(f"Children (C): {best_C}")
+    print(f"Adults   (A): {best_A}")
+    print(f"Total fever suppressant (mg): {best_obj}")
+
+# Final required line (must be the very last line)
+print(f"FINAL_OBJ: {best_obj}")

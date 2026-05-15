@@ -1,0 +1,247 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Maximise total earnings from repairing washing machines and freezers.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with integer (non‑negative) decision variables.  
+   - If needed, can first solve as continuous LP, then enforce integrality (they represent counts of appliances).
+
+3. Main decision variables  
+   - Number of washing machines to repair.  
+   - Number of freezers to repair.
+
+4. Key constraints to consider  
+
+   a) Inspection time constraint  
+   - Each washing machine requires 30 minutes of inspection.  
+   - Each freezer requires 20 minutes of inspection.  
+   - Total inspection time used by all chosen jobs must not exceed 5,000 minutes.
+
+   b) Total available time constraint  
+   - Total time spent on each job = inspection time + fixing time.  
+   - Washing machine total time per unit = 30 (inspection) + 90 (fixing) = 120 minutes.  
+   - Freezer total time per unit = 20 (inspection) + 125 (fixing) = 145 minutes.  
+   - The sum of these times across all jobs must not exceed 20,000 minutes.
+
+   c) Non‑negativity and integrality  
+   - Both decision variables must be ≥ 0.  
+   - Both should be integer-valued, as you can’t fix a fraction of a machine.
+
+   d) Optional/implicit constraints  
+   - If the context implies any maximum potential demand (e.g., maximum number of machines available to repair), add upper bounds for each appliance type. If not given, assume no upper bound beyond time limits.
+
+5. Objective function (conceptual structure)  
+   - Earnings per washing machine: $250.  
+   - Earnings per freezer: $375.  
+   - Objective is to maximise 250 × (washing machines) + 375 × (freezers).
+
+6. Modelling strategy notes for the Modeller  
+   - Set up a 2-variable LP with the inspection and total-time constraints as linear inequalities.  
+   - First solve the continuous LP relaxation; the optimal corner point will suggest a combination near which the integer optimum will lie.  
+   - Check nearby integer combinations (e.g., floor/ceiling of continuous solution) to obtain the integer optimum.  
+   - Verify that both time constraints are satisfied at the chosen integer solution and report the corresponding total earnings.
+
+---
+
+[MODELER]:
+Below is a complete mathematical model and how you could implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x \in \mathbb{Z}_{\ge 0}\): number of washing machines to repair  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of freezers to repair  
+
+Both are non‑negative integers (you cannot repair a fraction of a machine).
+
+---
+
+## 2. Parameters
+
+- Inspection time per washing machine: \(30\) minutes  
+- Fixing time per washing machine: \(90\) minutes  
+- Total time per washing machine: \(30 + 90 = 120\) minutes  
+
+- Inspection time per freezer: \(20\) minutes  
+- Fixing time per freezer: \(125\) minutes  
+- Total time per freezer: \(20 + 125 = 145\) minutes  
+
+- Available inspection time: \(5000\) minutes  
+- Total available time (inspection + fixing): \(20000\) minutes  
+
+- Revenue per washing machine: \(\$250\)  
+- Revenue per freezer: \(\$375\)
+
+---
+
+## 3. Constraints
+
+1. **Inspection time constraint**
+
+   Total inspection time used cannot exceed 5000 minutes:
+
+\[
+30x + 20y \le 5000
+\]
+
+2. **Total time (inspection + fixing) constraint**
+
+   Total job time cannot exceed 20000 minutes:
+
+\[
+120x + 145y \le 20000
+\]
+
+3. **Non‑negativity and integrality**
+
+\[
+x \ge 0,\quad y \ge 0,\quad x,y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Objective function
+
+Maximise total earnings:
+
+\[
+\max Z = 250x + 375y
+\]
+
+---
+
+## 5. Full model summary
+
+\[
+\begin{aligned}
+\max \quad & 250x + 375y \\
+\text{s.t.} \quad 
+& 30x + 20y \le 5000 \quad \text{(inspection time)} \\
+& 120x + 145y \le 20000 \quad \text{(total schedule time)} \\
+& x, y \ge 0,\; x,y \in \mathbb{Z}
+\end{aligned}
+\]
+
+This is a small **integer linear programming (ILP)** problem (2 variables, 2 linear constraints).
+
+---
+
+## 6. Solving approach and libraries
+
+Because the model is linear with integer variables, use a Mixed Integer Linear Programming (MILP) solver. For a problem this small, any general MILP solver works very quickly.
+
+### Recommended Python libraries
+
+- **PuLP** (pure Python, easy to use, can call CBC/GLPK):  
+  - `pulp.LpProblem`, `pulp.LpVariable`, `pulp.value`, etc.  
+- **OR-Tools** (Google’s optimization suite, very fast MILP solver):  
+  - `ortools.linear_solver.pywraplp.Solver` with `CBC_MIXED_INTEGER_PROGRAMMING`.  
+- **Pyomo** (more general algebraic modeling language; works with CBC, GLPK, Gurobi, CPLEX, etc.).  
+
+For simplicity, PuLP or OR-Tools are ideal here.
+
+---
+
+## 7. Example in PuLP
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Repairman_Profit_Max", pl.LpMaximize)
+
+# Decision variables (non-negative integers)
+x = pl.LpVariable("washing_machines", lowBound=0, cat="Integer")
+y = pl.LpVariable("freezers", lowBound=0, cat="Integer")
+
+# Objective function
+prob += 250 * x + 375 * y, "Total_Earnings"
+
+# Constraints
+prob += 30 * x + 20 * y <= 5000, "Inspection_Time"
+prob += 120 * x + 145 * y <= 20000, "Total_Time"
+
+# Solve
+status = prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[status])
+print("Optimal number of washing machines:", pl.value(x))
+print("Optimal number of freezers:", pl.value(y))
+print("Maximum earnings:", pl.value(prob.objective))
+```
+
+---
+
+## 8. Example in OR-Tools
+
+```python
+from ortools.linear_solver import pywraplp
+
+solver = pywraplp.Solver.CreateSolver('CBC')
+
+# Decision variables
+x = solver.IntVar(0, solver.infinity(), 'washing_machines')
+y = solver.IntVar(0, solver.infinity(), 'freezers')
+
+# Constraints
+solver.Add(30 * x + 20 * y <= 5000)    # Inspection
+solver.Add(120 * x + 145 * y <= 20000) # Total time
+
+# Objective
+objective = solver.Objective()
+objective.SetCoefficient(x, 250)
+objective.SetCoefficient(y, 375)
+objective.SetMaximization()
+
+# Solve
+status = solver.Solve()
+
+if status == pywraplp.Solver.OPTIMAL:
+    print('Optimal solution found.')
+    print('washing_machines =', x.solution_value())
+    print('freezers =', y.solution_value())
+    print('Maximum earnings =', objective.Value())
+else:
+    print('No optimal solution found.')
+```
+
+This captures the optimisation problem precisely and can be solved directly with these tools.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create problem
+    prob = pl.LpProblem("Repairman_Profit_Max", pl.LpMaximize)
+
+    # Decision variables (non-negative integers)
+    x = pl.LpVariable("washing_machines", lowBound=0, cat="Integer")
+    y = pl.LpVariable("freezers", lowBound=0, cat="Integer")
+
+    # Objective function: Maximise total earnings
+    prob += 250 * x + 375 * y, "Total_Earnings"
+
+    # Constraints
+    # Inspection time constraint
+    prob += 30 * x + 20 * y <= 5000, "Inspection_Time"
+    # Total time (inspection + fixing) constraint
+    prob += 120 * x + 145 * y <= 20000, "Total_Time"
+
+    # Solve the problem
+    status = prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value (0 if no optimal solution)
+    if pl.LpStatus[status] == 'Optimal':
+        value = pl.value(prob.objective)
+    else:
+        value = None
+
+    print(f"FINAL_OBJ: {value}")
+
+if __name__ == "__main__":
+    main()

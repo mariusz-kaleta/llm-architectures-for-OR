@@ -1,0 +1,99 @@
+[MODELER]:
+Model
+
+Decision variables
+- x = number of small kegs used (integer, x ≥ 0)
+- y = number of large kegs used (integer, y ≥ 0)
+
+Objective
+- Maximize total water transported: maximize 40x + 100y  (liters)
+
+Constraints
+- Availability: x ≤ 30, y ≤ 10
+- Small-kegs at least twice large: x ≥ 2y
+- Total kegs limit: x + y ≤ 25
+- At least 5 large: y ≥ 5
+- Integrality: x, y ∈ Z
+
+Solve analytically
+From x + y ≤ 25 and positive coefficient on x, for any feasible y we should take x as large as allowed: x = min(30, 25 − y). Feasibility also requires x ≥ 2y, so 25 − y ≥ 2y ⇒ y ≤ 8.333 ⇒ y ∈ {5,6,7,8}.
+
+Evaluate objective for these y (with x = 25 − y):
+- y=5, x=20 → 40·20 + 100·5 = 1300 L
+- y=6, x=19 → 1360 L
+- y=7, x=18 → 1420 L
+- y=8, x=17 → 1480 L
+
+Optimal choice: x = 17 small kegs and y = 8 large kegs, transporting 1480 liters.
+
+Suggested solvers / libraries
+- pulp (for integer linear programming, pure-Python, easy to use)
+- OR-Tools CP-SAT (scales well, for integer/CP problems)
+- commercial solvers (Gurobi, CPLEX) if available for larger problems
+(For continuous relaxation you could use scipy.optimize.linprog, but integrality matters here.)
+
+Example (pulp) code
+from pulp import LpProblem, LpMaximize, LpVariable, lpSum, LpInteger, PULP_CBC_CMD
+
+prob = LpProblem("kegs", LpMaximize)
+x = LpVariable("small", lowBound=0, cat=LpInteger)
+y = LpVariable("large", lowBound=0, cat=LpInteger)
+
+prob += 40*x + 100*y
+prob += x <= 30
+prob += y <= 10
+prob += x >= 2*y
+prob += x + y <= 25
+prob += y >= 5
+
+prob.solve(PULP_CBC_CMD(msg=0))
+print(x.value(), y.value(), "liters =", 40*x.value() + 100*y.value())
+
+This returns x=17, y=8, liters=1480.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained solver for the kegs integer optimization problem
+
+# Problem data (directly initialized)
+max_small = 30   # x <= 30
+max_large = 10   # y <= 10
+total_kegs_limit = 25  # x + y <= 25
+min_large = 5    # y >= 5
+
+# Objective coefficients
+coef_small = 40
+coef_large = 100
+
+# Search for integer feasible solutions
+best_obj = None
+best_x = None
+best_y = None
+
+for y in range(min_large, max_large + 1):  # y from 5 to 10 inclusive
+    for x in range(0, max_small + 1):      # x from 0 to 30 inclusive
+        # Constraints
+        if x > max_small:
+            continue
+        if y > max_large:
+            continue
+        if x < 2 * y:
+            continue
+        if x + y > total_kegs_limit:
+            continue
+        # Feasible: compute objective
+        obj = coef_small * x + coef_large * y
+        if (best_obj is None) or (obj > best_obj):
+            best_obj = obj
+            best_x = x
+            best_y = y
+
+# If no feasible solution found, set best_obj to 0 (should not occur for given data)
+if best_obj is None:
+    best_obj = 0
+
+# Final required output line
+print(f"FINAL_OBJ: {best_obj}")
+```

@@ -1,0 +1,44 @@
+[MONOLITH]:
+import pulp
+
+# Problem data (initialized directly)
+patties_gas = 20       # patties per minute per gas grill
+patties_elec = 30      # patties per minute per electric grill
+oil_gas = 20           # oil units per minute per gas grill
+oil_elec = 25          # oil units per minute per electric grill
+min_patties = 150      # required minimum patties per minute
+max_oil = 140          # maximum oil units per minute
+
+# Define the LP problem (integer)
+prob = pulp.LpProblem("Grill_Minimization", pulp.LpMinimize)
+
+# Decision variables: number of gas (G) and electric (E) grills (integers, >=0)
+G = pulp.LpVariable("G", lowBound=0, cat='Integer')
+E = pulp.LpVariable("E", lowBound=0, cat='Integer')
+
+# Objective: minimize total number of grills
+prob += G + E
+
+# Constraints:
+prob += patties_gas * G + patties_elec * E >= min_patties      # patties requirement
+prob += oil_gas * G + oil_elec * E <= max_oil                  # oil limit
+prob += E - G <= -1                                            # E < G  -> E <= G-1
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+result_status = prob.solve(solver)
+
+status_str = pulp.LpStatus.get(result_status, "Undefined")
+
+if status_str == 'Optimal':
+    G_val = int(pulp.value(G))
+    E_val = int(pulp.value(E))
+    obj_val = int(pulp.value(prob.objective))
+    print(f"Optimal solution found: Gas grills = {G_val}, Electric grills = {E_val}")
+    print(f"Total grills = {obj_val}")
+    print(f"FINAL_OBJ: {obj_val}")
+else:
+    # No feasible integer solution
+    print(f"Solver status: {status_str}")
+    print("No feasible solution that satisfies all constraints.")
+    print(f"FINAL_OBJ: INFEASIBLE")

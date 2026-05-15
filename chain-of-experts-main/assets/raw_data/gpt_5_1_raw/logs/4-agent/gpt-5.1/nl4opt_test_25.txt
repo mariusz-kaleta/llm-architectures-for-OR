@@ -1,0 +1,170 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+   - Goal: **Minimise total daily cost** of the pills while meeting or exceeding your grandma’s minimum daily requirements of Z1 and D3.
+
+2. **Suggested model type**
+
+   - Model: **Linear Programming (LP)**, continuous decision variables (assuming fractional pills are allowed; if not, the modeller can switch to Integer Programming).
+
+3. **Main decision variables**
+
+   Define variables as the **number of pills per day** of each type:
+
+   - Variable 1: Number of **Zodiac** pills taken per day  
+   - Variable 2: Number of **Sunny** pills taken per day  
+
+   (The modeller will name them, e.g. `x_Zodiac` and `x_Sunny`.)
+
+4. **Key constraints to consider**
+
+   a. **Z1 requirement constraint**  
+   - Each Zodiac pill provides **1.3 g of Z1**.  
+   - Each Sunny pill provides **1.2 g of Z1**.  
+   - Daily requirement: at least **5 g of Z1**.  
+   - Constraint: total Z1 from Zodiac and Sunny must be ≥ 5 g.
+
+   b. **D3 requirement constraint**  
+   - Each Zodiac pill provides **1.5 g of D3**.  
+   - Each Sunny pill provides **5 g of D3**.  
+   - Daily requirement: at least **10 g of D3**.  
+   - Constraint: total D3 from Zodiac and Sunny must be ≥ 10 g.
+
+   c. **Non-negativity constraints**  
+   - Number of pills of each type per day must be **≥ 0**.
+
+   d. **(Optional) Integrality / practicality constraint**  
+   - If needed for realism: the number of pills of each type should be **integer-valued** (since you usually can’t take fractions of a pill). If that is enforced, this becomes an **Integer Linear Program (ILP)**.
+
+5. **Objective function components**
+
+   - Cost per Zodiac pill: **$1**  
+   - Cost per Sunny pill: **$3**  
+   - Objective: minimise `1 × (# Zodiac pills) + 3 × (# Sunny pills)` subject to the constraints above.
+
+This is all that is needed for the modeller to write the LP explicitly.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model and how you’d implement/solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_Z \ge 0\): number of **Zodiac** pills taken per day  
+- \(x_S \ge 0\): number of **Sunny** pills taken per day  
+
+(If you require whole pills only, later add: \(x_Z, x_S \in \mathbb{Z}_{\ge 0}\).)
+
+---
+
+## 2. Objective
+
+Minimise the **total daily cost** of pills:
+
+\[
+\min \; C = 1 \cdot x_Z + 3 \cdot x_S
+\]
+
+because:
+- Zodiac costs \$1 per pill,
+- Sunny costs \$3 per pill.
+
+---
+
+## 3. Constraints
+
+### a) Z1 requirement (at least 5 g)
+
+Each pill contains:
+- Zodiac: 1.3 g of Z1  
+- Sunny: 1.2 g of Z1  
+
+So total Z1 intake must satisfy:
+
+\[
+1.3\,x_Z + 1.2\,x_S \;\ge\; 5
+\]
+
+### b) D3 requirement (at least 10 g)
+
+Each pill contains:
+- Zodiac: 1.5 g of D3  
+- Sunny: 5 g of D3  
+
+So total D3 intake must satisfy:
+
+\[
+1.5\,x_Z + 5\,x_S \;\ge\; 10
+\]
+
+### c) Non‑negativity
+
+\[
+x_Z \ge 0,\quad x_S \ge 0
+\]
+
+### d) (Optional) Integrality
+
+If fractional pills are not allowed:
+
+\[
+x_Z, x_S \in \mathbb{Z}_{\ge 0}
+\]
+
+Then the model is an **Integer Linear Program (ILP)** instead of a pure LP.
+
+---
+
+## 4. Recommended Python libraries
+
+To solve this model:
+
+- **PuLP** (`pulp`): simple, high-level LP/ILP modeling in Python; good for teaching and small–medium problems.
+- **OR-Tools** (`ortools.linear_solver`): Google’s optimization suite; supports LP/ILP with several solvers.
+- **SciPy** (`scipy.optimize.linprog`): good for **continuous** LP (no integer constraints). Use if you allow fractional pills.
+
+Example choice:
+- If you want *integer* number of pills: **PuLP** or **OR-Tools**.
+- If *fractional* pills are okay: any of the three, but `scipy.optimize.linprog` is very straightforward.
+
+If you’d like, I can provide a short PuLP or OR-Tools code snippet for this exact model.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: minimize cost
+    prob = pulp.LpProblem("Pill_Optimization", pulp.LpMinimize)
+
+    # Decision variables: integer non-negative
+    x_Z = pulp.LpVariable('x_Z', lowBound=0, cat='Integer')  # Zodiac pills
+    x_S = pulp.LpVariable('x_S', lowBound=0, cat='Integer')  # Sunny pills
+
+    # Objective function: minimize total daily cost
+    prob += 1 * x_Z + 3 * x_S
+
+    # Constraints
+    # Z1 requirement: 1.3 x_Z + 1.2 x_S >= 5
+    prob += 1.3 * x_Z + 1.2 * x_S >= 5, "Z1_requirement"
+
+    # D3 requirement: 1.5 x_Z + 5 x_S >= 10
+    prob += 1.5 * x_Z + 5 * x_S >= 10, "D3_requirement"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

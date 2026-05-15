@@ -1,0 +1,190 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximise total daily profit from cookie production.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with two decision variables and simple capacity/demand constraints.
+
+3. Main decision variables  
+   - x1 = number of strawberry cookies produced per day  
+   - x2 = number of sugar cookies produced per day  
+
+   Both are continuous, non-negative variables in the model (integers in reality, but LP relaxation is fine here; the optimal solution will naturally be integral due to small numbers and structure).
+
+4. Objective function structure  
+   - Maximise profit = 5.5 * x1 + 12 * x2  
+   - Coefficients 5.5 and 12 represent profit per cookie for each type.
+
+5. Key constraints to consider  
+
+   a) Demand (upper bounds on sales)  
+   - Strawberry cookie demand limit: x1 ≤ 100  
+   - Sugar cookie demand limit: x2 ≤ 80  
+
+   b) Production capacity (total cookies per day)  
+   - The bakery can produce at most 100 cookies in total per day (regardless of type):  
+     - x1 + x2 ≤ 100  
+
+   c) Non-negativity  
+   - x1 ≥ 0  
+   - x2 ≥ 0  
+
+6. Modelling strategy  
+
+   - Define a 2D feasible region in terms of x1 and x2 with the linear constraints above.  
+   - Identify the corner points of this feasible region (intersections of constraints and axes).  
+   - Evaluate the objective function at each corner point to find the maximum profit.  
+   - Select the (x1, x2) combination that yields the highest profit while satisfying all constraints.
+
+---
+
+[MODELER]:
+Below is a clean mathematical optimisation model of the problem, plus guidance on how to solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_1 \ge 0\): number of strawberry cookies produced per day  
+- \(x_2 \ge 0\): number of sugar cookies produced per day  
+
+These are continuous in the model; in reality they must be integers, but the LP will naturally give integer values here.
+
+---
+
+## 2. Objective function
+
+Profit per cookie:
+
+- Strawberry: \$5.50 per cookie  
+- Sugar: \$12.00 per cookie  
+
+Total daily profit:
+
+\[
+\text{Maximise} \quad Z = 5.5 x_1 + 12 x_2
+\]
+
+---
+
+## 3. Constraints
+
+### a) Demand constraints (upper bounds on sales)
+
+Daily demand limits:
+
+- At most 100 strawberry cookies
+- At most 80 sugar cookies
+
+\[
+\begin{aligned}
+x_1 &\le 100 \\
+x_2 &\le 80
+\end{aligned}
+\]
+
+### b) Production capacity constraint
+
+Due to staffing, they can make at most 100 cookies total (of any mix):
+
+\[
+x_1 + x_2 \le 100
+\]
+
+### c) Non-negativity constraints
+
+\[
+x_1 \ge 0, \quad x_2 \ge 0
+\]
+
+---
+
+## 4. Full linear program
+
+\[
+\begin{aligned}
+\max_{x_1, x_2} \quad & 5.5 x_1 + 12 x_2 \\
+\text{s.t.} \quad 
+& x_1 \le 100 \\
+& x_2 \le 80 \\
+& x_1 + x_2 \le 100 \\
+& x_1 \ge 0 \\
+& x_2 \ge 0
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard LP solver can handle this tiny model:
+
+- `PuLP` (pure Python, easy to use)
+- `ortools.linear_solver` (Google OR-Tools)
+- `scipy.optimize.linprog` (SciPy)
+
+Example using PuLP:
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Zeta_Bakery", pl.LpMaximize)
+
+# Decision variables
+x1 = pl.LpVariable("strawberry", lowBound=0)
+x2 = pl.LpVariable("sugar", lowBound=0)
+
+# Objective
+prob += 5.5 * x1 + 12 * x2
+
+# Constraints
+prob += x1 <= 100          # Strawberry demand
+prob += x2 <= 80           # Sugar demand
+prob += x1 + x2 <= 100     # Production capacity
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("x1 (strawberry) =", x1.value())
+print("x2 (sugar) =", x2.value())
+print("Max profit = $", pl.value(prob.objective))
+```
+
+You can plug this directly into Python to compute the optimal numbers of each cookie and the corresponding maximum profit.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Cookie_Production", pl.LpMaximize)
+
+    # Decision variables
+    x1 = pl.LpVariable("strawberry", lowBound=0)
+    x2 = pl.LpVariable("sugar", lowBound=0)
+
+    # Objective function: Maximize profit
+    prob += 5.5 * x1 + 12 * x2
+
+    # Constraints
+    prob += x1 <= 100          # Strawberry demand
+    prob += x2 <= 80           # Sugar demand
+    prob += x1 + x2 <= 100     # Production capacity
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,174 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Maximise the total number of jars filled (glass + plastic), subject to honey availability and policy constraints.
+
+2. Suggested model type  
+   - Model: Integer Linear Programming (ILP)  
+   - Reason: Decision variables are counts of jars, which must be non‑negative integers, and all relationships are linear.
+
+3. Main decision variables  
+   - Let:
+     - Number of glass jars to fill  
+     - Number of plastic jars to fill  
+   - Both variables are integer and ≥ 0.
+
+4. Key constraints to consider  
+
+   a) Honey availability (capacity constraint)  
+   - Each glass jar uses 250 ml, each plastic jar uses 300 ml.  
+   - Total honey used by all jars cannot exceed 20,000 ml.  
+   - This is a linear inequality involving the two jar-count variables.
+
+   b) Plastic-to-glass ratio (policy constraint)  
+   - At least twice as many plastic jars as glass jars must be filled.  
+   - This gives a linear inequality relating the plastic jar variable to the glass jar variable.
+
+   c) Minimum glass jar requirement (policy constraint)  
+   - At least 20 glass jars must be filled.  
+   - Lower bound constraint on the glass jar variable.
+
+   d) Non-negativity and integrality  
+   - Both variables must be non-negative integers.  
+   - Ensure integrality is enforced in the model so fractional jars are not allowed.
+
+5. Objective function structure  
+   - Objective: Maximise (number of glass jars + number of plastic jars).  
+   - Linear function of the decision variables.
+
+6. Modelling strategy / remarks  
+   - There are only two variables and simple constraints, so the ILP is very small.  
+   - One can either:
+     - Solve it as a standard ILP with an optimisation solver, or  
+     - Exploit the fact that there are only two integer variables and solve by inspection or enumeration if needed.  
+   - Check whether the optimal solution uses all available honey or leaves some unused; optimality is judged purely by jar count, not by honey utilisation.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem as an Integer Linear Program (ILP), followed by suggestions for Python libraries.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x \in \mathbb{Z}_{\ge 0}\): number of glass jars filled  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of plastic jars filled  
+
+Both must be integers because you cannot fill a fraction of a jar.
+
+---
+
+## 2. Objective function
+
+Maximise the total number of jars (glass + plastic):
+
+\[
+\max \; Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Honey availability (capacity constraint)
+
+Each glass jar uses 250 ml, each plastic jar 300 ml. The total honey used cannot exceed 20,000 ml:
+
+\[
+250x + 300y \le 20000
+\]
+
+### b) Plastic-to-glass ratio (policy constraint)
+
+At least twice as many plastic jars as glass jars:
+
+\[
+y \;\ge\; 2x
+\]
+
+### c) Minimum glass jar requirement
+
+At least 20 glass jars must be filled:
+
+\[
+x \;\ge\; 20
+\]
+
+### d) Non-negativity and integrality
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+(Integrality is essential: no fractional jars.)
+
+---
+
+## 4. Model summary
+
+\[
+\begin{aligned}
+\max \quad & x + y \\
+\text{s.t.} \quad
+& 250x + 300y \le 20000 \\
+& y \ge 2x \\
+& x \ge 20 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+To implement and solve this ILP in Python, any of the following are appropriate:
+
+- **PuLP**  
+  - Simple modeling interface, works well for small ILPs like this.  
+  - Can use built-in CBC solver.  
+  - Good for teaching and quick prototypes.
+
+- **OR-Tools (Google OR-Tools, `pywraplp` or `linear_solver`)**  
+  - Very efficient, industrial-strength.  
+  - Direct support for integer/linear optimization.
+
+- **Pyomo**  
+  - More general algebraic modeling language, supports many solvers.  
+  - Useful if you later expand to larger or more complex models.
+
+For this specific two-variable, few-constraint ILP, **PuLP** or **OR-Tools** is more than sufficient.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem
+    prob = pulp.LpProblem("Honey_Jar_Filling", pulp.LpMaximize)
+
+    # Decision variables
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # glass jars
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # plastic jars
+
+    # Objective function: maximize total number of jars
+    prob += x + y
+
+    # Constraints
+    prob += 250 * x + 300 * y <= 20000        # honey capacity
+    prob += y >= 2 * x                        # plastic-to-glass ratio
+    prob += x >= 20                           # minimum glass jars
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

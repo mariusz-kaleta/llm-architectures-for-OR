@@ -1,0 +1,141 @@
+[MODELER]:
+Let’s turn this into a linear optimization model.
+
+## 1. Decision variables
+
+Let:  
+- \( x \) = number of gummies (continuous or integer ≥ 0)  
+- \( y \) = number of pills (continuous or integer ≥ 0)
+
+In most realistic settings these should be integers, but the linear programming formulation works the same; we can note “integer” if we want an integer program.
+
+## 2. Objective function
+
+Each gummy has 4 units of zinc, each pill has 5 units of zinc.  
+We want to **maximize total zinc** intake:
+
+\[
+\text{Maximize } Z = 4x + 5y
+\]
+
+## 3. Constraints
+
+1. **Magnesium constraint (at most 200 units)**  
+   - Gummies: 3 units Mg each  
+   - Pills: 2 units Mg each  
+   Total magnesium must not exceed 200:
+   \[
+   3x + 2y \le 200
+   \]
+
+2. **Minimum number of pills (at least 10)**  
+   \[
+   y \ge 10
+   \]
+
+3. **Preference for gummies (at least 3 times as many gummies as pills)**  
+   “At least 3 times the amount of gummies as pills” means
+   \[
+   x \ge 3y
+   \]
+
+4. **Nonnegativity (and optionally integrality)**  
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+   Optionally:
+   \[
+   x, y \in \mathbb{Z}
+   \]
+
+## 4. Full mathematical model
+
+\[
+\begin{aligned}
+\max_{x,y} \quad & 4x + 5y \\
+\text{s.t.} \quad & 3x + 2y \le 200 \\
+                  & y \ge 10 \\
+                  & x \ge 3y \\
+                  & x \ge 0,\ y \ge 0 \quad (\text{and optionally } x,y \in \mathbb{Z})
+\end{aligned}
+\]
+
+## 5. Solving and libraries
+
+To solve this as a linear program (or integer linear program), in Python you can use:
+
+- `PuLP` (very simple for LP/ILP)
+- `ortools.linear_solver` (Google OR-Tools)
+- `scipy.optimize.linprog` (for continuous LP only; no integrality)
+
+### Example using PuLP (continuous version)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Maximize_Zinc", pl.LpMaximize)
+
+# Variables (continuous; use cat='Integer' if you want integer solutions)
+x = pl.LpVariable('gummies', lowBound=0)
+y = pl.LpVariable('pills',   lowBound=0)
+
+# Objective
+prob += 4 * x + 5 * y
+
+# Constraints
+prob += 3 * x + 2 * y <= 200      # magnesium
+prob += y >= 10                   # at least 10 pills
+prob += x >= 3 * y                # at least 3x gummies as pills
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Gummies:", x.value())
+print("Pills:", y.value())
+print("Max zinc:", 4 * x.value() + 5 * y.value())
+```
+
+For an integer version, simply set:
+
+```python
+x = pl.LpVariable('gummies', lowBound=0, cat='Integer')
+y = pl.LpVariable('pills',   lowBound=0, cat='Integer')
+```
+
+This fully specifies the mathematical model for maximizing zinc intake under the given dietary constraints.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem: maximize zinc
+    prob = pl.LpProblem("Maximize_Zinc", pl.LpMaximize)
+
+    # Decision variables (integer, nonnegative)
+    x = pl.LpVariable('gummies', lowBound=0, cat='Integer')
+    y = pl.LpVariable('pills',   lowBound=0, cat='Integer')
+
+    # Objective function: maximize 4x + 5y
+    prob += 4 * x + 5 * y
+
+    # Constraints
+    prob += 3 * x + 2 * y <= 200    # Magnesium constraint
+    prob += y >= 10                 # Minimum pills
+    prob += x >= 3 * y              # Gummies at least 3x pills
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute objective value from solution
+    x_val = pl.value(x)
+    y_val = pl.value(y)
+    final_obj = 4 * x_val + 5 * y_val
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

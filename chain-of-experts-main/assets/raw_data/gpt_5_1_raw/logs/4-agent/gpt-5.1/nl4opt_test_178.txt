@@ -1,0 +1,245 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Minimise the total number of sanitizer machines purchased.
+
+2. Suggested model type  
+   - Model: Integer Linear Programming (small-sized, could be solved by enumeration, but formulate as ILP).
+
+3. Main decision variables  
+   - Let:
+     - x = number of motion-activated machines (integer, x ≥ 0)
+     - y = number of manual machines (integer, y ≥ 0)
+
+4. Key constraints to consider  
+
+   a) Throughput (drops per minute) requirement  
+   - Each motion-activated machine delivers 50 drops/min.  
+   - Each manual machine delivers 75 drops/min.  
+   - Total drops/min must be at least 1000.  
+   - Constraint: 50·x + 75·y ≥ 1000.
+
+   b) Energy consumption limit  
+   - Motion-activated uses 30 kWh per machine (for the relevant time unit given).  
+   - Manual uses 20 kWh per machine.  
+   - Total energy use ≤ 500 kWh.  
+   - Constraint: 30·x + 20·y ≤ 500.
+
+   c) Hygiene policy: at most 40% of machines can be manual  
+   - Fraction of manual machines ≤ 0.4.  
+   - y / (x + y) ≤ 0.4, provided x + y > 0.  
+   - This can be linearised as: y ≤ 0.4(x + y) ⇒ 0.6y ≤ 0.4x ⇒ 3y ≤ 2x.  
+   - Use the linear constraint: 3·y ≤ 2·x.
+
+   d) Minimum count of motion-activated machines  
+   - At least 3 motion-activated machines.  
+   - Constraint: x ≥ 3.
+
+   e) Integrality and non-negativity  
+   - x, y are non-negative integers.
+
+5. Objective function (conceptual)  
+   - Minimise total number of machines: minimise x + y.
+
+6. Modelling/solution strategy notes for the Modeller  
+   - Formulate as a 2-variable ILP with the above constraints and objective.  
+   - Given the small dimensionality, you can:
+     - Either use an ILP solver directly, or  
+     - Enumerate feasible integer pairs (x, y) satisfying the constraints and pick the one with minimum x + y.
+   - When enumerating, you can bound x and y using:
+     - From throughput: even if all were manual, y ≥ 1000 / 75; if all were motion-activated, x ≥ 1000 / 50.  
+     - From energy: 30x + 20y ≤ 500 gives upper bounds on x and y.  
+   - After finding all feasible (x, y), verify:
+     - Throughput ≥ 1000,  
+     - Energy ≤ 500,  
+     - x ≥ 3,  
+     - 3y ≤ 2x,  
+     then select the pair with smallest x + y.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model of the problem and how you could solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x \in \mathbb{Z}_{\ge 0}\): number of motion-activated machines  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of manual machines  
+
+---
+
+## 2. Objective
+
+Minimize the total number of machines purchased:
+
+\[
+\min \; x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Throughput (drops per minute)
+
+Each motion-activated machine: 50 drops/min  
+Each manual machine: 75 drops/min  
+Total required: at least 1000 drops/min
+
+\[
+50x + 75y \;\ge\; 1000
+\]
+
+---
+
+### b) Energy consumption (kWh)
+
+Motion-activated: 30 kWh per machine  
+Manual: 20 kWh per machine  
+Total allowed: at most 500 kWh
+
+\[
+30x + 20y \;\le\; 500
+\]
+
+---
+
+### c) Hygiene policy: at most 40% of machines manual
+
+\[
+\frac{y}{x + y} \;\le\; 0.4 \quad \text{for } x + y > 0
+\]
+
+Linearizing:
+
+\[
+y \le 0.4(x + y) \;\Rightarrow\; 0.6y \le 0.4x \;\Rightarrow\; 3y \le 2x
+\]
+
+Use the linear form:
+
+\[
+3y \;\le\; 2x
+\]
+
+(When \(x+y = 0\), this would mean buying no machines, which will be infeasible anyway due to the throughput requirement.)
+
+---
+
+### d) Minimum number of motion-activated machines
+
+At least 3 must be motion-activated:
+
+\[
+x \;\ge\; 3
+\]
+
+---
+
+### e) Non-negativity and integrality
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Full Integer Linear Programming (ILP) model
+
+\[
+\begin{aligned}
+\min \quad & x + y \\
+\text{s.t.} \quad 
+& 50x + 75y \;\ge\; 1000, \\
+& 30x + 20y \;\le\; 500, \\
+& 3y \;\le\; 2x, \\
+& x \;\ge\; 3, \\
+& x, y \in \mathbb{Z}_{\ge 0}.
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard MILP solver can handle this very easily:
+
+- `PuLP` (pure Python interface; can use CBC, GLPK, etc.)
+- `ortools.linear_solver` (Google OR-Tools; very fast and easy)
+- `pyomo` (more general modeling framework; can call CBC, GLPK, Gurobi, CPLEX, etc.)
+- `mip` (Python-MIP, wrapper around CBC/CPLEX/Gurobi)
+
+For this small model, `PuLP` or OR-Tools are more than sufficient.
+
+---
+
+## 6. Example implementation in Python (PuLP)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Sanitizer_Machines", pl.LpMinimize)
+
+# Variables
+x = pl.LpVariable('x', lowBound=3, cat='Integer')  # motion-activated
+y = pl.LpVariable('y', lowBound=0, cat='Integer')  # manual
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 50*x + 75*y >= 1000, "Throughput"
+prob += 30*x + 20*y <= 500,  "Energy"
+prob += 3*y <= 2*x,          "Hygiene"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("x (motion-activated) =", int(pl.value(x)))
+print("y (manual)           =", int(pl.value(y)))
+print("Total machines       =", int(pl.value(x + y)))
+```
+
+You can swap `PuLP` for OR-Tools if you prefer; the model structure (variables, objective, constraints) remains exactly as above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Sanitizer_Machines", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('x', lowBound=3, cat='Integer')  # motion-activated
+    y = pl.LpVariable('y', lowBound=0, cat='Integer')  # manual
+
+    # Objective: minimize total number of machines
+    prob += x + y
+
+    # Constraints
+    # Throughput: 50x + 75y >= 1000
+    prob += 50 * x + 75 * y >= 1000, "Throughput"
+
+    # Energy: 30x + 20y <= 500
+    prob += 30 * x + 20 * y <= 500, "Energy"
+
+    # Hygiene: 3y <= 2x
+    prob += 3 * y <= 2 * x, "Hygiene"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    obj_value = pl.value(x + y)
+
+    # Print FINAL_OBJ as required
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

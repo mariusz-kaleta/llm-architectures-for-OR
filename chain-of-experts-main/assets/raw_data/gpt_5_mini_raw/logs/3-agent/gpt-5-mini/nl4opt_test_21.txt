@@ -1,0 +1,125 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x = number of bagel batches produced (batches/day, x ≥ 0)
+- y = number of croissant batches produced (batches/day, y ≥ 0)
+
+Parameters
+- oven time per bagel batch = 2 hours
+- oven time per croissant batch = 1 hour
+- pastry-chef time per bagel batch = 0.25 hours
+- pastry-chef time per croissant batch = 2 hours
+- available oven time = 70 hours/day
+- available pastry-chef time = 32 hours/day
+- profit per bagel batch = $20
+- profit per croissant batch = $40
+
+Objective
+Maximize total profit:
+maximize Z = 20x + 40y
+
+Constraints
+1) Oven capacity: 2x + 1y ≤ 70
+2) Pastry-chef capacity: 0.25x + 2y ≤ 32
+3) Nonnegativity: x ≥ 0, y ≥ 0
+
+(If batches must be integral, add x, y integer — this becomes an integer program. The LP relaxation assumes fractional batches are allowed.)
+
+Analytic solution (corner-point method)
+Check corner points:
+- (x=35, y=0) → Z = 20·35 = 700
+- (x=0, y=16) → Z = 40·16 = 640
+- intersection of constraints: solve 2x + y = 70 and 0.25x + 2y = 32
+  → x = 28.8, y = 12.4 → Z = 20·28.8 + 40·12.4 = 1,072
+
+Optimal (continuous) solution: x = 28.8 bagel batches, y = 12.4 croissant batches, yielding maximum profit $1,072. Both resources are fully used at the optimum.
+
+Solvers / Python libraries you can use
+- pulp (pure-Python LP/MIP interface; good for teaching and small problems)
+- scipy.optimize.linprog (LP solver for continuous problems)
+- ortools.linear_solver or ortools.sat (for LP/MIP; CP-SAT for integer problems)
+- cvxopt, pyomo (more advanced modelling)
+- commercial solvers (Gurobi, CPLEX) if available for large/fast MIP
+
+Example (pulp)
+```
+import pulp
+
+# define problem
+prob = pulp.LpProblem("Bakery", pulp.LpMaximize)
+x = pulp.LpVariable('x', lowBound=0)
+y = pulp.LpVariable('y', lowBound=0)
+
+# objective
+prob += 20*x + 40*y
+
+# constraints
+prob += 2*x + 1*y <= 70
+prob += 0.25*x + 2*y <= 32
+
+prob.solve()
+print("x =", x.value(), "y =", y.value(), "Profit =", pulp.value(prob.objective))
+```
+
+If you need an integer solution (whole batches), solve the same model with x and/or y declared as integers (LpVariable(..., cat='Integer')) — then use pulp, OR-Tools CP-SAT, or another MIP solver.
+
+---
+
+[CODER]:
+import math
+
+# Parameters
+oven_time_per_bagel = 2      # hours per bagel batch
+oven_time_per_croissant = 1  # hours per croissant batch
+chef_time_per_bagel = 0.25   # hours per bagel batch
+chef_time_per_croissant = 2  # hours per croissant batch
+
+available_oven = 70          # hours/day
+available_chef = 32          # hours/day
+
+profit_bagel = 20
+profit_croissant = 40
+
+# Corner points to evaluate:
+# 1) (0,0)
+points = [(0.0, 0.0)]
+
+# 2) Oven capacity binding with y=0 -> 2x <= 70 -> x = 35
+points.append((available_oven / oven_time_per_bagel, 0.0))
+
+# 3) Chef capacity binding with x=0 -> 2y <= 32 -> y = 16
+points.append((0.0, available_chef / chef_time_per_croissant))
+
+# 4) Intersection of the two constraints:
+#    2x + y = 70
+#    0.25x + 2y = 32
+# Solve analytically:
+# Multiply second by 4: x + 8y = 128
+# From first: y = 70 - 2x
+# Substitute: x + 8(70 - 2x) = 128 -> -15x + 560 = 128 -> x = 28.8
+x_inter = 28.8
+y_inter = 70 - 2 * x_inter  # 12.4
+points.append((x_inter, y_inter))
+
+# Evaluate objective and check feasibility (numerical tolerance)
+def feasible(x, y, tol=1e-9):
+    return (2*x + 1*y <= available_oven + tol) and (0.25*x + 2*y <= available_chef + tol) and x >= -tol and y >= -tol
+
+def objective(x, y):
+    return profit_bagel * x + profit_croissant * y
+
+best_obj = -math.inf
+best_point = None
+
+for x, y in points:
+    if feasible(x, y):
+        obj = objective(x, y)
+        if obj > best_obj:
+            best_obj = obj
+            best_point = (x, y)
+
+# Final objective value
+value = best_obj
+
+print(f"FINAL_OBJ: {value}")

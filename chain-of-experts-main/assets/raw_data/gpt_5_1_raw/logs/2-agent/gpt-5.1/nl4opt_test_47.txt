@@ -1,0 +1,182 @@
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by how to solve it with Python.
+
+---
+
+## 1. Decision variables
+
+Let:
+
+- \(x\) = number of LED fixtures installed  
+- \(y\) = number of fluorescence lamps installed  
+
+Both must be nonnegative integers:
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 2. Objective: minimize total number of light changes
+
+We are told:
+
+- Each LED needs to be changed 3 times per decade  
+- Each fluorescence lamp needs to be changed 4 times per decade  
+
+Total number of changes per decade:
+
+\[
+\text{Total changes} = 3x + 4y
+\]
+
+**Objective:**
+
+\[
+\min \; Z = 3x + 4y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Minimum number of fixtures
+
+The customer requires at least 300 fixtures in total:
+
+\[
+x + y \ge 300
+\]
+
+### b) Electricity usage constraint
+
+Each fixture uses electricity per hour:
+
+- LED: 5 units/hour  
+- Fluorescence: 8 units/hour  
+
+Total electricity usage per hour cannot exceed 2000 units:
+
+\[
+5x + 8y \le 2000
+\]
+
+### c) At least 30% must be fluorescence lamps
+
+At least 30% of the installed lights must be fluorescence:
+
+\[
+y \ge 0.3(x + y)
+\]
+
+Rearrange:
+
+\[
+y \ge 0.3x + 0.3y  
+\Rightarrow 0.7y \ge 0.3x  
+\Rightarrow 7y \ge 3x
+\]
+
+So:
+
+\[
+7y \ge 3x
+\]
+
+---
+
+## 4. Complete optimization model
+
+\[
+\begin{aligned}
+\min\quad & Z = 3x + 4y \\
+\text{s.t.}\quad
+& x + y \ge 300 \\
+& 5x + 8y \le 2000 \\
+& 7y \ge 3x \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a small **integer linear program** (ILP).
+
+---
+
+## 5. Suitable Python libraries
+
+This is a linear (integer) optimization problem. Good libraries to solve it:
+
+- `PuLP` (pure Python, easy to use, can use CBC solver)
+- `ortools.linear_solver` from Google OR-Tools (very powerful)
+- `Pyomo` (more general modeling, good for more complex problems)
+
+For something this size, `PuLP` or OR-Tools are ideal.
+
+---
+
+## 6. Example with PuLP
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Lighting_Optimization", pl.LpMinimize)
+
+# Decision variables (integer)
+x = pl.LpVariable('LED', lowBound=0, cat='Integer')
+y = pl.LpVariable('Fluorescence', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of changes
+prob += 3*x + 4*y, "Total_Changes"
+
+# Constraints
+prob += x + y >= 300, "Min_Fixtures"
+prob += 5*x + 8*y <= 2000, "Max_Electricity"
+prob += 7*y >= 3*x, "Min_30_percent_Fluorescence"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("LED fixtures (x)         =", pl.value(x))
+print("Fluorescence fixtures (y)=", pl.value(y))
+print("Total changes/decade     =", pl.value(3*x + 4*y))
+print("Total fixtures           =", pl.value(x + y))
+print("Total electricity usage  =", pl.value(5*x + 8*y))
+```
+
+You can run this to get the exact numbers of each type of fixture that minimize the total number of light changes while respecting all constraints.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Create problem
+    prob = pl.LpProblem("Lighting_Optimization", pl.LpMinimize)
+
+    # Decision variables (integer, non-negative)
+    x = pl.LpVariable('LED', lowBound=0, cat='Integer')
+    y = pl.LpVariable('Fluorescence', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of changes
+    prob += 3 * x + 4 * y, "Total_Changes"
+
+    # Constraints
+    prob += x + y >= 300, "Min_Fixtures"
+    prob += 5 * x + 8 * y <= 2000, "Max_Electricity"
+    prob += 7 * y >= 3 * x, "Min_30_percent_Fluorescence"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get final objective value
+    final_obj = pl.value(3 * x + 4 * y)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,165 @@
+[MODELER]:
+Let’s turn the description into a clear optimization model.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of regular boat trips  
+- \(y\) = number of speed boat trips  
+
+Both must be nonnegative integers:
+
+- \(x \ge 0,\; y \ge 0,\; x, y \in \mathbb{Z}\)
+
+---
+
+## 2. Objective: minimize total gas consumption
+
+- Regular boat uses 10 liters/trip  
+- Speed boat uses 20 liters/trip  
+
+Minimize total gas:
+
+\[
+\min Z = 10x + 20y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Mail demand
+
+- Regular boat: 20 pieces/trip  
+- Speed boat: 30 pieces/trip  
+- Need at least 1000 pieces delivered:
+
+\[
+20x + 30y \;\ge\; 1000
+\]
+
+### b) Limit on regular boat trips
+
+There can be at most 20 regular boat trips:
+
+\[
+x \;\le\; 20
+\]
+
+### c) At least 50% of trips must be speed boats
+
+“At least 50% of the trips must be made by speed boats” means:
+
+\[
+y \;\ge\; 0.5(x + y)
+\]
+
+Simplify:
+
+\[
+2y \;\ge\; x + y \quad\Rightarrow\quad y \;\ge\; x
+\]
+
+So:
+
+\[
+y \;\ge\; x
+\]
+
+### d) Nonnegativity and integrality
+
+\[
+x \ge 0,\;\; y \ge 0,\;\; x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete mathematical model
+
+\[
+\begin{aligned}
+\min \quad & 10x + 20y \\
+\text{s.t.} \quad 
+& 20x + 30y \ge 1000 \\
+& x \le 20 \\
+& y \ge x \\
+& x, y \ge 0,\; x,y \in \mathbb{Z}
+\end{aligned}
+\]
+
+---
+
+## 5. How to solve in Python
+
+This is a small integer linear program. Suitable Python libraries:
+
+- `PuLP` (simple and educational)
+- `ortools.linear_solver` (Google OR-Tools; very robust)
+- `pyomo` (more general modeling language)
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("MailDelivery", pl.LpMinimize)
+
+# Decision variables: nonnegative integers
+x = pl.LpVariable('x_regular_trips', lowBound=0, cat='Integer')
+y = pl.LpVariable('y_speed_trips', lowBound=0, cat='Integer')
+
+# Objective: minimize gas
+prob += 10 * x + 20 * y
+
+# Constraints
+prob += 20 * x + 30 * y >= 1000          # demand
+prob += x <= 20                          # regular limit
+prob += y >= x                           # at least 50% speed
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Regular trips (x):", x.value())
+print("Speed trips (y):", y.value())
+print("Minimum gas used:", pl.value(prob.objective))
+```
+
+Running this will give the optimal number of regular and speed boat trips that minimize gas while satisfying all constraints.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("MailDelivery", pl.LpMinimize)
+
+    # Decision variables: nonnegative integers
+    x = pl.LpVariable('x_regular_trips', lowBound=0, cat='Integer')
+    y = pl.LpVariable('y_speed_trips', lowBound=0, cat='Integer')
+
+    # Objective: minimize gas consumption
+    prob += 10 * x + 20 * y
+
+    # Constraints
+    prob += 20 * x + 30 * y >= 1000      # Mail demand
+    prob += x <= 20                      # Limit on regular trips
+    prob += y >= x                       # At least 50% trips are speed boats
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print only the final objective value in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

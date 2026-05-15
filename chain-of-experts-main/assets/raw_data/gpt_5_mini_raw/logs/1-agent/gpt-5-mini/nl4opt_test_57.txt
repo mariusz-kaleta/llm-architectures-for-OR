@@ -1,0 +1,39 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Sanitizer_Production", pulp.LpMaximize)
+
+# Decision variables
+# L = number of liquid hand sanitizers (integer, 0..30)
+# F = number of foam hand sanitizers (integer, >=0)
+L = pulp.LpVariable('L', lowBound=0, upBound=30, cat='Integer')
+F = pulp.LpVariable('F', lowBound=0, cat='Integer')
+
+# Objective: maximize number of hands cleaned
+# Liquid cleans 30 hands each, Foam cleans 20 hands each
+prob += 30 * L + 20 * F
+
+# Constraints
+# Water: 40L + 60F <= 2000
+prob += 40 * L + 60 * F <= 2000
+
+# Alcohol: 50L + 40F <= 2100
+prob += 50 * L + 40 * F <= 2100
+
+# Foam must exceed liquid: F >= L + 1
+prob += F - L >= 1
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract solution values (rounded to nearest integer for safety)
+L_val = int(round(pulp.value(L)))
+F_val = int(round(pulp.value(F)))
+objective_value = pulp.value(prob.objective)
+
+# Print results (decision variables) and final objective as required.
+print(f"Liquid_hand_sanitizers = {L_val}")
+print(f"Foam_hand_sanitizers = {F_val}")
+print(f"Hands_cleaned = {int(round(objective_value))}")
+print(f"FINAL_OBJ: {objective_value}")

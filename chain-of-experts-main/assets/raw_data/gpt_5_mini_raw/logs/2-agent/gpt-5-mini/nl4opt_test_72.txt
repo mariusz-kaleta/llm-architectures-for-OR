@@ -1,0 +1,170 @@
+[MODELER]:
+Model
+
+- Decision variables
+  x1 ≥ 0 = number of setups (batches) at table 1
+  x2 ≥ 0 = number of setups (batches) at table 2
+
+- Objective
+  Maximize total slime produced: Z = 4 x1 + 5 x2
+
+- Constraints
+  Powder: 3 x1 + 8 x2 ≤ 100
+  Glue:   5 x1 + 6 x2 ≤ 90
+  Mess:   2 x1 + 4 x2 ≤ 30
+  Nonnegativity: x1 ≥ 0, x2 ≥ 0
+
+Solve / Reasoning
+
+Divide the mess constraint by 2: x1 + 2 x2 ≤ 15. For all (x1, x2) satisfying x1 + 2 x2 ≤ 15 with x1, x2 ≥ 0, the powder and glue constraints are not tighter (they are satisfied over that segment), so the feasible region is the triangle with vertices:
+(0,0), (15,0), (0,7.5).
+
+Evaluate objective at vertices:
+- (0,0): Z = 0
+- (15,0): Z = 4·15 + 5·0 = 60
+- (0,7.5): Z = 4·0 + 5·7.5 = 37.5
+
+Optimal solution: x1 = 15, x2 = 0, giving maximum slime = 60 units. (This also satisfies all resource limits: powder 45 ≤ 100, glue 75 ≤ 90, mess 30 ≤ 30.)
+
+Notes
+- If integer (integral) batches are required, the solution remains valid (x1 = 15 is integer).
+- If fractional batches are allowed, same result applies.
+
+Recommended Python libraries to solve this LP
+- pulp (simple, pure-Python LP modeling)
+- scipy.optimize.linprog (for small LPs)
+- OR-Tools linear solver (commercial-grade solver front-end)
+- cvxpy (if you want a higher-level modeling interface)
+
+If you want, I can supply a short pulp or scipy linprog code snippet that solves this LP.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the LP described in the prompt.
+# Decision variables:
+#   x1 >= 0, x2 >= 0
+# Maximize Z = 4*x1 + 5*x2
+# Subject to:
+#   3 x1 + 8 x2 <= 100   (Powder)
+#   5 x1 + 6 x2 <= 90    (Glue)
+#   2 x1 + 4 x2 <= 30    (Mess)
+
+import math
+
+# Define constraints as (a1, a2, b) representing a1*x1 + a2*x2 <= b
+constraints = [
+    (3.0, 8.0, 100.0),  # Powder
+    (5.0, 6.0, 90.0),   # Glue
+    (2.0, 4.0, 30.0),   # Mess
+]
+
+# Objective coefficients
+c1, c2 = 4.0, 5.0
+
+tol = 1e-9
+
+def intersect_two_lines(A, B):
+    # A and B are tuples (a1,a2,b) for a1*x1 + a2*x2 = b
+    a1, a2, b1 = A
+    c1_l, c2_l, b2 = B
+    det = a1 * c2_l - a2 * c1_l
+    if abs(det) < tol:
+        return None
+    x1 = (b1 * c2_l - a2 * b2) / det
+    x2 = (a1 * b2 - b1 * c1_l) / det
+    return (x1, x2)
+
+candidates = []
+
+# Add origin
+candidates.append((0.0, 0.0))
+
+# Intersections with axes (x1=0 and x2=0) for each constraint
+for (a1, a2, b) in constraints:
+    # x1 = 0 -> a2*x2 = b -> x2 = b / a2 if a2 != 0
+    if abs(a2) > tol:
+        x2 = b / a2
+        candidates.append((0.0, x2))
+    # x2 = 0 -> a1*x1 = b -> x1 = b / a1 if a1 != 0
+    if abs(a1) > tol:
+        x1 = b / a1
+        candidates.append((x1, 0.0))
+
+# Intersections between pairs of constraints (as equalities)
+n = len(constraints)
+for i in range(n):
+    for j in range(i+1, n):
+        pt = intersect_two_lines(constraints[i], constraints[j])
+        if pt is not None:
+            candidates.append(pt)
+
+# Filter feasible points (satisfy all constraints and nonnegativity)
+feasible_points = []
+for (x1, x2) in candidates:
+    # allow slight negative due to numerical error
+    if x1 < -1e-8 or x2 < -1e-8:
+        continue
+    feasible = True
+    for (a1, a2, b) in constraints:
+        if a1 * x1 + a2 * x2 - b > 1e-8:
+            feasible = False
+            break
+    if feasible:
+        # clamp small negative to zero
+        x1c = 0.0 if abs(x1) < 1e-12 else x1
+        x2c = 0.0 if abs(x2) < 1e-12 else x2
+        feasible_points.append((x1c, x2c))
+
+# Remove duplicates (within tolerance)
+unique_feasible = []
+for p in feasible_points:
+    found = False
+    for q in unique_feasible:
+        if abs(p[0]-q[0]) < 1e-8 and abs(p[1]-q[1]) < 1e-8:
+            found = True
+            break
+    if not found:
+        unique_feasible.append(p)
+
+# Evaluate objective at feasible points and find maximum
+best_point = None
+best_obj = -math.inf
+for (x1, x2) in unique_feasible:
+    val = c1 * x1 + c2 * x2
+    if val > best_obj + 1e-12:
+        best_obj = val
+        best_point = (x1, x2)
+
+# For safety, if numeric issues occurred and no feasible found, fallback to brute force search
+if best_point is None:
+    best_obj = -math.inf
+    best_point = (0.0, 0.0)
+    # brute force grid search over reasonable bounds
+    max_x1 = max((b / a1) if a1 > 0 else 0 for a1, a2, b in constraints) + 1
+    max_x2 = max((b / a2) if a2 > 0 else 0 for a1, a2, b in constraints) + 1
+    steps = 401
+    for i in range(steps):
+        for j in range(steps):
+            x1 = max_x1 * i / (steps-1)
+            x2 = max_x2 * j / (steps-1)
+            ok = True
+            for (a1, a2, b) in constraints:
+                if a1*x1 + a2*x2 > b + 1e-9:
+                    ok = False
+                    break
+            if not ok:
+                continue
+            val = c1*x1 + c2*x2
+            if val > best_obj:
+                best_obj = val
+                best_point = (x1, x2)
+
+# Prepare final objective value
+final_obj = best_obj
+
+# Print only the required final line
+print(f"FINAL_OBJ: {final_obj}")
+```

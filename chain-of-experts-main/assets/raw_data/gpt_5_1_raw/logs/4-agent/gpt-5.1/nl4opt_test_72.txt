@@ -1,0 +1,249 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximize total slime produced by choosing how many times to use each table setup, subject to limits on powder, glue, and mess.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with nonnegative (likely integer) decision variables.  
+   - Start by solving as a continuous LP; if needed, refine to an Integer Linear Program (ILP) and check if the LP solution is integral or nearly integral.
+
+3. Main decision variables  
+   - Let the modeller define:
+     - Variable for the number of “setups” (or batches) using table 1.
+     - Variable for the number of “setups” (or batches) using table 2.
+   - Optionally define:
+     - A variable representing total slime produced (can also be expressed directly in the objective as a linear combination of table 1 and table 2 setups).
+
+4. Objective function structure  
+   - Each setup of table 1 yields a fixed number of slime units.  
+   - Each setup of table 2 yields a fixed number of slime units.  
+   - Objective: Maximize (slime per table 1 setup × number of table 1 setups) + (slime per table 2 setup × number of table 2 setups).
+
+5. Key constraints to consider  
+
+   a) Powder availability  
+   - Each table 1 setup consumes a fixed amount of powder.  
+   - Each table 2 setup consumes a fixed amount of powder.  
+   - Total powder consumed across both tables must not exceed the 100 units available.
+
+   b) Glue availability  
+   - Each table 1 setup consumes a fixed amount of glue.  
+   - Each table 2 setup consumes a fixed amount of glue.  
+   - Total glue consumed across both tables must not exceed the 90 units available.
+
+   c) Mess limit  
+   - Each table 1 setup produces a fixed amount of mess.  
+   - Each table 2 setup produces a fixed amount of mess.  
+   - Total mess produced must not exceed 30 units.
+
+   d) Nonnegativity  
+   - Number of setups at table 1 ≥ 0.  
+   - Number of setups at table 2 ≥ 0.
+
+   e) Integrality (if required)  
+   - If the context requires an integer number of setups (cannot set up a fraction of a table), impose that both decision variables are integers.  
+   - If fractional setups are acceptable as an approximation, you can relax integrality and treat them as continuous.
+
+6. Modelling notes / checks for the Modeller  
+
+   - Check dominance:  
+     - Compute resource efficiency (e.g., slime per unit of powder, slime per unit of glue, slime per unit of mess) for each table to anticipate which table is likely more efficient under each resource and where the binding constraints may lie.
+
+   - Sensitivity:  
+     - After solving, identify which constraint(s) are binding (e.g., mess limit vs powder vs glue), as that explains the optimal combination of table setups.
+
+   - Feasibility check:  
+     - Confirm that the mess cap still allows at least one setup of at least one table type.  
+     - Ensure that powder and glue limits are compatible (i.e., you are not overconstraining the problem to the point of zero feasible setups).
+
+   - Interpretation:  
+     - Translate the optimal values of the decision variables back into “how many times to set up table 1” and “how many times to set up table 2,” and compute the resulting total slime.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model and how you would solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_1 \ge 0\): number of setups (batches) using table 1  
+- \(x_2 \ge 0\): number of setups (batches) using table 2  
+
+If only whole setups are allowed, then \(x_1, x_2\) should be integers.
+
+---
+
+## 2. Objective: maximize total slime
+
+Each setup produces:
+
+- Table 1: 4 units of slime  
+- Table 2: 5 units of slime  
+
+So total slime produced is:
+
+\[
+Z = 4x_1 + 5x_2
+\]
+
+We want to:
+
+\[
+\max \; Z = 4x_1 + 5x_2
+\]
+
+---
+
+## 3. Constraints
+
+### a) Powder constraint
+
+- Table 1 uses 3 units of powder per setup  
+- Table 2 uses 8 units of powder per setup  
+- Total powder available: 100 units  
+
+\[
+3x_1 + 8x_2 \le 100
+\]
+
+---
+
+### b) Glue constraint
+
+- Table 1 uses 5 units of glue per setup  
+- Table 2 uses 6 units of glue per setup  
+- Total glue available: 90 units  
+
+\[
+5x_1 + 6x_2 \le 90
+\]
+
+---
+
+### c) Mess constraint
+
+- Table 1 produces 2 units of mess per setup  
+- Table 2 produces 4 units of mess per setup  
+- Mess limit: at most 30 units  
+
+\[
+2x_1 + 4x_2 \le 30
+\]
+
+---
+
+### d) Nonnegativity (and integrality if needed)
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+Optionally, if only full setups are allowed:
+
+\[
+x_1, x_2 \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete model
+
+Maximize  
+\[
+\max \; Z = 4x_1 + 5x_2
+\]
+
+subject to  
+\[
+\begin{aligned}
+3x_1 + 8x_2 &\le 100 &\text{(powder)} \\
+5x_1 + 6x_2 &\le 90 &\text{(glue)} \\
+2x_1 + 4x_2 &\le 30 &\text{(mess)} \\
+x_1, x_2 &\ge 0 &\text{(nonnegativity)} \\
+\end{aligned}
+\]
+
+Plus, if required: \(x_1, x_2\) integer.
+
+---
+
+## 5. Suitable Python libraries
+
+You can model and solve this with:
+
+- **PuLP** (simple LP/ILP modeling, uses CBC by default)
+- **OR-Tools** (`ortools.linear_solver` or `ortools.math_opt` for LP/MIP)
+- **Pyomo** (more general algebraic modeling)
+- For continuous LP only: **SciPy** (`scipy.optimize.linprog`)
+
+For this small optimization problem, **PuLP** or **OR-Tools** are excellent choices.
+
+---
+
+## 6. Example PuLP implementation (ILP version)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Slime_Maximization", pl.LpMaximize)
+
+# Decision variables (Integer; change to LpContinuous for LP relaxation)
+x1 = pl.LpVariable('x1', lowBound=0, cat='Integer')  # table 1 setups
+x2 = pl.LpVariable('x2', lowBound=0, cat='Integer')  # table 2 setups
+
+# Objective
+prob += 4 * x1 + 5 * x2, "Total_Slime"
+
+# Constraints
+prob += 3 * x1 + 8 * x2 <= 100, "Powder"
+prob += 5 * x1 + 6 * x2 <= 90,  "Glue"
+prob += 2 * x1 + 4 * x2 <= 30,  "Mess"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Results
+print("Status:", pl.LpStatus[prob.status])
+print("x1 (table 1 setups):", x1.value())
+print("x2 (table 2 setups):", x2.value())
+print("Max slime:", pl.value(prob.objective))
+```
+
+This code directly implements the mathematical model above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem: maximize total slime
+    prob = pl.LpProblem("Slime_Maximization", pl.LpMaximize)
+
+    # Decision variables (integer setups)
+    x1 = pl.LpVariable('x1', lowBound=0, cat='Integer')  # table 1 setups
+    x2 = pl.LpVariable('x2', lowBound=0, cat='Integer')  # table 2 setups
+
+    # Objective function: maximize 4*x1 + 5*x2
+    prob += 4 * x1 + 5 * x2, "Total_Slime"
+
+    # Constraints
+    prob += 3 * x1 + 8 * x2 <= 100, "Powder"
+    prob += 5 * x1 + 6 * x2 <= 90,  "Glue"
+    prob += 2 * x1 + 4 * x2 <= 30,  "Mess"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Required final output
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

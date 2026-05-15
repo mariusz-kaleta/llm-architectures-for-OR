@@ -1,0 +1,53 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Clinical_Firm_Production_Planning", pulp.LpMinimize)
+
+# Decision variables: hours of operation for Northern (xN) and Western (xW) factories
+xN = pulp.LpVariable('xN', lowBound=0, cat='Continuous')
+xW = pulp.LpVariable('xW', lowBound=0, cat='Continuous')
+
+# Parameters based on the problem statement
+# Production rates (grams per hour)
+inj_north = 800
+cream_north = 700
+inj_west = 650
+cream_west = 750
+
+# Plastic usage (units per hour)
+plastic_north = 40
+plastic_west = 35
+
+# Resource and demand constraints
+plastic_available = 60000
+inj_demand = 800000
+cream_demand = 700000
+
+# Objective: Minimize total operating hours
+prob += xN + xW, "Total_Operating_Hours"
+
+# Constraints:
+# Injection production requirement
+prob += inj_north * xN + inj_west * xW >= inj_demand, "Injection_Demand"
+
+# Cream production requirement
+prob += cream_north * xN + cream_west * xW >= cream_demand, "Cream_Demand"
+
+# Plastic availability constraint
+prob += plastic_north * xN + plastic_west * xW <= plastic_available, "Plastic_Limit"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve results
+xN_opt = pulp.value(xN)
+xW_opt = pulp.value(xW)
+obj_value = pulp.value(prob.objective)
+
+# Print the results
+print(f"Optimal hours for Northern factory (xN): {xN_opt}")
+print(f"Optimal hours for Western factory (xW): {xW_opt}")
+print(f"Minimum total operating hours: {obj_value}")
+
+print(f"FINAL_OBJ: {obj_value}")

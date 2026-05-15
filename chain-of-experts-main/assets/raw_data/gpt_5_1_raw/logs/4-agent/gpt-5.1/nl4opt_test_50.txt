@@ -1,0 +1,180 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+   - Goal: Maximise total profit from producing and selling the two snack mixes, given limited stocks of cat paw snacks and gold shark snacks.
+
+2. **Suggested model type**
+
+   - Model: Linear Programming (LP) – a small, continuous, two‑variable LP.
+
+3. **Main decision variables**
+
+   Define decision variables as kilograms of each mix to produce:
+
+   - Variable 1: Amount (kg) of Mix 1 to prepare.
+   - Variable 2: Amount (kg) of Mix 2 to prepare.
+
+4. **Objective function structure**
+
+   - Each kg of Mix 1 yields $12 profit.
+   - Each kg of Mix 2 yields $15 profit.
+   - Objective: Maximise total profit = 12 × (kg of Mix 1) + 15 × (kg of Mix 2).
+
+5. **Key constraints to consider**
+
+   a. **Cat paw snack availability**
+
+   - Mix 1 is 20% cat paw snacks; Mix 2 is 35% cat paw snacks.
+   - Total cat paw used in both mixes ≤ 20 kg available.
+
+   Conceptually:
+   - 0.20 × (kg of Mix 1) + 0.35 × (kg of Mix 2) ≤ 20.
+
+   b. **Gold shark snack availability**
+
+   - Mix 1 is 80% gold shark snacks; Mix 2 is 65% gold shark snacks.
+   - Total gold shark used in both mixes ≤ 50 kg available.
+
+   Conceptually:
+   - 0.80 × (kg of Mix 1) + 0.65 × (kg of Mix 2) ≤ 50.
+
+   c. **Non‑negativity**
+
+   - Both mix quantities must be ≥ 0; cannot produce negative amounts.
+
+6. **Modelling/solution strategy**
+
+   - Use an LP solver or graphical method:
+     - Plot the two resource constraints in the (Mix 1, Mix 2) plane.
+     - Identify the feasible region defined by:
+       - Cat paw limit,
+       - Gold shark limit,
+       - Non‑negativity.
+     - Evaluate the objective function at each corner (extreme) point of the feasible region.
+   - Select the corner point that yields the highest profit; that gives the optimal kg of Mix 1 and Mix 2.
+
+---
+
+[MODELER]:
+Here is a clear mathematical optimisation model for the problem.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_1 \ge 0\): kilograms of Mix 1 to produce  
+- \(x_2 \ge 0\): kilograms of Mix 2 to produce  
+
+---
+
+## 2. Objective function
+
+Profit per kg:
+
+- Mix 1: \$12/kg  
+- Mix 2: \$15/kg  
+
+Maximise total profit:
+
+\[
+\max Z = 12x_1 + 15x_2
+\]
+
+---
+
+## 3. Constraints
+
+### a) Cat paw snack availability
+
+Fractions of cat paw in each mix:
+
+- Mix 1: 20% = 0.20  
+- Mix 2: 35% = 0.35  
+
+Total cat paw used cannot exceed the 20 kg available:
+
+\[
+0.20x_1 + 0.35x_2 \le 20
+\]
+
+### b) Gold shark snack availability
+
+Fractions of gold shark in each mix:
+
+- Mix 1: 80% = 0.80  
+- Mix 2: 65% = 0.65  
+
+Total gold shark used cannot exceed the 50 kg available:
+
+\[
+0.80x_1 + 0.65x_2 \le 50
+\]
+
+### c) Non‑negativity
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+---
+
+## 4. Full LP model
+
+\[
+\begin{aligned}
+\max \quad & Z = 12x_1 + 15x_2 \\
+\text{s.t.} \quad
+& 0.20x_1 + 0.35x_2 \le 20 \quad \text{(cat paw)} \\
+& 0.80x_1 + 0.65x_2 \le 50 \quad \text{(gold shark)} \\
+& x_1 \ge 0,\ x_2 \ge 0
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+For solving this linear program, good choices in Python are:
+
+- **PuLP**: very simple LP modeling; works with CBC by default.
+- **SciPy (`scipy.optimize.linprog`)**: good for small/medium LPs.
+- **OR-Tools (Google OR-Tools Linear Solver)**: powerful and efficient for LP/MIP.
+
+For a problem of this size, **PuLP** or **SciPy** are the most straightforward.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the LP problem: maximization
+    model = pulp.LpProblem("Snack_Mix_Optimization", pulp.LpMaximize)
+
+    # Decision variables
+    x1 = pulp.LpVariable('x1', lowBound=0)  # kg of Mix 1
+    x2 = pulp.LpVariable('x2', lowBound=0)  # kg of Mix 2
+
+    # Objective function: Maximize profit
+    model += 12 * x1 + 15 * x2
+
+    # Constraints
+    # Cat paw snack availability
+    model += 0.20 * x1 + 0.35 * x2 <= 20
+
+    # Gold shark snack availability
+    model += 0.80 * x1 + 0.65 * x2 <= 50
+
+    # Solve the problem
+    model.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    final_obj = pulp.value(model.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

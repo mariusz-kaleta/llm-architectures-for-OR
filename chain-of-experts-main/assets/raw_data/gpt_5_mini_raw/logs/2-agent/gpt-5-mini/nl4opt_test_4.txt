@@ -1,0 +1,94 @@
+[MODELER]:
+Model (linear program)
+
+- Variables
+  - x = kilograms of Feed A (≥ 0)
+  - y = kilograms of Feed B (≥ 0)
+
+- Objective
+  - Minimize cost: minimize C = 100 x + 80 y
+
+- Constraints
+  - Protein: 10 x + 7 y ≥ 30
+  - Fat:     8 x + 15 y ≥ 50
+  - Nonnegativity: x ≥ 0, y ≥ 0
+
+Solution
+
+Solve the two binding constraints simultaneously:
+10x + 7y = 30
+8x  +15y = 50
+
+Determinant = 10·15 − 7·8 = 94
+
+x = (30·15 − 7·50)/94 = 100/94 = 50/47 ≈ 1.06383 kg
+y = (10·50 − 30·8)/94 = 260/94 = 130/47 ≈ 2.76596 kg
+
+Minimum cost = 100 x + 80 y = 15400/47 ≈ $327.66
+
+(Checking corner solutions x=0 or y=0 gives higher cost, so the intersection above is optimal.)
+
+Recommended Python libraries
+- pulp (easy modeling, uses CBC solver)
+- scipy.optimize.linprog (direct LP solver)
+- OR-Tools linear solver (commercial-grade performance)
+- cvxpy (if you want a high-level convex modeling interface)
+
+Short example with pulp
+
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, value
+
+prob = LpProblem("feed_mix", LpMinimize)
+x = LpVariable('x', lowBound=0)
+y = LpVariable('y', lowBound=0)
+prob += 100*x + 80*y
+prob += 10*x + 7*y >= 30
+prob += 8*x + 15*y >= 50
+prob.solve()
+print(value(x), value(y), value(prob.objective))
+
+Result: x = 50/47 kg, y = 130/47 kg, minimum cost ≈ $327.66.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import numpy as np
+from math import isfinite
+
+# Coefficients
+A = np.array([[10.0, 7.0],
+              [8.0, 15.0]])
+b = np.array([30.0, 50.0])
+
+# Solve intersection of the two binding constraints
+sol = np.linalg.solve(A, b)
+x_int, y_int = sol[0], sol[1]
+cost_int = 100.0 * x_int + 80.0 * y_int
+
+# Corner solutions (x=0 and y=0), take feasibility into account
+candidates = []
+
+# Intersection if feasible
+if x_int >= -1e-9 and y_int >= -1e-9:  # allow tiny negative tolerance
+    candidates.append((x_int, y_int, cost_int))
+
+# x = 0 => find minimal y satisfying both constraints
+y_req_protein = 30.0 / 7.0
+y_req_fat = 50.0 / 15.0
+y0 = max(y_req_protein, y_req_fat)
+if y0 >= 0 and isfinite(y0):
+    candidates.append((0.0, y0, 100.0 * 0.0 + 80.0 * y0))
+
+# y = 0 => find minimal x satisfying both constraints
+x_req_protein = 30.0 / 10.0
+x_req_fat = 50.0 / 8.0
+x0 = max(x_req_protein, x_req_fat)
+if x0 >= 0 and isfinite(x0):
+    candidates.append((x0, 0.0, 100.0 * x0 + 80.0 * 0.0))
+
+# Choose minimal cost among feasible candidates
+best = min(candidates, key=lambda t: t[2])
+best_x, best_y, best_cost = best
+
+# Print final objective value as required
+print(f"FINAL_OBJ: {best_cost}")

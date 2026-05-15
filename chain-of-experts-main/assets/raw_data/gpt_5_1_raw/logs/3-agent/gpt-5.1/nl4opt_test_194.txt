@@ -1,0 +1,135 @@
+[MODELER]:
+Here is a formal optimization model for the problem.
+
+### Decision variables
+Let  
+- \( x \) = number of fish meals (nonnegative, can discuss integer vs. continuous)  
+- \( y \) = number of chicken meals (nonnegative)
+
+We’ll assume real-valued meals for the mathematical model (continuous variables). If whole meals are required, then add integrality constraints \(x, y \in \mathbb{Z}_{\ge 0}\).
+
+### Objective: Minimize total fat intake
+
+Each fish meal has 7 units of fat, each chicken meal has 10 units of fat, so:
+
+\[
+\text{Minimize } Z = 7x + 10y
+\]
+
+### Constraints
+
+1. **Protein requirement** (at least 130 units of protein):  
+   - Each fish meal: 10 units of protein  
+   - Each chicken meal: 15 units of protein  
+
+   \[
+   10x + 15y \;\ge\; 130
+   \]
+
+2. **Iron requirement** (at least 120 units of iron):  
+   - Each fish meal: 12 units of iron  
+   - Each chicken meal: 8 units of iron  
+
+   \[
+   12x + 8y \;\ge\; 120
+   \]
+
+3. **Preference for chicken** (at least twice as many chicken meals as fish meals):  
+
+   \[
+   y \;\ge\; 2x
+   \]
+
+4. **Nonnegativity**:  
+
+   \[
+   x \;\ge\; 0,\quad y \;\ge\; 0
+   \]
+
+If we impose integrality:
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+### Model type
+
+- This is a **linear programming (LP)** problem if \(x, y\) are continuous.
+- It is an **integer linear programming (ILP)** problem if \(x, y\) must be integers (whole meals).
+
+### Solving in Python: recommended libraries
+
+Any standard LP/ILP solver will work. Suitable Python libraries:
+
+- **PuLP**  
+  - Very convenient for building LP/ILP models.  
+  - Integrates with CBC (default) and can connect to Gurobi, CPLEX, etc.
+- **OR-Tools (Google)**  
+  - `ortools.linear_solver.pywraplp` for LP/MIP.  
+  - Good performance and straightforward modeling.
+- **SciPy** (`scipy.optimize.linprog`)  
+  - Suitable for continuous LP (no integer constraints).  
+  - Use if fractional meals are acceptable.
+
+### Example PuLP formulation sketch
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Fish_Chicken_Diet", pl.LpMinimize)
+
+# Decision variables (integer or continuous)
+x = pl.LpVariable("fish_meals", lowBound=0, cat="Continuous")   # or "Integer"
+y = pl.LpVariable("chicken_meals", lowBound=0, cat="Continuous")  # or "Integer"
+
+# Objective
+prob += 7*x + 10*y
+
+# Constraints
+prob += 10*x + 15*y >= 130, "ProteinRequirement"
+prob += 12*x + 8*y  >= 120, "IronRequirement"
+prob += y >= 2*x,           "ChickenPreference"
+
+# Solve
+prob.solve()
+print("Status:", pl.LpStatus[prob.status])
+print("Fish meals (x):", x.varValue)
+print("Chicken meals (y):", y.varValue)
+print("Min fat:", pl.value(prob.objective))
+```
+
+This sets up the model exactly as described; changing `cat="Continuous"` to `cat="Integer"` enforces whole meals.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the LP problem: minimize total fat
+    prob = pl.LpProblem("Fish_Chicken_Diet", pl.LpMinimize)
+
+    # Decision variables: integer number of meals
+    x = pl.LpVariable("fish_meals", lowBound=0, cat="Integer")
+    y = pl.LpVariable("chicken_meals", lowBound=0, cat="Integer")
+
+    # Objective: minimize fat = 7x + 10y
+    prob += 7 * x + 10 * y
+
+    # Constraints
+    prob += 10 * x + 15 * y >= 130, "ProteinRequirement"
+    prob += 12 * x + 8 * y >= 120, "IronRequirement"
+    prob += y >= 2 * x, "ChickenPreference"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    obj_value = pl.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

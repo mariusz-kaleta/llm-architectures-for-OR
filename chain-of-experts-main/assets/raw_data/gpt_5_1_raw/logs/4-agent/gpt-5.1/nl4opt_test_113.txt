@@ -1,0 +1,224 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximise total profit from planting apples and pears on the orchard.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with two decision variables.
+
+3. Main decision variables  
+   - Let:
+     - A = acres of apples to plant  
+     - P = acres of pears to plant  
+
+4. Objective function (conceptual)  
+   - Maximise profit = 2 × (acres of apples) + 4 × (acres of pears)  
+   - In terms of variables: Maximise 2A + 4P
+
+5. Key constraints to consider  
+
+   a) Land availability  
+   - Total land used by apples and pears cannot exceed 50 acres.  
+   - A + P ≤ 50  
+   - Also, it is implied all land is to be used: if that is part of the intended problem, use A + P = 50; otherwise allow some unused land with ≤.
+
+   b) Minimum demand requirements  
+   - Apples: at least 5 acres.  
+     - A ≥ 5  
+   - Pears: at least 10 acres.  
+     - P ≥ 10  
+
+   c) Preference and workforce limitation  
+   - Ben prefers to grow more pears than apples:  
+     - P ≥ A (if you interpret “more” as at least as many; or P > A in strict form, but LP will typically treat it as ≥).  
+   - Workforce cap: at most twice as many pears as apples:  
+     - P ≤ 2A  
+
+   d) Non-negativity  
+   - A ≥ 0, P ≥ 0 (already implied but keep explicitly).
+
+6. Modelling notes / structure for the Modeller  
+
+   - Only two variables, so model can be solved graphically or via any LP solver.  
+   - The feasible region is defined by the intersection of:
+     - A + P ≤ 50  
+     - A ≥ 5  
+     - P ≥ 10  
+     - P ≥ A  
+     - P ≤ 2A  
+   - Enumerate corner points (extreme points) of this region by intersecting pairs of constraint boundaries, then test each feasible corner in the objective 2A + 4P.  
+   - Identify the point with maximum objective value; that (A*, P*) gives the optimal acres of apples and pears.  
+   - Compute the corresponding maximum profit: 2A* + 4P*.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model of the problem, followed by how you could solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(A\) = acres of apples to plant  
+- \(P\) = acres of pears to plant  
+
+Both measured in acres.
+
+---
+
+## 2. Objective function
+
+Ben’s profit is:
+- \$2 per acre of apples  
+- \$4 per acre of pears  
+
+Maximize total profit:
+\[
+\max\ Z = 2A + 4P
+\]
+
+---
+
+## 3. Constraints
+
+1. **Land availability**
+
+He has 50 acres available. The text says “on which he must grow” suggesting all land is to be used:
+
+\[
+A + P = 50
+\]
+
+(If you wanted to allow unused land, this would be \(A + P \le 50\).)
+
+2. **Minimum acreage requirements (demand)**
+
+- Apples: at least 5 acres
+\[
+A \ge 5
+\]
+- Pears: at least 10 acres
+\[
+P \ge 10
+\]
+
+3. **Preference and workforce constraints**
+
+- Prefers to grow more pears than apples  
+  Interpret as:
+\[
+P \ge A
+\]
+
+- Workforce: at most twice as many pears as apples
+\[
+P \le 2A
+\]
+
+4. **Non-negativity**
+
+\[
+A \ge 0,\quad P \ge 0
+\]
+
+---
+
+## 4. Complete LP model
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 2A + 4P \\[4pt]
+\text{subject to} \quad 
+& A + P = 50 \\
+& A \ge 5 \\
+& P \ge 10 \\
+& P \ge A \\
+& P \le 2A \\
+& A \ge 0,\ P \ge 0
+\end{aligned}
+\]
+
+This is a small linear program with two decision variables.
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard LP solver will easily handle this:
+
+- `PuLP` – very straightforward modeling of LPs in pure Python.
+- `ortools.linear_solver` (Google OR-Tools) – efficient and well-supported.
+- `scipy.optimize.linprog` – works well for simple LPs; less modeling syntax, more array-based.
+
+For an educational or small example like this, `PuLP` is very convenient.
+
+---
+
+## 6. Example in Python with PuLP
+
+```python
+import pulp as pl
+
+# Define problem: maximize profit
+prob = pl.LpProblem("Ben_Orchard", pl.LpMaximize)
+
+# Decision variables
+A = pl.LpVariable("Apples", lowBound=0)
+P = pl.LpVariable("Pears", lowBound=0)
+
+# Objective function
+prob += 2 * A + 4 * P, "Total_Profit"
+
+# Constraints
+prob += A + P == 50, "Land"
+prob += A >= 5, "Min_Apples"
+prob += P >= 10, "Min_Pears"
+prob += P >= A, "More_Pears_than_Apples"
+prob += P <= 2 * A, "Workforce_Limit"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+A_opt = A.value()
+P_opt = P.value()
+Z_opt = pl.value(prob.objective)
+
+print(f"Optimal acres of apples: {A_opt}")
+print(f"Optimal acres of pears:  {P_opt}")
+print(f"Maximum profit:          ${Z_opt}")
+```
+
+This code will return the optimal \(A^*\), \(P^*\), and the maximum profit \(Z^*\) consistent with the model above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem: maximize profit
+    prob = pl.LpProblem("Ben_Orchard", pl.LpMaximize)
+
+    # Decision variables
+    A = pl.LpVariable("Apples", lowBound=0)
+    P = pl.LpVariable("Pears", lowBound=0)
+
+    # Objective function
+    prob += 2 * A + 4 * P, "Total_Profit"
+
+    # Constraints
+    prob += A + P == 50, "Land"
+    prob += A >= 5, "Min_Apples"
+    prob += P >= 10, "Min_Pears"
+    prob += P >= A, "More_Pears_than_Apples"
+    prob += P <= 2 * A, "Workforce_Limit"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    Z_opt = pl.value(prob.objective)
+
+    print(f"FINAL_OBJ: {Z_opt}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,111 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - T = number of throat swabs (integer, T >= 0)
+  - N = number of nasal swabs (integer, N >= 0)
+
+- Objective
+  - Maximise the total number of patients: maximize P = T + N
+
+- Constraints
+  - Time: 5T + 3N <= 20000 (minutes available)
+  - Nasal minimum: N >= 30
+  - Comfort requirement: T >= 4 N
+  - Integrality: T, N integers
+
+Mathematical formulation
+  max   P = T + N
+  s.t.  5T + 3N <= 20000
+        T - 4N >= 0
+        N >= 30
+        T, N ∈ Z_{\ge 0}
+
+Solution (analytic)
+  Let T = 4N + x with x ≥ 0 integer. The time constraint becomes
+    5(4N + x) + 3N = 23N + 5x ≤ 20000
+  For fixed N, maximize x up to x_max = floor((20000 − 23N)/5).
+  The total patients P = T + N = 5N + x_max.
+
+  Because P increases with N (continuous relaxation shows P = 4000 + 0.4N), take the largest feasible N:
+    23N ≤ 20000 ⇒ N ≤ floor(20000/23) = 869.
+
+  Compute x_max for N = 869:
+    20000 − 23·869 = 13 ⇒ x_max = floor(13/5) = 2,
+    T = 4·869 + 2 = 3478,
+    P = 3478 + 869 = 4347,
+    time used = 5·3478 + 3·869 = 19997 (3 minutes unused).
+
+  Check N = 868 also gives the same maximum:
+    20000 − 23·868 = 36 ⇒ x_max = floor(36/5) = 7,
+    T = 4·868 + 7 = 3479,
+    P = 3479 + 868 = 4347,
+    time used = 19999 (1 minute unused).
+
+Therefore the maximum number of patients is 4347. There are two integer optimal solutions:
+  - Option A: 3478 throat swabs and 869 nasal swabs
+  - Option B: 3479 throat swabs and 868 nasal swabs
+
+Suggested Python libraries to solve this
+- For integer linear programming: PuLP, OR-Tools (CP-SAT or linear solver with integer vars)
+- For continuous LP relaxation: scipy.optimize.linprog
+- For simple brute force search (small search space): plain Python loops or numpy
+
+Example (PuLP) — minimal code outline
+  import pulp
+  prob = pulp.LpProblem("swab", pulp.LpMaximize)
+  T = pulp.LpVariable('T', lowBound=0, cat='Integer')
+  N = pulp.LpVariable('N', lowBound=30, cat='Integer')
+  prob += T + N
+  prob += 5*T + 3*N <= 20000
+  prob += T - 4*N >= 0
+  prob.solve()
+  print(pulp.value(T), pulp.value(N), pulp.value(prob.objective))
+
+This will return one of the optimal integer solutions shown above.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data (initialized directly)
+TIME_AVAILABLE = 20000  # minutes
+MIN_N = 30
+
+# Search for integer optimal solutions
+best_P = -1
+optimal_solutions = []
+
+# Based on constraint T >= 4N and 5T + 3N <= TIME_AVAILABLE,
+# minimal time for given N is when T = 4N -> 23N <= TIME_AVAILABLE -> N <= floor(TIME_AVAILABLE/23)
+N_max = TIME_AVAILABLE // 23
+
+for N in range(MIN_N, N_max + 1):
+    Tmin = 4 * N
+    Tmax = (TIME_AVAILABLE - 3 * N) // 5  # max feasible T for this N
+    if Tmax < Tmin:
+        continue
+    # For fixed N, objective P = T + N increases with T, so choose Tmax
+    T = Tmax
+    P = T + N
+    if P > best_P:
+        best_P = P
+        optimal_solutions = [(T, N)]
+    elif P == best_P:
+        optimal_solutions.append((T, N))
+
+# Display results
+print("Optimal objective value (patients):", best_P)
+print("Number of optimal integer solutions found:", len(optimal_solutions))
+print("Optimal (T, N) solutions:")
+for (T, N) in optimal_solutions:
+    time_used = 5 * T + 3 * N
+    print(f"  T={T}, N={N}, P={T+N}, time_used={time_used}")
+
+# Final required print line (must be the last line and in this exact format)
+value = int(best_P)
+print(f"FINAL_OBJ: {value}")
+```

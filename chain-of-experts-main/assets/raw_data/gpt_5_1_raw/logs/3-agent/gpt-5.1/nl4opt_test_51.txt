@@ -1,0 +1,224 @@
+[MODELER]:
+**1. Define decision variables**
+
+Let  
+- \(x \ge 0\): number of reams of **graph paper** produced per day  
+- \(y \ge 0\): number of reams of **music paper** produced per day  
+
+---
+
+**2. Resource usage (constraints)**
+
+Each ream uses time on two machines:
+
+- **Printing machine**  
+  - Graph paper: 3 minutes/ream  
+  - Music paper: 1.5 minutes/ream  
+  - Daily capacity: 350 minutes  
+
+  Constraint:
+  \[
+  3x + 1.5y \le 350
+  \]
+
+- **Scanning machine**  
+  - Graph paper: 5.5 minutes/ream  
+  - Music paper: 3 minutes/ream  
+  - Daily capacity: 350 minutes  
+
+  Constraint:
+  \[
+  5.5x + 3y \le 350
+  \]
+
+Also, non-negativity:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+**3. Objective function**
+
+Profit per ream:  
+- Graph paper: \$4 per ream  
+- Music paper: \$2.5 per ream  
+
+Maximize total daily profit:
+\[
+\max Z = 4x + 2.5y
+\]
+
+---
+
+**4. Full mathematical model**
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 4x + 2.5y \\
+\text{subject to} \quad
+& 3x + 1.5y \le 350 \quad \text{(printing time)}\\
+& 5.5x + 3y \le 350 \quad \text{(scanning time)}\\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+This is a **linear programming** (LP) problem.
+
+---
+
+**5. Solving the LP (outline)**
+
+To find the optimal \(x\) and \(y\), solve the system where both machine constraints are binding (intersection of the two lines), then check non-negativity and feasibility:
+
+Solve:
+\[
+\begin{cases}
+3x + 1.5y = 350\\
+5.5x + 3y = 350
+\end{cases}
+\]
+
+From the first equation:  
+\(1.5y = 350 - 3x \Rightarrow y = \dfrac{350 - 3x}{1.5}\)
+
+Substitute into the second:
+\[
+5.5x + 3\left(\dfrac{350 - 3x}{1.5}\right) = 350
+\]
+
+Note \(3 / 1.5 = 2\), so:
+\[
+5.5x + 2(350 - 3x) = 350\\
+5.5x + 700 - 6x = 350\\
+-0.5x = -350 \Rightarrow x = 700
+\]
+
+This gives \(x = 700\), which violates scanning capacity:
+\[
+5.5(700) + 3y \le 350 \Rightarrow 3850 + 3y \le 350
+\]
+impossible. So the intersection is outside the feasible region; at optimum, **one constraint will bind** and the other will be slack, or we sit on an axis.
+
+Check corner points:
+
+- **Corner A: \(x=0\)**  
+  Printing: \(1.5y \le 350 \Rightarrow y \le 233.\overline{3}\)  
+  Scanning: \(3y \le 350 \Rightarrow y \le 116.\overline{6}\)  
+  So feasible max on \(x=0\) is \(y = 116.\overline{6}\).  
+  Profit:  
+  \[
+  Z_A = 4(0) + 2.5(116.\overline{6}) \approx 291.67
+  \]
+
+- **Corner B: \(y=0\)**  
+  Printing: \(3x \le 350 \Rightarrow x \le 116.\overline{6}\)  
+  Scanning: \(5.5x \le 350 \Rightarrow x \le 63.\overline{63}\)  
+  So feasible max on \(y=0\) is \(x = 63.\overline{63}\).  
+  Profit:  
+  \[
+  Z_B = 4(63.\overline{63}) \approx 254.55
+  \]
+
+No other feasible intersection (machine–machine) exists within the region. So the best corner is **A**:
+
+- Optimal continuous solution:  
+  \[
+  x^* = 0,\quad y^* = \frac{350}{3} \approx 116.67
+  \]
+  \[
+  Z^* \approx \$291.67
+  \]
+
+If you require integer reams, check nearby integers:
+
+- Try \(x=0, y=116\):  
+  Printing: \(1.5 \cdot 116 = 174 \le 350\)  
+  Scanning: \(3 \cdot 116 = 348 \le 350\)  
+  Profit: \(Z = 2.5 \cdot 116 = 290\)
+
+- Any positive \(x\) reduces available scanning time for music paper; since music paper uses less machine time per dollar of profit (i.e., higher profit per machine-minute), the best integer solution is still all music paper close to that boundary: \(x=0, y=116\) with profit \$290.
+
+---
+
+**6. Recommended Python tools**
+
+This is a small linear program; suitable Python libraries:
+
+- `PuLP` (simple modeling, uses CBC by default)
+- `scipy.optimize.linprog` (for continuous LP only)
+- `ortools.linear_solver.pywraplp` (Google OR-Tools, can handle LP and MILP)
+- `cvxpy` (general convex optimization, user-friendly)
+
+---
+
+**7. Example with PuLP (continuous LP)**
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Forest_Paper_Production", pl.LpMaximize)
+
+# Decision variables (continuous, >= 0)
+x = pl.LpVariable("graph_reams", lowBound=0)
+y = pl.LpVariable("music_reams", lowBound=0)
+
+# Objective
+prob += 4 * x + 2.5 * y
+
+# Constraints
+prob += 3 * x + 1.5 * y <= 350    # printing
+prob += 5.5 * x + 3 * y <= 350    # scanning
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Graph paper (reams):", x.value())
+print("Music paper (reams):", y.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This will return approximately:
+- Graph paper: 0 reams  
+- Music paper: 116.67 reams  
+- Max profit: \$291.67 (continuous solution)
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the linear programming problem (maximization)
+    prob = pl.LpProblem("Paper_Production", pl.LpMaximize)
+
+    # Decision variables (continuous, >= 0)
+    x = pl.LpVariable("graph_reams", lowBound=0)
+    y = pl.LpVariable("music_reams", lowBound=0)
+
+    # Objective function: Maximize profit
+    prob += 4 * x + 2.5 * y
+
+    # Constraints
+    prob += 3 * x + 1.5 * y <= 350    # Printing machine capacity
+    prob += 5.5 * x + 3 * y <= 350    # Scanning machine capacity
+
+    # Solve the LP
+    prob.solve()
+
+    # Get the optimal objective value
+    optimal_value = pl.value(prob.objective)
+
+    # Print required outputs (only final objective in specified format at the end)
+    print("Status:", pl.LpStatus[prob.status])
+    print("Optimal graph paper (reams):", x.value())
+    print("Optimal music paper (reams):", y.value())
+    print("Max profit:", optimal_value)
+
+    # Final required line
+    print(f"FINAL_OBJ: {optimal_value}")
+
+if __name__ == "__main__":
+    main()

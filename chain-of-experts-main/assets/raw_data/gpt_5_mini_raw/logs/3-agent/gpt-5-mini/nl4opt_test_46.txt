@@ -1,0 +1,132 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x = acres harvested with the traditional machine (nonnegative)
+- y = acres harvested with the modern machine (nonnegative)
+
+Objective
+Maximize total tea leaves picked:
+maximize Z = 30x + 40y  (kg)
+
+Constraints
+1. Land availability: x + y ≤ 500  (acres)
+2. Waste limit: 10x + 15y ≤ 6000  (kg)
+3. Fuel limit: 20x + 15y ≤ 9000  (liters)
+4. Nonnegativity: x ≥ 0, y ≥ 0
+
+(All coefficients per acre were taken from the problem statement.)
+
+Solution (analytic)
+This is a linear program. The feasible corner points are:
+- (x,y) = (450,0)  → Z = 30·450 + 40·0 = 13,500 kg
+- (x,y) = (0,400)  → Z = 0 + 40·400 = 16,000 kg
+- (x,y) = (300,200) (intersection of 2x+3y=1200 and 4x+3y=1800 and x+y=500) → Z = 30·300 + 40·200 = 17,000 kg
+
+Maximum occurs at x = 300 acres (traditional), y = 200 acres (modern), producing 17,000 kg of tea leaves.
+
+Notes on implementation
+- If acreage must be integer, formulate as an integer linear program (x,y integer). Otherwise continuous LP is fine.
+- Suitable Python libraries: pulp (LP / MILP), scipy.optimize.linprog (LP), or ortools.linear_solver (LP / MILP).
+Example using pulp (continuous LP):
+
+from pulp import LpProblem, LpMaximize, LpVariable, lpSum, value
+
+prob = LpProblem("Tea", LpMaximize)
+x = LpVariable('x', lowBound=0)
+y = LpVariable('y', lowBound=0)
+prob += 30*x + 40*y
+prob += x + y <= 500
+prob += 10*x + 15*y <= 6000
+prob += 20*x + 15*y <= 9000
+prob.solve()
+print(value(x), value(y), value(prob.objective))
+
+(If integer acres required, use LpVariable(..., cat='Integer').)
+
+Summary answer
+Use the traditional machine on 300 acres and the modern machine on 200 acres to maximize tea leaves (17,000 kg).
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import itertools
+
+# Define constraints as tuples (a, b, c) representing a*x + b*y <= c
+ineqs = [
+    (1.0, 1.0, 500.0),    # x + y <= 500
+    (2.0, 3.0, 1200.0),   # 2x + 3y <= 1200  (from 10x+15y<=6000)
+    (4.0, 3.0, 1800.0)    # 4x + 3y <= 1800  (from 20x+15y<=9000)
+]
+
+# Axes (we'll enforce x>=0, y>=0 separately)
+# Represent lines for intersections: a*x + b*y = c
+lines = [
+    (1.0, 1.0, 500.0),    # x + y = 500
+    (2.0, 3.0, 1200.0),   # 2x + 3y = 1200
+    (4.0, 3.0, 1800.0),   # 4x + 3y = 1800
+    (1.0, 0.0, 0.0),      # x = 0
+    (0.0, 1.0, 0.0)       # y = 0
+]
+
+def intersect(l1, l2):
+    a1, b1, c1 = l1
+    a2, b2, c2 = l2
+    det = a1*b2 - a2*b1
+    if abs(det) < 1e-12:
+        return None
+    x = (c1*b2 - c2*b1) / det
+    y = (a1*c2 - a2*c1) / det
+    return (x, y)
+
+# Generate candidate corner points (all intersections)
+candidates = set()
+for l1, l2 in itertools.combinations(lines, 2):
+    pt = intersect(l1, l2)
+    if pt is not None:
+        # Round small numerical noise
+        x, y = pt
+        candidates.add((round(x,12), round(y,12)))
+
+# Include obvious corners (0,0) as well (might be included)
+candidates.add((0.0, 0.0))
+
+# Feasibility check
+tol = 1e-7
+feasible_points = []
+for x, y in candidates:
+    if x < -tol or y < -tol:
+        continue
+    ok = True
+    for a, b, c in ineqs:
+        if a*x + b*y - c > tol:
+            ok = False
+            break
+    if ok:
+        # clamp tiny negatives to zero
+        x = 0.0 if abs(x) < tol else x
+        y = 0.0 if abs(y) < tol else y
+        feasible_points.append((x, y))
+
+# Objective: Z = 30x + 40y
+best_obj = None
+best_point = None
+for x, y in feasible_points:
+    z = 30.0*x + 40.0*y
+    if (best_obj is None) or (z > best_obj + 1e-9):
+        best_obj = z
+        best_point = (x, y)
+
+# If best_obj is very close to an integer, convert to int for clean output
+if best_obj is None:
+    final_value = 0.0
+else:
+    if abs(best_obj - round(best_obj)) < 1e-6:
+        final_value = int(round(best_obj))
+    else:
+        final_value = float(best_obj)
+
+print(f"FINAL_OBJ: {final_value}")
+```

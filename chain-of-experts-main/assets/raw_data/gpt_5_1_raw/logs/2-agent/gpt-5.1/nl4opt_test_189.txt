@@ -1,0 +1,114 @@
+[MODELER]:
+Let’s model this as a linear programming (LP) problem.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of orange juice boxes (OJ)  
+- \(y\) = number of apple juice boxes (AJ)
+
+We assume \(x, y \ge 0\) and typically they should be integer, but we first model as continuous LP and can later enforce integrality if desired.
+
+## 2. Objective function
+
+Each box provides:
+- Orange juice: 10 units vitamin D
+- Apple juice: 12 units vitamin D
+
+We want to **maximize total vitamin D intake**:
+
+\[
+\text{Maximize } Z = 10x + 12y
+\]
+
+## 3. Constraints
+
+1. **Preference for apple juice**  
+   “He must drink at least 3 times as many apple juice boxes as orange juice boxes.”  
+   \[
+   y \ge 3x
+   \]
+
+2. **Minimum orange juice boxes**  
+   “He must also drink at least 3 orange juice boxes.”  
+   \[
+   x \ge 3
+   \]
+
+3. **Vitamin C upper bound**  
+   Each box provides:
+   - Orange juice: 8 units vitamin C
+   - Apple juice: 6 units vitamin C  
+   “At most 300 units of vitamin C”:
+   \[
+   8x + 6y \le 300
+   \]
+
+4. **Non-negativity**  
+   \[
+   x \ge 0, \quad y \ge 0
+   \]
+
+If you want a strict model of box counts, add **integrality**:
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+## 4. Complete mathematical model
+
+\[
+\begin{aligned}
+\text{Maximize}\quad & Z = 10x + 12y \\
+\text{subject to}\quad
+& y - 3x \ge 0 \\
+& x \ge 3 \\
+& 8x + 6y \le 300 \\
+& x \ge 0,\ y \ge 0 \\
+& x, y \in \mathbb{Z}_{\ge 0} \quad (\text{if integer solutions required})
+\end{aligned}
+\]
+
+## 5. Solving this in Python
+
+This is a linear optimization problem, very straightforward for:
+
+- **PuLP** (`pulp`) – easy LP/MIP modeling in pure Python
+- **OR-Tools** (`ortools.linear_solver`) – powerful, especially for integer constraints
+- **SciPy** (`scipy.optimize.linprog`) – good for continuous LP (no integrality)
+
+### Recommendation
+
+- If you need integer numbers of boxes: use **PuLP** or **OR-Tools**.
+- If you’re fine with continuous solution: **SciPy’s** `linprog` or **PuLP** (without integer constraints).
+
+Example choice:  
+- For teaching / readability: **PuLP**
+- For performance / large problems: **OR-Tools**
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+# Create the problem: maximize vitamin D
+prob = pulp.LpProblem("JuiceOptimization", pulp.LpMaximize)
+
+# Decision variables: integer, non-negative
+x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # orange juice boxes
+y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # apple juice boxes
+
+# Objective function: maximize 10x + 12y
+prob += 10 * x + 12 * y
+
+# Constraints
+prob += y - 3 * x >= 0          # y >= 3x
+prob += x >= 3                  # x >= 3
+prob += 8 * x + 6 * y <= 300    # vitamin C constraint
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract the objective value
+final_obj = pulp.value(prob.objective)
+
+print(f"FINAL_OBJ: {final_obj}")

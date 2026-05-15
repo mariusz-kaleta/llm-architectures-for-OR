@@ -1,0 +1,85 @@
+[MODELER]:
+Model
+
+Decision variables
+- x = number of premium printers (integer, x ≥ 0)
+- y = number of regular printers (integer, y ≥ 0)
+
+Objective
+- Minimize total printers: minimize Z = x + y
+
+Constraints
+1. Printing capacity: 30x + 20y ≥ 200 (at least 200 pages/min)
+2. Ink capacity: 4x + 3y ≤ 35 (at most 35 ink units/min)
+3. Regular fewer than premium: y ≤ x − 1  (equivalently y < x)
+4. Integrality and nonnegativity: x, y ∈ Z, x ≥ 0, y ≥ 0
+
+Solving / analysis
+- Solve the integer program. By enumeration or an integer solver you find the minimum value Z* = 7.
+- There are two optimal integer solutions:
+  - x = 6 premium, y = 1 regular (30·6 + 20·1 = 200 pages/min; 4·6 + 3·1 = 27 ink units/min)
+  - x = 7 premium, y = 0 regular (30·7 = 210 pages/min; 4·7 = 28 ink units/min)
+
+Both satisfy y < x and the capacity constraints and give the minimum total of 7 printers. If you prefer more premium models (since they are more user friendly), choose (x,y) = (7,0).
+
+Suggested Python libraries to solve
+- pulp (linear/integer programming)
+- OR-Tools CP-SAT (fast integer programming)
+- mip (Python MIP / CBC, Gurobi, CPLEX backends)
+- pyomo (modeling + solvers)
+
+Example (sketch) using pulp
+- Define Integer variables x,y
+- Set objective pulp.lpSum([x,y])
+- Add constraints 30*x + 20*y >= 200, 4*x + 3*y <= 35, y <= x - 1
+- Solve with pulp.PULP_CBC_CMD() and read x.value(), y.value()
+
+You can implement either solver; this problem is a small integer linear program and will solve instantly.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the integer program by enumeration
+
+def main():
+    # Problem data (embedded)
+    # Decision variables: x (premium), y (regular), integers >= 0
+    # Constraints:
+    #  30*x + 20*y >= 200
+    #   4*x +  3*y <= 35
+    #   y <= x - 1
+    max_search = 50  # safe upper bound for enumeration
+
+    feasible_solutions = []
+    for x in range(0, max_search + 1):
+        for y in range(0, max_search + 1):
+            if 30 * x + 20 * y < 200:
+                continue
+            if 4 * x + 3 * y > 35:
+                continue
+            if y > x - 1:
+                continue
+            feasible_solutions.append((x, y))
+
+    if not feasible_solutions:
+        raise RuntimeError("No feasible integer solutions found.")
+
+    # Compute objective (minimize x + y)
+    objs = [(x + y, x, y) for (x, y) in feasible_solutions]
+    objs.sort()
+    best_obj = objs[0][0]
+    # collect all optimal solutions
+    optimal_solutions = [(x, y) for (obj, x, y) in objs if obj == best_obj]
+
+    # Prefer solution with more premium printers (higher x) if multiple optima
+    chosen = max(optimal_solutions, key=lambda sol: sol[0])  # sol is (x,y), key= x
+    x_chosen, y_chosen = chosen
+
+    # Final required output line (must be the last printed line)
+    print(f"FINAL_OBJ: {best_obj}")
+
+if __name__ == "__main__":
+    main()
+```

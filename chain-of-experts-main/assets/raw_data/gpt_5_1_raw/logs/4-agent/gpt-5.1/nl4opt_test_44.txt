@@ -1,0 +1,156 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximize the total number of bottles produced (vintage + regular), given limited wine and market mix constraints.
+
+2. Suggested model type  
+   - Model: Integer Linear Programming (ILP)  
+     - Reason: The decision variables (number of bottles) must be integers, and all relationships are linear.
+
+3. Main decision variables  
+   - Let:
+     - V = number of vintage bottles to produce  
+     - R = number of regular bottles to produce  
+
+4. Key constraints to consider  
+
+   a) Wine availability (capacity constraint)  
+   - Each vintage bottle uses 500 ml.  
+   - Each regular bottle uses 750 ml.  
+   - Total wine available: 100,000 ml.  
+   - Constraint: total wine used by all bottles cannot exceed 100,000 ml.  
+
+   b) Market mix constraint (regular vs vintage)  
+   - The company requires:  
+     - The number of regular bottles must be at least 4 times the number of vintage bottles.  
+   - Model this as: R is greater than or equal to 4 times V.  
+
+   c) Minimum vintage production  
+   - At least 10 vintage bottles must be produced.  
+   - Lower bound on V: V must be at least 10.  
+
+   d) Non-negativity and integrality  
+   - V ≥ 0, R ≥ 0, and both must be integers, since you cannot produce a fractional bottle.
+
+5. Objective function structure  
+   - Objective: Maximize total number of bottles = V + R.  
+
+6. Modelling strategy notes for the Modeller  
+   - Ensure integrality is enforced on V and R.  
+   - The model is small; it can be solved exactly with any ILP solver or even inspected analytically.  
+   - After solving, verify:  
+     - Wine usage is ≤ 100,000 ml.  
+     - R ≥ 4V.  
+     - V ≥ 10.  
+   - Check if the optimal solution uses all the available wine or if one of the mix constraints becomes the binding (limiting) factor.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model of the problem, followed by a short note on suitable Python libraries.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(V \in \mathbb{Z}_{\ge 0}\): number of vintage bottles produced  
+- \(R \in \mathbb{Z}_{\ge 0}\): number of regular bottles produced  
+
+(We will also impose \(V \ge 10\).)
+
+---
+
+## 2. Objective function
+
+Maximize the total number of bottles produced:
+\[
+\max\; Z = V + R
+\]
+
+---
+
+## 3. Constraints
+
+1. **Wine availability (capacity constraint)**  
+   Each vintage bottle uses 500 ml, each regular bottle uses 750 ml, total available is 100,000 ml:
+   \[
+   500V + 750R \;\le\; 100000
+   \]
+
+2. **Market mix: regular vs vintage**  
+   The number of regular bottles must be at least 4 times the number of vintage bottles:
+   \[
+   R \;\ge\; 4V
+   \]
+
+3. **Minimum vintage production**
+   \[
+   V \;\ge\; 10
+   \]
+
+4. **Non-negativity and integrality**
+   \[
+   V, R \;\ge\; 0,\quad V, R \in \mathbb{Z}
+   \]
+
+---
+
+## 4. Model type
+
+This is an **Integer Linear Programming (ILP)** problem:
+
+- Linear objective: \(V + R\)  
+- Linear constraints (all above)  
+- Integer (non-negative) decision variables \(V, R\)
+
+---
+
+## 5. Suitable Python libraries
+
+You can model and solve this ILP with any standard MILP/LP library in Python, for example:
+
+- **PuLP**  
+  - Simple interface, works with CBC by default.  
+  - Good for small/medium educational models like this.
+
+- **OR-Tools (MIP solver)**  
+  - From Google, very efficient MILP solver.  
+  - Recommended if you may later scale to larger problems.
+
+- **Pyomo**  
+  - More general algebraic modeling language; good for teaching and research-style modeling.
+
+Because the model is small and purely linear, any of these will solve it essentially instantly.
+
+---
+
+[CODER]:
+import pulp
+
+# Define the problem
+problem = pulp.LpProblem("Wine_Production", pulp.LpMaximize)
+
+# Decision variables
+V = pulp.LpVariable("Vintage", lowBound=0, cat='Integer')
+R = pulp.LpVariable("Regular", lowBound=0, cat='Integer')
+
+# Objective function: maximize total bottles
+problem += V + R
+
+# Constraints
+# Wine availability
+problem += 500 * V + 750 * R <= 100000
+
+# Market mix: R >= 4V
+problem += R >= 4 * V
+
+# Minimum vintage production: V >= 10
+problem += V >= 10
+
+# Solve the problem
+problem.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract objective value
+final_obj = pulp.value(problem.objective)
+
+print(f"FINAL_OBJ: {final_obj}")

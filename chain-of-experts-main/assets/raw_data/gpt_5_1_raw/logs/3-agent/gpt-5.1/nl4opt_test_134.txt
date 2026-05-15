@@ -1,0 +1,290 @@
+[MODELER]:
+Here’s a clean optimization model of the problem, and then how you’d solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of sedans (nonnegative integer)  
+- \(y\) = number of buses (nonnegative integer)
+
+---
+
+## 2. Objective
+
+The company wants to **decrease the total number of vehicles needed** while still satisfying customer and pollution requirements. That is, minimize
+
+\[
+\text{Minimize } Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Customer capacity requirement
+
+Each sedan can carry 50 tourists per day; each bus can carry 250 tourists per day. They must carry **at least 4600** customers per day:
+
+\[
+50x + 250y \;\ge\; 4600
+\]
+
+### b) Pollution limit
+
+Each sedan produces 10 units of pollution; each bus produces 40 units. Total pollution is **at most 800** units:
+
+\[
+10x + 40y \;\le\; 800
+\]
+
+### c) Nonnegativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+So the problem is:
+
+\[
+\begin{aligned}
+\text{Minimize} \quad & x + y \\
+\text{subject to} \quad
+& 50x + 250y \ge 4600, \\
+& 10x + 40y \le 800, \\
+& x, y \in \mathbb{Z}_{\ge 0}.
+\end{aligned}
+\]
+
+---
+
+## 4. Solving the model analytically (integer solution)
+
+Simplify the pollution constraint:
+
+\[
+10x + 40y \le 800 \;\Rightarrow\; x + 4y \le 80.
+\]
+
+Simplify the capacity constraint:
+
+\[
+50x + 250y \ge 4600 \;\Rightarrow\; x + 5y \ge 92.
+\]
+
+So we have:
+
+\[
+\begin{aligned}
+x + 5y &\ge 92, \\
+x + 4y &\le 80, \\
+x, y &\ge 0,\; \text{integer}.
+\end{aligned}
+\]
+
+From \(x + 4y \le 80\), we get \(x \le 80 - 4y\).  
+Substitute into \(x + 5y \ge 92\):
+
+\[
+(80 - 4y) + 5y \ge 92
+\;\Rightarrow\;
+80 + y \ge 92
+\;\Rightarrow\;
+y \ge 12.
+\]
+
+Also, from \(x \ge 0\) and \(x \le 80 - 4y\):
+
+\[
+80 - 4y \ge 0 \;\Rightarrow\; y \le 20.
+\]
+
+So \(12 \le y \le 20\), integer.
+
+We want to minimize \(x + y\). Use \(x = 80 - 4y\) (upper bound on \(x\) from pollution constraint; larger \(x\) helps meet capacity while keeping \(x+y\) small given a fixed \(y\)):
+
+\[
+Z = x + y = (80 - 4y) + y = 80 - 3y.
+\]
+
+This is **decreasing in \(y\)**, so we take the largest feasible \(y\):
+
+- \(y = 20\) ⇒ \(x = 80 - 4(20) = 0\).  
+  Check capacity: \(50(0) + 250(20) = 5000 \ge 4600\).  
+  Pollution: \(10(0) + 40(20) = 800 \le 800\).  
+  Objective: \(x + y = 0 + 20 = 20\).
+
+If we try \(y = 19\):
+
+- \(x \le 80 - 4(19) = 4\). To meet capacity:  
+  \(50x + 250(19) \ge 4600 \Rightarrow 50x \ge 4600 - 4750 = -150\), so any \(x \ge 0\) is acceptable.  
+  Best is \(x = 0\): \(Z = 19\), but check pollution: \(10(0) + 40(19) = 760\) (OK), capacity: \(250(19) = 4750 \ge 4600\).  
+  Actually, this is feasible and **better** (19 vehicles). However, this contradicts the earlier bound from \(x \le 80 - 4y\)? No, it doesn’t: \(x=0 \le 4\), so fine.
+
+So refine correctly: we don’t need to force \(x = 80 - 4y\); we should pick the smallest feasible \(x\) (to reduce vehicles) for each feasible \(y\).
+
+For each integer \(y\):
+
+1. Capacity: \(50x + 250y \ge 4600 \Rightarrow x \ge 92 - 5y\).
+2. Pollution: \(10x + 40y \le 800 \Rightarrow x \le 80 - 4y\).
+3. Also \(x \ge 0\).
+
+So for a given \(y\), feasible \(x\) must satisfy:
+
+\[
+x \in [\max(0,\,92 - 5y),\; 80 - 4y].
+\]
+
+We need the lower bound ≤ upper bound.
+
+Check feasible \(y\) values:
+
+We already know \(x \le 80 - 4y\) and \(x \ge 0\) ⇒ \(y \le 20\) as before.  
+From \(92 - 5y \le 80 - 4y\):
+
+\[
+92 - 5y \le 80 - 4y \Rightarrow 12 \le y.
+\]
+
+So again \(12 \le y \le 20\). For each:
+
+- \(y = 12\):  
+  \(x \ge 92 - 5(12) = 92 - 60 = 32\);  
+  \(x \le 80 - 4(12) = 80 - 48 = 32\).  
+  ⇒ \(x = 32\).  
+  Vehicles: \(32 + 12 = 44\).
+
+- \(y = 13\):  
+  \(x \ge 92 - 65 = 27\);  
+  \(x \le 80 - 52 = 28\).  
+  Best is \(x = 27\).  
+  Vehicles: \(27 + 13 = 40\).
+
+- \(y = 14\):  
+  \(x \ge 92 - 70 = 22\);  
+  \(x \le 80 - 56 = 24\).  
+  Best is \(x = 22\).  
+  Vehicles: \(22 + 14 = 36\).
+
+- \(y = 15\):  
+  \(x \ge 92 - 75 = 17\);  
+  \(x \le 80 - 60 = 20\).  
+  Best is \(x = 17\).  
+  Vehicles: \(17 + 15 = 32\).
+
+- \(y = 16\):  
+  \(x \ge 92 - 80 = 12\);  
+  \(x \le 80 - 64 = 16\).  
+  Best is \(x = 12\).  
+  Vehicles: \(12 + 16 = 28\).
+
+- \(y = 17\):  
+  \(x \ge 92 - 85 = 7\);  
+  \(x \le 80 - 68 = 12\).  
+  Best is \(x = 7\).  
+  Vehicles: \(7 + 17 = 24\).
+
+- \(y = 18\):  
+  \(x \ge 92 - 90 = 2\);  
+  \(x \le 80 - 72 = 8\).  
+  Best is \(x = 2\).  
+  Vehicles: \(2 + 18 = 20\).
+
+- \(y = 19\):  
+  \(x \ge 92 - 95 = -3\) ⇒ \(x \ge 0\);  
+  \(x \le 80 - 76 = 4\).  
+  Best is \(x = 0\).  
+  Vehicles: \(0 + 19 = 19\).
+
+- \(y = 20\):  
+  \(x \ge 92 - 100 = -8\) ⇒ \(x \ge 0\);  
+  \(x \le 80 - 80 = 0\).  
+  ⇒ \(x = 0\).  
+  Vehicles: \(0 + 20 = 20\).
+
+Minimum vehicles is **19**, at \((x,y) = (0,19)\).
+
+Check original constraints:
+
+- Capacity: \(50(0) + 250(19) = 4750 \ge 4600\).  
+- Pollution: \(10(0) + 40(19) = 760 \le 800\).
+
+So the optimal plan is:
+
+- Sedans: \(x^* = 0\)  
+- Buses: \(y^* = 19\)  
+- Total vehicles = 19.
+
+---
+
+## 5. Recommended Python libraries
+
+This is a small mixed-integer linear program (MILP). Good choices:
+
+- `PuLP` (easy, pure Python, integrates with CBC)
+- `ortools.linear_solver` (Google OR-Tools, very fast MILP solver)
+- `pyomo` (more general modeling framework)
+
+Example with PuLP:
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("TourismFleet", pl.LpMinimize)
+
+# Variables
+x = pl.LpVariable("sedans", lowBound=0, cat="Integer")
+y = pl.LpVariable("buses", lowBound=0, cat="Integer")
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 50 * x + 250 * y >= 4600, "Capacity"
+prob += 10 * x + 40 * y <= 800,  "Pollution"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Sedans:", pl.value(x))
+print("Buses:", pl.value(y))
+print("Total vehicles:", pl.value(x + y))
+```
+
+This will return sedans = 0, buses = 19.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("TourismFleet", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable("sedans", lowBound=0, cat="Integer")
+    y = pl.LpVariable("buses", lowBound=0, cat="Integer")
+
+    # Objective: minimize total number of vehicles
+    prob += x + y
+
+    # Constraints
+    prob += 50 * x + 250 * y >= 4600, "Capacity"
+    prob += 10 * x + 40 * y <= 800, "Pollution"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(x + y)
+
+    # Required final output
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

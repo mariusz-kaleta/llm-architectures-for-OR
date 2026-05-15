@@ -1,0 +1,75 @@
+[MODELER]:
+Model
+
+- Decision variables:
+  - M = number of math workbooks produced (integer, ≥0)
+  - E = number of English workbooks produced (integer, ≥0)
+
+- Objective:
+  Maximize profit P = 15 M + 17 E
+
+- Constraints:
+  1. Demand minima: M ≥ 40
+  2. Demand minima: E ≥ 60
+  3. Production maxima: M ≤ 140
+  4. Production maxima: E ≤ 170
+  5. Contract: M + E ≥ 200
+
+- Variable domain: M, E ∈ Z (integers). (You may relax to continuous variables; the LP optimum will be integer here.)
+
+Solution reasoning
+All profit coefficients are positive, so profit increases with either M or E. Subject to upper bounds, the profit is maximized by producing the maximum allowed of both products. The feasible region is the rectangle [40,140] × [60,170] intersected with the half-space M+E ≥ 200; the corner (M,E) = (140,170) is feasible and gives the maximum profit.
+
+Optimal solution
+- M = 140 math workbooks
+- E = 170 English workbooks
+- Maximum profit = 15·140 + 17·170 = 2,100 + 2,890 = $4,990
+
+Suggested Python libraries to solve
+- PuLP (easy-to-use LP/MIP modeling)
+- OR-Tools (CP-SAT and linear solvers)
+- scipy.optimize.linprog (for continuous LPs)
+- cvxpy (convex optimization modeling)
+
+Example (PuLP) snippet
+from pulp import LpMaximize, LpProblem, LpVariable, lpSum, LpInteger
+
+prob = LpProblem("Workbooks", LpMaximize)
+M = LpVariable("M", lowBound=40, upBound=140, cat=LpInteger)
+E = LpVariable("E", lowBound=60, upBound=170, cat=LpInteger)
+prob += 15*M + 17*E
+prob += M + E >= 200
+prob.solve()
+print(M.varValue, E.varValue, "Profit =", 15*M.varValue + 17*E.varValue)
+
+This will return M=140, E=170, Profit=4990.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+# Self-contained script to solve the integer LP by enumeration (no external libraries needed)
+
+# Problem data
+coef_M = 15
+coef_E = 17
+M_min, M_max = 40, 140
+E_min, E_max = 60, 170
+
+# Constraints: M + E >= 200
+best_profit = None
+best_M = None
+best_E = None
+
+for M in range(M_min, M_max + 1):
+    for E in range(E_min, E_max + 1):
+        if M + E < 200:
+            continue
+        profit = coef_M * M + coef_E * E
+        if (best_profit is None) or (profit > best_profit):
+            best_profit = profit
+            best_M = M
+            best_E = E
+
+# At this point best_profit should be the maximum integer profit
+# Print final objective value in the required format
+print(f"FINAL_OBJ: {best_profit}")

@@ -1,0 +1,222 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- **Goal:** Maximize total vitamin D intake from orange and apple juice, subject to vitamin C limits and preference constraints.
+
+2. **Suggested model type**
+
+- **Model:** Linear Programming (LP) with two decision variables and linear constraints.
+
+3. **Main decision variables**
+
+Define nonnegative decision variables representing the number of juice boxes:
+
+- \(x\): Number of orange juice boxes consumed (continuous or integer depending on whether fractional boxes are allowed; if unspecified, start with continuous).
+- \(y\): Number of apple juice boxes consumed.
+
+4. **Objective function (conceptual)**
+
+- Each orange box provides 10 units of vitamin D.
+- Each apple box provides 12 units of vitamin D.
+- **Objective:** Maximize total vitamin D:
+  - Maximize \(10 \cdot x + 12 \cdot y\).
+
+5. **Key constraints to consider**
+
+Translate the problem text into linear constraints:
+
+1. **Preference for apple juice (at least 3 times as many apple as orange):**
+   - “He must drink at least 3 times as many apple juice boxes as orange juice boxes.”
+   - Constraint form: \(y \ge 3x\).
+
+2. **Minimum orange juice requirement:**
+   - “He must also drink at least 3 orange juice boxes.”
+   - Constraint form: \(x \ge 3\).
+
+3. **Vitamin C upper bound:**
+   - Each orange box has 8 units of vitamin C.
+   - Each apple box has 6 units of vitamin C.
+   - Total vitamin C must not exceed 300 units:
+   - Constraint form: \(8x + 6y \le 300\).
+
+4. **Nonnegativity:**
+   - Cannot drink a negative number of boxes:
+   - \(x \ge 0\), \(y \ge 0\).
+   - Note: the \(x \ge 3\) constraint is already stronger than \(x \ge 0\), but include nonnegativity for completeness.
+
+5. **(Optional) Integrality:**
+   - If the context requires whole boxes (no partial boxes):
+     - Specify: \(x, y\) integers.
+   - If solving as a continuous LP first, check if the solution is integral; if not, consider an integer programming variant or rounding with feasibility checks.
+
+6. **Solution strategy (high level)**
+
+- With two variables and linear constraints, this is a small LP that can be:
+  - Solved graphically: identify feasible region defined by:
+    - Line from \(y = 3x\),
+    - Line from \(x = 3\),
+    - Line from \(8x + 6y = 300\),
+    - and the axes.
+  - Evaluate the objective at all corner (extreme) points of the feasible region.
+- Focus on intersections:
+  - Intersection of \(y = 3x\) with \(8x + 6y = 300\).
+  - Intersection of \(x = 3\) with \(y = 3x\).
+  - Intersection of \(x = 3\) with \(8x + 6y = 300\).
+- Select the feasible corner with the highest objective value.
+
+7. **Checks and sensitivity**
+
+- Verify that the vitamin C constraint is binding at the optimum (likely, since maximizing vitamin D pushes towards more total boxes).
+- Optionally examine:
+  - Effect of changing the vitamin C limit (300) on optimal \(x, y\).
+  - Trade-off if preference ratio (3:1) changes.
+
+---
+
+[MODELER]:
+Below is a clean mathematical optimisation model of the problem, plus suggestions on how to solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x \ge 0\): number of orange juice boxes.
+- \(y \ge 0\): number of apple juice boxes.
+
+(If you require whole boxes: \(x, y \in \mathbb{Z}_{\ge 0}\). Otherwise, treat them as continuous.)
+
+---
+
+## 2. Objective function
+
+Each box provides:
+
+- Orange: 10 units of vitamin D.
+- Apple: 12 units of vitamin D.
+
+Maximize total vitamin D intake:
+
+\[
+\max \; Z = 10x + 12y
+\]
+
+---
+
+## 3. Constraints
+
+1. **Apple preference: at least 3× as many apple boxes as orange**  
+   “He must drink at least 3 times as many apple juice boxes as orange juice boxes.”
+
+   \[
+   y \;\ge\; 3x
+   \]
+
+2. **Minimum orange juice requirement**  
+   “He must also drink at least 3 orange juice boxes.”
+
+   \[
+   x \;\ge\; 3
+   \]
+
+3. **Vitamin C upper bound**  
+   Each box:
+
+   - Orange: 8 units of vitamin C.
+   - Apple: 6 units of vitamin C.
+
+   Total vitamin C at most 300 units:
+
+   \[
+   8x + 6y \;\le\; 300
+   \]
+
+4. **Nonnegativity**
+
+   \[
+   x \;\ge\; 0,\quad y \;\ge\; 0
+   \]
+
+   (Redundant for \(x\) since \(x \ge 3\), but typically included.)
+
+5. **(Optional) Integrality**
+
+   If only whole boxes are allowed:
+
+   \[
+   x, y \in \mathbb{Z}
+   \]
+
+---
+
+## 4. Complete mathematical model
+
+**Linear program (continuous variables):**
+
+\[
+\begin{aligned}
+\max \quad & 10x + 12y \\
+\text{s.t.} \quad
+& y \ge 3x, \\
+& x \ge 3, \\
+& 8x + 6y \le 300, \\
+& x \ge 0, \; y \ge 0.
+\end{aligned}
+\]
+
+**Mixed-integer linear program (if whole boxes required):**
+
+Same as above with \(x, y \in \mathbb{Z}_{\ge 0}\).
+
+---
+
+## 5. Suitable Python libraries
+
+Because this is a small linear (or integer) program, any standard LP/MIP library is suitable:
+
+- **PuLP** (`pulp`): very simple modeling interface in pure Python, good for teaching and small applications.  
+- **OR-Tools Linear Solver** (`ortools.linear_solver`): efficient and well-maintained by Google; supports LP and MIP.  
+- **Pyomo**: more general algebraic modeling language; good if you plan to build larger model families later.  
+- **SciPy** (`scipy.optimize.linprog`): can solve the continuous LP version but not integer constraints; use only if you don’t need integrality.
+
+For this problem:
+
+- Use **PuLP** or **OR-Tools** if you want integer boxes and an easy interface.
+- Use **SciPy’s** `linprog` if you are fine with continuous \(x, y\) and just want an LP solver.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: Maximize vitamin D
+    prob = pulp.LpProblem("Juice_Optimization", pulp.LpMaximize)
+
+    # Decision variables: integer number of boxes, non-negative
+    x = pulp.LpVariable('x', lowBound=3, cat='Integer')  # x >= 3 from constraint
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # y >= 0
+
+    # Objective function: Maximize 10x + 12y
+    prob += 10 * x + 12 * y
+
+    # Constraints
+    # y >= 3x  ->  y - 3x >= 0
+    prob += y - 3 * x >= 0, "Apple_preference"
+
+    # 8x + 6y <= 300
+    prob += 8 * x + 6 * y <= 300, "Vitamin_C_limit"
+
+    # Nonnegativity of x already enforced via lowBound=3, y via lowBound=0
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

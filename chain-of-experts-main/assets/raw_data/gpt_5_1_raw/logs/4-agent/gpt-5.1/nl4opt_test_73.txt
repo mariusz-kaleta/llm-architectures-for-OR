@@ -1,0 +1,209 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Maximise total investment return (profit) from allocating funds between telecom and healthcare.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with 2 decision variables and linear constraints.
+
+3. Main decision variables  
+   - Let:
+     - T = amount (in dollars) invested in telecom  
+     - H = amount (in dollars) invested in healthcare  
+
+4. Objective function (conceptual)  
+   - Maximise total interest earned:  
+     - Profit = 0.03·T + 0.01·H  
+
+5. Key constraints to consider  
+
+   a) Budget (total funds available)  
+   - Total investment cannot exceed the available capital:  
+     - T + H ≤ 100000  
+   - If we assume all money must be invested (typical for this type of problem):  
+     - T + H = 100000  
+
+   b) Relative investment requirement  
+   - Amount in telecom must be at least three times the amount in healthcare:  
+     - T ≥ 3·H  
+
+   c) Telecom investment upper bound  
+   - Money invested in telecom must be at most 70000:  
+     - T ≤ 70000  
+
+   d) Non-negativity  
+   - No short-selling or negative investments:  
+     - T ≥ 0  
+     - H ≥ 0  
+
+6. Modelling/solution strategy  
+
+   - Use the two-variable LP to identify the feasible region defined by:
+     - T + H = 100000  
+     - T ≥ 3H  
+     - T ≤ 70000  
+     - T, H ≥ 0  
+
+   - Since telecom has the higher return rate (3% vs 1%), the optimal solution will tend to:
+     - Invest as much as possible in telecom (up to its upper bound), while
+     - Satisfying the “at least three times healthcare” condition and the total budget constraint.
+
+   - Solve by:
+     - Substituting T from the budget constraint into T ≥ 3H to relate H directly to the limit imposed by T ≤ 70000, or  
+     - Checking corner points (intersections of constraints) and evaluating the objective function at those points.
+
+7. Outputs of interest  
+
+   - Optimal values of:
+     - T* = optimal amount to invest in telecom  
+     - H* = optimal amount to invest in healthcare  
+   - Maximum achievable profit at these values.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model and how you would solve it with common Python tools.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(T \ge 0\): dollars invested in telecom  
+- \(H \ge 0\): dollars invested in healthcare  
+
+---
+
+## 2. Objective function
+
+Profit comes from interest on each investment:
+
+- Telecom: 3% return → \(0.03T\)  
+- Healthcare: 1% return → \(0.01H\)
+
+Maximise total profit:
+\[
+\max\; Z = 0.03T + 0.01H
+\]
+
+---
+
+## 3. Constraints
+
+1. **Budget (all money invested)**  
+   Total investment equals available capital:
+   \[
+   T + H = 100000
+   \]
+
+2. **Relative investment requirement**  
+   Telecom must be at least three times healthcare:
+   \[
+   T \ge 3H
+   \]
+
+3. **Telecom upper bound**  
+   Telecom investment capped at \$70,000:
+   \[
+   T \le 70000
+   \]
+
+4. **Non‑negativity**  
+   \[
+   T \ge 0,\quad H \ge 0
+   \]
+
+This is a linear programming (LP) problem with 2 variables and linear constraints.
+
+---
+
+## 4. Model summary
+
+**Mathematical program:**
+
+\[
+\begin{align}
+\max_{T,H}\quad & 0.03T + 0.01H \\
+\text{s.t.}\quad
+& T + H = 100000 \\
+& T \ge 3H \\
+& T \le 70000 \\
+& T \ge 0,\; H \ge 0
+\end{align}
+\]
+
+(If desired, the equality \(T + H = 100000\) can be treated as two inequalities: \(T+H \le 100000\) and \(T+H \ge 100000\).)
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard LP solver is appropriate; for a problem of this size, all of these are fine:
+
+- `PuLP` – very straightforward modeling for LP/MILP:
+  - `pulp.LpProblem`, `pulp.LpVariable`, `problem.solve()`
+- `ortools.linear_solver` (Google OR-Tools) – industrial-grade, efficient:
+  - `pywraplp.Solver.CreateSolver('GLOP')` for LP
+- `scipy.optimize.linprog` – if you prefer SciPy; requires putting the model into matrix form.
+
+For example, with PuLP the core structure would be:
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Investment_Allocation", pl.LpMaximize)
+
+# Variables
+T = pl.LpVariable('Telecom', lowBound=0)
+H = pl.LpVariable('Healthcare', lowBound=0)
+
+# Objective
+prob += 0.03 * T + 0.01 * H
+
+# Constraints
+prob += T + H == 100000
+prob += T >= 3 * H
+prob += T <= 70000
+
+# Solve
+prob.solve()
+print("T* =", pl.value(T))
+print("H* =", pl.value(H))
+print("Max profit =", pl.value(prob.objective))
+```
+
+This code directly implements the mathematical model above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Investment_Allocation", pl.LpMaximize)
+
+    # Decision variables
+    T = pl.LpVariable('Telecom', lowBound=0)
+    H = pl.LpVariable('Healthcare', lowBound=0)
+
+    # Objective function: Maximize 0.03T + 0.01H
+    prob += 0.03 * T + 0.01 * H
+
+    # Constraints
+    prob += T + H == 100000       # Budget constraint
+    prob += T >= 3 * H            # Relative investment requirement
+    prob += T <= 70000            # Telecom upper bound
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

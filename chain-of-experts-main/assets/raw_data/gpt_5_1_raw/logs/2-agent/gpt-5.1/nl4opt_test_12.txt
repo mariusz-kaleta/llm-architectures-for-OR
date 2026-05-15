@@ -1,0 +1,141 @@
+[MODELER]:
+Let’s turn the description into a clear optimization model.
+
+### 1. Decision variables
+
+Let  
+- \(v\) = number of vans used (integer, \(v \ge 0\))  
+- \(c\) = number of cars used (integer, \(c \ge 0\))
+
+### 2. Objective
+
+We want to **minimize the total number of cars** used:
+
+\[
+\min \; c
+\]
+
+(If you wanted to minimize total number of vehicles instead, it would be \(\min (v + c)\), but the problem says minimize cars.)
+
+### 3. Constraints
+
+1. **Capacity (voters transported):**  
+   - Each van carries 6 people; each car carries 3 people.  
+   - Must transport at least 200 voters:
+
+   \[
+   6v + 3c \;\ge\; 200
+   \]
+
+2. **Van proportion (at most 30% of vehicles are vans):**  
+   - Vans are at most 30% of all vehicles:
+
+   \[
+   v \;\le\; 0.3(v + c)
+   \]
+
+   Rearranging:
+
+   \[
+   v \le 0.3v + 0.3c 
+   \quad\Rightarrow\quad 0.7v \le 0.3c
+   \quad\Rightarrow\quad 7v \le 3c
+   \]
+
+   So we can use the integer form:
+
+   \[
+   7v \;\le\; 3c
+   \]
+
+3. **Nonnegativity and integrality:**
+
+\[
+v, c \in \mathbb{Z}_{\ge 0}
+\]
+
+### 4. Full mathematical model
+
+\[
+\begin{aligned}
+\min\;& c \\
+\text{s.t. } 
+& 6v + 3c \;\ge\; 200 \\
+& 7v \;\le\; 3c \\
+& v, c \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+### 5. Suitable Python libraries
+
+This is a small integer linear program (ILP). Any standard LP/ILP solver works well:
+
+- `PuLP` (pure Python, works with CBC by default)
+- `ortools.linear_solver` (Google OR-Tools)
+- `pyomo` (more general modeling framework)
+- `scipy.optimize.linprog` (only for LP; would require relaxing integrality)
+
+For exact integer solutions, I’d recommend:
+
+- **PuLP** for simplicity, or  
+- **OR-Tools** for performance and cleaner integer programming support.
+
+A minimal PuLP skeleton:
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("VoterTransport", pl.LpMinimize)
+
+# Decision variables
+v = pl.LpVariable("vans", lowBound=0, cat="Integer")
+c = pl.LpVariable("cars", lowBound=0, cat="Integer")
+
+# Objective
+prob += c
+
+# Constraints
+prob += 6*v + 3*c >= 200
+prob += 7*v <= 3*c
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Vans:", v.value())
+print("Cars:", c.value())
+```
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+# Define the optimization problem
+prob = pl.LpProblem("VoterTransport", pl.LpMinimize)
+
+# Decision variables: number of vans and cars (integers, >=0)
+v = pl.LpVariable("vans", lowBound=0, cat="Integer")
+c = pl.LpVariable("cars", lowBound=0, cat="Integer")
+
+# Objective: minimize the number of cars
+prob += c
+
+# Constraints
+prob += 6 * v + 3 * c >= 200   # Capacity constraint
+prob += 7 * v <= 3 * c         # Van proportion constraint
+
+# Solve the problem
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Extract solution
+v_opt = v.value()
+c_opt = c.value()
+
+# Print intermediate results (not required, but useful)
+print("Optimal number of vans:", v_opt)
+print("Optimal number of cars:", c_opt)
+
+# Final objective value (number of cars)
+FINAL_OBJ = c_opt
+print(f"FINAL_OBJ: {FINAL_OBJ}")

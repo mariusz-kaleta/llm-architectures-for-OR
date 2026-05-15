@@ -1,0 +1,94 @@
+[MODELER]:
+Formal model
+
+- Decision variables:
+  - A = dollars invested in apartments
+  - T = dollars invested in townhouses
+
+- Objective:
+  Maximise profit P = 0.10 A + 0.15 T
+
+- Constraints:
+  1. Total investment: A + T = 600000
+  2. Apartment cap: A ≤ 200000
+  3. Apartment at least half of townhouses: A ≥ 0.5 T
+  4. Nonnegativity: A ≥ 0, T ≥ 0
+
+Solution (algebraic)
+
+From (1): T = 600000 − A. Substitute in the objective:
+P(A) = 0.10 A + 0.15(600000 − A) = 90000 − 0.05 A.
+
+P(A) is decreasing in A, so to maximize P we should choose A as small as allowed by the constraints. From constraint (3):
+A ≥ 0.5 T = 0.5(600000 − A) ⇒ A ≥ 300000 − 0.5 A ⇒ 1.5 A ≥ 300000 ⇒ A ≥ 200000.
+Together with A ≤ 200000 (constraint 2), we get A = 200000 (the only feasible value).
+
+Thus:
+- A = $200,000
+- T = 600000 − 200000 = $400,000
+- Maximum profit = 0.10·200000 + 0.15·400000 = 20000 + 60000 = $80,000
+
+Recommended solvers / libraries
+- For small linear programs: PuLP (Python), scipy.optimize.linprog
+- For larger/industrial LPs: OR-Tools, CBC, Gurobi, CPLEX (if licensed)
+- For modelling with convex problems: CVXPY
+
+Example (PuLP):
+from pulp import LpMaximize, LpProblem, LpVariable, value
+prob = LpProblem("invest", LpMaximize)
+A = LpVariable("A", lowBound=0)
+T = LpVariable("T", lowBound=0)
+prob += 0.10*A + 0.15*T
+prob += A + T == 600000
+prob += A <= 200000
+prob += A >= 0.5*T
+prob.solve()
+print("A =", value(A), "T =", value(T), "Profit =", value(prob.objective))
+
+This will return A = 200000, T = 400000, Profit = 80000.
+
+---
+
+[CODER]:
+```python
+# Investment optimization - analytic solution
+# Decision variables:
+# A = dollars invested in apartments
+# T = dollars invested in townhouses
+# Maximize P = 0.10 A + 0.15 T
+# Subject to:
+# A + T = total_investment
+# A <= max_apartment
+# A >= 0.5 T
+# A, T >= 0
+
+# Initialize data
+total_investment = 600_000
+max_apartment = 200_000
+rate_A = 0.10
+rate_T = 0.15
+
+# From A + T = total_investment => T = total_investment - A
+# Constraint A >= 0.5 T => A >= 0.5*(total_investment - A) => 1.5 A >= 0.5 total_investment
+# => A >= (0.5/1.5) * total_investment = total_investment / 3
+lb_from_ratio = total_investment / 3.0  # 200000.0
+
+# Bounds for A
+lb_A = max(0.0, lb_from_ratio)
+ub_A = min(total_investment, float(max_apartment))
+
+# Because the objective P(A) = 0.10 A + 0.15 (total - A) = 0.15 total - 0.05 A
+# which is decreasing in A, we choose the smallest feasible A, i.e., lb_A.
+# If lb_A > ub_A there is no feasible solution.
+if lb_A > ub_A + 1e-9:
+    raise ValueError("No feasible solution with given constraints.")
+
+A = lb_A
+T = total_investment - A
+profit = rate_A * A + rate_T * T
+
+# Ensure numeric type is clean (profit is an exact integer here)
+profit_int = int(round(profit))
+
+print(f"FINAL_OBJ: {profit_int}")
+```

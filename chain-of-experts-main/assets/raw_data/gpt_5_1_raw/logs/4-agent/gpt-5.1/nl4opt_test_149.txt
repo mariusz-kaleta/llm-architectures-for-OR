@@ -1,0 +1,189 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximize total employee seating capacity (number of seats), subject to budget and floor-space limits.
+
+2. Suggested model type  
+   - Model: Integer Linear Programming (ILP) or simple Linear Programming with integrality on decision variables.  
+   - Reason:  
+     - Objective and constraints are linear in the number of desks.  
+     - Numbers of desks must be whole numbers (nonnegative integers).
+
+3. Main decision variables  
+   Define two nonnegative integer variables:  
+   - Variable 1: Number of long desks to buy.  
+   - Variable 2: Number of short desks to buy.
+
+4. Objective structure  
+   - Each long desk provides 6 seats.  
+   - Each short desk provides 2 seats.  
+   - Objective: maximize total seats = 6 × (long desks) + 2 × (short desks).
+
+5. Key constraints to consider  
+
+   a) Budget constraint  
+   - Total desk cost cannot exceed $2000.  
+   - Each long desk costs $300.  
+   - Each short desk costs $100.  
+   - Structure: 300 × (long desks) + 100 × (short desks) ≤ 2000.
+
+   b) Space constraint  
+   - Total floor space for desks cannot exceed 200 square feet.  
+   - Each long desk occupies 10 sq ft.  
+   - Each short desk occupies 4 sq ft.  
+   - Structure: 10 × (long desks) + 4 × (short desks) ≤ 200.
+
+   c) Non-negativity and integrality  
+   - Both desk counts must be ≥ 0.  
+   - Both desk counts must be integers.
+
+6. Modelling strategy / checks  
+
+   - Start with the continuous relaxation (allow fractional desks) to locate the optimal corner point in the feasible region; then enforce integrality and search nearby integer points.  
+   - Verify which constraint is binding at the optimum:  
+     - Compare cost-per-seat and space-per-seat for each desk type to understand which resource (budget or space) is likely to be the limiting factor.  
+   - Since there are only two decision variables, the model can be visualized graphically:  
+     - Plot budget and space constraints in the (long, short) desk plane and identify feasible integer lattice points.  
+   - Confirm that the final solution respects both constraints and improves total seats compared with nearby feasible integer combinations.
+
+7. Output of interest  
+
+   - Optimal number of long desks.  
+   - Optimal number of short desks.  
+   - Resulting total seats.  
+   - Total cost used and total space used (to see which resource is tight).
+
+---
+
+[MODELER]:
+Here is a clean mathematical/algorithmic model of the problem.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x \in \mathbb{Z}_{\ge 0}\): number of long desks to buy  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of short desks to buy  
+
+Both must be nonnegative integers.
+
+---
+
+## 2. Objective function
+
+Each long desk seats 6 employees, each short desk seats 2 employees.  
+Maximize total seating capacity:
+
+\[
+\max\; Z = 6x + 2y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Budget constraint
+
+Maximum spend is \$2000.  
+Each long desk costs \$300; each short desk costs \$100:
+
+\[
+300x + 100y \;\le\; 2000
+\]
+
+### b) Space constraint
+
+Available floor space is at most 200 square feet.  
+Each long desk uses 10 sq ft; each short desk uses 4 sq ft:
+
+\[
+10x + 4y \;\le\; 200
+\]
+
+### c) Non-negativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete optimization model
+
+\[
+\begin{aligned}
+\text{Maximize}\quad 
+& Z = 6x + 2y \\
+\text{subject to}\quad
+& 300x + 100y \le 2000 \quad &\text{(Budget)}\\
+& 10x + 4y \le 200 \quad &\text{(Space)}\\
+& x, y \in \mathbb{Z}_{\ge 0} \quad &\text{(Integrality \& nonnegativity)}
+\end{aligned}
+\]
+
+Outputs of interest after solving:
+
+- Optimal \(x^*\): number of long desks
+- Optimal \(y^*\): number of short desks
+- Max seats: \(6x^* + 2y^*\)
+- Total cost: \(300x^* + 100y^*\)
+- Total space: \(10x^* + 4y^*\)
+
+---
+
+## 5. Suitable Python libraries
+
+This is a small integer linear program; any standard MILP/LP solver is appropriate. In Python:
+
+- **PuLP** (`pulp`): very easy for small ILPs, pure Python, interfaces to CBC and others.
+- **OR-Tools** (`ortools.linear_solver`): fast and robust MILP solver from Google.
+- **SciPy** (`scipy.optimize.linprog`): can solve the *continuous* relaxation (without integrality); you’d need a separate method (e.g., enumeration) to enforce integrality here, so it’s less direct for this problem than PuLP/OR-Tools.
+- **Pyomo**: more general modeling, good if you plan to scale to more complex models.
+
+For this specific 2-variable ILP, **PuLP** or **OR-Tools** are the most straightforward choices.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem
+    prob = pulp.LpProblem("Desk_Optimization", pulp.LpMaximize)
+
+    # Decision variables: non-negative integers
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # long desks
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # short desks
+
+    # Objective function: maximize seating capacity
+    prob += 6 * x + 2 * y
+
+    # Budget constraint: 300x + 100y <= 2000
+    prob += 300 * x + 100 * y <= 2000
+
+    # Space constraint: 10x + 4y <= 200
+    prob += 10 * x + 4 * y <= 200
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    x_val = pulp.value(x)
+    y_val = pulp.value(y)
+    max_seats = 6 * x_val + 2 * y_val
+    total_cost = 300 * x_val + 100 * y_val
+    total_space = 10 * x_val + 4 * y_val
+
+    # (Optional) print details; not required by specification but useful
+    print(f"Optimal number of long desks (x): {x_val}")
+    print(f"Optimal number of short desks (y): {y_val}")
+    print(f"Max seats: {max_seats}")
+    print(f"Total cost: {total_cost}")
+    print(f"Total space: {total_space}")
+
+    # Final objective value print in required format
+    print(f"FINAL_OBJ: {max_seats}")
+
+if __name__ == "__main__":
+    main()

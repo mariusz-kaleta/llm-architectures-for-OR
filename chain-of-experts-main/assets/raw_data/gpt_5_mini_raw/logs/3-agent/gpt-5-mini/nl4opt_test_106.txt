@@ -1,0 +1,172 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = acres planted with potatoes (continuous, acres)
+  - y = acres planted with cucumbers (continuous, acres)
+
+- Objective
+  - Maximise profit P = 500 x + 650 y
+
+- Constraints
+  1. Total land: x + y ≤ 50
+  2. Minimum potatoes: x ≥ 12
+  3. Minimum cucumbers: y ≥ 15
+  4. Prefer more cucumbers than potatoes: y ≥ x
+  5. At most twice as many cucumbers as potatoes: y ≤ 2 x
+  6. Nonnegativity: x, y ≥ 0
+
+Solution (analysis)
+- This is a linear program; the maximum occurs at a vertex of the feasible polygon.
+- Consider the intersection of y = 2x (constraint 5) and x + y = 50 (constraint 1):
+  solving  x + 2x = 50 → 3x = 50 → x = 50/3 ≈ 16.6667 acres,
+  y = 100/3 ≈ 33.3333 acres.
+- Profit at that point: P = 500*(50/3) + 650*(100/3) = 90,000/3 = 30,000.
+
+Check that this point satisfies all other constraints (it does: x ≥ 12, y ≥ 15, y ≥ x).
+
+Answer
+- Plant 50/3 ≈ 16.67 acres of potatoes and 100/3 ≈ 33.33 acres of cucumbers.
+- Maximum profit = $30,000.
+
+Recommended Python libraries for solving
+- PuLP (pure Python LP modeling; calls CBC by default)
+- OR-Tools linear solver (Google OR-Tools)
+- scipy.optimize.linprog (if you prefer SciPy)
+- CVXOPT / CVXPY (if you prefer convex-optimization frameworks)
+
+Short PuLP recipe (sketch)
+- Define variables x = LpVariable('x', lowBound=12), y = LpVariable('y', lowBound=15)
+- Add constraints x + y <= 50, y >= x, y <= 2*x
+- Objective: maximize 500*x + 650*y
+- Solve and read x.value(), y.value(), and the objective.
+
+---
+
+[CODER]:
+#!/usr/bin/env python3
+# Self-contained script to solve the LP described in the prompt by enumerating intersection vertices.
+
+import math
+
+# Define constraints parameters
+LAND_CAP = 50.0
+MIN_X = 12.0
+MIN_Y = 15.0
+TOL = 1e-9
+
+# Objective coefficients
+c_x = 500.0
+c_y = 650.0
+
+# Define constraint identifiers
+# We'll consider the lines:
+# 1) x = MIN_X
+# 2) y = MIN_Y
+# 3) y = x
+# 4) y = 2*x
+# 5) x + y = LAND_CAP
+
+def intersections():
+    pts = []
+    # 1) x = MIN_X with others
+    x = MIN_X
+    # with y = MIN_Y
+    pts.append((x, MIN_Y))
+    # with y = x  -> y = x = MIN_X
+    pts.append((x, x))
+    # with y = 2x -> y = 2*MIN_X
+    pts.append((x, 2.0 * x))
+    # with x + y = LAND_CAP -> y = LAND_CAP - x
+    pts.append((x, LAND_CAP - x))
+
+    # 2) y = MIN_Y with others (some duplicates may occur)
+    y = MIN_Y
+    # with y = x -> x = y = MIN_Y
+    pts.append((y, y))
+    # with y = 2x -> x = y/2
+    pts.append((y / 2.0, y))
+    # with x + y = LAND_CAP -> x = LAND_CAP - y
+    pts.append((LAND_CAP - y, y))
+
+    # 3) y = x with others
+    # with y = 2x -> x = 0
+    pts.append((0.0, 0.0))
+    # with x + y = LAND_CAP -> 2x = LAND_CAP -> x = LAND_CAP/2
+    pts.append((LAND_CAP / 2.0, LAND_CAP / 2.0))
+
+    # 4) y = 2x with x + y = LAND_CAP -> x + 2x = LAND_CAP -> x = LAND_CAP/3
+    pts.append((LAND_CAP / 3.0, 2.0 * LAND_CAP / 3.0))
+
+    # Deduplicate points (within tolerance)
+    uniq = []
+    for px, py in pts:
+        found = False
+        for qx, qy in uniq:
+            if abs(px - qx) < 1e-9 and abs(py - qy) < 1e-9:
+                found = True
+                break
+        if not found:
+            uniq.append((px, py))
+    return uniq
+
+def feasible(point):
+    x, y = point
+    if x < -TOL or y < -TOL:
+        return False
+    if x + y > LAND_CAP + TOL:
+        return False
+    if x < MIN_X - TOL:
+        return False
+    if y < MIN_Y - TOL:
+        return False
+    if y < x - TOL:
+        return False
+    if y > 2.0 * x + TOL:
+        return False
+    return True
+
+def objective(point):
+    x, y = point
+    return c_x * x + c_y * y
+
+# Collect candidate points, filter by feasibility, evaluate objective
+candidates = intersections()
+feasible_points = [p for p in candidates if feasible(p)]
+
+# It's possible some constraint boundaries produce no feasible intersection due to bounds;
+# also consider corner points at bounds edges if necessary (but our intersections cover them).
+# Evaluate objective
+best_pt = None
+best_val = -math.inf
+for p in feasible_points:
+    val = objective(p)
+    if val > best_val + 1e-12:
+        best_val = val
+        best_pt = p
+
+# As a safety fallback, check interior feasible point (e.g., satisfy lower bounds and land cap)
+# and also the corners defined by the lower bounds with land cap if missed
+fallback_points = [
+    (MIN_X, MIN_Y),
+    (MIN_X, LAND_CAP - MIN_X),
+    (LAND_CAP - MIN_Y, MIN_Y),
+]
+for p in fallback_points:
+    if feasible(p):
+        val = objective(p)
+        if val > best_val + 1e-12:
+            best_val = val
+            best_pt = p
+
+# If still no feasible point found (shouldn't happen), exit with zero objective
+if best_pt is None:
+    best_val = 0.0
+
+# Round to int if effectively integer
+if abs(best_val - round(best_val)) < 1e-6:
+    output_value = int(round(best_val))
+else:
+    output_value = best_val
+
+print(f"FINAL_OBJ: {output_value}")

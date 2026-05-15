@@ -1,0 +1,57 @@
+[MONOLITH]:
+```python
+# Optimization of slime production from two beaker processes
+# Uses PuLP to solve a linear program maximizing slime subject to resource and waste constraints.
+
+import pulp
+
+# Data initialization (from problem statement)
+# Beaker 1:
+flour_b1 = 4        # units of flour per run
+liquid_b1 = 6       # units of special liquid per run
+slime_b1 = 5        # units of slime produced per run
+waste_b1 = 4        # units of waste per run
+
+# Beaker 2:
+flour_b2 = 6
+liquid_b2 = 3
+slime_b2 = 3
+waste_b2 = 2
+
+# Available resources
+flour_available = 150
+liquid_available = 100
+waste_limit = 30
+
+# Define LP problem
+prob = pulp.LpProblem("Maximize_Slime", pulp.LpMaximize)
+
+# Decision variables: number of runs of each beaker (continuous, >= 0)
+x1 = pulp.LpVariable('x1_beaker1_runs', lowBound=0, cat='Continuous')
+x2 = pulp.LpVariable('x2_beaker2_runs', lowBound=0, cat='Continuous')
+
+# Objective: maximize total slime
+prob += slime_b1 * x1 + slime_b2 * x2, "Total_Slime"
+
+# Constraints
+prob += flour_b1 * x1 + flour_b2 * x2 <= flour_available, "Flour_Constraint"
+prob += liquid_b1 * x1 + liquid_b2 * x2 <= liquid_available, "Liquid_Constraint"
+prob += waste_b1 * x1 + waste_b2 * x2 <= waste_limit, "Waste_Constraint"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract results
+x1_val = pulp.value(x1)
+x2_val = pulp.value(x2)
+objective_val = pulp.value(prob.objective)
+
+# Print solution details
+print(f"Beaker1_runs = {x1_val}")
+print(f"Beaker2_runs = {x2_val}")
+print(f"Total_slime = {objective_val}")
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {objective_val}")
+```

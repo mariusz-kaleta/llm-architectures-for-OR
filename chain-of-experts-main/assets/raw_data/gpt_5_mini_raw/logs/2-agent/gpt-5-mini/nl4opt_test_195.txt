@@ -1,0 +1,92 @@
+[MODELER]:
+Formal model (linear integer program)
+
+Decision variables
+- x = number of pills of supplement A (nonnegative integer)
+- y = number of pills of supplement B (nonnegative integer)
+
+Objective
+- Minimize cost: minimize z = 2x + 3y
+
+Constraints (nutrient requirements)
+- Iron: 5x + 4y >= 40
+- Calcium: 10x + 15y >= 50
+- Integrality and nonnegativity: x, y ∈ Z_{\ge 0}
+
+Continuous relaxation (if fractional pills were allowed) is the same but with x,y ≥ 0 real.
+
+Solve analytically
+- Check corners: at y = 0 the iron constraint requires x ≥ 8 and calcium requires x ≥ 5 → x = 8 feasible, cost = 2·8 + 3·0 = 16.
+- At x = 0 the iron constraint requires y ≥ 10 and calcium requires y ≥ 50/15 ≈ 3.33 → y = 10 feasible, cost = 3·10 = 30.
+- The feasible region for nonnegative x,y is such that for all y ≥ 0 the iron constraint is the binding one; the continuous cost function 2x+3y is minimized at x = 8, y = 0.
+
+Optimal integer solution
+- x* = 8 pills of A, y* = 0 pills of B, minimum cost = $16.
+
+Recommended solvers / Python libraries
+- pulp (easy-to-use Python LP/MIP interface, can solve integer LPs)
+- OR-Tools CP-SAT (very good for integer/boolean optimization)
+- scipy.optimize.linprog (for continuous LP relaxation)
+- cvxpy (modeling + various solvers)
+
+Optional short example (pulp)
+- Define variables x = LpVariable('x', lowBound=0, cat='Integer'), y = LpVariable('y', lowBound=0, cat='Integer')
+- Objective: LpProblem(..., LpMinimize); prob += 2*x + 3*y
+- Constraints: prob += 5*x + 4*y >= 40; prob += 10*x + 15*y >= 50
+- Solve and read x.value(), y.value()
+
+Answer: buy 8 pills of supplement A and 0 pills of supplement B (cost $16).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained script to solve the integer LP described in the prompt by enumeration.
+
+# Decision variables:
+# x = number of pills of supplement A (nonnegative integer)
+# y = number of pills of supplement B (nonnegative integer)
+#
+# Objective:
+# Minimize z = 2*x + 3*y
+#
+# Constraints:
+# 5*x + 4*y >= 40   (Iron)
+# 10*x + 15*y >= 50 (Calcium)
+
+# We perform a complete integer enumeration over a reasonable bounding box to find the optimal integer solution.
+
+import math
+
+# Coefficients and requirements
+cost_coeffs = (2, 3)  # cost = 2*x + 3*y
+iron_coeffs = (5, 4)  # 5*x + 4*y >= 40
+calcium_coeffs = (10, 15)  # 10*x + 15*y >= 50
+iron_req = 40
+calcium_req = 50
+
+# Search bounds for enumeration (large enough to include feasible optima)
+MAX_X = 100
+MAX_Y = 100
+
+best_cost = None
+best_x = None
+best_y = None
+
+for x in range(0, MAX_X + 1):
+    for y in range(0, MAX_Y + 1):
+        if iron_coeffs[0]*x + iron_coeffs[1]*y >= iron_req and calcium_coeffs[0]*x + calcium_coeffs[1]*y >= calcium_req:
+            cost = cost_coeffs[0]*x + cost_coeffs[1]*y
+            if best_cost is None or cost < best_cost:
+                best_cost = cost
+                best_x = x
+                best_y = y
+
+if best_cost is None:
+    raise RuntimeError("No feasible integer solution found within search bounds.")
+
+# Final objective value
+value = best_cost
+
+print(f"FINAL_OBJ: {value}")
+```

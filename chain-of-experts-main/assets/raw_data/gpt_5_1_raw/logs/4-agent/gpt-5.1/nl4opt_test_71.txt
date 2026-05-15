@@ -1,0 +1,215 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- Goal: **Maximise the total number of people treated** with the two medicines, subject to material, capacity, and logical constraints.
+
+2. **Suggested model type**
+
+- Model: **Linear Programming (LP)** with **integer (non‑negative) decision variables**.
+- The structure is linear (objective and constraints are all linear in the decision variables), but because doses are inherently countable, the modeller should treat the variables as **integers** (small-scale Integer Linear Program).
+
+3. **Main decision variables**
+
+Define decision variables as:
+
+- \(x_A\): number of doses of **medicine A** to produce.
+- \(x_B\): number of doses of **medicine B** to produce.
+
+(Both should be modelled as non‑negative integers.)
+
+4. **Objective function**
+
+- Each dose of medicine A treats 12 people.
+- Each dose of medicine B treats 8 people.
+- Objective: **Maximise**  
+  \[
+  \text{Total people treated} = 12 \cdot x_A + 8 \cdot x_B
+  \]
+
+5. **Key constraints**
+
+Model the problem with the following groups of constraints:
+
+1. **Imported material availability**
+
+   - Each dose of A uses 30 units of imported material.
+   - Each dose of B uses 40 units of imported material.
+   - Available imported material: at most 300 units.
+   - Constraint: total imported material consumed by A and B cannot exceed 300 units.
+
+2. **mRNA availability**
+
+   - Each dose of A uses 50 units of mRNA.
+   - Each dose of B uses 30 units of mRNA.
+   - Available mRNA: at most 400 units.
+   - Constraint: total mRNA consumed by A and B cannot exceed 400 units.
+
+3. **Production capacity for medicine A**
+
+   - The lab can make **at most 5 doses of A**.
+   - Constraint: upper bound on \(x_A\).
+
+4. **Relationship between A and B doses**
+
+   - The number of doses of **B must be strictly larger than the number of doses of A**.
+   - This is a **strict inequality**. For LP/ILP modelling, translate it into a non‑strict equivalent, e.g.:
+     - Model as \(x_B \ge x_A + 1\).
+
+5. **Non‑negativity and integrality**
+
+   - \(x_A \ge 0\), \(x_B \ge 0\).
+   - Both must be **integer values**, since partial doses are not meaningful.
+
+6. **Modelling notes / strategy**
+
+- The problem size is very small, so:
+  - A standard ILP solver will trivially solve it.
+  - Alternatively, a modeller could even solve it by enumeration, but the ILP formulation is still the correct general modelling approach.
+- Because the objective and constraints are all linear, no nonlinear terms are needed.
+- If using a pure LP solver (without integrality), you may still get integer solutions due to the structure, but conceptually, treat variables as integer.
+
+---
+
+[MODELER]:
+Here is a clean optimisation model based on the problem and the supplied plan.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_A \in \mathbb{Z}_{\ge 0}\): number of doses of medicine A to produce  
+- \(x_B \in \mathbb{Z}_{\ge 0}\): number of doses of medicine B to produce  
+
+Both are non‑negative integers (doses must be whole).
+
+---
+
+## 2. Objective function
+
+Each dose of A treats 12 people; each dose of B treats 8 people.  
+Maximise the total number of people treated:
+
+\[
+\max \; Z = 12x_A + 8x_B
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Imported material availability
+
+- A uses 30 units of imported material per dose.
+- B uses 40 units of imported material per dose.
+- At most 300 units available.
+
+\[
+30x_A + 40x_B \le 300
+\]
+
+---
+
+### 3.2 mRNA availability
+
+- A uses 50 units of mRNA per dose.
+- B uses 30 units of mRNA per dose.
+- At most 400 units available.
+
+\[
+50x_A + 30x_B \le 400
+\]
+
+---
+
+### 3.3 Production capacity for medicine A
+
+At most 5 doses of A:
+
+\[
+x_A \le 5
+\]
+
+---
+
+### 3.4 Relationship between A and B
+
+Number of doses of B must be strictly larger than that of A:
+
+\[
+x_B \ge x_A + 1
+\]
+
+(This is the linear, non‑strict equivalent of “strictly larger”.)
+
+---
+
+### 3.5 Non‑negativity and integrality
+
+\[
+x_A, x_B \in \mathbb{Z}, \quad x_A \ge 0,\ x_B \ge 0
+\]
+
+---
+
+## 4. Model type
+
+- This is a **(small) Integer Linear Programming (ILP)** problem:
+  - Linear objective.
+  - Linear constraints.
+  - Integer decision variables.
+
+---
+
+## 5. Suitable Python libraries
+
+Any MILP/ILP‑capable library will solve this easily:
+
+- **PuLP** (pure Python, open source, interfaces to CBC, GLPK, etc.)
+- **OR‑Tools** (`ortools.linear_solver` or `ortools.sat.python.cp_model`) from Google.
+- **Pyomo** (more general algebraic modeling language in Python).
+- **scipy.optimize** is generally not suitable here because it does not handle integer constraints directly.
+
+A typical choice for something this size is **PuLP** or **OR‑Tools**.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem
+    prob = pulp.LpProblem("Medicine_Production", pulp.LpMaximize)
+
+    # Decision variables
+    x_A = pulp.LpVariable('x_A', lowBound=0, cat='Integer')
+    x_B = pulp.LpVariable('x_B', lowBound=0, cat='Integer')
+
+    # Objective function: Maximize 12 x_A + 8 x_B
+    prob += 12 * x_A + 8 * x_B
+
+    # Constraints
+    # Imported material: 30 x_A + 40 x_B <= 300
+    prob += 30 * x_A + 40 * x_B <= 300
+
+    # mRNA availability: 50 x_A + 30 x_B <= 400
+    prob += 50 * x_A + 30 * x_B <= 400
+
+    # Production capacity for A: x_A <= 5
+    prob += x_A <= 5
+
+    # Relationship between A and B: x_B >= x_A + 1
+    prob += x_B >= x_A + 1
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print the final objective value in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

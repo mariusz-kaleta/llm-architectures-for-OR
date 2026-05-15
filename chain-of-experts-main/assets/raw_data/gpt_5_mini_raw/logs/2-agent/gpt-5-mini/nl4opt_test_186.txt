@@ -1,0 +1,73 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x ∈ Z≥0 : number of small wagons (capacity 20 units each)
+- y ∈ Z≥0 : number of large wagons (capacity 50 units each)
+
+Objective
+- Minimize total number of wagons: minimize Z = x + y
+
+Constraints
+1. Capacity: 20x + 50y ≥ 2000
+2. Ramp space: x ≥ 2y
+3. Minimum large wagons: y ≥ 10
+4. Integrality: x, y are integers
+
+Remarks on solving
+For each feasible integer y ≥ 10, the smallest feasible x is
+x(y) = max(2y, ceil((2000 − 50y) / 20), 0).
+Thus we can search over integer y (e.g. from 10 up to 40, since 40 large wagons already give 2000 capacity alone) and compute total W(y) = y + x(y). The optimal solution is the (y, x(y)) pair with minimal W.
+
+Analytic / quick enumeration
+Compute x(y) and W(y):
+- For y = 22: x = max(44, ceil((2000 − 1100)/20)) = max(44, 45) = 45, W = 22 + 45 = 67
+- Checking nearby y values shows W(22)=67 is minimal (e.g. y=21 → W=69, y=23 → W=69, etc.)
+
+Optimal solution
+- Small wagons x* = 45
+- Large wagons y* = 22
+- Minimum total wagons Z* = 67
+- Capacity achieved: 20·45 + 50·22 = 2000 (exactly)
+
+Suggested solver approaches / libraries
+- For a tiny integer search: plain Python with math.ceil is simplest.
+- MILP solvers: PuLP (CBC), python-mip, or OR-Tools CP-SAT (recommended for integer problems).
+- If you want a one-liner solver: use pulp.LpInteger variables and solve with pulp.PULP_CBC_CMD or ortools.sat.python.cp_model.CpSolver.
+
+Example (conceptual) Python approach (no external solver required)
+- Loop y in range(10, 41):
+    x = max(2*y, ceil((2000 - 50*y)/20, 0))
+    record y+x and pick minimum.
+This returns (x, y) = (45, 22), total 67.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data
+capacity_required = 2000
+cap_small = 20
+cap_large = 50
+
+# Search bounds for y (large wagons)
+y_min = 10
+y_max = 40  # since 40 large wagons give exactly 2000 capacity
+
+best = None  # will store tuple (total_wagons, x, y)
+
+for y in range(y_min, y_max + 1):
+    remaining_capacity = max(0, capacity_required - cap_large * y)
+    x_from_capacity = math.ceil(remaining_capacity / cap_small)
+    x_from_ramp = 2 * y
+    x = max(x_from_capacity, x_from_ramp, 0)
+    total = x + y
+    if (best is None) or (total < best[0]) or (total == best[0] and y < best[2]):
+        best = (total, x, y)
+
+# Unpack best solution
+best_total, best_x, best_y = best
+
+# Final required print (exact format)
+print(f"FINAL_OBJ: {best_total}")

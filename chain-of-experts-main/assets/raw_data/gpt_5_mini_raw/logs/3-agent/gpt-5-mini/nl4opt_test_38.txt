@@ -1,0 +1,101 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - b ∈ Z≥0 : number of bus trips (integer)
+  - c ∈ Z≥0 : number of car trips (integer)
+
+- Parameters
+  - capacity_bus = 100 chickens per bus trip
+  - capacity_car  = 40  chickens per car trip
+  - time_bus     = 2.0 hours per bus trip
+  - time_car     = 1.5 hours per car trip
+  - total_chickens = 1200
+  - max_bus_trips = 10
+  - min_car_share = 0.60  (at least 60% of trips must be by car)
+
+- Constraints
+  1. Capacity: 100 b + 40 c ≥ 1200
+  2. Bus-trip limit: b ≤ 10
+  3. Car-trip proportion: c ≥ 0.60 (b + c)  ⇔  c ≥ 1.5 b  (equivalently 0.4 c ≥ 0.6 b)
+  4. Integrality/nonnegativity: b, c ∈ Z≥0
+
+- Objective
+  Minimize total time T = 2 b + 1.5 c
+
+Solution (small integer search / ILP)
+Because b is constrained to 0..10, you can evaluate feasible integer pairs (b,c). For each b, the minimal feasible c is
+  c_min = max( ceil(1.5 b), ceil((60 − 5 b)/2) )
+(where the second term comes from dividing the capacity constraint by 20: 5 b + 2 c ≥ 60).
+
+Evaluating b = 0..10 gives the minimal total times; the best feasible integer solution is
+  b = 7 bus trips
+  c = 13 car trips
+Total transported = 100·7 + 40·13 = 1220 chickens (≥ 1200).
+Total time = 2·7 + 1.5·13 = 14 + 19.5 = 33.5 hours.
+
+Remarks
+- If fractional trips were allowed (continuous relaxation), the LP optimum is at the intersection c = 1.5 b and 5 b + 2 c = 60, giving b = 7.5, c = 11.25 and T = 31.875 hours. But trips must be integer, so (7,13) is optimal among integer solutions.
+- To solve programmatically, use an integer linear programming solver.
+
+Recommended Python libraries
+- pulp (simple Python modelling; uses CBC or other solvers)
+- OR-Tools CP-SAT (very fast integer solver)
+- mip (Python-MIP) or CPLEX/Gurobi if you have commercial solvers
+
+Example sketch with pulp
+- define IntVar b, c
+- add constraints 100*b + 40*c >= 1200, b <= 10, c >= math.ceil(1.5*b) (or linear form 0.4*c - 0.6*b >= 0)
+- set objective minimize 2*b + 1.5*c
+- solve
+
+Answer: Do 7 bus trips and 13 car trips; total minimum transport time = 33.5 hours.
+
+---
+
+[CODER]:
+import math
+
+# Parameters
+capacity_bus = 100
+capacity_car = 40
+time_bus = 2.0
+time_car = 1.5
+total_chickens = 1200
+max_bus_trips = 10
+min_car_share = 0.60  # c >= 0.6*(b+c)  <=>  c >= 1.5*b
+
+# Search over integer b and c (b in 0..max_bus_trips, c nonnegative)
+best_obj = float('inf')
+best_b = None
+best_c = None
+
+# Upper bound for c: if no buses, need ceil(total_chickens / capacity_car)
+c_upper = math.ceil(total_chickens / capacity_car)
+
+for b in range(0, max_bus_trips + 1):
+    # minimal c by proportion constraint: c >= 1.5 * b
+    c_min_prop = math.ceil(1.5 * b)
+    # minimal c by capacity: 100*b + 40*c >= total_chickens  -> c >= (total_chickens - 100*b)/40
+    needed = (total_chickens - capacity_bus * b) / capacity_car
+    c_min_cap = math.ceil(needed) if needed > 0 else 0
+    c_min = max(0, c_min_prop, c_min_cap)
+    # iterate c from c_min to reasonable upper bound
+    for c in range(c_min, c_upper + 1):
+        # Check constraints explicitly
+        if capacity_bus * b + capacity_car * c < total_chickens:
+            continue
+        if b > max_bus_trips:
+            continue
+        # proportion constraint: c >= 0.6*(b+c)  =>  c >= 1.5*b
+        if c < math.ceil(1.5 * b):
+            continue
+        # compute objective
+        obj = time_bus * b + time_car * c
+        if obj < best_obj - 1e-9:
+            best_obj = obj
+            best_b = b
+            best_c = c
+
+# Print final objective value as required
+print(f"FINAL_OBJ: {best_obj}")

@@ -1,0 +1,127 @@
+[PLANNER]:
+1) Key optimisation goal
+- Maximise the number of people treated by the lab (each dose of A treats 12 people, each dose of B treats 8 people).
+
+2) Suggested model type
+- Integer Linear Programming (ILP). Doses are discrete whole units; the strict requirement that B > A is naturally handled in an integer model. Because the problem is small, a simple discrete enumeration over feasible A values is also a valid approach.
+
+3) Main decision variables
+- Let x = number of doses of medicine A to produce (integer, ≥ 0, with an upper limit).
+- Let y = number of doses of medicine B to produce (integer, ≥ 0).
+(Declare both as integer decision variables. If you choose to relax integrality, note that the strict inequality requirement changes handling.)
+
+4) Key constraints to consider (described qualitatively)
+- Imported material capacity: total imported-material consumed by all produced doses cannot exceed the available imported-material stock. (Each A consumes 30 units, each B consumes 40 units; total available is 300 units.)
+- mRNA capacity: total mRNA consumed by all produced doses cannot exceed the available mRNA stock. (Each A consumes 50 units, each B consumes 30 units; total available is 400 units.)
+- Upper production limit on A: the lab can produce at most 5 doses of medicine A.
+- Strict relationship between doses: the number of doses of B must be strictly greater than the number of doses of A. (In an integer model enforce this as B at least A + 1.)
+- Non-negativity and integrality: x and y must be non-negative integers.
+- Implicit feasibility bounds: material and mRNA constraints imply natural upper bounds on x and y individually; use these to tighten the search.
+
+Additional modelling/solution notes and recommendations
+- Because the problem size is tiny, an exhaustive enumeration over x = 0..5 (respecting the A upper bound) and computing the maximum feasible y for each x (subject to resource limits and y ≥ x+1) is the simplest robust solution approach.
+- If using an ILP solver, formulate the linear objective (maximize 12*x + 8*y) and the constraints above; use a MILP solver (CBC, Gurobi, CPLEX, or open-source solvers) and require x,y integer.
+- If you relax integrality (not recommended here), handle the strict inequality by requiring y ≥ x + a small epsilon or treat it as y ≥ x + 1 if you still need integer-like behavior.
+- After obtaining the optimal solution, report x and y and the total people treated, and verify resource usages to confirm constraints are satisfied.
+
+Deliverable expected from the modeller
+- Optimal integer values for x (doses of A) and y (doses of B) that maximize treated people, together with used imported material and mRNA amounts and the total people treated.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- x ∈ Z, x ≥ 0 : number of doses of medicine A.
+- y ∈ Z, y ≥ 0 : number of doses of medicine B.
+
+Objective
+- Maximize total people treated: maximize Z = 12x + 8y.
+
+Constraints
+1. Imported-material capacity:
+   30x + 40y ≤ 300
+2. mRNA capacity:
+   50x + 30y ≤ 400
+3. Upper bound on A:
+   0 ≤ x ≤ 5
+4. Strict relationship (B must be strictly greater than A):
+   y ≥ x + 1
+5. Integrality:
+   x, y integer
+
+(Equivalently, the model is a small MILP: maximize 12x + 8y subject to the linear constraints above with integer variables.)
+
+Solution approach
+Because x is bounded 0..5 and the problem is tiny, the simplest robust method is to enumerate feasible x values and for each choose the largest feasible integer y ≥ x+1 that satisfies the resource constraints.
+
+Quick enumeration (feasible y upper bounds come from the two resource constraints; we take the tighter bound and the integrality condition):
+
+- x = 0 → y ≤ floor(min((300−30·0)/40, (400−50·0)/30)) = floor(min(7.5, 13.33)) = 7. Max feasible y given y ≥ 1 is 7. Objective = 12·0 + 8·7 = 56.
+- x = 1 → y ≤ floor(min((300−30)/40, (400−50)/30)) = floor(min(6.75, 11.67)) = 6. Max feasible y ≥ 2 is 6. Objective = 12·1 + 8·6 = 60.
+- x = 2 → y ≤ floor(min((300−60)/40, (400−100)/30)) = floor(min(6.0, 10.0)) = 6. Max feasible y ≥ 3 is 6. Objective = 12·2 + 8·6 = 72.
+- x = 3 → y ≤ floor(min((300−90)/40, (400−150)/30)) = floor(min(5.25, 8.33)) = 5. Max feasible y ≥ 4 is 5. Objective = 12·3 + 8·5 = 76.
+- x = 4 → y ≤ floor(min((300−120)/40, (400−200)/30)) = floor(min(4.5, 6.67)) = 4. But y must be ≥ 5 → infeasible.
+- x = 5 → y ≤ floor(min((300−150)/40, (400−250)/30)) = floor(min(3.75, 5.0)) = 3. But y must be ≥ 6 → infeasible.
+
+Optimal solution from enumeration: x = 3, y = 5 with objective Z = 76 people treated.
+
+Resource use at optimum
+- Imported material used = 30·3 + 40·5 = 90 + 200 = 290 ≤ 300.
+- mRNA used = 50·3 + 30·5 = 150 + 150 = 300 ≤ 400.
+
+Recommended solver tools / libraries
+- For this tiny MILP: pure enumeration (simple for-loop) is easiest.
+- MILP libraries (if you want a solver):
+  - pulp (open-source, CBC solver) — easy MILP modeling in Python.
+  - OR-Tools CP-SAT (powerful, fast for integer problems).
+  - Pyomo with CBC/Gurobi/CPLEX backends.
+  - Gurobi / CPLEX if available (commercial).
+- Note: scipy.optimize is not suitable for integer problems (unless you relax integrality).
+
+If you want, I can provide a short Python snippet (enumeration or pulp) that computes this optimal solution.
+
+---
+
+[CODER]:
+import math
+
+# Data (from the problem statement)
+imported_capacity = 300
+mrna_capacity = 400
+# resource coefficients
+a_import = 30
+b_import = 40
+a_mrna = 50
+b_mrna = 30
+# objective coefficients
+a_obj = 12
+b_obj = 8
+# bounds
+x_min, x_max = 0, 5
+
+best_obj = None
+best_x = None
+best_y = None
+
+for x in range(x_min, x_max + 1):
+    # compute upper bounds for y from resource constraints (floor division)
+    ub_import = (imported_capacity - a_import * x) // b_import
+    ub_mrna = (mrna_capacity - a_mrna * x) // b_mrna
+    y_max = min(ub_import, ub_mrna)
+    # y must be at least x+1
+    y_min = x + 1
+    if y_max >= y_min:
+        y = y_max
+        obj = a_obj * x + b_obj * y
+        if (best_obj is None) or (obj > best_obj):
+            best_obj = obj
+            best_x = x
+            best_y = y
+
+# If no feasible solution found, set objective to 0 (though model guarantees feasibility for some x)
+if best_obj is None:
+    best_obj = 0
+
+print(f"FINAL_OBJ: {best_obj}")

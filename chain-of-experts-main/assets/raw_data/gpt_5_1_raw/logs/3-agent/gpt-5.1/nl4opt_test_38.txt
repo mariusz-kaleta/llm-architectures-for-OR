@@ -1,0 +1,187 @@
+[MODELER]:
+Here is a clean optimization model of the problem and how to solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of bus trips  
+- \(y\) = number of car trips  
+
+We’ll treat \(x, y\) as **nonnegative integers** (you can’t do a fraction of a trip).
+
+---
+
+## 2. Objective
+
+We want to minimize the **total transport time**.
+
+- Each bus trip: 2 hours → total bus time = \(2x\)  
+- Each car trip: 1.5 hours → total car time = \(1.5y\)
+
+**Objective function**:
+\[
+\min Z = 2x + 1.5y
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Capacity (transport all 1200 chickens)
+
+- Each bus trip carries 100 chickens → total bus capacity = \(100x\)
+- Each car trip carries 40 chickens → total car capacity = \(40y\)
+
+All 1200 chickens must be transported:
+\[
+100x + 40y \;\ge\; 1200
+\]
+
+(If you interpret “needs to transport 1200 chicken” as exactly, you could write \(= 1200\), but usually “at least” is fine and optimal solutions tend not to overshoot too much because time is being minimized.)
+
+---
+
+### 3.2 Limit on bus trips
+
+At most 10 bus trips:
+\[
+x \;\le\; 10
+\]
+
+---
+
+### 3.3 At least 60% of trips by car
+
+Total trips = \(x + y\). At least 60% of those must be by car:
+\[
+\frac{y}{x + y} \;\ge\; 0.6
+\]
+
+Rearrange:
+\[
+y \;\ge\; 0.6(x + y)  
+\Rightarrow y \;\ge\; 0.6x + 0.6y  
+\Rightarrow y - 0.6y \;\ge\; 0.6x  
+\Rightarrow 0.4y \;\ge\; 0.6x  
+\Rightarrow y \;\ge\; 1.5x
+\]
+
+So:
+\[
+y \;\ge\; 1.5x
+\]
+
+Since \(x, y\) are integers, this effectively means \(y \ge \lceil 1.5x \rceil\).
+
+---
+
+### 3.4 Non-negativity and integrality
+
+\[
+x \ge 0,\;\; y \ge 0,\;\; x,y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full model
+
+\[
+\begin{align}
+\min\;\; & Z = 2x + 1.5y \\
+\text{s.t.}\;\; 
+& 100x + 40y \ge 1200 \\
+& x \le 10 \\
+& y \ge 1.5x \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{align}
+\]
+
+---
+
+## 5. Solving manually / structure
+
+If you want a quick reasoning:
+
+- From \(y \ge 1.5x\), cars grow at least proportional to buses.
+- To satisfy capacity: \(100x + 40y \ge 1200\).
+- Because car trips are shorter (1.5 h vs 2 h), and there’s a minimum ratio \(y \ge 1.5x\), the model will likely push toward using as many car trips and fewer bus trips as capacity and constraints allow.
+
+This is a **small integer linear programming (ILP)** problem.
+
+---
+
+## 6. Suitable Python libraries
+
+You can model and solve this with any MILP-capable library, for example:
+
+- **PuLP** (pure Python, easy to use, works with CBC by default)
+- **OR-Tools** (Google’s optimization suite, powerful MILP solvers)
+- **Pyomo** (general algebraic modeling, can link to CBC, GLPK, Gurobi, CPLEX, etc.)
+- **SciPy** is not ideal here because we need integer variables.
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("ChickenTransport", pl.LpMinimize)
+
+# Decision variables (integer)
+x = pl.LpVariable('bus_trips', lowBound=0, cat='Integer')
+y = pl.LpVariable('car_trips', lowBound=0, cat='Integer')
+
+# Objective: minimize total time
+prob += 2 * x + 1.5 * y
+
+# Constraints
+prob += 100 * x + 40 * y >= 1200        # capacity
+prob += x <= 10                         # max bus trips
+prob += y >= 1.5 * x                    # at least 60% trips by car
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Bus trips:", pl.value(x))
+print("Car trips:", pl.value(y))
+print("Total time:", pl.value(2 * x + 1.5 * y))
+```
+
+You can adapt the same model almost identically in OR-Tools or Pyomo.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("ChickenTransport", pl.LpMinimize)
+
+    # Decision variables: integer, non-negative
+    x = pl.LpVariable('bus_trips', lowBound=0, cat='Integer')
+    y = pl.LpVariable('car_trips', lowBound=0, cat='Integer')
+
+    # Objective: minimize total time
+    prob += 2 * x + 1.5 * y
+
+    # Constraints
+    prob += 100 * x + 40 * y >= 1200        # capacity
+    prob += x <= 10                         # max bus trips
+    prob += y >= 1.5 * x                    # at least 60% trips by car
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute final objective value
+    final_obj = pl.value(2 * x + 1.5 * y)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

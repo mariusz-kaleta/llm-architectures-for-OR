@@ -1,0 +1,169 @@
+[MODELER]:
+Below is a structured mathematical model of the problem.
+
+---
+
+### 1. Decision Variables
+
+Let
+
+- \( x \) = number of acres picked using the **traditional machine**  
+- \( y \) = number of acres picked using the **modern machine**
+
+Both are continuous and nonnegative (and in practice, could be restricted to integers if needed):
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+### 2. Objective Function
+
+We want to **maximize the total amount of tea leaves picked**.
+
+- Traditional machine: 30 kg/acre  
+- Modern machine: 40 kg/acre  
+
+So total tea picked:
+
+\[
+\text{Tea}(x, y) = 30x + 40y
+\]
+
+**Objective:**
+
+\[
+\max \; Z = 30x + 40y
+\]
+
+---
+
+### 3. Constraints
+
+1. **Land availability**
+
+   Total acres used cannot exceed 500:
+
+   \[
+   x + y \le 500
+   \]
+
+2. **Fuel availability**
+
+   - Traditional: 20 liters/acre  
+   - Modern: 15 liters/acre  
+   Total fuel available: 9000 liters
+
+   \[
+   20x + 15y \le 9000
+   \]
+
+3. **Waste capacity**
+
+   - Traditional: 10 kg/acre  
+   - Modern: 15 kg/acre  
+   Waste capacity: at most 6000 kg
+
+   \[
+   10x + 15y \le 6000
+   \]
+
+4. **Nonnegativity**
+
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+
+---
+
+### 4. Final Mathematical Program
+
+\[
+\begin{aligned}
+\max \quad & Z = 30x + 40y \\
+\text{s.t.} \quad 
+& x + y \le 500 \\
+& 20x + 15y \le 9000 \\
+& 10x + 15y \le 6000 \\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+This is a **linear programming (LP)** problem.
+
+---
+
+### 5. Suitable Python Libraries
+
+You can solve this LP with any of the following:
+
+- **PuLP** (`pulp`): very straightforward for modeling LPs.
+- **SciPy** (`scipy.optimize.linprog`): good for standard LPs.
+- **OR-Tools** (`ortools.linear_solver`): powerful and efficient for LP/MIP.
+
+---
+
+### 6. Example using PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("TeaEstateOptimization", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('x', lowBound=0)  # traditional machine acres
+y = pl.LpVariable('y', lowBound=0)  # modern machine acres
+
+# Objective function
+prob += 30 * x + 40 * y, "Total_Tea_Picked"
+
+# Constraints
+prob += x + y <= 500, "Land"
+prob += 20 * x + 15 * y <= 9000, "Fuel"
+prob += 10 * x + 15 * y <= 6000, "Waste"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Acres with traditional machine (x):", x.value())
+print("Acres with modern machine (y):", y.value())
+print("Maximum tea picked (kg):", pl.value(prob.objective))
+```
+
+This code directly implements the model above and will return the optimal acres for each machine and the maximum tea picked.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("TeaEstateOptimization", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('x', lowBound=0)  # traditional machine acres
+    y = pl.LpVariable('y', lowBound=0)  # modern machine acres
+
+    # Objective function: maximize total tea picked
+    prob += 30 * x + 40 * y, "Total_Tea_Picked"
+
+    # Constraints
+    prob += x + y <= 500, "Land"
+    prob += 20 * x + 15 * y <= 9000, "Fuel"
+    prob += 10 * x + 15 * y <= 6000, "Waste"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

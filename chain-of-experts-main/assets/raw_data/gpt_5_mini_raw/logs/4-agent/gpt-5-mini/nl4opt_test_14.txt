@@ -1,0 +1,132 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Minimise the number of scooters used to transport at least 300 visitors, subject to the park’s rickshaw usage cap.
+
+2) Suggested model type
+- Model: Integer Linear Program (ILP) or small Mixed-Integer Program (MIP). (Because vehicle counts must be whole numbers. Because there are only two vehicle types, a small integer search/enumeration is also practical and simpler than a general-purpose solver.)
+
+3) Main decision variables
+- Number of scooters (S): integer, >= 0.
+- Number of rickshaws (R): integer, >= 0.
+
+(These are the only decision variables needed.)
+
+4) Key constraints to consider (described conceptually)
+- Capacity constraint: total passenger capacity provided by scooters and rickshaws must be at least 300 visitors (each scooter carries 2 people, each rickshaw carries 3).
+- Rickshaw proportion constraint: at most 40% of the vehicles in use may be rickshaws. (This is a ratio constraint on counts: the fraction R / (S + R) must not exceed 0.4. Implement this as an integer-compatible linear constraint, or equivalently enforce R <= floor(0.4*(S+R)) or the algebraically equivalent linear relation that bounds R relative to S.)
+- Integrality and non-negativity: S and R must be non-negative integers, and S + R > 0 because capacity must be met.
+- Optional operational bounds: if available, upper bounds on S or R (fleet size limits) or minimum service vehicle counts per shift—include them if applicable.
+
+5) Recommended modelling/solution approach (practical steps for the Modeller)
+- Formulate the ILP with objective minimize S, and constraints as above.
+- Because there are only two integer variables, solve by:
+  a) Direct ILP solver (CBC, GLPK, CP-SAT, etc.), or
+  b) Simple integer search: for increasing S starting at 0, compute the maximum allowable R given the 40% cap for that S, and check whether capacity can be met. Stop at the smallest S satisfying capacity.
+- Use the observation that to minimize scooters you should use as many rickshaws as allowed for each candidate S (i.e., set R to its max permitted value for that S) — this reduces the search to a single-variable test over S.
+- Verify integrality effects (use floor/ceil when converting fractional allowable R if you implement the ratio as a floor bound).
+
+6) Numerical simplification (optional check/shortcut)
+- The 40% cap implies R cannot exceed two-thirds of S (algebraic rearrangement of the ratio constraint). Using the maximum allowed R for a given S gives an effective combined capacity per scooter-plus-allowed-rickshaws equal to four passenger seats per scooter unit, so the minimum S required will be around 300/4 = 75. Use the solver or integer search to confirm that S = 75 with the corresponding R meets all exact integer constraints.
+
+Deliverables expected from the Modeller
+- ILP model file or formulation (variable definitions, objective, constraints implemented in solver-friendly form).
+- Solution giving the minimal integer S and associated R.
+- Short verification showing capacity and rickshaw-proportion constraints are satisfied.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- S ∈ Z≥0 : number of scooters.
+- R ∈ Z≥0 : number of rickshaws.
+
+Objective
+- Minimize S (the number of scooters used).
+
+Constraints
+1) Capacity: 2S + 3R ≥ 300.  (each scooter carries 2, each rickshaw 3)
+2) Rickshaw proportion cap: R / (S + R) ≤ 0.4.  This is non-linear; an equivalent linear, integer-compatible form is:
+   3R ≤ 2S  (derived from R ≤ 0.4(S+R) ⇒ 0.6R ≤ 0.4S ⇒ R ≤ (2/3)S, multiply both sides by 3)
+3) Integrality and non-negativity: S, R ∈ Z≥0. (Capacity ensures S+R>0)
+
+Mathematical ILP
+minimize S
+subject to
+  2S + 3R ≥ 300
+  3R ≤ 2S
+  S, R ∈ Z≥0
+
+Solution (analytical)
+- From 3R ≤ 2S, the maximum allowed rickshaws for a given S is R_max = floor(2S/3).
+- Substitute the maximal R to check capacity: require 2S + 3·floor(2S/3) ≥ 300.
+- The continuous relaxation (using R = 2S/3) gives 2S + 3·(2S/3) = 4S ≥ 300 ⇒ S ≥ 75.
+- Check S = 75: R_max = floor(2·75/3) = 50. Capacity = 2·75 + 3·50 = 150 + 150 = 300, and rickshaw share = 50/(75+50) = 0.4 ⇒ feasible.
+- Check S = 74: R_max = floor(148/3) = 49, capacity = 2·74 + 3·49 = 148 + 147 = 295 < 300 ⇒ infeasible.
+
+Therefore the minimum number of scooters is S* = 75, with R* = 50 rickshaws.
+
+Verification
+- Capacity: 2·75 + 3·50 = 300 ≥ 300 ✓
+- Rickshaw proportion: 50 / (75 + 50) = 0.4 ≤ 0.4 ✓
+- Integrality: S and R are integers ✓
+
+Algorithmic approaches
+- Direct ILP solver: model as above and solve with an ILP solver (CBC, GLPK, Gurobi, CPLEX).
+- Simple enumeration (one-dimensional search): for S from 0 upward compute R_max = floor(2S/3) and test 2S + 3R_max ≥ 300; stop at first feasible S. Because there are only two integer variables, this is trivial and very fast.
+
+Recommended Python libraries
+- pulp (uses CBC by default) — easy ILP modelling.
+- OR-Tools CP-SAT (ortools.sat.python.cp_model) — very fast for integer problems.
+- pyomo (with CBC/Gurobi/CPLEX) — more feature-rich modelling.
+(Do not use scipy.optimize for pure-integer problems.)
+
+Optional example with pulp (sketch)
+from pulp import LpProblem, LpMinimize, LpVariable, LpInteger, lpSum, PULP_CBC_CMD
+prob = LpProblem('scooters', LpMinimize)
+S = LpVariable('S', lowBound=0, cat=LpInteger)
+R = LpVariable('R', lowBound=0, cat=LpInteger)
+prob += S
+prob += 2*S + 3*R >= 300
+prob += 3*R <= 2*S
+prob.solve(PULP_CBC_CMD(msg=False))
+print(int(S.value()), int(R.value()))
+
+This will return S=75, R=50.
+
+Deliverables you can extract from this model
+- ILP formulation (above).
+- Optimal solution: S* = 75 scooters, R* = 50 rickshaws.
+- Short verification (given).
+
+---
+
+[CODER]:
+```python
+# Self-contained script to solve the ILP:
+#   minimize S
+#   s.t. 2S + 3R >= 300
+#        3R <= 2S
+#        S,R nonnegative integers
+#
+# Uses simple enumeration over S and computes R_max = floor(2S/3)
+
+def find_optimal():
+    S_opt = None
+    R_opt = None
+    for S in range(0, 1000):  # upper bound well above what is needed
+        R_max = (2 * S) // 3
+        if 2 * S + 3 * R_max >= 300:
+            S_opt = S
+            R_opt = R_max
+            break
+    if S_opt is None:
+        raise ValueError("No feasible solution found within search bounds.")
+    return S_opt, R_opt
+
+if __name__ == "__main__":
+    S_opt, R_opt = find_optimal()
+    # Final objective value is the minimized number of scooters S
+    print(f"FINAL_OBJ: {S_opt}")
+```

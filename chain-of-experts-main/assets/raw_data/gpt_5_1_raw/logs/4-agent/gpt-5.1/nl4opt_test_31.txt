@@ -1,0 +1,224 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximize total production of carbon dioxide, given limited wood and oxygen.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with 2 decision variables and 2 binding resource constraints.
+
+3. Main decision variables  
+Define non‑negative continuous variables (or integer if the context really requires whole “process runs,” but LP relaxation will already give a clear structure):
+
+- x₁: Number of times the process WITH catalyst is used.  
+- x₂: Number of times the process WITHOUT catalyst is used.
+
+(If appropriate, the Modeller can later decide whether these should be integer-valued; structurally the model is the same.)
+
+4. Objective function structure  
+Maximize total CO₂ produced:
+
+- Each catalyst run (x₁) yields 15 units of CO₂.  
+- Each non‑catalyst run (x₂) yields 18 units of CO₂.
+
+So the objective is:  
+Maximize: total_CO₂ = 15·x₁ + 18·x₂.
+
+5. Key constraints to consider  
+
+a) Wood availability constraint  
+- Catalyst process uses 10 units of wood per run.  
+- Non‑catalyst process uses 15 units of wood per run.  
+- Total wood available: 300 units.
+
+Wood constraint structure:  
+10·x₁ + 15·x₂ ≤ 300.
+
+b) Oxygen availability constraint  
+- Catalyst process uses 20 units of oxygen per run.  
+- Non‑catalyst process uses 12 units of oxygen per run.  
+- Total oxygen available: 300 units.
+
+Oxygen constraint structure:  
+20·x₁ + 12·x₂ ≤ 300.
+
+c) Non-negativity (and potential integrality)  
+- x₁ ≥ 0  
+- x₂ ≥ 0  
+Optionally, if required: x₁ and x₂ integer.
+
+6. Modelling/solution strategy  
+
+- Since there are only two variables and linear constraints, the Modeller can:
+  - Solve graphically (feasible region in x₁–x₂ plane and evaluate objective at corner points), or  
+  - Use a standard LP solver (Simplex or interior point).
+
+- Check which resource is binding at optimum:
+  - One or both of wood and oxygen constraints will typically be tight at the optimal corner solution.
+
+- After solving, interpret:
+  - The resulting x₁*, x₂* will tell how many times each process should be run to maximize CO₂ within the 300-unit limits of both wood and oxygen.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, plus how you would implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_1 \ge 0\): number of times the process **with** catalyst is used  
+- \(x_2 \ge 0\): number of times the process **without** catalyst is used  
+
+(If the process must be run an integer number of times, add \(x_1, x_2 \in \mathbb{Z}\); otherwise treat them as continuous.)
+
+---
+
+## 2. Objective function
+
+Each run produces:
+
+- With catalyst: 15 units of CO₂
+- Without catalyst: 18 units of CO₂
+
+Total CO₂ produced:
+
+\[
+\text{Maximize } Z = 15x_1 + 18x_2
+\]
+
+---
+
+## 3. Constraints
+
+### a) Wood availability
+
+- With catalyst: 10 units of wood per run
+- Without catalyst: 15 units of wood per run
+- Total available: 300 units
+
+\[
+10x_1 + 15x_2 \le 300
+\]
+
+### b) Oxygen availability
+
+- With catalyst: 20 units of oxygen per run
+- Without catalyst: 12 units of oxygen per run
+- Total available: 300 units
+
+\[
+20x_1 + 12x_2 \le 300
+\]
+
+### c) Non-negativity (and optional integrality)
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+Optionally:
+
+\[
+x_1, x_2 \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete LP formulation
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 15x_1 + 18x_2 \\
+\text{subject to} \quad 
+& 10x_1 + 15x_2 \le 300 \quad \text{(wood)} \\
+& 20x_1 + 12x_2 \le 300 \quad \text{(oxygen)} \\
+& x_1 \ge 0,\; x_2 \ge 0
+\end{aligned}
+\]
+
+Add \(x_1, x_2 \in \mathbb{Z}\) if you need integer solutions.
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard LP/MIP library works well:
+
+- **PuLP**: Simple modelling interface to many solvers (CBC by default). Great for teaching and rapid prototyping.
+- **OR-Tools** (from Google): Very fast MILP solver; good for integer or mixed models.
+- **SciPy** (`scipy.optimize.linprog`): Suitable for continuous LP (no integrality).
+
+For this problem (small LP, possibly with integers), **PuLP** or **OR-Tools** are both very appropriate.
+
+---
+
+## 6. Example PuLP implementation (continuous LP)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("CO2_Production", pl.LpMaximize)
+
+# Decision variables (continuous, >= 0)
+x1 = pl.LpVariable('x1_catalyst', lowBound=0)
+x2 = pl.LpVariable('x2_noncatalyst', lowBound=0)
+
+# Objective
+prob += 15 * x1 + 18 * x2
+
+# Constraints
+prob += 10 * x1 + 15 * x2 <= 300, "Wood"
+prob += 20 * x1 + 12 * x2 <= 300, "Oxygen"
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("x1 (with catalyst) =", pl.value(x1))
+print("x2 (without catalyst) =", pl.value(x2))
+print("Max CO2 =", pl.value(15 * x1 + 18 * x2))
+```
+
+To enforce integrality, just define:
+
+```python
+x1 = pl.LpVariable('x1_catalyst', lowBound=0, cat='Integer')
+x2 = pl.LpVariable('x2_noncatalyst', lowBound=0, cat='Integer')
+```
+
+This fully specifies the optimisation problem and how to solve it.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem: Maximize CO2 production
+    prob = pl.LpProblem("CO2_Production", pl.LpMaximize)
+
+    # Decision variables (integer, non-negative)
+    x1 = pl.LpVariable('x1_catalyst', lowBound=0, cat='Integer')
+    x2 = pl.LpVariable('x2_noncatalyst', lowBound=0, cat='Integer')
+
+    # Objective function: Maximize 15*x1 + 18*x2
+    prob += 15 * x1 + 18 * x2
+
+    # Constraints
+    prob += 10 * x1 + 15 * x2 <= 300  # Wood constraint
+    prob += 20 * x1 + 12 * x2 <= 300  # Oxygen constraint
+
+    # Solve the problem
+    prob.solve()
+
+    # Get the objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,119 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- C ∈ Z≥0 : number of servers delivering by cart (per hour / number of shifts).
+- H ∈ Z≥0 : number of servers delivering by hand.
+
+Parameters (given)
+- interactions per cart server = 70
+- refills per cart server = 5
+- interactions per hand server = 85
+- refills per hand server = 20
+- required total interactions = 4000
+- minimum share by cart = 70% of shifts
+- minimum hand servers = 3
+
+Objective
+Minimize total refills per hour:
+Minimize R = 5 C + 20 H
+
+Constraints
+1) Interaction requirement:
+70 C + 85 H ≥ 4000
+
+2) Cart share requirement (at least 70% of shifts by cart):
+C ≥ 0.7 (C + H)
+This is equivalent (multiply both sides by 10 then rearrange) to:
+3 C ≥ 7 H
+
+3) Minimum hand servers:
+H ≥ 3
+
+4) Integrality and nonnegativity:
+C, H ∈ Z≥0
+
+Solve as an integer linear program (ILP).
+
+Analytic reasoning (to find the optimum)
+- Refills per interaction: cart = 5/70 ≈ 0.07143, hand = 20/85 ≈ 0.23529. Cart delivery is much more refill-efficient, so to minimize refills we want as few hand servers as allowed.
+- The minimum allowed H is 3. For H = 3:
+  - Proportion constraint requires C ≥ ceil(7·3/3) = 7 (but interaction constraint will dominate).
+  - Interaction constraint: 70 C + 85·3 ≥ 4000 → 70 C ≥ 3745 → C ≥ 53.5 → C must be integer so C ≥ 54.
+- With H = 3 and C = 54 we get:
+  - Interactions = 70·54 + 85·3 = 3780 + 255 = 4035 ≥ 4000 (feasible)
+  - Cart fraction = 54 / (54+3) ≈ 94.74% ≥ 70% (feasible)
+  - Total refills R = 5·54 + 20·3 = 270 + 60 = 330
+
+Checking any feasible solution with larger H increases refills (because hand delivery is much less refill-efficient). Therefore the optimal integer solution is:
+- C = 54 cart servers
+- H = 3 hand servers
+with minimum total refills R = 330 per hour.
+
+Suggested solvers / libraries
+- pulp (Python) — straightforward ILP formulation and solver interface.
+- OR-Tools (Python) — CP-SAT for integer linear models, very robust.
+- pyomo + a MILP solver (CBC, GLPK, Gurobi, CPLEX) — for production models.
+- (scipy.optimize is not suitable for integer problems unless you relax integrality and then round.)
+
+Example (pulp) sketch
+- Define integer variables C, H
+- Add constraints: 70*C + 85*H >= 4000 ; 3*C >= 7*H ; H >= 3
+- Minimize 5*C + 20*H
+- Solve and read C, H.
+
+If you want, I can provide the exact pulp or OR-Tools script and run a small brute-force check over feasible H values to verify optimality.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Parameters
+interactions_per_cart = 70
+refills_per_cart = 5
+interactions_per_hand = 85
+refills_per_hand = 20
+required_interactions = 4000
+min_hand_servers = 3
+
+# Search bounds
+H_min = min_hand_servers
+H_max = 1000  # sufficiently large upper bound for search
+
+best_R = None
+best_C = None
+best_H = None
+
+for H in range(H_min, H_max + 1):
+    # Constraint: cart share -> 3*C >= 7*H  => C >= ceil(7H/3)
+    C_min_share = math.ceil((7 * H) / 3)
+    # Constraint: interactions -> 70*C + 85*H >= 4000 => C >= ceil((4000 - 85H)/70)
+    remaining_interactions = required_interactions - interactions_per_hand * H
+    if remaining_interactions <= 0:
+        C_min_interactions = 0
+    else:
+        C_min_interactions = math.ceil(remaining_interactions / interactions_per_cart)
+    C = max(0, C_min_share, C_min_interactions)
+
+    # Check feasibility explicitly
+    if (interactions_per_cart * C + interactions_per_hand * H) < required_interactions:
+        continue
+    if 3 * C < 7 * H:
+        continue
+    if H < min_hand_servers:
+        continue
+
+    R = refills_per_cart * C + refills_per_hand * H
+
+    if (best_R is None) or (R < best_R):
+        best_R = R
+        best_C = C
+        best_H = H
+
+# Print solution details (optional) and final objective as required
+if best_R is None:
+    print("No feasible solution found.")
+else:
+    print(f"Optimal C = {best_C}, H = {best_H}, Refills = {best_R}")
+print(f"FINAL_OBJ: {best_R}")

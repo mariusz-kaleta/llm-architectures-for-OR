@@ -1,0 +1,130 @@
+[MODELER]:
+Here is a clean optimization model for the burger chain’s problem.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \( x \in \mathbb{Z}_{\ge 0} \): number of gas grills  
+- \( y \in \mathbb{Z}_{\ge 0} \): number of electric grills  
+
+These must be integers (you can’t buy a fraction of a grill).
+
+---
+
+## 2. Objective
+
+Minimize the total number of grills:
+
+\[
+\min \; x + y
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Patty production capacity
+
+Each gas grill cooks 20 patties per minute, each electric grill 30 patties per minute. The chain wants at least 150 patties per minute:
+
+\[
+20x + 30y \;\ge\; 150
+\]
+
+### 3.2 Cooking oil usage
+
+Each gas grill uses 20 units of oil per minute, each electric grill 25 units. The chain wants to use at most 140 units per minute:
+
+\[
+20x + 25y \;\le\; 140
+\]
+
+### 3.3 Preference for gas grills
+
+The number of electric grills must be less than the number of gas grills:
+
+\[
+y \;<\; x
+\]
+
+To model this with integer variables in a standard solver, we replace strict inequality with
+
+\[
+y \;\le\; x - 1
+\]
+
+since \(x\) and \(y\) are integers.
+
+### 3.4 Non-negativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full model summary (Integer Linear Program)
+
+\[
+\begin{aligned}
+\min \quad & x + y \\
+\text{s.t.} \quad
+& 20x + 30y \;\ge\; 150 \quad &\text{(patty capacity)}\\
+& 20x + 25y \;\le\; 140 \quad &\text{(oil limit)}\\
+& y \;\le\; x - 1 \quad &\text{(electric < gas)}\\
+& x, y \in \mathbb{Z}_{\ge 0} \quad &\text{(nonnegative integers)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+Because this is a small integer linear programming (ILP) problem, any MILP-capable library works well:
+
+- **PuLP** (`pulp`) – very straightforward for educational use, wraps several solvers.  
+- **OR-Tools Linear Solver** (`ortools.linear_solver.pywraplp`) – efficient and well-documented by Google.  
+- **Pyomo** – more general modeling framework (great for larger or more complex models).  
+- **SciPy** (`scipy.optimize.linprog`) is not suitable here by itself, because it doesn’t handle integer variables; you’d need a separate MILP solver.
+
+For this specific problem, I would recommend **PuLP** or **OR-Tools** for a simple implementation.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem
+    prob = pulp.LpProblem("Burger_Grill_Selection", pulp.LpMinimize)
+
+    # Decision variables
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # number of gas grills
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # number of electric grills
+
+    # Objective: minimize total number of grills
+    prob += x + y
+
+    # Constraints
+    # Patty capacity: 20x + 30y >= 150
+    prob += 20 * x + 30 * y >= 150
+
+    # Oil usage: 20x + 25y <= 140
+    prob += 20 * x + 25 * y <= 140
+
+    # Preference for gas grills: y <= x - 1
+    prob += y <= x - 1
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the final objective value
+    final_obj = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

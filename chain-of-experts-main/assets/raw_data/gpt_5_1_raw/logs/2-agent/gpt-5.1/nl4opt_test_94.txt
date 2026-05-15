@@ -1,0 +1,115 @@
+[MODELER]:
+Here is a clean mathematical formulation.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of ferry trips (integer, \(x \ge 0\))  
+- \(y\) = number of light rail trips (integer, \(y \ge 0\))
+
+## 2. Objective
+
+Minimize the total number of trips:
+\[
+\min \; z = x + y
+\]
+
+## 3. Constraints
+
+1. **Capacity constraint (send at least 500 boxes):**
+
+Each ferry trip carries 20 boxes, and each light rail trip carries 15 boxes:
+\[
+20x + 15y \;\ge\; 500
+\]
+
+2. **Rail-to-ferry ratio constraint:**
+
+The number of light rail trips must be at least 4 times the number of ferry trips:
+\[
+y \;\ge\; 4x
+\]
+
+3. **Non-negativity and integrality:**
+
+\[
+x \ge 0,\; y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+This is a small **integer linear programming (ILP)** problem.
+
+---
+
+## 4. Solving in Python
+
+Given it’s a linear objective with linear constraints and integer variables, appropriate libraries include:
+
+- `PuLP` (simple modeling, uses CBC solver by default)
+- `ortools.linear_solver` (Google OR-Tools MIP solver)
+- `pyomo` (more general algebraic modeling; needs a MILP solver like CBC, GLPK, or Gurobi)
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("CornTransport", pl.LpMinimize)
+
+# Decision variables (integers)
+x = pl.LpVariable('ferry_trips', lowBound=0, cat='Integer')
+y = pl.LpVariable('rail_trips',  lowBound=0, cat='Integer')
+
+# Objective
+prob += x + y, "TotalTrips"
+
+# Constraints
+prob += 20*x + 15*y >= 500, "Capacity"
+prob += y >= 4*x,           "Ratio"
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal ferry trips (x):", pl.value(x))
+print("Optimal rail  trips (y):", pl.value(y))
+print("Minimum total trips:", pl.value(x + y))
+```
+
+Any of the above libraries can solve this optimally in negligible time.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("TransportOptimization", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('ferry_trips', lowBound=0, cat='Integer')
+y = pl.LpVariable('rail_trips', lowBound=0, cat='Integer')
+
+# Objective function: minimize total trips
+prob += x + y, "TotalTrips"
+
+# Constraints
+prob += 20 * x + 15 * y >= 500, "Capacity"
+prob += y >= 4 * x, "RailToFerryRatio"
+
+# Solve the problem
+prob.solve()
+
+# Extract results
+optimal_x = pl.value(x)
+optimal_y = pl.value(y)
+optimal_obj = pl.value(x + y)
+
+# Print results (intermediate, if needed)
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal ferry trips (x):", optimal_x)
+print("Optimal rail trips (y):", optimal_y)
+print("Minimum total trips:", optimal_obj)
+
+# Final objective value in required format
+print(f"FINAL_OBJ: {optimal_obj}")

@@ -1,0 +1,86 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x = number of batches of bagels (>= 0)
+- y = number of batches of croissants (>= 0)
+
+Objective
+- Maximize profit P = 20x + 40y
+
+Resource constraints
+- Oven time: 2x + 1y <= 70
+- Pastry chef time: 0.25x + 2y <= 32
+- Nonnegativity: x >= 0, y >= 0
+
+Solve the linear program (continuous variables)
+
+Solve the two binding constraints to find the interior corner:
+2x + y = 70
+0.25x + 2y = 32  -> multiply by 4: x + 8y = 128
+
+Solve:
+From first: y = 70 - 2x
+Substitute: x + 8(70 - 2x) = 128 -> -15x = -432 -> x = 28.8
+Then y = 70 - 2(28.8) = 12.4
+
+Maximum profit (continuous) = 20(28.8) + 40(12.4) = 576 + 496 = $1,072.
+
+Notes on integrality
+- If batches must be integer, solve the integer program. The best integer feasible solution is x = 29, y = 12 (uses oven fully: 2·29 + 12 = 70; pastry chef time 0.25·29 + 2·12 = 31.25 <= 32) giving profit $1,060. (You would solve the integer variant to be certain.)
+
+Recommended solver libraries
+- pulp (pure-Python LP/MIP interface, uses CBC by default) — easy for small LP/MIP.
+- scipy.optimize.linprog — for continuous LPs.
+- OR-Tools (CP-SAT) — excellent for integer/binary and larger MIP problems.
+- cvxpy — for more advanced convex formulations.
+
+Example (pulp) — continuous LP
+from pulp import LpProblem, LpMaximize, LpVariable, value
+
+prob = LpProblem("Bakery", LpMaximize)
+x = LpVariable("bagels", lowBound=0)
+y = LpVariable("croissants", lowBound=0)
+prob += 20*x + 40*y
+prob += 2*x + 1*y <= 70
+prob += 0.25*x + 2*y <= 32
+prob.solve()
+print(value(x), value(y), value(prob.objective))
+
+If you need an integer solution, declare variables as LpInteger (or use OR-Tools) and re-solve.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data (initialized directly)
+# Decision variables: x (bagel batches), y (croissant batches)
+# Objective: maximize P = 20x + 40y
+# Constraints:
+#   2x + y <= 70
+#   0.25x + 2y <= 32
+#   x, y >= 0
+
+# Solve intersection of the two binding constraints:
+# 2x + y = 70
+# 0.25x + 2y = 32  -> multiply by 4 -> x + 8y = 128
+
+# Solve analytically
+# From first: y = 70 - 2x
+# Substitute into second: x + 8(70 - 2x) = 128
+# => x + 560 - 16x = 128 => -15x = -432 => x = 28.8
+x = 28.8
+y = 70 - 2 * x  # 12.4
+
+# Compute objective
+profit = 20 * x + 40 * y  # expected 1072
+
+# Normalize output: if very close to integer, convert to int
+if abs(profit - round(profit)) < 1e-8:
+    value = int(round(profit))
+else:
+    # otherwise round to a reasonable number of decimals
+    value = round(profit, 10)
+
+print(f"FINAL_OBJ: {value}")

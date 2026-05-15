@@ -1,0 +1,153 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Maximise the total number of bottles produced (glass + plastic).
+
+2. Suggested model type
+- Model: Integer Linear Programming (ILP). Bottles are discrete counts, so enforce integrality; you may also check the LP relaxation for diagnostics.
+
+3. Main decision variables
+- Number of glass bottles to produce (integer, >= 0).
+- Number of plastic bottles to produce (integer, >= 0).
+
+4. Key constraints to consider (described, not in formal equation form)
+- Water availability: The sum of water used by all bottles (each glass uses 500 ml, each plastic uses 750 ml) cannot exceed 250,000 ml.
+- Customer preference ratio: The number of plastic bottles must be at least three times the number of glass bottles.
+- Minimum glass production: At least 20 glass bottles must be produced.
+- Nonnegativity and integrality: Both bottle counts must be nonnegative integers.
+- (Optional bounding) Use obvious upper bounds from water limit to tighten search (e.g., if all bottles were glass or all plastic).
+
+5. Suggested solution strategy for the modeller
+- Observe that glass bottles use less water per bottle than plastic, so to maximize total count you should minimize plastic subject to the ratio constraint; therefore at optimum the plastic count will be set to its minimum allowed relative to glass (i.e., plastic = 3 × glass) unless water capacity or integrality forces otherwise.
+- Combine that minimal-ratio choice with the water capacity constraint to derive a bound on glass count, then search the integer feasible glass values near that bound (or solve the ILP directly with a solver).
+- Verify the water constraint is tight at the optimum (use all or nearly all water) and check neighboring integer solutions to ensure global optimality.
+
+6. Recommended quick analytic check (for modeller to verify and implement)
+- Use the minimal plastic-per-glass ratio and the water limit to obtain the largest feasible number of glass bottles (respecting the minimum of 20). Then set plastic to three times that glass count and confirm feasibility. If needed, try adjacent integer values to confirm optimality.
+- Implement in an ILP solver (or simple integer search) to confirm.
+
+7. Output to report
+- Final optimal counts for glass and plastic bottles.
+- Total number of bottles and total water used.
+- Confirmation that all constraints are satisfied and a short note on whether any water remains unused.
+
+Optional solver recommendations: any ILP solver (CBC, Gurobi, CPLEX, GLPK) or simple enumeration since there are only two integer variables.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- G ∈ Z, G ≥ 0 : number of glass bottles.
+- P ∈ Z, P ≥ 0 : number of plastic bottles.
+
+Objective
+- Maximize total bottles T = G + P.
+
+Constraints
+1) Water availability:
+   500 G + 750 P ≤ 250000.  (all volumes in ml)
+
+2) Customer preference ratio:
+   P ≥ 3 G.
+
+3) Minimum glass production:
+   G ≥ 20.
+
+4) Integrality and nonnegativity:
+   G, P ∈ Z, G ≥ 20, P ≥ 0.
+
+(Optional tightening bounds)
+- From water limit: G ≤ floor(250000 / 500) = 500, P ≤ floor(250000 / 750) = 333.
+- From ratio + water: if P = 3G then 2750 G ≤ 250000 ⇒ G ≤ floor(250000 / 2750) = 90. This tighter bound gives G ∈ [20,90] for feasible integer search.
+
+Analytic solution reasoning
+- For a fixed G, the best P (to maximize G + P) is the largest feasible P:
+  P_max(G) = floor( (250000 − 500 G) / 750 ).
+  Feasibility requires P_max(G) ≥ 3 G.
+- Therefore evaluate T(G) = G + P_max(G) for integer G ∈ [20,90] and pick the G that maximizes T.
+
+Computed optimal solutions
+- G = 89, P = 274 → total bottles = 89 + 274 = 363, water used = 500·89 + 750·274 = 250000 ml (uses all water).
+- G = 90, P = 273 → total bottles = 90 + 273 = 363, water used = 500·90 + 750·273 = 249750 ml (250 ml unused).
+
+Both (G=89,P=274) and (G=90,P=273) are integer optimal solutions achieving the maximum total of 363 bottles. If you require a unique solution, pick G=89,P=274 (uses all water) or choose by a secondary criterion (e.g., prefer more glass → G=90).
+
+Suggested solvers / libraries
+- pulp (CBC) — easy pure-Python ILP modeling and solving.
+- OR-Tools CP-SAT — fast modern integer solver, good for small problems too.
+- scipy.optimize (for LP relaxation diagnostics only).
+- Any commercial ILP solver (Gurobi, CPLEX) if available.
+
+Quick implementation approaches
+- Direct ILP with pulp or OR-Tools (2 integer variables, trivial).
+- Simple integer search/enumeration over G ∈ [20,90] computing P_max(G) and selecting the best (fast and minimal code).
+
+Deliverables you can report
+- Optimal counts: either (G=89,P=274) or (G=90,P=273).
+- Total bottles: 363.
+- Water used: 250000 ml (for G=89,P=274) or 249750 ml (for G=90,P=273).
+- All constraints satisfied; G=89,P=274 uses all water exactly.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Data / parameters
+W = 250000  # total water in ml
+water_glass = 500
+water_plastic = 750
+
+# Decision variable bounds (tightened)
+G_min = 20
+G_max = 90  # from (250000 / 2750) floor as given
+
+best_T = -1
+best_solutions = []
+
+for G in range(G_min, G_max + 1):
+    remaining = W - water_glass * G
+    if remaining < 0:
+        continue
+    P_max = remaining // water_plastic  # floor
+    if P_max < 0:
+        continue
+    # Preference ratio constraint: P >= 3G
+    if P_max < 3 * G:
+        continue
+    T = G + P_max
+    water_used = water_glass * G + water_plastic * P_max
+    if T > best_T:
+        best_T = T
+        best_solutions = [(G, P_max, water_used)]
+    elif T == best_T:
+        best_solutions.append((G, P_max, water_used))
+
+# Choose a unique solution from best_solutions.
+# Prefer solution that uses all water exactly; if none, pick one with largest G.
+chosen = None
+for sol in best_solutions:
+    if sol[2] == W:
+        chosen = sol
+        break
+if chosen is None:
+    # pick solution with maximum G
+    chosen = max(best_solutions, key=lambda s: s[0])
+
+G_opt, P_opt, water_used_opt = chosen
+
+# Optional verification (asserts)
+assert G_opt >= G_min and isinstance(G_opt, int)
+assert P_opt >= 0 and isinstance(P_opt, int)
+assert water_glass * G_opt + water_plastic * P_opt <= W
+assert P_opt >= 3 * G_opt
+
+# Print chosen solution (optional)
+print(f"Chosen solution: G={G_opt}, P={P_opt}, water_used={water_used_opt}, total={best_T}")
+
+# Final required line (must be the last line in this exact format)
+print(f"FINAL_OBJ: {best_T}")
+```

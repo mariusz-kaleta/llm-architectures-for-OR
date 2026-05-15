@@ -1,0 +1,167 @@
+[MODELER]:
+Here is a clean mathematical formulation of the problem as a linear program.
+
+### Decision variables
+
+Let  
+- \(x\) = number of crab cake meals  
+- \(y\) = number of lobster roll meals  
+
+Assume \(x \ge 0, y \ge 0\) and real-valued (you can later enforce integrality if “whole meals only” is required).
+
+---
+
+### Objective: Minimize total unsaturated fat
+
+- Each crab cake has 4 units of unsaturated fat.  
+- Each lobster roll has 6 units of unsaturated fat.
+
+Minimize:
+\[
+\min \; Z = 4x + 6y
+\]
+
+---
+
+### Constraints
+
+#### 1. Vitamin A requirement (at least 80 units)
+
+Each crab cake: 5 units A  
+Each lobster roll: 8 units A
+
+\[
+5x + 8y \;\ge\; 80
+\]
+
+#### 2. Vitamin C requirement (at least 100 units)
+
+Each crab cake: 7 units C  
+Each lobster roll: 4 units C
+
+\[
+7x + 4y \;\ge\; 100
+\]
+
+#### 3. Lobster roll proportion (at most 40% of meals)
+
+“At most 40% of his meals should be lobster rolls” means:
+\[
+\frac{y}{x + y} \;\le\; 0.4, \quad \text{for } x + y > 0
+\]
+
+This can be rewritten as a linear inequality:
+\[
+y \le 0.4(x + y)
+\]
+\[
+y \le 0.4x + 0.4y
+\]
+\[
+y - 0.4y \le 0.4x
+\]
+\[
+0.6y \le 0.4x \quad \Rightarrow \quad 3y \le 2x
+\]
+
+So we add:
+\[
+3y \;\le\; 2x
+\]
+
+#### 4. Nonnegativity
+
+\[
+x \;\ge\; 0, \quad y \;\ge\; 0
+\]
+
+(Optionally, integer constraints: \(x, y \in \mathbb{Z}_{\ge 0}\).)
+
+---
+
+### Complete linear program
+
+\[
+\begin{aligned}
+\min \quad & 4x + 6y \\
+\text{s.t.} \quad 
+& 5x + 8y \;\ge\; 80, \\
+& 7x + 4y \;\ge\; 100, \\
+& 3y \;\le\; 2x, \\
+& x \;\ge\; 0,\; y \;\ge\; 0. 
+\end{aligned}
+\]
+
+---
+
+### Suitable Python libraries
+
+You can model and solve this optimization problem using:
+
+- **PuLP** — user-friendly for linear programming, integrates with CBC or other solvers.
+- **OR-Tools (Google)** — `ortools.linear_solver.pywraplp` for LP/MIP.
+- **SciPy** — `scipy.optimize.linprog` for continuous LP (no integer constraints).
+
+#### Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Sailor_Diet", pl.LpMinimize)
+
+# Decision variables (continuous, >= 0)
+x = pl.LpVariable('crab_cakes', lowBound=0)
+y = pl.LpVariable('lobster_rolls', lowBound=0)
+
+# Objective: minimize unsaturated fat
+prob += 4*x + 6*y
+
+# Constraints
+prob += 5*x + 8*y >= 80      # Vitamin A
+prob += 7*x + 4*y >= 100     # Vitamin C
+prob += 3*y <= 2*x           # At most 40% lobster
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Crab cakes (x):", x.value())
+print("Lobster rolls (y):", y.value())
+print("Min unsaturated fat:", pl.value(prob.objective))
+```
+
+You can switch `LpVariable` to `cat="Integer"` if you need integer meal counts.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the linear programming problem
+    prob = pl.LpProblem("Sailor_Diet", pl.LpMinimize)
+
+    # Decision variables: continuous and non-negative
+    x = pl.LpVariable('crab_cakes', lowBound=0)
+    y = pl.LpVariable('lobster_rolls', lowBound=0)
+
+    # Objective function: minimize total unsaturated fat
+    prob += 4 * x + 6 * y
+
+    # Constraints
+    prob += 5 * x + 8 * y >= 80   # Vitamin A requirement
+    prob += 7 * x + 4 * y >= 100  # Vitamin C requirement
+    prob += 3 * y <= 2 * x        # Lobster roll proportion constraint
+
+    # Solve the problem using CBC solver
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the optimal objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective value as required
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

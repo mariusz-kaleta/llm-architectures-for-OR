@@ -1,0 +1,120 @@
+[MODELER]:
+Model (integer linear program)
+
+Decision variables
+- F ∈ Z, F ≥ 5 : number of freight trips.
+- A ∈ Z, A ≥ 0 : number of air trips.
+
+Objective
+- Minimize total trips: minimize Z = F + A.
+
+Constraints
+1. Capacity (meet demand):
+   5F + 3A ≥ 200
+
+2. Budget:
+   300F + 550A ≤ 20,000
+
+3. Air share (at least 30% of tons by air):
+   3A ≥ 0.3(5F + 3A)  ⇔  7A ≥ 5F  (or 21A ≥ 15F)
+
+4. Freight minimum:
+   F ≥ 5
+
+5. Integrality and nonnegativity:
+   F, A integer, F ≥ 5, A ≥ 0
+
+Remarks
+- This is an integer linear program (ILP). The air-share constraint can be written as 7A − 5F ≥ 0.
+- All coefficients are integers, so use integer/MLP solver.
+
+Suggested Python libraries to solve
+- pulp (with CBC or GLPK): simple and pure-Python modeling + solver.
+- OR-Tools CP-SAT: fast, excellent for small ILPs.
+- Pyomo (with a solver such as CBC, GLPK, CPLEX, Gurobi).
+- For small problems you can also enumerate feasible F and compute minimal A.
+
+Quick analytic solution (small exhaustive search)
+- For each integer F ≥ 5 compute the minimum integer A that satisfies:
+    A ≥ ceil( (200 − 5F)/3 ), A ≥ ceil(5F/7 )
+  and check the budget upper bound A ≤ floor((20000 − 300F)/550).
+- The unique feasible pair with minimum total trips is:
+    F = 28 freight trips, A = 20 air trips.
+- This gives:
+    Total tons = 5·28 + 3·20 = 200 tons (meets demand exactly),
+    Cost = 300·28 + 550·20 = 19,400 ≤ 20,000,
+    Air tons = 3·20 = 60 = 30% of 200,
+    Total trips = 48 (minimal).
+
+Example (pulp) code sketch
+- Use pulp.LpProblem with integer variables F, A, set the constraints above, and solve with the default CBC solver.
+
+If you want, I can provide the full runnable pulp or OR-Tools code to solve and verify the result.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data
+DEMAND_TONS = 200
+CAP_F = 5    # tons per freight trip
+CAP_A = 3    # tons per air trip
+COST_F = 300
+COST_A = 550
+BUDGET = 20000
+
+# Search bounds for F (F >= 5). Upper bound from budget: floor(BUDGET / COST_F)
+F_min = 5
+F_max = BUDGET // COST_F  # integer division
+
+feasible_solutions = []
+
+for F in range(F_min, F_max + 1):
+    # capacity constraint: 5F + 3A >= 200  => A >= ceil((200 - 5F)/3)
+    capacity_need = 0
+    if CAP_F * F < DEMAND_TONS:
+        capacity_need = math.ceil((DEMAND_TONS - CAP_F * F) / CAP_A)
+    else:
+        capacity_need = 0
+
+    # air-share constraint: 7A >= 5F  => A >= ceil(5F / 7)
+    air_share_need = math.ceil((5 * F) / 7)
+
+    A_lb = max(0, capacity_need, air_share_need)
+
+    # budget: 300F + 550A <= 20000  => A <= floor((20000 - 300F) / 550)
+    remaining_budget = BUDGET - COST_F * F
+    if remaining_budget < 0:
+        continue
+    A_ub = remaining_budget // COST_A  # floor division
+
+    if A_lb <= A_ub:
+        A = A_lb
+        total_tons = CAP_F * F + CAP_A * A
+        total_cost = COST_F * F + COST_A * A
+        Z = F + A
+        feasible_solutions.append((Z, F, A, total_tons, total_cost))
+
+# Select best (minimum Z). If multiple, choose smallest F then smallest A.
+if not feasible_solutions:
+    best_solution = None
+else:
+    feasible_solutions.sort(key=lambda x: (x[0], x[1], x[2]))
+    best_solution = feasible_solutions[0]
+
+if best_solution is None:
+    # No feasible solution found
+    best_Z = None
+    # Print final line as required
+    print(f"FINAL_OBJ: {best_Z}")
+else:
+    best_Z, best_F, best_A, best_tons, best_cost = best_solution
+    # (Optional) print solution details (not required). Final required line must be last.
+    print(f"Best solution found: F = {best_F}, A = {best_A}")
+    print(f"Total tons = {best_tons}, Total cost = {best_cost}, Total trips = {best_Z}")
+    # Final line strictly as required
+    print(f"FINAL_OBJ: {best_Z}")
+```

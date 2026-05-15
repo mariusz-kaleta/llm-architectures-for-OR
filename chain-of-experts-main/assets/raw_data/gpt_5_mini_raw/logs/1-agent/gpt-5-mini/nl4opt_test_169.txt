@@ -1,0 +1,40 @@
+[MONOLITH]:
+import pulp
+
+# Data
+capacity_golf = 4
+capacity_pull = 1
+required_guests = 80
+max_fraction_golf = 0.6  # not used directly; converted to integer constraint below
+
+# Create problem
+prob = pulp.LpProblem("Cart_Minimization", pulp.LpMinimize)
+
+# Decision variables: number of golf carts (g) and pull carts (p)
+g = pulp.LpVariable("golf_carts", lowBound=0, cat='Integer')
+p = pulp.LpVariable("pull_carts", lowBound=0, cat='Integer')
+
+# Objective: minimize total number of carts
+prob += g + p, "Total_Carts"
+
+# Constraints:
+# 1) Capacity: 4*g + 1*p >= 80
+prob += capacity_golf * g + capacity_pull * p >= required_guests, "Capacity"
+
+# 2) At most 60% of carts can be golf carts.
+#    g <= 0.6*(g + p)  -> rearranged to integer coefficients: (2/5)g <= (3/5)p -> 2*g <= 3*p
+prob += 2 * g <= 3 * p, "Golf_Cart_Fraction"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract solution
+g_val = int(pulp.value(g))
+p_val = int(pulp.value(p))
+total = int(pulp.value(prob.objective))
+
+# Print results
+print(f"Golf carts: {g_val}")
+print(f"Pull carts: {p_val}")
+print(f"Total carts: {total}")
+print(f"FINAL_OBJ: {total}")

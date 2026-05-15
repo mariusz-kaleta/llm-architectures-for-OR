@@ -1,0 +1,209 @@
+[MODELER]:
+Here is a clean mathematical model of the problem and a way to solve it.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x\): number of orange juice boxes (OJs) to drink  
+- \(y\): number of apple juice boxes (AJs) to drink  
+
+Both must be nonnegative, and in reality integer:
+- \(x \ge 0,\; y \ge 0\)  
+- typically \(x, y \in \mathbb{Z}_{\ge 0}\)
+
+---
+
+## 2. Objective function
+
+Each box gives vitamin D as follows:
+- Orange: 10 units  
+- Apple: 12 units  
+
+Total vitamin D intake:
+\[
+\text{VitaminD} = 10x + 12y
+\]
+
+We want to **maximize** total vitamin D:
+\[
+\max\; Z = 10x + 12y
+\]
+
+---
+
+## 3. Constraints
+
+1. **Preference for apple juice**  
+   He must drink at least 3 times as many apple juice boxes as orange juice boxes:
+   \[
+   y \;\ge\; 3x
+   \]
+
+2. **Minimum orange juice boxes**  
+   He must drink at least 3 orange juice boxes:
+   \[
+   x \;\ge\; 3
+   \]
+
+3. **Vitamin C limit**  
+   Each box gives vitamin C:
+   - Orange: 8 units  
+   - Apple: 6 units  
+
+   Total vitamin C:
+   \[
+   8x + 6y
+   \]
+
+   Vitamin C must be at most 300 units:
+   \[
+   8x + 6y \;\le\; 300
+   \]
+
+4. **Nonnegativity**:
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+   (plus integer if we enforce integrality).
+
+---
+
+### Complete optimization model (linear program / integer linear program)
+
+\[
+\begin{aligned}
+\max\quad & 10x + 12y \\
+\text{s.t.}\quad 
+& y - 3x \;\ge\; 0 \\
+& x \;\ge\; 3 \\
+& 8x + 6y \;\le\; 300 \\
+& x, y \;\ge\; 0 \\
+& x, y \in \mathbb{Z} \quad (\text{if integer solution required})
+\end{aligned}
+\]
+
+---
+
+## 4. Solving the model (and the optimal solution)
+
+Because coefficients are all linear, this is a **linear programming (LP)** problem; with integer constraints, it’s an **integer linear program (ILP)**. The feasible region is small and integral anyway, so solving as a continuous LP will give integer solutions.
+
+To find the optimal solution analytically:
+
+- From apple-preference: \(y \ge 3x\)  
+- From vitamin C constraint: \(8x + 6y \le 300\)
+
+Substitute \(y = 3x\) into the vitamin C constraint (this will give the boundary where he just meets the preference as equality):
+
+\[
+8x + 6(3x) = 8x + 18x = 26x \le 300 \quad\Rightarrow\quad x \le \frac{300}{26} \approx 11.538
+\]
+
+Also must have \(x \ge 3\), so relevant range is \(3 \le x \le 11.538\).  
+The objective along \(y = 3x\) is:
+
+\[
+Z = 10x + 12(3x) = 10x + 36x = 46x
+\]
+
+This increases with \(x\), so we choose the largest feasible \(x\): \(x = 11.538\) (continuous) but we need integer boxes:
+
+Try \(x = 11\), then \(y \ge 33\).  
+Check vitamin C: \(8(11) + 6(33) = 88 + 198 = 286 \le 300\) → feasible.  
+Objective: \(Z = 10(11) + 12(33) = 110 + 396 = 506\).
+
+Try \(x = 12\):  
+- Then by preference, \(y \ge 36\).  
+- Check vitamin C: \(8(12) + 6(36) = 96 + 216 = 312 > 300\) → infeasible.
+
+So the best integer point respecting \(y \ge 3x\) and vitamin C limit is:
+
+\[
+x^* = 11,\quad y^* = 33,\quad Z^* = 506 \text{ units of vitamin D}
+\]
+
+Thus, the scientist should drink:
+- **11 boxes of orange juice**
+- **33 boxes of apple juice**
+to maximize vitamin D.
+
+---
+
+## 5. Suitable Python libraries
+
+You can model and solve this in Python with any standard LP/ILP library:
+
+- **PuLP**  
+  - User-friendly for small to medium LP/ILP problems.  
+  - Integrates with CBC, GLPK, and other solvers.
+- **OR-Tools (Google OR-Tools)**  
+  - Excellent for integer programming; CP-SAT solver is very powerful.  
+- **SciPy’s `scipy.optimize.linprog`**  
+  - Good for continuous LP (no integer constraints). For this problem, it would still work since the LP’s optimum is naturally integral.
+
+### Example using PuLP
+
+```python
+import pulp as pl
+
+# Create the problem
+prob = pl.LpProblem("Vitamin_D_Maximization", pl.LpMaximize)
+
+# Decision variables (integer)
+x = pl.LpVariable('orange', lowBound=3, cat='Integer')   # x >= 3
+y = pl.LpVariable('apple', lowBound=0, cat='Integer')
+
+# Objective
+prob += 10 * x + 12 * y
+
+# Constraints
+prob += y >= 3 * x               # apple preference
+prob += 8 * x + 6 * y <= 300     # vitamin C limit
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Orange boxes (x):", x.value())
+print("Apple boxes (y):", y.value())
+print("Max Vitamin D:", pl.value(prob.objective))
+```
+
+This will return:
+- Orange boxes: 11  
+- Apple boxes: 33  
+- Max Vitamin D: 506
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem: maximize Vitamin D
+    prob = pl.LpProblem("Vitamin_D_Maximization", pl.LpMaximize)
+
+    # Decision variables (integer, nonnegative; x has minimum 3)
+    x = pl.LpVariable('orange', lowBound=3, cat='Integer')  # x >= 3
+    y = pl.LpVariable('apple', lowBound=0, cat='Integer')   # y >= 0
+
+    # Objective function: 10x + 12y
+    prob += 10 * x + 12 * y
+
+    # Constraints
+    prob += y >= 3 * x                # Preference for apple juice
+    prob += 8 * x + 6 * y <= 300      # Vitamin C limit
+
+    # Solve the ILP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Retrieve final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print required final objective line
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

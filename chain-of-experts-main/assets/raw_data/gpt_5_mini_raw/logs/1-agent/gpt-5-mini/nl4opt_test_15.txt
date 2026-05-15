@@ -1,0 +1,42 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+total_patients = 320
+capacity_ambulance = 20   # patients per ambulance shift
+capacity_van = 15         # patients per van shift
+cost_ambulance = 820      # cost per ambulance shift
+cost_van = 550            # cost per van shift
+
+# Define problem
+prob = pulp.LpProblem("Hospital_Transport_MinCost", pulp.LpMinimize)
+
+# Decision variables: number of shifts (integer)
+A = pulp.LpVariable("Ambulance_Shifts", lowBound=0, cat="Integer")
+V = pulp.LpVariable("Van_Shifts", lowBound=0, cat="Integer")
+
+# Objective: minimize total cost
+prob += cost_ambulance * A + cost_van * V
+
+# Constraints
+prob += capacity_ambulance * A + capacity_van * V >= total_patients, "CapacityRequirement"
+# At most 60% of shifts can be vans: V <= 0.6*(A+V)  -> 2*V <= 3*A
+prob += 2 * V <= 3 * A, "VanPercentageLimit"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+# Extract solution
+ambulance_shifts = int(pulp.value(A))
+van_shifts = int(pulp.value(V))
+objective_value = pulp.value(prob.objective)
+final_obj = int(round(objective_value))
+
+# Print results
+print(f"Ambulance shifts (type II): {ambulance_shifts}")
+print(f"Hospital van shifts: {van_shifts}")
+print(f"Total patients capacity: {capacity_ambulance*ambulance_shifts + capacity_van*van_shifts}")
+print(f"Total cost: ${final_obj}")
+
+# Final required output line
+print(f"FINAL_OBJ: {final_obj}")

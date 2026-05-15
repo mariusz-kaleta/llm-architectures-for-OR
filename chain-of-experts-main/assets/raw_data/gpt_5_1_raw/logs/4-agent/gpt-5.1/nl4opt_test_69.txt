@@ -1,0 +1,242 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- Goal: **Minimise the total number of pipes** installed (wide + narrow), while ensuring sufficient water flow and respecting logistical ratios and minimum counts.
+
+---
+
+2. **Suggested model type**
+
+- Model: **Integer Linear Programming (ILP)**  
+  (All variables are naturally integer, representing counts of pipes.)
+
+---
+
+3. **Main decision variables**
+
+Define integer decision variables:
+
+- \( W \): Number of **wide pipes** to install.
+- \( N \): Number of **narrow pipes** to install.
+
+(If needed for implementation details, total number of pipes could be represented as an auxiliary variable \( T = W + N \), but that’s optional since the objective can be written directly in terms of \(W\) and \(N\).)
+
+---
+
+4. **Key constraints to consider**
+
+a) **Capacity / flow requirement**
+
+- Each wide pipe carries 25 units/min.
+- Each narrow pipe carries 15 units/min.
+- Need at least 900 units of water per minute.
+
+Constraint (conceptual):  
+- Total flow from wide + narrow pipes ≥ 900 units/min.
+
+b) **Logistical ratio of pipe types**
+
+- The number of wide pipes can be **at most a third** the number of narrow pipes.
+
+Constraint (conceptual):  
+- Wide pipes ≤ (1/3) × narrow pipes.  
+- This will be implemented in linear form relating \(W\) and \(N\).
+
+c) **Minimum number of wide pipes**
+
+- At least 5 wide pipes must be used.
+
+Constraint (conceptual):  
+- Wide pipes ≥ 5.
+
+d) **Non-negativity and integrality**
+
+- You cannot have negative or fractional pipes.
+
+Constraints (conceptual):  
+- Wide pipes ≥ 0, narrow pipes ≥ 0.  
+- Both variables are **integers**.
+
+---
+
+5. **Objective function**
+
+- Objective: **Minimise total number of pipes** used.
+
+Conceptual form:  
+- Minimise (wide pipes + narrow pipes).
+
+---
+
+6. **Modelling notes / simplifications**
+
+- There is no explicit maximum on the number of narrow pipes, so only the ratio and flow constraints implicitly bound it.
+- If the solver supports integer variables directly, enforce integrality on \(W\) and \(N\).
+- Feasibility will be driven by simultaneously satisfying:
+  - High enough total flow,
+  - Ratio restriction that limits wide pipes relative to narrow,
+  - Minimum number of wide pipes.
+
+---
+
+[MODELER]:
+Here is a clean mathematical formulation of the problem, followed by implementation suggestions.
+
+---
+
+## 1. Decision variables
+
+Let:
+
+- \(W \in \mathbb{Z}_{\ge 0}\): number of wide pipes to install  
+- \(N \in \mathbb{Z}_{\ge 0}\): number of narrow pipes to install  
+
+(Each variable must be an integer, since you can’t install fractional pipes.)
+
+---
+
+## 2. Objective
+
+Minimise the total number of pipes (wide + narrow):
+
+\[
+\min \; Z = W + N
+\]
+
+---
+
+## 3. Constraints
+
+### a) Flow (capacity) requirement
+
+Each wide pipe carries 25 units/min, each narrow pipe 15 units/min.  
+Total flow must be at least 900 units/min:
+
+\[
+25W + 15N \;\ge\; 900
+\]
+
+---
+
+### b) Logistical ratio: wide vs. narrow
+
+“The number of wide pipes can be at most a third the number of narrow pipes”:
+
+\[
+W \;\le\; \frac{1}{3} N
+\]
+
+To keep it linear with integer variables, multiply both sides by 3:
+
+\[
+3W \;\le\; N
+\]
+
+(Since \(W,N\) are integers, this is equivalent.)
+
+---
+
+### c) Minimum number of wide pipes
+
+At least 5 wide pipes must be used:
+
+\[
+W \;\ge\; 5
+\]
+
+---
+
+### d) Non-negativity and integrality
+
+\[
+W, N \in \mathbb{Z}_{\ge 0}
+\]
+
+Integrality is essential because these represent counts of pipes.
+
+---
+
+## 4. Complete ILP model
+
+\[
+\begin{aligned}
+\min\quad   & Z = W + N \\
+\text{s.t.}\quad
+            & 25W + 15N \;\ge\; 900 \quad &&\text{(flow requirement)}\\
+            & 3W \;\le\; N \quad &&\text{(wide at most a third of narrow)}\\
+            & W \;\ge\; 5 \quad &&\text{(at least 5 wide pipes)}\\
+            & W, N \in \mathbb{Z}_{\ge 0} \quad &&\text{(integrality, non-negative)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+Because this is a small Integer Linear Programming (ILP) problem, many libraries can solve it easily:
+
+- **PuLP**  
+  - User-friendly modeling interface.  
+  - Works with CBC (default), GLPK, CPLEX, Gurobi, etc.  
+  - Good for teaching and quick prototyping.
+
+- **OR-Tools (Google OR-Tools)**  
+  - Very fast and robust MILP/CP-SAT solvers.  
+  - Excellent for integer and combinatorial optimisation.
+
+- **Pyomo**  
+  - More general modeling framework, supports many solver backends.  
+  - Good if you plan to scale to larger, more complex models.
+
+- **scipy.optimize** is *not* ideal here because it does not natively support integer variables; you would need integer-specific solvers (MILP), which PuLP or OR-Tools provide directly.
+
+### Example library choice
+
+For a straightforward implementation:
+
+- Use **PuLP** if you want a simple linear programming style:
+  - Define `LpVariable('W', lowBound=0, cat='Integer')`
+  - Add the constraints as shown.
+- Or use **OR-Tools CP-SAT**:
+  - Create `IntVar` for `W` and `N`
+  - Add linear constraints and minimize `W + N`.
+
+Either library will solve this ILP extremely quickly.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem: minimization
+    prob = pl.LpProblem("Pipe_Installation_Problem", pl.LpMinimize)
+
+    # Decision variables: W = wide pipes, N = narrow pipes
+    W = pl.LpVariable('W', lowBound=0, cat='Integer')
+    N = pl.LpVariable('N', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of pipes
+    prob += W + N
+
+    # Constraints
+    # Flow requirement: 25W + 15N >= 900
+    prob += 25 * W + 15 * N >= 900, "Flow_Requirement"
+
+    # Logistical ratio: 3W <= N
+    prob += 3 * W <= N, "Wide_vs_Narrow_Ratio"
+
+    # Minimum number of wide pipes: W >= 5
+    prob += W >= 5, "Min_Wide_Pipes"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    value = pl.value(prob.objective)
+
+    # Print FINAL_OBJ line
+    print(f"FINAL_OBJ: {value}")
+
+if __name__ == "__main__":
+    main()

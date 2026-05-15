@@ -1,0 +1,49 @@
+[MONOLITH]:
+import pulp
+
+# Data from the problem
+avail_regular = 80.0   # kg of regular candy available
+avail_sour = 60.0      # kg of sour candy available
+
+# Mix composition (kg of ingredient per kg of product)
+# regular mix: 0.8 kg regular, 0.2 kg sour
+# sour surprise: 0.1 kg regular, 0.9 kg sour
+a_reg_regular = 0.8
+a_sour_regular = 0.2
+
+a_reg_sour = 0.1
+a_sour_sour = 0.9
+
+# Profits per kg
+profit_regular = 3.0
+profit_sour = 5.0
+
+# Define LP
+prob = pulp.LpProblem("Candy_Mix_Profit_Max", pulp.LpMaximize)
+
+# Decision variables: kilograms of each mix
+x = pulp.LpVariable("regular_mix_kg", lowBound=0, cat='Continuous')      # regular mix
+y = pulp.LpVariable("sour_surprise_kg", lowBound=0, cat='Continuous')     # sour surprise mix
+
+# Objective: maximize profit
+prob += profit_regular * x + profit_sour * y
+
+# Constraints: ingredient availability
+prob += a_reg_regular * x + a_reg_sour * y <= avail_regular, "Regular_Candy_Availability"
+prob += a_sour_regular * x + a_sour_sour * y <= avail_sour, "Sour_Candy_Availability"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve results
+x_val = x.varValue if x.varValue is not None else 0.0
+y_val = y.varValue if y.varValue is not None else 0.0
+obj_val = pulp.value(prob.objective)
+
+# Print solution
+print(f"Kilograms of regular mix (x): {x_val}")
+print(f"Kilograms of sour surprise mix (y): {y_val}")
+print(f"Maximum profit: {obj_val}")
+
+# Final required print format
+print(f"FINAL_OBJ: {obj_val}")

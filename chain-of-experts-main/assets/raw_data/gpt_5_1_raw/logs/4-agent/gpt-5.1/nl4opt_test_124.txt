@@ -1,0 +1,249 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total number of drills used per day while meeting gem-processing requirements and respecting water and composition constraints.
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP).  
+Reason: Number of drills must be integer and constraints/objective are linear.
+
+3. Main decision variables  
+Define decision variables at the “number of drills of each type” level, not per individual drill:
+
+- Let:
+  - HighDrills = number of high intensity drills used per day (integer ≥ 0)
+  - LowDrills  = number of low intensity drills used per day (integer ≥ 0)
+
+(Equivalently, you could name them x_H and x_L.)
+
+4. Key constraints to consider  
+
+a) Gem processing requirement (capacity constraint)  
+- Each high intensity drill processes 50 gems/day.  
+- Each low intensity drill processes 30 gems/day.  
+- The factory must process at least 800 gems per day.  
+→ Constraint: Total gems processed by all high + low drills must be ≥ 800.
+
+b) Water availability constraint  
+- Each high intensity drill uses 50 units of water/day.  
+- Each low intensity drill uses 20 units of water/day.  
+- The factory has at most 700 units of water available per day.  
+→ Constraint: Total water used by all drills must be ≤ 700.
+
+c) Composition constraint: share of high intensity drills  
+- “At most 40% of the drills can be high intensity ones.”  
+- This is a ratio constraint: HighDrills ≤ 0.4 × (HighDrills + LowDrills).  
+→ Model this as a linear inequality by moving terms to one side; no need for extra variables.
+
+d) Minimum number of low intensity drills  
+- “At least 10 should be low intensity drills.”  
+→ LowDrills ≥ 10.
+
+e) Non-negativity and integrality  
+- HighDrills, LowDrills ≥ 0.  
+- Both must be integers (since you can’t use fractional drills).
+
+5. Objective function  
+- Minimise total number of drills: HighDrills + LowDrills.
+
+6. Modelling strategy / notes for the Modeller  
+
+- Formulate all constraints linearly in terms of HighDrills and LowDrills.  
+- Treat the “at most 40% high intensity” condition carefully as a linear inequality involving both variables.  
+- Enforce integrality on both decision variables; this is a 2-variable ILP and will be straightforward to solve exactly.  
+- After solving, verify:
+  - Gem capacity ≥ 800.  
+  - Water use ≤ 700.  
+  - Ratio of high drills ≤ 40%.  
+  - LowDrills ≥ 10.  
+
+No additional variables or binary indicators are strictly necessary for this problem.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by solver suggestions.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(H \in \mathbb{Z}_{\ge 0}\): number of high-intensity drills used per day  
+- \(L \in \mathbb{Z}_{\ge 0}\): number of low-intensity drills used per day  
+
+Both must be integers.
+
+---
+
+## 2. Objective
+
+Minimise the total number of drills used:
+
+\[
+\min \; Z = H + L
+\]
+
+---
+
+## 3. Constraints
+
+### a) Gem-processing requirement
+
+Each high drill: 50 gems/day  
+Each low drill: 30 gems/day  
+
+Must process **at least** 800 gems per day:
+
+\[
+50H + 30L \;\ge\; 800
+\]
+
+---
+
+### b) Water availability
+
+Each high drill: 50 water units/day  
+Each low drill: 20 water units/day  
+
+Available water: **at most** 700 units/day:
+
+\[
+50H + 20L \;\le\; 700
+\]
+
+---
+
+### c) Composition: at most 40% high-intensity drills
+
+“At most 40% of the drills can be high intensity”:
+
+\[
+\frac{H}{H + L} \;\le\; 0.4
+\quad\text{for } H + L > 0
+\]
+
+Linearise by multiplying both sides by \(H + L\):
+
+\[
+H \;\le\; 0.4(H + L)
+\]
+
+\[
+H \;\le\; 0.4H + 0.4L
+\]
+
+\[
+H - 0.4H \;\le\; 0.4L
+\]
+
+\[
+0.6H \;\le\; 0.4L
+\]
+
+Multiply by 5 to clear decimals:
+
+\[
+3H \;\le\; 2L
+\]
+
+This is a linear constraint.
+
+*(If you want to be fully rigorous about the case \(H+L = 0\): the objective minimises \(H+L\) and the gem constraint forces some positive number of drills, so the optimal solution will have \(H+L>0\) anyway.)*
+
+---
+
+### d) Minimum number of low-intensity drills
+
+“At least 10 should be low intensity drills”:
+
+\[
+L \;\ge\; 10
+\]
+
+---
+
+### e) Non-negativity and integrality
+
+\[
+H \in \mathbb{Z}_{\ge 0},\quad L \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Full ILP model
+
+\[
+\begin{aligned}
+\min \quad & H + L \\
+\text{s.t.} \quad
+& 50H + 30L \;\ge\; 800 &\text{(gems)}\\
+& 50H + 20L \;\le\; 700 &\text{(water)}\\
+& 3H \;\le\; 2L &\text{(≤ 40% high drills)}\\
+& L \;\ge\; 10 &\text{(min low drills)}\\
+& H, L \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard MILP (mixed-integer linear programming) / ILP library is appropriate:
+
+- **PuLP**  
+  - Very simple high-level modeling; can use CBC (open-source), GLPK, or commercial solvers.
+  - Good for small ILPs like this.
+
+- **OR-Tools (Google OR-Tools, `ortools.linear_solver`)**  
+  - Efficient and well-maintained; supports integer variables, multiple solvers.
+
+- **Pyomo**  
+  - More general modeling environment, good if you plan to expand the model later.
+
+- **cvxpy** with a MILP-capable backend (e.g., GLPK_MI, CBC, Gurobi, CPLEX)  
+  - Nice high-level interface, but MILP support depends on the chosen solver.
+
+For this specific two-variable ILP, **PuLP** or **OR-Tools** is more than sufficient and straightforward.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: minimization
+    prob = pulp.LpProblem("Drill_Optimization", pulp.LpMinimize)
+
+    # Decision variables: non-negative integers
+    H = pulp.LpVariable("H", lowBound=0, cat="Integer")
+    L = pulp.LpVariable("L", lowBound=0, cat="Integer")
+
+    # Objective: minimize total number of drills
+    prob += H + L
+
+    # Constraints
+
+    # Gem-processing requirement: 50H + 30L >= 800
+    prob += 50 * H + 30 * L >= 800, "GemRequirement"
+
+    # Water availability: 50H + 20L <= 700
+    prob += 50 * H + 20 * L <= 700, "WaterConstraint"
+
+    # Composition: at most 40% high-intensity drills -> 3H <= 2L
+    prob += 3 * H <= 2 * L, "HighDrillShare"
+
+    # Minimum low-intensity drills: L >= 10
+    prob += L >= 10, "MinLowDrills"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print the final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

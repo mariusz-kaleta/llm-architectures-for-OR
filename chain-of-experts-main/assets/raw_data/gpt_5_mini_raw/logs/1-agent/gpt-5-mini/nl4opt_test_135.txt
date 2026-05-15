@@ -1,0 +1,72 @@
+[MONOLITH]:
+```python
+import math
+
+# Problem data
+hours_needed = 300
+seasonal_hours = 6
+seasonal_pay = 120
+perm_hours = 10
+perm_pay = 250
+budget = 6500
+
+# Search feasible integer solutions
+best_solution = None  # tuple (total_workers, seasonal, permanent)
+# Upper bound for permanent workers from budget
+max_perm_by_budget = budget // perm_pay
+# Also cannot exceed hours-only upper bound (if only permanents)
+max_perm_by_hours = math.ceil(hours_needed / perm_hours)
+max_perm = max(max_perm_by_budget, max_perm_by_hours)  # loop a bit beyond to be safe
+max_perm = min(max_perm, 1000)  # safe cap
+
+for p in range(0, max_perm_by_budget + 1):
+    # minimal seasonal workers required to meet hours
+    remaining_hours = hours_needed - perm_hours * p
+    if remaining_hours <= 0:
+        s_min = 0
+    else:
+        s_min = math.ceil(remaining_hours / seasonal_hours)
+    # maximal seasonal workers allowed by budget
+    remaining_budget_for_seasonal = budget - perm_pay * p
+    if remaining_budget_for_seasonal < 0:
+        continue
+    s_max = remaining_budget_for_seasonal // seasonal_pay
+    if s_min <= s_max:
+        s = s_min
+        total_workers = s + p
+        if best_solution is None or total_workers < best_solution[0]:
+            best_solution = (total_workers, s, p)
+
+# If no solution found (should not happen), try search broader
+if best_solution is None:
+    for p in range(0, 1001):
+        remaining_hours = hours_needed - perm_hours * p
+        if remaining_hours <= 0:
+            s_min = 0
+        else:
+            s_min = math.ceil(remaining_hours / seasonal_hours)
+        remaining_budget_for_seasonal = budget - perm_pay * p
+        if remaining_budget_for_seasonal < 0:
+            continue
+        s_max = remaining_budget_for_seasonal // seasonal_pay
+        if s_min <= s_max:
+            s = s_min
+            total_workers = s + p
+            if best_solution is None or total_workers < best_solution[0]:
+                best_solution = (total_workers, s, p)
+
+if best_solution is None:
+    print("No feasible solution found.")
+else:
+    total_workers, seasonal_count, perm_count = best_solution
+    total_hours = seasonal_count * seasonal_hours + perm_count * perm_hours
+    total_cost = seasonal_count * seasonal_pay + perm_count * perm_pay
+    print(f"Seasonal workers: {seasonal_count}")
+    print(f"Permanent workers: {perm_count}")
+    print(f"Total workers (objective): {total_workers}")
+    print(f"Total hours provided: {total_hours}")
+    print(f"Total cost: ${total_cost}")
+
+# Final required print (must be last)
+print(f"FINAL_OBJ: {total_workers}")
+```

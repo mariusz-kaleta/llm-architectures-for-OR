@@ -1,0 +1,232 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Minimise the total number of grills purchased (gas + electric) while meeting production and resource limits and the taste preference rule.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with integer (non‑negative) decision variables.  
+   - Because the number of grills must be whole, treat it as an Integer Linear Program (ILP), but the structure is simple enough to analyse as an LP then restrict to integers.
+
+3. Main decision variables  
+   Define non‑negative integer variables:
+   - G = number of gas grills to buy  
+   - E = number of electric grills to buy  
+
+4. Key constraints to consider  
+
+   a) Production capacity (patties per minute)  
+   - Each gas grill: 20 patties/min  
+   - Each electric grill: 30 patties/min  
+   - Requirement: at least 150 patties/min  
+   - Formulate a constraint that total patties per minute from all grills is ≥ 150.
+
+   b) Cooking oil usage (units per minute)  
+   - Each gas grill: 20 units oil/min  
+   - Each electric grill: 25 units oil/min  
+   - Requirement: at most 140 units oil/min  
+   - Formulate a constraint that total oil used per minute by all grills is ≤ 140.
+
+   c) Taste preference (more gas grills than electric grills)  
+   - “The number of electric grills must be less than the number of gas grills.”  
+   - Model this as a strict inequality converted into an appropriate integer constraint (e.g., E ≤ G − 1, or equivalently E + 1 ≤ G, using integers).
+
+   d) Non‑negativity and integrality  
+   - G ≥ 0, E ≥ 0  
+   - G and E must be integers (counts of grills).
+
+5. Objective function structure (for the Modeller’s reference)  
+   - Objective: Minimise total grills = G + E.
+
+6. Modelling/solution strategy notes for the Modeller  
+   - Work in two dimensions (G, E); the feasible region will be a polygon cut by:
+     - a production lower bound line,
+     - an oil upper bound line,
+     - and the “E strictly less than G” line.  
+   - Because the problem is small, you can:
+     - First solve the LP relaxation (allowing real values for G and E) to locate the optimal corner point.  
+     - Then search over nearby integer points that satisfy E < G.  
+   - Verify that the chosen (G, E) satisfies all three main constraints (production, oil, and taste) and then compute G + E to confirm minimality.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, plus how you would implement/solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(G \in \mathbb{Z}_{\ge 0}\): number of gas grills to buy  
+- \(E \in \mathbb{Z}_{\ge 0}\): number of electric grills to buy  
+
+Both must be non‑negative integers.
+
+---
+
+## 2. Objective
+
+Minimise the total number of grills:
+
+\[
+\min \; Z = G + E
+\]
+
+---
+
+## 3. Constraints
+
+### a) Production capacity (patties per minute)
+
+A gas grill cooks 20 patties/min, electric 30 patties/min.  
+We need at least 150 patties/min:
+
+\[
+20G + 30E \;\ge\; 150
+\]
+
+---
+
+### b) Cooking oil usage (units per minute)
+
+Gas uses 20 units/min, electric 25 units/min.  
+We must use at most 140 units/min:
+
+\[
+20G + 25E \;\le\; 140
+\]
+
+---
+
+### c) Taste preference (more gas grills than electric grills)
+
+Number of electric grills must be strictly less than number of gas grills:
+
+\[
+E < G
+\]
+
+Because \(G\) and \(E\) are integers, we can rewrite the strict inequality as:
+
+\[
+E \le G - 1
+\]
+
+Equivalently:
+
+\[
+E + 1 \le G
+\]
+
+This is linear and integer‑compatible.
+
+---
+
+### d) Non‑negativity and integrality
+
+\[
+G \ge 0,\quad E \ge 0,\quad G, E \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete ILP formulation
+
+\[
+\begin{aligned}
+\min \quad & Z = G + E \\
+\text{s.t.} \quad
+& 20G + 30E \;\ge\; 150 &\quad&\text{(production)}\\
+& 20G + 25E \;\le\; 140 &\quad&\text{(oil usage)}\\
+& E + 1 \;\le\; G         &\quad&\text{(more gas than electric)}\\
+& G, E \in \mathbb{Z}_{\ge 0} &\quad&\text{(integrality, non‑negativity)}
+\end{aligned}
+\]
+
+This is an Integer Linear Program (ILP) with 2 variables and 3 linear constraints plus bounds.
+
+---
+
+## 5. Suitable Python libraries
+
+All of the following can model and solve this:
+
+- **PuLP** (`pulp`)
+  - Simple syntax, comes with CBC solver bundled.
+  - Very suitable for teaching and small ILPs like this.
+
+- **OR‑Tools Linear Solver** (`ortools.linear_solver`)
+  - From Google; interfaces to CBC, SCIP, GLOP, etc.
+  - Good for larger/production optimisation models.
+
+- **Pyomo**
+  - More general algebraic modelling language in Python.
+  - Overkill for this small problem, but powerful for larger systems.
+
+Given the problem size and didactic nature, **PuLP** or **OR‑Tools** are the most straightforward choices.
+
+---
+
+## 6. Example model in PuLP
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Burger_Grill_Planning", pl.LpMinimize)
+
+# Decision variables (non-negative integers)
+G = pl.LpVariable("Gas_Grills", lowBound=0, cat="Integer")
+E = pl.LpVariable("Electric_Grills", lowBound=0, cat="Integer")
+
+# Objective: minimize total number of grills
+prob += G + E, "Total_Grills"
+
+# Constraints
+prob += 20*G + 30*E >= 150, "Production"
+prob += 20*G + 25*E <= 140, "Oil_Usage"
+prob += E + 1 <= G,          "Taste_Preference"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal G (gas grills):", pl.value(G))
+print("Optimal E (electric grills):", pl.value(E))
+print("Minimum total grills:", pl.value(G + E))
+```
+
+Running this will give you the optimal pair \((G, E)\) that satisfies all constraints and minimises the number of grills.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Burger_Grill_Planning", pl.LpMinimize)
+
+    # Decision variables (non-negative integers)
+    G = pl.LpVariable("Gas_Grills", lowBound=0, cat="Integer")
+    E = pl.LpVariable("Electric_Grills", lowBound=0, cat="Integer")
+
+    # Objective: minimize total number of grills
+    prob += G + E, "Total_Grills"
+
+    # Constraints
+    prob += 20 * G + 30 * E >= 150, "Production"
+    prob += 20 * G + 25 * E <= 140, "Oil_Usage"
+    prob += E + 1 <= G, "Taste_Preference"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(G + E)
+
+    # Print final objective in the required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

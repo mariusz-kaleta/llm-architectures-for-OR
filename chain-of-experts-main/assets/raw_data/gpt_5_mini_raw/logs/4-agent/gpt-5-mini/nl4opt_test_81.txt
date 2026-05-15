@@ -1,0 +1,222 @@
+[PLANNER]:
+1) Key optimisation goal
+- Maximise the total amount of hay processed (kilograms) across the 200 acres by choosing how many acres to use the windrower and how many to use the hay harvester.
+
+2) Suggested model type
+- Linear Programming (continuous variables). The objective and all constraints are linear in acres allocated to each machine. Solve with an LP solver (simplex or any standard LP package). Optionally solve analytically by checking corner (binding-constraint) points.
+
+3) Main decision variables (define units)
+- Acres allocated to the windrower (acres).
+- Acres allocated to the hay harvester (acres).
+
+4) Key constraints to include (described verbally)
+- Land availability: The sum of acres assigned to both machines cannot exceed the 200 acres available.
+- Fuel availability: Total fuel consumed (windrower fuel rate × windrower acres plus harvester fuel rate × harvester acres) cannot exceed 300 kg available.
+- Methane cap: Total methane produced (windrower methane rate × windrower acres plus harvester methane rate × harvester acres) cannot exceed 800 kg allowed.
+- Nonnegativity and bounds: Acres allocated to each machine must be nonnegative; each variable cannot exceed 200 acres (implicit from land availability).
+- Variable type decision: Treat acres as continuous (fractions of an acre allowed). If model must use whole-acre allocations, add integrality constraints (makes it an integer LP).
+
+Additional modelling notes and suggestions
+- Objective in words: Maximise total hay = (windrower hay per acre × windrower acres) + (harvester hay per acre × harvester acres).
+- Coefficients to use: windrower: 10 kg hay/acre, 5 kg methane/acre, 2 kg fuel/acre; harvester: 8 kg hay/acre, 3 kg methane/acre, 1 kg fuel/acre.
+- Solution approach: solve the LP with a solver or analytically evaluate corner points where two (or more) constraints are active; the optimal solution will be at a vertex of the feasible region.
+- Post-solution checks: verify which constraints are binding, report shadow prices (dual values) for fuel, methane and land constraints, and perform sensitivity analysis for changes in available fuel and methane cap.
+- Deliverables for the modeller: optimal acres per machine, total hay processed, which constraints bind, and sensitivity ranges for fuel and methane availability.
+
+Optional quick verification hint
+- Given the parameters, the feasible region and objective are simple; check the intersection points where land, fuel and methane constraints bind to identify the maximizing allocation.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- x = acres assigned to the windrower (acres), x >= 0 (continuous)
+- y = acres assigned to the hay harvester (acres), y >= 0 (continuous)
+
+Objective
+Maximise total hay (kg):
+Maximise Z = 10x + 8y
+
+Constraints
+1. Land availability (200 acres):
+x + y <= 200
+
+2. Fuel availability (300 kg):
+2x + 1y <= 300
+
+3. Methane cap (800 kg):
+5x + 3y <= 800
+
+4. Nonnegativity:
+x >= 0, y >= 0
+
+(If integer acres are required, add x, y integer — this converts to an integer LP.)
+
+Solution (analytic)
+Evaluate the feasible corner points of the polygon defined by the constraints. The three linear constraints intersect at one point:
+
+Solve
+x + y = 200
+2x + y = 300
+5x + 3y = 800
+
+All three intersect at x = 100, y = 100.
+
+Objective values at relevant vertices:
+- (x,y) = (0,200) => Z = 8*200 = 1600
+- (x,y) = (150,0) => Z = 10*150 = 1500
+- (x,y) = (100,100) => Z = 10*100 + 8*100 = 1800
+
+Optimal solution: x* = 100 acres (windrower), y* = 100 acres (harvester). Maximum hay = 1800 kg.
+
+Constraint usage at optimum
+- Land: x + y = 200 (binding)
+- Fuel: 2x + y = 300 (binding)
+- Methane: 5x + 3y = 800 (binding)
+All three constraints are active (all resources fully used).
+
+Dual / shadow-price remarks
+The dual problem has three nonnegative multipliers (u1 for land, u2 for fuel, u3 for methane) satisfying:
+u1 + 2u2 + 5u3 = 10
+u1 + 1u2 + 3u3 = 8
+
+Subtracting gives u2 + 2u3 = 2, so u2 = 2 - 2u3 and u1 = 6 - u3.
+Because u2, u3 >= 0, u3 ∈ [0,1]. Consequently the shadow prices are not unique (degeneracy) but lie in ranges:
+- u1 (land) ∈ [5, 6] (kg hay per extra acre)
+- u2 (fuel) ∈ [0, 2] (kg hay per extra kg fuel)
+- u3 (methane) ∈ [0, 1] (kg hay per extra kg methane)
+
+For a concrete interpretation, one valid dual solution is u1 = 6, u2 = 2, u3 = 0: then each extra acre would allow +6 kg hay (if methane/fuel unchanged), and each extra kg of fuel would allow +2 kg hay. But because of degeneracy, these marginal values are not unique without further tie-breaking.
+
+Suggested solver libraries (Python)
+- pulp (pure Python LP modelling + CBC solver)
+- scipy.optimize.linprog (simplex/interior-point for continuous LPs)
+- ortools.linear_solver (Google OR-Tools, supports CBC/GLPK/Gurobi backends)
+- cvxpy (convex modelling; can call commercial solvers)
+- If available and licensed: Gurobi or CPLEX for fast commercial solvers
+
+How to implement quickly
+- Use any of the above libraries to set variables x,y, add the three linear constraints, set objective 10x+8y, and solve. The LP is small and will solve instantly.
+
+Deliverables you can report
+- Optimal acres: windrower 100, harvester 100
+- Maximum hay processed: 1800 kg
+- Binding constraints: land, fuel, methane (all binding)
+- Shadow-price ranges as above; pick a representative dual vector (e.g., u1=6,u2=2,u3=0) to report marginal values if a single number per resource is required
+- Optional sensitivity: small increases in fuel, methane or land increase maximum hay approximately by the corresponding shadow price (within the ranges given) until a basis change occurs.
+
+If you want, I can also:
+- Provide a short Python script (pulp / linprog / ortools) that solves this LP and prints optimal values and duals, or
+- Compute how much objective improves per extra unit of fuel/methane/land for a specific dual choice.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import numpy as np
+
+# Define constraint lines in form a*x + b*y = c
+# Constraints:
+# 1) x + y <= 200    -> L1: 1*x + 1*y = 200
+# 2) 2x + y <= 300   -> L2: 2*x + 1*y = 300
+# 3) 5x + 3y <= 800  -> L3: 5*x + 3*y = 800
+# plus nonnegativity boundaries x=0 and y=0 as lines
+lines = [
+    (1.0, 1.0, 200.0),   # L1
+    (2.0, 1.0, 300.0),   # L2
+    (5.0, 3.0, 800.0),   # L3
+    (1.0, 0.0, 0.0),     # x = 0
+    (0.0, 1.0, 0.0)      # y = 0
+]
+
+# Tolerance for numerical comparisons
+tol = 1e-9
+
+# Compute all pairwise intersections
+points = []
+n = len(lines)
+for i in range(n):
+    a1, b1, c1 = lines[i]
+    for j in range(i+1, n):
+        a2, b2, c2 = lines[j]
+        A = np.array([[a1, b1], [a2, b2]], dtype=float)
+        det = np.linalg.det(A)
+        if abs(det) < 1e-12:
+            # Lines are parallel or nearly so; skip
+            continue
+        C = np.array([c1, c2], dtype=float)
+        sol = np.linalg.solve(A, C)
+        x, y = float(sol[0]), float(sol[1])
+        # Clean near-zero values
+        if abs(x) < 1e-12:
+            x = 0.0
+        if abs(y) < 1e-12:
+            y = 0.0
+        points.append((x, y))
+
+# Also include the origin explicitly (intersection of x=0 and y=0)
+points.append((0.0, 0.0))
+
+# Remove duplicates (within tolerance)
+unique_points = []
+for p in points:
+    x, y = p
+    found = False
+    for q in unique_points:
+        if abs(x - q[0]) < 1e-8 and abs(y - q[1]) < 1e-8:
+            found = True
+            break
+    if not found:
+        unique_points.append((x, y))
+
+# Feasible region constraints (inequalities)
+def feasible(pt):
+    x, y = pt
+    if x < -tol or y < -tol:
+        return False
+    if x + y - 200.0 > tol:
+        return False
+    if 2.0*x + 1.0*y - 300.0 > tol:
+        return False
+    if 5.0*x + 3.0*y - 800.0 > tol:
+        return False
+    return True
+
+feasible_points = [p for p in unique_points if feasible(p)]
+
+# Evaluate objective Z = 10x + 8y
+def objective(pt):
+    x, y = pt
+    return 10.0*x + 8.0*y
+
+best_pt = None
+best_obj = -1e100
+for p in feasible_points:
+    z = objective(p)
+    if z > best_obj + 1e-9:
+        best_obj = z
+        best_pt = p
+
+# As a fallback (in case of numerical issues), check corners formed by bounding each constraint at axes
+# (This is redundant here but ensures robustness)
+extra_candidates = [
+    (0.0, 200.0),  # land boundary with x=0
+    (150.0, 0.0),  # fuel boundary with y=0 (2x+y=300 -> x=150)
+]
+for p in extra_candidates:
+    if feasible(p):
+        z = objective(p)
+        if z > best_obj + 1e-9:
+            best_obj = z
+            best_pt = p
+
+# Post-process best_obj to print clean integer if very close
+if abs(best_obj - round(best_obj)) < 1e-8:
+    best_obj = int(round(best_obj))
+
+# Final required print line (must be the very last printed line)
+print(f"FINAL_OBJ: {best_obj}")
+```

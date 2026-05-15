@@ -1,0 +1,39 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+total_money = 600_000.0
+max_apartments = 200_000.0
+rate_apartments = 0.10
+rate_townhouses = 0.15
+
+# Define LP problem: maximize profit
+prob = pulp.LpProblem("RealEstateInvestment", pulp.LpMaximize)
+
+# Decision variables: amount invested in apartments (A) and townhouses (T)
+A = pulp.LpVariable("Apartments", lowBound=0, cat="Continuous")
+T = pulp.LpVariable("Townhouses", lowBound=0, cat="Continuous")
+
+# Objective: maximize profit
+prob += rate_apartments * A + rate_townhouses * T
+
+# Constraints
+prob += A + T == total_money, "TotalInvestment"
+prob += A <= max_apartments, "MaxApartments"
+prob += A >= 0.5 * T, "ApartmentAtLeastHalfOfTownhouse"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract results
+A_val = pulp.value(A)
+T_val = pulp.value(T)
+obj_val = pulp.value(prob.objective)
+
+# Print solution details (optional)
+print(f"Apartments: {A_val:.2f}")
+print(f"Townhouses: {T_val:.2f}")
+
+# Final required output (must be the last line)
+print(f"FINAL_OBJ: {obj_val:.2f}")

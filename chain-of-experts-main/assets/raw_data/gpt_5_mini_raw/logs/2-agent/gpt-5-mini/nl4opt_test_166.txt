@@ -1,0 +1,84 @@
+[MODELER]:
+Model
+
+Decision variables
+- T ∈ Z_{\ge 0}: number of taxi rides.
+- C ∈ Z_{\ge 0}: number of company car rides.
+
+Objective
+- Minimize T (the number of taxi rides).
+
+Constraints
+1. Capacity: 2T + 3C ≥ 500 (each taxi carries 2, each car 3).
+2. Company‑car share: C ≤ 0.6 (T + C). This is linearizable as 0.4 C ≤ 0.6 T, or equivalently 2 C ≤ 3 T.
+3. Minimum cars: C ≥ 30.
+4. Integrality/nonnegativity: T, C integers ≥ 0.
+
+Mathematical formulation
+minimize T
+subject to
+  2T + 3C ≥ 500
+  2C ≤ 3T
+  C ≥ 30
+  T, C ∈ Z_{\ge 0}
+
+Solution reasoning (analytic)
+- From the share constraint 2C ≤ 3T we get C ≤ 1.5 T. To minimize T we want to use as many company cars as allowed, so take C as large as possible relative to T.
+- Substitute C = 1.5 T into the capacity constraint (to get a lower bound on T):
+    2T + 3(1.5T) = 2T + 4.5T = 6.5T ≥ 500 ⇒ T ≥ 500/6.5 ≈ 76.923.
+  Because T must be integer, test T = 77: then max C = ⌊1.5·77⌋ = 115 gives capacity 2·77 + 3·115 = 499 < 500 (not enough).
+- Next integer T = 78: max C = ⌊1.5·78⌋ = 117 gives capacity 2·78 + 3·117 = 507 ≥ 500, and C ≥ 30 is satisfied. The minimum C required for T=78 is ceil((500−2·78)/3) = ceil(344/3) = 115, so feasible C values are 115, 116 or 117.
+- Therefore the minimum possible T is 78. A natural choice that also saturates the "at most 60%" rule is C = 117 (since 117/(78+117)=0.6).
+
+Answer
+- Minimum taxi rides: T = 78.
+- Corresponding company car rides: one feasible choice is C = 117 (this exactly uses the 60% limit). (Other feasible C for T=78 are 115 or 116, but they do not reduce T further.)
+
+Recommended solvers/libraries
+- For integer linear programming: pulp (PuLP) or OR-Tools CP-SAT.
+- For small brute-force or verification: plain Python search or itertools.
+- For mixed-integer programming with commercial solvers: gurobipy or CPLEX Python API.
+
+Optional: brief PuLP sketch
+- Define integer variables T,C; add the three linear constraints; set objective minimize T; call solver (CBC which ships with PuLP, or another). This will return T=78, C=117 (or another feasible C that yields T=78).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data (initialized directly)
+capacity_required = 500
+taxi_capacity = 2
+car_capacity = 3
+min_cars = 30
+
+# Search for minimal T (number of taxi rides)
+final_T = None
+final_C = None
+
+# Upper bound for search: worst case all taxis (no cars) -> ceil(500/2)=250
+# But include some margin
+for T in range(0, 501):
+    # minimum cars needed to meet capacity given T (ignoring share constraint)
+    remaining = capacity_required - taxi_capacity * T
+    if remaining <= 0:
+        cars_needed_for_capacity = 0
+    else:
+        cars_needed_for_capacity = math.ceil(remaining / car_capacity)
+    C_min = max(min_cars, cars_needed_for_capacity)
+    # share constraint: 2C <= 3T  => C <= floor(1.5 * T)
+    C_max = (3 * T) // 2
+    if C_min <= C_max:
+        final_T = T
+        final_C = C_max  # choose maximum allowed company cars (uses share limit)
+        break
+
+if final_T is None:
+    raise RuntimeError("No feasible solution found within search bounds.")
+
+# Final objective value is the minimal number of taxi rides T
+print(f"FINAL_OBJ: {final_T}")
+```

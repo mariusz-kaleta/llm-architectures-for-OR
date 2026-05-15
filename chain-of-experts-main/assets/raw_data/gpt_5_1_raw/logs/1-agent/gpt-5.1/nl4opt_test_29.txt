@@ -1,0 +1,38 @@
+[MONOLITH]:
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Laundromat_Machine_Selection", pl.LpMinimize)
+
+# Decision variables
+T = pl.LpVariable('Top_Load', lowBound=0, cat='Integer')
+F = pl.LpVariable('Front_Load', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of machines
+prob += T + F
+
+# Constraints
+
+# Capacity: at least 5000 items per day
+prob += 50 * T + 75 * F >= 5000, "Capacity"
+
+# Energy: at most 7000 kWh per day
+prob += 85 * T + 100 * F <= 7000, "Energy"
+
+# At most 40% of machines can be top-loading: T <= 0.4(T+F)
+prob += 3 * T <= 2 * F, "Top_Load_Percentage"
+
+# At least 10 front-loading machines
+prob += F >= 10, "Min_Front_Load"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+T_val = int(pl.value(T))
+F_val = int(pl.value(F))
+obj_val = pl.value(prob.objective)
+
+print(f"Top-loading machines: {T_val}")
+print(f"Front-loading machines: {F_val}")
+print(f"Total machines: {obj_val}")
+print(f"FINAL_OBJ: {obj_val}")

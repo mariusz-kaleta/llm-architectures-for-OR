@@ -1,0 +1,209 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximize the artisan’s weekly profit from producing thin and stubby jars.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with two decision variables and linear constraints.
+
+3. Main decision variables  
+   - Let:
+     - x₁ = number of thin jars produced per week  
+     - x₂ = number of stubby jars produced per week  
+
+4. Objective function (conceptual)  
+   - Maximize total profit:  
+     - Profit from thin jars = 5 × x₁  
+     - Profit from stubby jars = 9 × x₂  
+   - Objective: Maximize 5·x₁ + 9·x₂
+
+5. Key constraints to consider  
+
+   a) Shaping time capacity  
+   - Each thin jar uses 50 minutes of shaping.  
+   - Each stubby jar uses 30 minutes of shaping.  
+   - Weekly shaping time available: 3000 minutes.  
+   - Constraint: 50·x₁ + 30·x₂ ≤ 3000  
+
+   b) Baking time capacity  
+   - Each thin jar uses 90 minutes of baking.  
+   - Each stubby jar uses 150 minutes of baking.  
+   - Weekly baking time available: 4000 minutes.  
+   - Constraint: 90·x₁ + 150·x₂ ≤ 4000  
+
+   c) Non-negativity / integrality  
+   - The artisan cannot produce a negative number of jars:  
+     - x₁ ≥ 0  
+     - x₂ ≥ 0  
+   - If needed, specify that x₁ and x₂ should be integers (jar counts); however, LP relaxation will likely yield integer values naturally in such a small problem.
+
+6. Modelling/solution strategy  
+
+   - Step 1: Formulate the LP using the objective and constraints above.  
+   - Step 2: Since there are only two variables, geometric/graphical solution is feasible:  
+     - Plot the shaping and baking constraints in the x₁–x₂ plane.  
+     - Determine the feasible region (intersection of half-planes plus non-negativity).  
+     - Identify corner points (including intersections with axes).  
+   - Step 3: Evaluate the objective function at each corner point of the feasible region to find the maximum profit.  
+   - Step 4: Check if the optimal solution values are integer; if not, consider rounding and verify feasibility and impact on profit.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model for the problem, followed by suggestions on how to solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x_1 \in \mathbb{Z}_{\ge 0}\): number of thin jars produced per week  
+- \(x_2 \in \mathbb{Z}_{\ge 0}\): number of stubby jars produced per week  
+
+(You may relax \(\mathbb{Z}_{\ge 0}\) to \(\mathbb{R}_{\ge 0}\) for a pure LP; the optimal solution will often be integral for such problems.)
+
+---
+
+## 2. Objective function
+
+Profit per jar:
+- Thin jar: \$5
+- Stubby jar: \$9
+
+Total weekly profit:
+\[
+\text{Maximize } Z = 5x_1 + 9x_2
+\]
+
+---
+
+## 3. Constraints
+
+### a) Shaping time capacity
+
+- Each thin jar uses 50 minutes of shaping.  
+- Each stubby jar uses 30 minutes of shaping.  
+- Weekly shaping time available: 3000 minutes.
+
+\[
+50x_1 + 30x_2 \le 3000
+\]
+
+### b) Baking time capacity
+
+- Each thin jar uses 90 minutes of baking.  
+- Each stubby jar uses 150 minutes of baking.  
+- Weekly baking time available: 4000 minutes.
+
+\[
+90x_1 + 150x_2 \le 4000
+\]
+
+### c) Non-negativity (and optionally integrality)
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+Optionally (if you want an integer model):
+\[
+x_1, x_2 \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete model (LP form)
+
+\[
+\begin{aligned}
+\text{Maximize}\quad & 5x_1 + 9x_2 \\
+\text{subject to}\quad 
+& 50x_1 + 30x_2 \le 3000 \quad\text{(shaping)} \\
+& 90x_1 + 150x_2 \le 4000 \quad\text{(baking)} \\
+& x_1 \ge 0,\; x_2 \ge 0
+\end{aligned}
+\]
+
+If integer constraints are desired, add \(x_1, x_2 \in \mathbb{Z}\).
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard LP/MIP solver library will handle this easily:
+
+- **PuLP**  
+  - Very simple, pure Python modeling of LP/MIP.  
+  - Integrates with CBC solver by default.
+  - Good choice for teaching, prototyping, and small models.
+  
+- **OR-Tools (Google)**  
+  - `ortools.linear_solver` for LP/MIP.  
+  - Industrial-grade, fast, good for scaling to larger problems.
+
+- **SciPy (`scipy.optimize.linprog`)**  
+  - Suitable if you treat it as a continuous LP (no integrality).  
+  - Simple for pure LP; not suitable for integer constraints.
+
+---
+
+## 6. Example model setup in PuLP
+
+```python
+import pulp as pl
+
+# Problem
+model = pl.LpProblem("Jar_Production", pl.LpMaximize)
+
+# Decision variables (non-negative integers)
+x1 = pl.LpVariable('thin_jars', lowBound=0, cat='Integer')
+x2 = pl.LpVariable('stubby_jars', lowBound=0, cat='Integer')
+
+# Objective
+model += 5 * x1 + 9 * x2
+
+# Constraints
+model += 50 * x1 + 30 * x2 <= 3000      # shaping time
+model += 90 * x1 + 150 * x2 <= 4000     # baking time
+
+# Solve
+model.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[model.status])
+print("Optimal thin jars:", x1.value())
+print("Optimal stubby jars:", x2.value())
+print("Maximum profit:", pl.value(model.objective))
+```
+
+You can implement an analogous model in OR-Tools or SciPy depending on whether you need integer solutions.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    model = pl.LpProblem("Jar_Production", pl.LpMaximize)
+
+    # Decision variables (non-negative integers)
+    x1 = pl.LpVariable('thin_jars', lowBound=0, cat='Integer')
+    x2 = pl.LpVariable('stubby_jars', lowBound=0, cat='Integer')
+
+    # Objective function: Maximize profit
+    model += 5 * x1 + 9 * x2
+
+    # Constraints
+    model += 50 * x1 + 30 * x2 <= 3000      # shaping time
+    model += 90 * x1 + 150 * x2 <= 4000     # baking time
+
+    # Solve the model
+    model.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Retrieve objective value
+    final_obj = pl.value(model.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

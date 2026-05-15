@@ -1,0 +1,213 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximise total weekly profit from selling elephants and tigers.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with non‑negative, continuous decision variables.  
+(If the problem is interpreted as requiring whole items only, it becomes an Integer Linear Program, but the structure is the same.)
+
+3. Main decision variables  
+Define decision variables representing weekly production quantities:
+- E = number of elephants produced per week  
+- T = number of tigers produced per week  
+
+4. Objective function (conceptual)  
+- Maximise profit = 5·E + 4·T  
+  - 5 dollars profit per elephant  
+  - 4 dollars profit per tiger  
+
+5. Key constraints to consider  
+
+a) Wood availability  
+- Each elephant uses 50 g of wood  
+- Each tiger uses 40 g of wood  
+- Total wood used cannot exceed 5000 g  
+  - Constraint: wood consumption from E and T ≤ 5000 grams  
+
+b) Plastic availability  
+- Each elephant uses 20 g of plastic  
+- Each tiger uses 30 g of plastic  
+- Total plastic used cannot exceed 4000 g  
+  - Constraint: plastic consumption from E and T ≤ 4000 grams  
+
+c) Non‑negativity  
+- The shop cannot produce a negative quantity:  
+  - E ≥ 0  
+  - T ≥ 0  
+
+d) (Optional) Integrality  
+- If the modeller wants integer solutions (no fractional animals):  
+  - E and T should be integer-valued.  
+
+6. Strategy for solving / modelling notes  
+
+- This is a 2‑variable LP:  
+  - The feasible region is a polygon in the (E, T) plane defined by the wood constraint, plastic constraint, and non‑negativity.  
+  - The optimal solution will lie at a corner point (intersection of two or more constraints).  
+
+- Steps the Modeller should follow:  
+  1. Express the wood and plastic constraints in terms of E and T.  
+  2. Plot or conceptually identify the intersection points of the constraints, including intersections with axes.  
+  3. Evaluate the profit at each feasible corner point.  
+  4. Select the point with maximum profit.  
+  5. If integer solutions are required, check the nearest integer points around the optimal continuous solution.  
+
+No extra constraints (like maximum market demand, minimum production, or labour limits) are mentioned, so only the material availability and non‑negativity constraints need to be modelled.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model of the problem and how you might solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(E \ge 0\): number of elephants produced per week  
+- \(T \ge 0\): number of tigers produced per week  
+
+(Optionally, if fractional animals are not allowed, add \(E, T \in \mathbb{Z}\).)
+
+---
+
+## 2. Objective function
+
+Maximise total weekly profit:
+
+\[
+\max \; Z = 5E + 4T
+\]
+
+where:
+
+- 5 = profit per elephant (dollars)
+- 4 = profit per tiger (dollars)
+
+---
+
+## 3. Constraints
+
+### a) Wood availability
+
+Each elephant uses 50 g of wood, each tiger 40 g, and at most 5000 g of wood are available:
+
+\[
+50E + 40T \le 5000
+\]
+
+### b) Plastic availability
+
+Each elephant uses 20 g of plastic, each tiger 30 g, and at most 4000 g of plastic are available:
+
+\[
+20E + 30T \le 4000
+\]
+
+### c) Non‑negativity
+
+\[
+E \ge 0,\quad T \ge 0
+\]
+
+### (Optional) Integrality
+
+If you require whole animals:
+
+\[
+E, T \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full model (LP form)
+
+\[
+\begin{aligned}
+\max \quad & 5E + 4T \\
+\text{s.t.} \quad
+& 50E + 40T \le 5000 \quad \text{(wood)}\\
+& 20E + 30T \le 4000 \quad \text{(plastic)}\\
+& E \ge 0,\; T \ge 0 \\
+& \text{(optionally } E, T \in \mathbb{Z}\text{)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+You can model and solve this as:
+
+- A **linear program (LP)** (continuous \(E, T\)):
+  - `PuLP` (very friendly for teaching and small models)
+  - `scipy.optimize.linprog`
+  - `ortools.linear_solver.pywraplp` (OR‑Tools’ LP interface)
+
+- An **integer linear program (ILP)** (if \(E, T\) must be integers):
+  - `PuLP` (set `cat="Integer"` on variables)
+  - `ortools.linear_solver.pywraplp` (MIP capabilities)
+  - `mip` or `pyscipopt` (if you want more advanced MIP solvers, assuming access)
+
+Example with `PuLP` (integer version):
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Souvenir_Shop", pl.LpMaximize)
+
+# Variables (integer, >= 0)
+E = pl.LpVariable("Elephants", lowBound=0, cat="Integer")
+T = pl.LpVariable("Tigers",    lowBound=0, cat="Integer")
+
+# Objective: Maximize 5E + 4T
+prob += 5 * E + 4 * T
+
+# Constraints
+prob += 50 * E + 40 * T <= 5000, "Wood"
+prob += 20 * E + 30 * T <= 4000, "Plastic"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Elephants:", E.value())
+print("Tigers:", T.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This directly implements the formal model above and will return the optimal numbers of elephants and tigers, along with the maximum profit.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem: maximize profit
+    prob = pl.LpProblem("Souvenir_Shop", pl.LpMaximize)
+
+    # Decision variables: integers, >= 0
+    E = pl.LpVariable("Elephants", lowBound=0, cat="Integer")
+    T = pl.LpVariable("Tigers", lowBound=0, cat="Integer")
+
+    # Objective function: Maximize 5E + 4T
+    prob += 5 * E + 4 * T
+
+    # Constraints
+    prob += 50 * E + 40 * T <= 5000  # Wood constraint
+    prob += 20 * E + 30 * T <= 4000  # Plastic constraint
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print only the final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

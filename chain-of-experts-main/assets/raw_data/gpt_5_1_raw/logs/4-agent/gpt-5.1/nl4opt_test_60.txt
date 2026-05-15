@@ -1,0 +1,297 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- Goal: **Minimise the total number of ski lifts installed** (dense + loose), while satisfying capacity, electricity, and minimum loose-lift requirements.
+
+---
+
+2. **Suggested model type**
+
+- Model: **Integer Linear Programming (ILP)** (or simpler, a 2-variable integer optimisation problem).
+- Reason: 
+  - Both decision variables (number of lifts) must be **nonnegative integers**.
+  - Objective and constraints are all linear in these variables.
+
+---
+
+3. **Main decision variables**
+
+Define two integer variables:
+
+- \(x\): number of **densely-seated** ski lifts to install.
+- \(y\): number of **loosely-seated** ski lifts to install.
+
+Both should be constrained to nonnegative integers.
+
+---
+
+4. **Key constraints to consider**
+
+Translate the text into linear constraints:
+
+1. **Capacity (throughput) requirement**
+
+   - Densely-seated lift: 45 guests per minute per lift.
+   - Loosely-seated lift: 20 guests per minute per lift.
+   - Total guests per minute must be **at least 1000**.
+
+   Strategic form:  
+   - 45·x + 20·y ≥ 1000
+
+2. **Electricity availability**
+
+   - Densely-seated lift: 30 units of electricity per lift.
+   - Loosely-seated lift: 22 units of electricity per lift.
+   - Total electricity used must be **no more than 940** units.
+
+   Strategic form:  
+   - 30·x + 22·y ≤ 940
+
+3. **Minimum number of loosely-seated lifts**
+
+   - At least 5 loosely-seated lifts for beginners.
+
+   Strategic form:  
+   - y ≥ 5
+
+4. **Nonnegativity and integrality**
+
+   - x ≥ 0, y ≥ 0
+   - x, y are integers.
+
+---
+
+5. **Objective function**
+
+- Minimise the total number of lifts:
+
+  - Minimise: x + y
+
+---
+
+6. **Suggested modelling/solution strategy**
+
+- Since there are only two integer variables and all constraints are linear, the modeller can:
+  - Use a standard ILP solver directly, or
+  - Exploit the 2D nature:
+    - Plot or enumerate the **feasible region** defined by the capacity and electricity constraints plus y ≥ 5, x ≥ 0.
+    - Check integer points (x, y) in this region and find the combination that **minimises x + y**.
+
+- For a computational approach:
+  - Fix y from its minimum feasible value upwards (starting at y = 5).
+  - For each y, determine the minimum x that:
+    - Satisfies capacity: 45·x ≥ 1000 − 20·y
+    - Respects electricity: 30·x ≤ 940 − 22·y
+  - Ensure those x values are nonnegative integers.
+  - Among all feasible (x, y) pairs, choose one with minimum x + y.
+
+This structure is sufficient for the Modeller to implement the ILP and compute the optimal mix of dense and loose ski lifts.
+
+---
+
+[MODELER]:
+Below is a full mathematical/algorithmic model of the problem, along with suggestions for how to implement and solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x \in \mathbb{Z}_{\ge 0}\): number of **densely-seated** ski lifts to install  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of **loosely-seated** ski lifts to install  
+
+Both must be nonnegative integers.
+
+---
+
+## 2. Objective
+
+Minimise the **total number of ski lifts** installed:
+
+\[
+\min\; x + y
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Capacity (throughput) requirement
+
+Each:
+
+- Dense lift transports 45 guests/min.
+- Loose lift transports 20 guests/min.
+
+They need at least 1000 guests per minute:
+
+\[
+45x + 20y \;\ge\; 1000
+\]
+
+---
+
+### 3.2 Electricity availability
+
+Each:
+
+- Dense lift uses 30 units of electricity.
+- Loose lift uses 22 units of electricity.
+
+Total electricity may not exceed 940 units:
+
+\[
+30x + 22y \;\le\; 940
+\]
+
+---
+
+### 3.3 Minimum number of loosely-seated lifts
+
+At least 5 loosely-seated lifts:
+
+\[
+y \;\ge\; 5
+\]
+
+---
+
+### 3.4 Nonnegativity and integrality
+
+\[
+x \;\ge\; 0,\quad y \;\ge\; 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete ILP model
+
+\[
+\begin{aligned}
+\min\quad & x + y \\
+\text{s.t.}\quad
+& 45x + 20y \;\ge\; 1000, \\
+& 30x + 22y \;\le\; 940, \\
+& y \;\ge\; 5, \\
+& x, y \in \mathbb{Z}_{\ge 0}.
+\end{aligned}
+\]
+
+This is a small **Integer Linear Program (ILP)** with 2 integer variables and 3 functional constraints.
+
+---
+
+## 5. Algorithmic viewpoint (for a custom search)
+
+Because the model is 2D, one simple algorithm is:
+
+1. Loop \(y\) from 5 upward while electricity allows:
+   - From electricity: \(30x + 22y \le 940 \Rightarrow x \le \frac{940 - 22y}{30}\).
+   - So once \(\frac{940 - 22y}{30} < 0\), no more feasible \(x\).
+
+2. For each fixed \(y\):
+   - From capacity: \(45x + 20y \ge 1000 \Rightarrow x \ge \frac{1000 - 20y}{45}\).
+   - Let
+     \[
+     x_{\min} = \left\lceil \max\left(0,\; \frac{1000 - 20y}{45}\right)\right\rceil,
+     \quad
+     x_{\max} = \left\lfloor \frac{940 - 22y}{30} \right\rfloor.
+     \]
+   - If \(x_{\min} \le x_{\max}\), then all integer \(x \in [x_{\min}, x_{\max}]\) are feasible with that \(y\).
+   - For each feasible pair \((x, y)\), compute \(x + y\) and keep the minimum.
+
+Given the tiny problem size, this is computationally trivial.
+
+---
+
+## 6. Python libraries suitable for solving
+
+You can model and solve this ILP easily with any of the following:
+
+- **PuLP**  
+  - Easy syntax for small LP/ILP models.  
+  - Solver-agnostic; uses CBC by default.
+- **OR-Tools (ortools.linear_solver)**  
+  - Google’s optimization suite; very reliable ILP solver.
+- **Pyomo**  
+  - More general modeling library, good if the problem will later become larger/more complex.
+- **SciPy (scipy.optimize)**  
+  - Best suited for continuous LP/NLP; to handle integrality you’d need a separate MILP solver or custom enumeration.
+
+For this specific problem, **PuLP** or **OR-Tools** are the most straightforward choices.
+
+---
+
+## 7. Example using PuLP (minimal)
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("SkiLifts", pl.LpMinimize)
+
+# Decision variables (nonnegative integers)
+x = pl.LpVariable('x_dense', lowBound=0, cat='Integer')
+y = pl.LpVariable('y_loose', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of lifts
+prob += x + y
+
+# Constraints
+prob += 45 * x + 20 * y >= 1000      # capacity
+prob += 30 * x + 22 * y <= 940       # electricity
+prob += y >= 5                       # minimum loose lifts
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Dense lifts (x):", x.value())
+print("Loose lifts (y):", y.value())
+print("Total lifts:", x.value() + y.value())
+```
+
+You can use a very similar structure with `ortools.linear_solver.pywraplp` if you prefer OR-Tools.
+
+---
+
+[CODER]:
+import math
+
+def solve_ski_lifts():
+    best_obj = None
+    best_x = None
+    best_y = None
+
+    y = 5
+    while True:
+        x_max = math.floor((940 - 22 * y) / 30)
+        if x_max < 0:
+            break
+
+        required_capacity = 1000 - 20 * y
+        if required_capacity <= 0:
+            x_min = 0
+        else:
+            x_min = math.ceil(required_capacity / 45)
+
+        x_min = max(0, x_min)
+
+        if x_min <= x_max:
+            # For fixed y, objective increases with x, so best x is x_min
+            obj = x_min + y
+            if best_obj is None or obj < best_obj:
+                best_obj = obj
+                best_x = x_min
+                best_y = y
+
+        y += 1
+
+    return best_obj, best_x, best_y
+
+if __name__ == "__main__":
+    obj, x_opt, y_opt = solve_ski_lifts()
+    # If needed, we could print solution details here, but requirement
+    # is only to print final objective in the specified format.
+    print(f"FINAL_OBJ: {obj}")

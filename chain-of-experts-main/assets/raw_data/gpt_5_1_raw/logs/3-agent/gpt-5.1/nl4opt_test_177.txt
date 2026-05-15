@@ -1,0 +1,142 @@
+[MODELER]:
+Here is a clean mathematical formulation of the problem and how you would model/solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\): number of canoes used  
+- \(y\): number of diesel boats used  
+
+Both must be nonnegative integers:
+
+\[
+x \in \mathbb{Z}_{\ge 0}, \quad y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 2. Objective
+
+We want to minimize the total number of boats (canoes + diesel boats):
+
+\[
+\min \; x + y
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Capacity (fish transport) constraint
+
+A canoe can carry 10 fish; a diesel boat carries 15 fish. We need to transport at least 1000 fish:
+
+\[
+10x + 15y \;\ge\; 1000
+\]
+
+### 3.2 Environmental rule constraint
+
+The number of canoes must be at least 3 times the number of diesel boats:
+
+\[
+x \;\ge\; 3y
+\]
+
+### 3.3 Nonnegativity and integrality
+
+\[
+x \ge 0,\; y \ge 0,\; x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Problem type
+
+This is a **Mixed-Integer Linear Programming (MILP)** problem (in fact, a pure integer linear program, since both variables are integers and the objective/constraints are linear).
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard MILP/LP solver library is appropriate:
+
+- **PuLP**:  
+  - Easy modeling syntax in Python.  
+  - Can use CBC (open-source MILP solver) or other solvers if installed.
+
+- **OR-Tools (Google)**:  
+  - `ortools.linear_solver` for MILP.  
+  - Very efficient, good for combinatorial optimization.
+
+- **Pyomo**:  
+  - More general algebraic modeling framework, integrates with many solvers (CBC, GLPK, CPLEX, Gurobi, etc.).
+
+For a small model like this, **PuLP** or **OR-Tools** is sufficient and simple.
+
+---
+
+## 6. Example modeling snippet with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("FishingBoats", pl.LpMinimize)
+
+# Decision variables (nonnegative integers)
+x = pl.LpVariable('canoes', lowBound=0, cat='Integer')
+y = pl.LpVariable('diesel_boats', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of boats
+prob += x + y
+
+# Constraints
+prob += 10*x + 15*y >= 1000, "FishTransport"
+prob += x >= 3*y, "EnvironmentalRule"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal number of canoes (x):", pl.value(x))
+print("Optimal number of diesel boats (y):", pl.value(y))
+print("Minimum total boats:", pl.value(x + y))
+```
+
+This code directly implements the model described above and finds the optimal numbers of canoes and diesel boats.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("FishingBoats", pl.LpMinimize)
+
+    # Decision variables: nonnegative integers
+    x = pl.LpVariable('canoes', lowBound=0, cat='Integer')
+    y = pl.LpVariable('diesel_boats', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of boats
+    prob += x + y
+
+    # Constraints
+    prob += 10 * x + 15 * y >= 1000, "FishTransport"
+    prob += x >= 3 * y, "EnvironmentalRule"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Retrieve final objective value
+    final_obj = pl.value(x + y)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,127 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Maximise weekly profit from producing chairs and dressers.
+
+2) Suggested model type
+- Model: Linear Programming (LP). Because profit and resource use are linear in production quantities and there are continuous resource limits. If integer production quantities are required, use an Integer Linear Program (ILP) or solve the LP and round with verification.
+
+3) Main decision variables
+- Number of chairs produced in a week (nonnegative).
+- Number of dressers produced in a week (nonnegative).
+- Optionally include slack variables for stain and wood to track unused resources (useful for sensitivity reports).
+
+4) Key constraints (described qualitatively)
+- Stain availability: The combined stain used by chairs and dressers (chairs consume 1.4 gallons each, dressers 1.1 gallons each) cannot exceed the 17 gallons available per week.
+- Oak wood availability: The combined oak lengths used by chairs and dressers (chairs consume 2 lengths each, dressers 3 lengths each) cannot exceed the 11 lengths available per week.
+- Nonnegativity: Production quantities must be zero or positive.
+- Integrality (optional): If only whole items can be produced, enforce integer production counts.
+
+5) Solution approach and checks for the modeller
+- With only two decision variables, solve graphically or with a standard LP solver (simplex). If using LP, check if integrality matters by comparing LP solution to nearest integer feasible solutions.
+- Identify feasible corner points (intersections of resource constraints and axes), evaluate total profit at each, and choose the maximum. Confirm which constraints are binding at the optimum.
+- Perform a quick sensitivity check: how much profit would change if stain or wood availability change slightly (shadow prices) and whether additional resource purchase could be profitable.
+
+Deliverable expected from the modeller
+- Optimal production quantities (chairs and dressers) and the resulting maximum weekly profit.
+- Indication of binding constraints and, if possible, shadow prices for stain and wood.
+- If integer constraints alter the LP solution, report the integer-optimal production and profit.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- x = number of chairs produced in a week (>= 0).
+- y = number of dressers produced in a week (>= 0).
+(If only whole items can be produced: x,y ∈ Z_{\ge 0}.)
+
+Objective
+Maximise weekly profit:
+max Z = 43 x + 52 y
+
+Constraints
+- Stain availability: 1.4 x + 1.1 y ≤ 17
+- Oak wood availability: 2 x + 3 y ≤ 11
+- Nonnegativity: x ≥ 0, y ≥ 0
+(Optionally: integrality x,y ∈ Z_{\ge 0}.)
+
+Solution (continuous LP)
+Solve the LP relaxation. Feasible corner points to check are the axes intersections and constraint intersections. The LP optimum is:
+- x* = 5.5 chairs, y* = 0 dressers
+- Maximum profit Z* = 43 · 5.5 + 52 · 0 = $236.50
+
+Binding constraints and slacks at LP optimum
+- Wood constraint 2x + 3y = 11 is binding (2·5.5 + 3·0 = 11).
+- Stain constraint is not binding: stain used = 1.4·5.5 = 7.7 gallons, so stain slack = 17 − 7.7 = 9.3 gallons.
+
+Shadow prices (dual values)
+- Shadow price for wood (marginal profit per additional length of oak): u_wood = $21.50 per length.
+  (Interpretation: one extra length of oak would increase profit by about $21.50.)
+- Shadow price for stain: u_stain = $0 (stain not binding; an extra gallon of stain would not increase profit at the current mix).
+
+Integer (integral production) case
+If x and y must be integers, enumerate feasible integer pairs (small search because resources are small). From the wood constraint 2x + 3y ≤ 11 the best integer solution is:
+- x = 4 chairs, y = 1 dresser
+- Profit = 4·43 + 1·52 = $224
+This is the integer-optimal production (note: LP relax optimum 236.50 is not integer-feasible).
+
+Suggested solution approaches / libraries
+- Continuous LP: scipy.optimize.linprog (simplex/interior-point), PuLP, CVXOPT, CVXPY.
+- Integer LP (ILP/MIP): PuLP (with CBC/GUROBI/CPLEX), OR-Tools (CP-SAT), or commercial solvers if available (Gurobi, CPLEX).
+- For two variables you can also solve graphically or by simple corner-point evaluation.
+
+Notes for the modeller
+- Because wood is the scarce (binding) resource, consider whether buying extra oak (at cost less than $21.50 per length) would be profitable.
+- If integer solutions are required, solve the ILP directly rather than rounding the LP solution.
+
+---
+
+[CODER]:
+import numpy as np
+from scipy.optimize import linprog
+
+# Problem data
+# Maximise Z = 43 x + 52 y
+c = np.array([-43.0, -52.0])  # negative for linprog (which does minimization)
+
+# Constraints (A_ub x <= b_ub):
+# 1.4 x + 1.1 y <= 17
+# 2 x   + 3   y <= 11
+A_ub = np.array([[1.4, 1.1],
+                 [2.0, 3.0]])
+b_ub = np.array([17.0, 11.0])
+
+# Bounds for x and y (nonnegativity)
+bounds = [(0, None), (0, None)]
+
+# Solve continuous LP (relaxation)
+res = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method='highs')
+
+if not res.success:
+    raise RuntimeError("LP solver failed: " + res.message)
+
+x_lp, y_lp = res.x
+lp_obj = 43.0 * x_lp + 52.0 * y_lp  # maximize value
+
+# Compute integer-optimal solution by enumeration
+best_int_obj = -np.inf
+best_int_xy = (0, 0)
+# Upper bounds for enumeration can be taken from resource constraints
+max_x = int(np.floor(11.0 / 2.0)) + 5  # a small safe margin
+max_y = int(np.floor(11.0 / 3.0)) + 5
+
+for xi in range(0, max_x + 1):
+    for yi in range(0, max_y + 1):
+        if 1.4 * xi + 1.1 * yi <= 17.0 + 1e-9 and 2.0 * xi + 3.0 * yi <= 11.0 + 1e-9:
+            obj = 43 * xi + 52 * yi
+            if obj > best_int_obj:
+                best_int_obj = obj
+                best_int_xy = (xi, yi)
+
+# Print results (informational)
+print(f"LP solution: x = {x_lp:.6f}, y = {y_lp:.6f}, objective = {lp_obj:.6f}")
+print(f"Integer-optimal (enumeration): x = {best_int_xy[0]}, y = {best_int_xy[1]}, objective = {best_int_obj}")
+
+# Final required output line (LP objective as the model was specified as continuous)
+print(f"FINAL_OBJ: {lp_obj}")

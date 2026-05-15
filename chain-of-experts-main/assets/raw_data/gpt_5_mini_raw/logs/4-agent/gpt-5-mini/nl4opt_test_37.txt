@@ -1,0 +1,216 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Maximise weekly profit from making thin and stubby terracotta jars.
+
+2. Suggested model type
+- Model: Linear Programming (LP). If final jar counts must be whole jars, solve as an Integer Linear Program (ILP) or solve the LP relaxation and round/check integrality.
+
+3. Main decision variables
+- Number of thin jars to produce (T).  
+- Number of stubby jars to produce (S).  
+(Variables are non‑negative; optionally integer if fractional jars are disallowed.)
+
+4. Key constraints to include (description and coefficients)
+- Shaping time capacity: each thin jar uses 50 minutes, each stubby uses 30 minutes; total shaping time used cannot exceed 3000 minutes per week.
+- Baking time capacity: each thin jar uses 90 minutes, each stubby uses 150 minutes; total baking time used cannot exceed 4000 minutes per week.
+- Non‑negativity: T >= 0, S >= 0.
+- Integrality (optional): T and S integer if required.
+
+5. Additional modelling and solution notes (strategy for the modeller)
+- Objective function: maximise total profit = 5·(thin) + 9·(stubby). (Use the coefficients above.)
+- Solve the LP (graphical method or simplex). Candidate optimal solutions are at corner points defined by combinations of binding constraints (produce only thin, only stubby, or both with shaping and baking both binding). Evaluate profit at those corner points to find the maximum. If integer solutions required, check nearby integer points around the LP optimum.
+- Report: optimal T and S, the used/shadowed shaping and baking minutes (which constraints bind), total profit, and whether rounding/integrality changes the solution. Also include sensitivity information (how much profit would change if capacity changes).
+
+---
+
+[MODELER]:
+Below is a concise formal model, the solved optimum for both the LP (continuous jars) and the ILP (integer jars), and solver recommendations.
+
+1) Decision variables
+- T ≥ 0 : number of thin jars produced per week
+- S ≥ 0 : number of stubby jars produced per week
+(If jar counts must be whole numbers, add T, S integer.)
+
+2) Objective
+Maximise weekly profit:
+Maximize Z = 5 T + 9 S
+
+3) Constraints
+- Shaping capacity: 50 T + 30 S ≤ 3000
+- Baking capacity: 90 T + 150 S ≤ 4000
+- Nonnegativity: T ≥ 0, S ≥ 0
+- (Optional) Integrality: T, S ∈ Z≥0
+
+4) Analysis / solution (LP relaxation)
+Solve the LP. Check intersection of the two resource lines:
+50T + 30S = 3000  and  90T + 150S = 4000
+Solving those gives S < 0 (no feasible intersection with S ≥ 0), so the shaping constraint is non‑binding in the feasible region — baking is the limiting resource.
+
+Optimise on baking constraint:
+90T + 150S = 4000
+
+Compare profits per unit of the limiting resource (baking minutes):
+- Thin: 5 profit / 90 min = 0.055555... $ per baking minute
+- Stubby: 9 profit / 150 min = 0.06 $ per baking minute
+
+Stubby gives higher profit per baking minute, so produce only stubby in the LP optimum:
+S* = 4000/150 = 26.6666667, T* = 0
+Optimal LP profit Z* = 9 · 26.6666667 = 240 (dollars)
+
+Shaping usage at LP optimum: 50·0 + 30·26.6667 = 800 minutes (slack = 3000 − 800 = 2200 minutes)
+Baking usage: 4000 minutes (binding)
+
+Dual/shadow prices:
+- baking shadow price = 0.06 $/min (each extra minute of baking increases max profit by $0.06)
+- shaping shadow price = 0 (no immediate value to extra shaping minutes at this basis)
+
+5) Integer (ILP) note
+If T and S must be integers, evaluate nearby integer points. Baking capacity in whole jars:
+- Max whole stubby jars = floor(4000/150) = 26 (uses 3900 baking min)
+With the remaining 100 baking minutes, you can make floor(100/90) = 1 thin jar.
+Thus an integer-feasible solution: S = 26, T = 1
+Profit = 26·9 + 1·5 = 234 + 5 = 239
+No integer solution has profit ≥ 240 because the LP upper bound is 240 and 240 is not integer-feasible (requires fractional S). So ILP optimum is (T=1, S=26) with profit = 239.
+
+6) Summary of results
+- LP (continuous) optimum: T = 0, S = 26.6667, profit = $240. Baking binds; shaping slack = 2200 min.
+- ILP (integer) optimum: T = 1, S = 26, profit = $239 (feasible integer solution; baking used 3990 min, shaping 830 min).
+
+7) Solver recommendations (Python)
+- For LP: scipy.optimize.linprog (simplex / interior-point), PuLP (with CBC), or cvxpy.
+- For ILP (integer counts): PuLP (CBC/Gurobi), OR-Tools CP-SAT, or mip (Python-MIP).
+Example choices:
+- pulp (easy modelling, open-source CBC solver): good for small ILPs.
+- ortools/CP-SAT: robust and fast for integer problems.
+- scipy.optimize.linprog: quick for continuous LP analysis.
+
+If you want, I can:
+- provide a short PuLP or scipy code snippet that solves both the LP and the ILP, or
+- produce sensitivity ranges (how much capacities must change before the basis changes).
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the jar production LP and ILP described.
+
+# Problem data
+# Decision variables:
+# T >= 0 : thin jars
+# S >= 0 : stubby jars
+# Objective: maximize Z = 5 T + 9 S
+# Constraints:
+#   50 T + 30 S <= 3000   (shaping capacity, minutes)
+#   90 T + 150 S <= 4000  (baking capacity, minutes)
+
+from math import floor
+
+# Coefficients
+profit_T = 5.0
+profit_S = 9.0
+
+# Capacities
+shaping_cap = 3000.0
+baking_cap = 4000.0
+
+# Constraint coefficients
+a_shaping_T = 50.0
+a_shaping_S = 30.0
+
+a_baking_T = 90.0
+a_baking_S = 150.0
+
+# 1) Solve LP (continuous) by checking relevant corner points analytically.
+# Candidate corner points: intersections with axes and intersection of the two constraint lines (if feasible).
+candidates = []
+
+# Origin
+candidates.append((0.0, 0.0))
+
+# Baking intercepts
+# T = baking_cap / a_baking_T when S = 0
+T_bake_only = baking_cap / a_baking_T
+candidates.append((T_bake_only, 0.0))
+# S = baking_cap / a_baking_S when T = 0
+S_bake_only = baking_cap / a_baking_S
+candidates.append((0.0, S_bake_only))
+
+# Shaping intercepts
+T_shape_only = shaping_cap / a_shaping_T
+candidates.append((T_shape_only, 0.0))
+S_shape_only = shaping_cap / a_shaping_S
+candidates.append((0.0, S_shape_only))
+
+# Intersection of baking and shaping (solve linear system)
+# a_shaping_T * T + a_shaping_S * S = shaping_cap
+# a_baking_T * T + a_baking_S * S = baking_cap
+det = a_shaping_T * a_baking_S - a_shaping_S * a_baking_T
+if abs(det) > 1e-12:
+    T_inter = (shaping_cap * a_baking_S - a_shaping_S * baking_cap) / det
+    S_inter = (a_shaping_T * baking_cap - shaping_cap * a_baking_T) / det
+    candidates.append((T_inter, S_inter))
+# Filter feasible points (satisfy both constraints and nonnegativity)
+feasible_lp = []
+for T, S in candidates:
+    if T >= -1e-9 and S >= -1e-9:
+        if a_shaping_T * T + a_shaping_S * S <= shaping_cap + 1e-6 and a_baking_T * T + a_baking_S * S <= baking_cap + 1e-6:
+            feasible_lp.append((max(0.0, T), max(0.0, S)))
+
+# Evaluate objective at feasible LP corners
+best_lp = None
+best_lp_profit = -1e12
+for T, S in feasible_lp:
+    profit = profit_T * T + profit_S * S
+    if profit > best_lp_profit + 1e-9:
+        best_lp_profit = profit
+        best_lp = (T, S)
+
+# If no feasible corners found (shouldn't happen), fallback to zero
+if best_lp is None:
+    best_lp = (0.0, 0.0)
+    best_lp_profit = 0.0
+
+lp_T, lp_S = best_lp
+lp_profit = best_lp_profit
+
+# 2) Solve ILP (integer) by brute force enumeration (small search space).
+# Determine reasonable integer bounds
+max_T_by_shaping = int(floor(shaping_cap / a_shaping_T))
+max_T_by_baking = int(floor(baking_cap / a_baking_T))
+max_T = min(max_T_by_shaping, max_T_by_baking, 1000)  # safe cap
+
+max_S_by_shaping = int(floor(shaping_cap / a_shaping_S))
+max_S_by_baking = int(floor(baking_cap / a_baking_S))
+max_S = min(max_S_by_shaping, max_S_by_baking, 1000)
+
+best_ilp = None
+best_ilp_profit = -10**12
+
+for T_int in range(0, max_T + 1):
+    for S_int in range(0, max_S + 1):
+        if a_shaping_T * T_int + a_shaping_S * S_int <= shaping_cap + 1e-9 and \
+           a_baking_T * T_int + a_baking_S * S_int <= baking_cap + 1e-9:
+            profit = profit_T * T_int + profit_S * S_int
+            if profit > best_ilp_profit:
+                best_ilp_profit = profit
+                best_ilp = (T_int, S_int)
+
+if best_ilp is None:
+    best_ilp = (0, 0)
+    best_ilp_profit = 0
+
+ilp_T, ilp_S = best_ilp
+ilp_profit = int(best_ilp_profit) if abs(best_ilp_profit - round(best_ilp_profit)) < 1e-9 else best_ilp_profit
+
+# Print results (informational), final required print line must be last.
+print(f"LP (continuous) solution: T = {lp_T:.6f}, S = {lp_S:.6f}, profit = {lp_profit:.6f}")
+print(f" - Shaping used: {a_shaping_T*lp_T + a_shaping_S*lp_S:.6f} / {shaping_cap}")
+print(f" - Baking used:  {a_baking_T*lp_T + a_baking_S*lp_S:.6f} / {baking_cap}")
+print(f"ILP (integer) solution: T = {ilp_T}, S = {ilp_S}, profit = {ilp_profit}")
+print(f" - Shaping used: {a_shaping_T*ilp_T + a_shaping_S*ilp_S:.6f} / {shaping_cap}")
+print(f" - Baking used:  {a_baking_T*ilp_T + a_baking_S*ilp_S:.6f} / {baking_cap}")
+
+# Final required line: print only this format on the last line.
+print(f"FINAL_OBJ: {ilp_profit}")
+```

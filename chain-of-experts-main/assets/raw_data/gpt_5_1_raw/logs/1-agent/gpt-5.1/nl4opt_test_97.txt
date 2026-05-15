@@ -1,0 +1,41 @@
+[MONOLITH]:
+import pulp
+
+# Initialize the problem
+prob = pulp.LpProblem("Shipping_MinGas", pulp.LpMinimize)
+
+# Decision variables: number of truck trips (T) and car trips (C)
+T = pulp.LpVariable('T', lowBound=0, cat='Continuous')
+C = pulp.LpVariable('C', lowBound=0, cat='Continuous')
+
+# Objective: Minimize total gas consumption
+prob += 20 * T + 15 * C, "Total_Gas"
+
+# Constraints
+
+# Truck capacity: 50 packages per trip
+# Car capacity: 30 packages per trip
+# Need to transport at least 500 packages
+prob += 50 * T + 30 * C >= 500, "Package_Requirement"
+
+# At most 5 truck trips
+prob += T <= 5, "Truck_Limit"
+
+# At least 30% of all trips must be made by car:
+# C >= 0.3 * (T + C)  ->  0.7C >= 0.3T  ->  7C >= 3T
+prob += 7 * C >= 3 * T, "Car_Trip_Ratio"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+T_val = pulp.value(T)
+C_val = pulp.value(C)
+obj_val = pulp.value(prob.objective)
+
+# Print solution details
+print(f"Truck trips (T): {T_val}")
+print(f"Car trips (C): {C_val}")
+print(f"Total gas used: {obj_val}")
+
+# Final required output
+print(f"FINAL_OBJ: {obj_val}")

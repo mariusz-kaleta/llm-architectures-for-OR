@@ -1,0 +1,165 @@
+[MODELER]:
+Here is a clean mathematical model of the problem and how to solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(T \in \mathbb{Z}_{\ge 0}\): number of truck trips  
+- \(V \in \mathbb{Z}_{\ge 0}\): number of van trips  
+
+Both are nonnegative integers.
+
+---
+
+## 2. Objective
+
+Minimize the total number of trips:
+
+\[
+\min \; Z = T + V
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Capacity (demand) constraint
+
+Each truck carries 1000 patties, each van 500 patties. They must ship at least 50,000 patties:
+
+\[
+1000T + 500V \;\ge\; 50{,}000
+\]
+
+You can simplify by dividing by 500:
+
+\[
+2T + V \;\ge\; 100
+\]
+
+---
+
+### 3.2 Budget constraint
+
+Each truck trip costs \$300, each van trip \$100, with a budget of \$12,500:
+
+\[
+300T + 100V \;\le\; 12{,}500
+\]
+
+Divide by 100:
+
+\[
+3T + V \;\le\; 125
+\]
+
+---
+
+### 3.3 Truck–van relationship
+
+Number of trucks must not exceed number of vans:
+
+\[
+T \;\le\; V
+\]
+
+---
+
+### 3.4 Nonnegativity and integrality
+
+\[
+T \ge 0,\quad V \ge 0,\quad T, V \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete model
+
+\[
+\begin{aligned}
+\text{Minimize} \quad & T + V \\
+\text{subject to} \quad 
+& 2T + V \;\ge\; 100 \\
+& 3T + V \;\le\; 125 \\
+& T \;\le\; V \\
+& T, V \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Solving the model (outline)
+
+This is a small integer linear program (ILP). Suitable Python libraries:
+
+- **PuLP** (`pulp`): Simple modeling for LP/ILP, works with CBC (default solver).
+- **OR-Tools** (`ortools.linear_solver`): Industrial-strength solver, free.
+- **Pyomo**: More general modeling environment.
+- **SciPy** (`scipy.optimize.linprog`) can handle the LP relaxation, but not integrality directly; for exact integer solutions, prefer PuLP or OR-Tools.
+
+### Example in PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Meat_Shipping", pl.LpMinimize)
+
+# Decision variables (nonnegative integers)
+T = pl.LpVariable("Trucks", lowBound=0, cat="Integer")
+V = pl.LpVariable("Vans",   lowBound=0, cat="Integer")
+
+# Objective
+prob += T + V, "Total_Trips"
+
+# Constraints
+prob += 2*T + V >= 100, "Capacity"
+prob += 3*T + V <= 125, "Budget"
+prob += T <= V,         "Truck_leq_Van"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal trucks (T):", T.value())
+print("Optimal vans   (V):", V.value())
+print("Min total trips:", pl.value(prob.objective))
+```
+
+This will give the shipment plan (values of \(T\) and \(V\)) that minimizes the total number of trips while satisfying capacity, budget, and the truck–van constraint.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Meat_Shipping", pl.LpMinimize)
+
+    # Decision variables (nonnegative integers)
+    T = pl.LpVariable("Trucks", lowBound=0, cat="Integer")
+    V = pl.LpVariable("Vans", lowBound=0, cat="Integer")
+
+    # Objective: Minimize total number of trips
+    prob += T + V, "Total_Trips"
+
+    # Constraints
+    prob += 2 * T + V >= 100, "Capacity"
+    prob += 3 * T + V <= 125, "Budget"
+    prob += T <= V, "Truck_leq_Van"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective value in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

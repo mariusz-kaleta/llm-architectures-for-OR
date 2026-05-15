@@ -1,0 +1,76 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x_A >= 0 : kilograms of Feed A
+  - x_B >= 0 : kilograms of Feed B
+
+- Constraints
+  - Protein requirement: 10 x_A + 7 x_B >= 30
+  - Fat requirement:     8 x_A  +15 x_B >= 50
+
+- Objective
+  - Minimize cost C = 100 x_A + 80 x_B
+
+Mathematical formulation
+  minimize    C = 100 x_A + 80 x_B
+  subject to  10 x_A + 7 x_B  >= 30
+              8  x_A + 15 x_B >= 50
+              x_A, x_B >= 0
+
+Analytic solution (2×2)
+Assume both constraints bind (equalities) and solve
+  10 x_A + 7 x_B = 30
+   8 x_A +15 x_B = 50
+
+Solving gives
+  x_A = 50/47 ≈ 1.06382979 kg
+  x_B = 130/47 ≈ 2.76595745 kg
+
+Minimum cost
+  C = 100*(50/47) + 80*(130/47) = 15400/47 ≈ $327.66
+
+(You can verify that corner solutions x_A=0 or x_B=0 give higher costs: only A -> $625, only B -> $342.857.)
+
+Recommended Python libraries for solving numerically
+- pulp (user-friendly LP modeling)
+- scipy.optimize.linprog
+- ortools.linear_solver (Google OR-Tools)
+- cvxpy (convex optimization)
+
+Example (pulp)
+  from pulp import LpProblem, LpMinimize, LpVariable, lpSum, value
+
+  prob = LpProblem("FeedMix", LpMinimize)
+  xA = LpVariable("xA", lowBound=0)
+  xB = LpVariable("xB", lowBound=0)
+
+  prob += 100*xA + 80*xB
+  prob += 10*xA + 7*xB >= 30
+  prob += 8*xA + 15*xB >= 50
+
+  prob.solve()
+  print(xA.varValue, xB.varValue, value(prob.objective))
+
+This will return xA ≈ 1.06383 kg, xB ≈ 2.76596 kg and cost ≈ $327.66.
+
+---
+
+[CODER]:
+import math
+
+# Analytic solution from solving the two binding constraints:
+# 10 x_A + 7 x_B = 30
+# 8  x_A +15 x_B = 50
+xA = 50.0 / 47.0
+xB = 130.0 / 47.0
+
+# Compute objective value
+value = 100.0 * xA + 80.0 * xB
+
+# Sanity check (optional, not printed): constraints should be satisfied
+assert 10.0 * xA + 7.0 * xB >= 30.0 - 1e-9
+assert 8.0 * xA + 15.0 * xB >= 50.0 - 1e-9
+assert xA >= -1e-9 and xB >= -1e-9
+
+print(f"FINAL_OBJ: {value}")

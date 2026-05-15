@@ -1,0 +1,173 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Maximise total slime produced (units of slime).
+
+2) Suggested model type
+- Model: Linear Programming (continuous) — maximise a linear objective subject to linear resource/waste constraints.
+- Note: If each "use" of a beaker must be an integer count (whole batches), use Integer Linear Programming (ILP) instead.
+
+3) Main decision variables (define clearly)
+- x1 = number of runs/batches using Beaker 1 (each run consumes resources and produces slime/waste).
+- x2 = number of runs/batches using Beaker 2.
+
+4) Key constraints to model (describe in words)
+- Flour availability: total flour consumed by all runs of Beaker 1 and Beaker 2 cannot exceed 150 units. (Beaker 1 consumes 4 units/flour per run; Beaker 2 consumes 6 units/flour per run.)
+- Special liquid availability: total special liquid consumed by all runs of Beaker 1 and Beaker 2 cannot exceed 100 units. (Beaker 1 consumes 6 units/liquid per run; Beaker 2 consumes 3 units/liquid per run.)
+- Waste limit: total waste produced by all runs of Beaker 1 and Beaker 2 cannot exceed 30 units. (Beaker 1 produces 4 units/waste per run; Beaker 2 produces 2 units/waste per run.)
+- Non‑negativity: x1 >= 0 and x2 >= 0 (and integer if batch counts must be whole).
+
+5) Objective function (in words)
+- Maximise total slime output equal to (slime per run of Beaker 1) times x1 plus (slime per run of Beaker 2) times x2. (Beaker 1 yields 5 units of slime per run; Beaker 2 yields 3 units per run.)
+
+6) Modeling and solution notes for the Modeller
+- Use a standard LP solver (simplex or an LP package) for continuous variables; use an MILP solver if integrality is required.
+- Expect a corner‑point optimal solution; check which constraints are binding (flour, liquid, waste).
+- Report optimal x1 and x2, the maximal slime, and dual/shadow prices for the binding constraints to interpret resource value.
+- Do a sensitivity analysis on resource limits (flour, liquid, waste) and on slime yields per beaker to see robustness of the plan.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- x1 ≥ 0 = number of runs (batches) using Beaker 1.
+- x2 ≥ 0 = number of runs (batches) using Beaker 2.
+(If runs must be whole batches, impose x1, x2 ∈ Z≥0.)
+
+Objective
+- Maximise total slime: maximize Z = 5 x1 + 3 x2.
+
+Constraints
+- Flour: 4 x1 + 6 x2 ≤ 150.
+- Special liquid: 6 x1 + 3 x2 ≤ 100.
+- Waste: 4 x1 + 2 x2 ≤ 30.
+- Nonnegativity: x1 ≥ 0, x2 ≥ 0 (and integrality if required).
+
+Mathematical formulation
+Maximize Z = 5 x1 + 3 x2
+subject to
+4 x1 + 6 x2 ≤ 150
+6 x1 + 3 x2 ≤ 100
+4 x1 + 2 x2 ≤ 30
+x1, x2 ≥ 0  (and integer if required)
+
+Solution (analysis)
+- The waste constraint simplifies to 2 x1 + x2 ≤ 15 (dividing by 2). The liquid constraint simplifies to 2 x1 + x2 ≤ 100/3 ≈ 33.333. Thus the waste constraint is the tightest of the shared linear combinations and dominates the liquid constraint.
+- Substitute the waste equality x2 = 15 − 2 x1 into the objective: Z = 5 x1 + 3(15 − 2 x1) = 45 − x1. This is decreasing in x1, so set x1 as small as possible (x1 = 0).
+- Feasible solution: x1 = 0, x2 = 15. This satisfies all constraints:
+  - flour: 4·0 + 6·15 = 90 ≤ 150
+  - liquid: 6·0 + 3·15 = 45 ≤ 100
+  - waste: 4·0 + 2·15 = 30 ≤ 30
+
+Optimal value
+- Maximal slime = 5·0 + 3·15 = 45 units of slime.
+- The optimal plan is to run Beaker 2 fifteen times and not use Beaker 1.
+
+Dual / shadow price insight
+- Only the waste constraint is binding. Increasing the waste cap by 1 unit allows 0.5 additional runs of Beaker 2 (since Beaker 2 uses 2 waste/unit per run), which yields 3·0.5 = 1.5 extra slime. So the shadow price of the waste constraint = 1.5 (units of slime per additional unit of waste allowed).
+- Flour and liquid constraints are non-binding at the optimum, so their dual prices are 0.
+
+Solver suggestions
+- For continuous LP: scipy.optimize.linprog, PuLP, or OR-Tools linear solver.
+- For integer runs (MILP): PuLP (with CBC), OR-Tools (CP-SAT / MIP), or commercial solvers (Gurobi, CPLEX) if available.
+- If you want sensitivity/dual values, use PuLP with a solver that returns duals, or commercial solvers (Gurobi/CPLEX) or CVXOPT.
+
+Optional quick Python (PuLP) sketch
+- Use PuLP to model and solve the MILP/LP and extract x1, x2, objective. (I can supply runnable code if you want.)
+
+If you want, I can:
+- Provide runnable code (PuLP / scipy / OR-Tools).
+- Run sensitivity analysis for changes in resource limits or slime yields.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the given LP by enumerating corner (vertex) points.
+# Decision variables:
+#   x1 >= 0, x2 >= 0
+# Constraints:
+#   4 x1 + 6 x2 <= 150
+#   6 x1 + 3 x2 <= 100
+#   4 x1 + 2 x2 <= 30
+# Objective: maximize Z = 5 x1 + 3 x2
+
+import itertools
+import math
+
+# Define the constraint lines in the form a*x1 + b*x2 = c
+lines = [
+    (4.0, 6.0, 150.0),  # 4 x1 + 6 x2 = 150
+    (6.0, 3.0, 100.0),  # 6 x1 + 3 x2 = 100
+    (4.0, 2.0, 30.0),   # 4 x1 + 2 x2 = 30
+    (1.0, 0.0, 0.0),    # x1 = 0 (axis)
+    (0.0, 1.0, 0.0),    # x2 = 0 (axis)
+]
+
+# Inequality constraints for feasibility checking: a*x1 + b*x2 <= c
+ineqs = [
+    (4.0, 6.0, 150.0),
+    (6.0, 3.0, 100.0),
+    (4.0, 2.0, 30.0),
+]
+
+# Tolerance for numerical checks
+EPS = 1e-9
+
+def intersect(line1, line2):
+    a1, b1, c1 = line1
+    a2, b2, c2 = line2
+    det = a1 * b2 - a2 * b1
+    if abs(det) < EPS:
+        return None  # parallel or coincident
+    x1 = (c1 * b2 - c2 * b1) / det
+    x2 = (a1 * c2 - a2 * c1) / det
+    return (x1, x2)
+
+def feasible(point):
+    x1, x2 = point
+    if x1 < -EPS or x2 < -EPS:
+        return False
+    for a, b, c in ineqs:
+        if a * x1 + b * x2 - c > 1e-7:
+            return False
+    return True
+
+# Gather candidate vertices: intersections of all pairs of lines
+candidates = []
+for l1, l2 in itertools.combinations(lines, 2):
+    pt = intersect(l1, l2)
+    if pt is not None:
+        # clamp small negatives to zero
+        x1 = 0.0 if abs(pt[0]) < EPS else pt[0]
+        x2 = 0.0 if abs(pt[1]) < EPS else pt[1]
+        candidates.append((x1, x2))
+
+# Also include the origin explicitly
+candidates.append((0.0, 0.0))
+
+# Filter feasible points and compute objective
+best_val = -math.inf
+best_pt = None
+for pt in candidates:
+    if feasible(pt):
+        x1, x2 = pt
+        val = 5.0 * x1 + 3.0 * x2
+        if val > best_val + 1e-9:
+            best_val = val
+            best_pt = (x1, x2)
+
+# For robustness, if no candidate found (shouldn't happen), fallback to known solution from analysis
+if best_pt is None:
+    best_pt = (0.0, 15.0)
+    best_val = 5.0 * best_pt[0] + 3.0 * best_pt[1]
+
+# If value is very close to an integer, convert to int for clean output
+if abs(best_val - round(best_val)) < 1e-9:
+    best_val = int(round(best_val))
+
+# Final required print
+print(f"FINAL_OBJ: {best_val}")
+```

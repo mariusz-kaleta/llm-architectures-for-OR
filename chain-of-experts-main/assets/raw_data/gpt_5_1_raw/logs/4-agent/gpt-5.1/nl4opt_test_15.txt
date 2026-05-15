@@ -1,0 +1,240 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimize the total daily transportation cost of moving 320 patients using two vehicle types (type II ambulance and hospital van) while satisfying service and union constraints.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with integer (or at least non-negative) decision variables, effectively an Integer Linear Programming (ILP) problem because “number of shifts” must be whole numbers.
+
+3. Main decision variables  
+Define decision variables as numbers of shifts per day of each vehicle type:
+- Let A = number of type II ambulance shifts per day.
+- Let V = number of hospital van shifts per day.
+
+(If needed, you can later enforce A and V as integers.)
+
+4. Objective function (conceptual)  
+- Minimize total cost:
+  - Cost per ambulance shift: $820
+  - Cost per van shift: $550  
+  Objective: Minimize (820 × A + 550 × V).
+
+5. Key constraints to consider  
+
+a) Patient transport requirement  
+- Capacity per ambulance shift: 20 patients  
+- Capacity per van shift: 15 patients  
+- Need to transport at least 320 patients per day.  
+Constraint:  
+- Total patients carried by all shifts must be ≥ 320:  
+  20A + 15V ≥ 320.
+
+b) Van usage limitation (union constraint)  
+- At most 60% of all shifts can be hospital vans.  
+- That is: V ≤ 0.60 × (A + V).  
+- This couples A and V and limits proportion of van shifts in the total.
+
+c) Non-negativity and integrality  
+- A ≥ 0, V ≥ 0.  
+- A and V must be integers (cannot run fractional shifts).
+
+6. Additional modelling notes / strategy  
+
+- Because the problem is small and discrete, after formulating the LP/ILP you can:
+  - Either solve it using an ILP solver, or
+  - Use simple algebra or enumeration of feasible integer pairs to identify the minimum-cost combination.
+
+- Because the capacity constraint is “at least 320” (not exactly 320), optimal solution may slightly exceed 320 patients if that combination is cheaper or necessary for integrality/union constraints.
+
+- When searching manually:
+  - Use the van proportion constraint to express V in terms of A or vice versa to reduce dimensions.
+  - Check only integer (A, V) pairs that satisfy:
+    - 20A + 15V ≥ 320
+    - V ≤ 0.6(A + V)
+  - Compute cost 820A + 550V for each feasible pair and pick the minimum.
+
+This is all that is needed for the modeller: define A and V, set up the objective as total cost, and apply capacity, proportion, and integrality constraints.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem and how you could solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(A \in \mathbb{Z}_{\ge 0}\): number of type II ambulance shifts per day  
+- \(V \in \mathbb{Z}_{\ge 0}\): number of hospital van shifts per day  
+
+(They must be integers because you can’t run a fractional shift.)
+
+---
+
+## 2. Objective function
+
+Minimize total daily transportation cost:
+
+\[
+\min \; Z = 820 A + 550 V
+\]
+
+where:
+
+- 820 = cost per ambulance shift
+- 550 = cost per van shift
+
+---
+
+## 3. Constraints
+
+### a) Patient transport requirement
+
+Each ambulance shift moves 20 patients; each van shift moves 15.  
+The hospital must transport at least 320 patients per day:
+
+\[
+20 A + 15 V \;\ge\; 320
+\]
+
+---
+
+### b) Van usage limitation (union constraint)
+
+At most 60% of all shifts can be hospital vans:
+
+\[
+V \;\le\; 0.6 (A + V)
+\]
+
+This can be rewritten in a more “linear-programming-friendly” form:
+
+\[
+V \le 0.6A + 0.6V
+\]
+
+\[
+V - 0.6V \le 0.6A
+\]
+
+\[
+0.4 V \le 0.6 A
+\]
+
+\[
+2 V \le 3 A
+\]
+
+So you can use the fully linear integer form:
+
+\[
+2V \le 3A
+\]
+
+---
+
+### c) Non-negativity and integrality
+
+\[
+A \ge 0,\quad V \ge 0
+\]
+
+\[
+A, V \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full ILP model (compact)
+
+\[
+\begin{align}
+\min \quad & 820 A + 550 V \\
+\text{s.t.} \quad 
+& 20A + 15V \ge 320 & \text{(patient capacity)} \\
+& 2V \le 3A & \text{(≤ 60% van shifts)} \\
+& A, V \in \mathbb{Z}_{\ge 0} & \text{(non-negative integers)}
+\end{align}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+Any Mixed-Integer Linear Programming (MILP/ILP) solver is appropriate:
+
+- **PuLP** (pure Python front-end; can use CBC, GLPK, etc.)  
+- **OR-Tools** (`ortools.linear_solver` or `ortools.math_opt`)  
+- **Pyomo** (more general algebraic modeling)  
+- **SciPy’s** `scipy.optimize.linprog` is *not* suitable on its own for integrality; you’d need an external MILP solver.
+
+For a problem this small, **PuLP** or **OR-Tools** are very convenient.
+
+---
+
+## 6. Example PuLP formulation
+
+```python
+import pulp as pl
+
+# Create problem: minimize cost
+prob = pl.LpProblem("Hospital_Transport", pl.LpMinimize)
+
+# Decision variables (non-negative integers)
+A = pl.LpVariable("Ambulance_Shifts", lowBound=0, cat="Integer")
+V = pl.LpVariable("Van_Shifts",        lowBound=0, cat="Integer")
+
+# Objective: minimize cost
+prob += 820 * A + 550 * V
+
+# Constraint: patient capacity
+prob += 20 * A + 15 * V >= 320, "PatientRequirement"
+
+# Constraint: van usage ≤ 60% of shifts -> 2V ≤ 3A
+prob += 2 * V <= 3 * A, "VanUsageLimit"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Ambulance shifts (A):", pl.value(A))
+print("Van shifts (V):", pl.value(V))
+print("Minimum cost:", pl.value(prob.objective))
+```
+
+You can run this to get the optimal numbers of ambulance and van shifts and the minimum daily cost.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create problem: minimize cost
+    prob = pl.LpProblem("Hospital_Transport", pl.LpMinimize)
+
+    # Decision variables (non-negative integers)
+    A = pl.LpVariable("Ambulance_Shifts", lowBound=0, cat="Integer")
+    V = pl.LpVariable("Van_Shifts", lowBound=0, cat="Integer")
+
+    # Objective: minimize cost
+    prob += 820 * A + 550 * V
+
+    # Constraint: patient capacity
+    prob += 20 * A + 15 * V >= 320, "PatientRequirement"
+
+    # Constraint: van usage ≤ 60% of shifts -> 2V ≤ 3A
+    prob += 2 * V <= 3 * A, "VanUsageLimit"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

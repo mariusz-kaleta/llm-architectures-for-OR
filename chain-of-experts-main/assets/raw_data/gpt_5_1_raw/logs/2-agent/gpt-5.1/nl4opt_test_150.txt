@@ -1,0 +1,151 @@
+[MODELER]:
+Let’s turn the description into a linear programming (LP) model.
+
+### 1. Decision variables
+
+Let  
+- \(x_1 \ge 0\): number of hours lab 1 is run  
+- \(x_2 \ge 0\): number of hours lab 2 is run  
+
+### 2. Objective
+
+We want to **minimize the total time** the labs are run:
+
+\[
+\min \; Z = x_1 + x_2
+\]
+
+### 3. Constraints
+
+#### a) Production constraints
+
+Heart medication pills:
+
+- Lab 1: 20 heart pills per hour → \(20x_1\)
+- Lab 2: 30 heart pills per hour → \(30x_2\)
+- Requirement: at least 20,000 heart pills
+
+\[
+20x_1 + 30x_2 \;\ge\; 20000
+\]
+
+Lung medication pills:
+
+- Lab 1: 30 lung pills per hour → \(30x_1\)
+- Lab 2: 40 lung pills per hour → \(40x_2\)
+- Requirement: at least 30,000 lung pills
+
+\[
+30x_1 + 40x_2 \;\ge\; 30000
+\]
+
+#### b) Worker-hour constraint
+
+Each **hour of lab operation** consumes worker labor:
+
+- Each hour at lab 1 requires 3 worker hours → \(3x_1\)
+- Each hour at lab 2 requires 5 worker hours → \(5x_2\)
+- Total worker hours available: 1,500
+
+\[
+3x_1 + 5x_2 \;\le\; 1500
+\]
+
+#### c) Nonnegativity
+
+\[
+x_1 \ge 0, \quad x_2 \ge 0
+\]
+
+### 4. Full model
+
+\[
+\begin{align}
+\min \quad & Z = x_1 + x_2 \\
+\text{s.t.} \quad
+& 20x_1 + 30x_2 \ge 20000 \quad \text{(heart pills)}\\
+& 30x_1 + 40x_2 \ge 30000 \quad \text{(lung pills)}\\
+& 3x_1 + 5x_2 \le 1500 \quad \text{(worker hours)}\\
+& x_1, x_2 \ge 0
+\end{align}
+\]
+
+This is a standard linear program with 2 variables and 3 constraints.
+
+---
+
+### 5. Suitable Python libraries
+
+Any linear programming solver is appropriate. Common choices:
+
+- **PuLP** (`pulp`): simple LP modeling in pure Python; can use CBC (default), GLPK, or commercial solvers if available.
+- **OR-Tools** (`ortools.linear_solver`): efficient and well-documented; supports multiple backends (CBC, GLOP, etc.).
+- **SciPy** (`scipy.optimize.linprog`): good for continuous LPs; straightforward for small problems like this.
+
+For this problem, **PuLP** or **OR-Tools** would be particularly natural.
+
+---
+
+### 6. Example with PuLP
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Pharma_Production", pl.LpMinimize)
+
+# Decision variables
+x1 = pl.LpVariable('x1', lowBound=0)  # hours lab 1
+x2 = pl.LpVariable('x2', lowBound=0)  # hours lab 2
+
+# Objective
+prob += x1 + x2, "Total_lab_hours"
+
+# Constraints
+prob += 20*x1 + 30*x2 >= 20000, "Heart_pills"
+prob += 30*x1 + 40*x2 >= 30000, "Lung_pills"
+prob += 3*x1 + 5*x2 <= 1500,   "Worker_hours"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal hours at lab 1 (x1):", x1.value())
+print("Optimal hours at lab 2 (x2):", x2.value())
+print("Minimum total hours:", pl.value(prob.objective))
+```
+
+This code directly implements the model above and will compute the optimal number of hours for each lab.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Pharma_Production", pl.LpMinimize)
+
+    # Decision variables
+    x1 = pl.LpVariable('x1', lowBound=0)  # hours lab 1
+    x2 = pl.LpVariable('x2', lowBound=0)  # hours lab 2
+
+    # Objective: minimize total hours
+    prob += x1 + x2, "Total_lab_hours"
+
+    # Constraints
+    prob += 20 * x1 + 30 * x2 >= 20000, "Heart_pills"
+    prob += 30 * x1 + 40 * x2 >= 30000, "Lung_pills"
+    prob += 3 * x1 + 5 * x2 <= 1500, "Worker_hours"
+
+    # Solve problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

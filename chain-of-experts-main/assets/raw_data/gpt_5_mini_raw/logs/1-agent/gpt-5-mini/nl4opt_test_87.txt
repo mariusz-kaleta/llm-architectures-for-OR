@@ -1,0 +1,34 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+costs = {'noodles': 5.0, 'bar': 2.5}        # $ per serving
+calories = {'noodles': 600.0, 'bar': 250.0}  # calories per serving
+protein = {'noodles': 1.5, 'bar': 5.0}       # grams protein per serving
+
+cal_req = 2000.0  # minimum calories per day
+prot_req = 16.0   # minimum protein (grams) per day
+
+# Define LP problem: minimize cost
+prob = pulp.LpProblem("Diet_Min_Cost", pulp.LpMinimize)
+
+# Decision variables: servings of noodles and protein bars (continuous, >=0)
+x_noodles = pulp.LpVariable('x_noodles', lowBound=0, cat='Continuous')
+x_bar = pulp.LpVariable('x_bar', lowBound=0, cat='Continuous')
+
+# Objective function
+prob += costs['noodles'] * x_noodles + costs['bar'] * x_bar, "Total_Cost"
+
+# Constraints
+prob += calories['noodles'] * x_noodles + calories['bar'] * x_bar >= cal_req, "CalorieRequirement"
+prob += protein['noodles'] * x_noodles + protein['bar'] * x_bar >= prot_req, "ProteinRequirement"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# (Optional) Print solution details
+print(f"Servings_noodles: {pulp.value(x_noodles)}")
+print(f"Servings_bars: {pulp.value(x_bar)}")
+
+# Final objective value (required exact format)
+print(f"FINAL_OBJ: {pulp.value(prob.objective)}")

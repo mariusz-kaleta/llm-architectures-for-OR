@@ -1,0 +1,89 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- v ∈ Z, v ≥ 0 — number of vintage bottles.
+- r ∈ Z, r ≥ 0 — number of regular bottles.
+
+(You may add integrality explicitly; if integrality is not required, v,r ∈ R≥0.)
+
+Objective
+Maximize the total number of bottles:
+maximize Z = v + r
+
+Constraints
+- Volume capacity: 500 v + 750 r ≤ 100000 (ml)
+- Sales/marketing ratio: r ≥ 4 v
+- Minimum vintage production: v ≥ 10
+- Integrality: v, r integer (v, r ∈ Z≥0)
+
+Equivalent substitution
+Let r = 4v + s with s ≥ 0 (integer). Then the volume constraint becomes:
+3500 v + 750 s ≤ 100000,
+and the objective becomes:
+maximize Z = 5 v + s,
+with v ≥ 10, s ≥ 0 integer and 3500 v ≤ 100000 (so v ≤ 28).
+
+Solution (exact integer)
+Enumerating integer v from 10 to 28 and taking s = floor((100000 − 3500 v)/750) gives the maximum total bottles Z = 142. One feasible optimal integer solution that uses the full capacity is:
+- v = 26 vintage bottles
+- r = 116 regular bottles
+This uses 26·500 + 116·750 = 100000 ml exactly and produces 26 + 116 = 142 bottles.
+
+(There are other optimal combinations that also give 142 bottles, e.g. v=27,r=115 and v=28,r=114, but v=26,r=116 uses the entire available wine.)
+
+Recommended solvers / Python libraries
+- PuLP (linear/integer programming, easy to model and solve with CBC)
+- OR-Tools (CP-SAT or linear solver for integer LPs, very fast)
+- mip (Python-MIP) or Gurobi/CBC if you have them available
+- For simple enumeration or small integer search, plain Python is sufficient
+
+If you want, I can provide a short PuLP or OR-Tools Python script that sets up and solves this model.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained script to solve the integer optimization described:
+# Maximize Z = v + r
+# subject to 500 v + 750 r <= 100000, r >= 4 v, v >= 10, v,r integers >=0
+# Using substitution r = 4v + s, s >= 0 integer, then 3500 v + 750 s <= 100000
+# Enumerate integer v in feasible range and compute best s.
+
+def main():
+    capacity_ml = 100_000
+    v_min = 10
+    # from 3500*v <= capacity => v <= floor(capacity/3500)
+    v_max = capacity_ml // 3500
+
+    best_Z = None
+    best_solutions = []  # list of tuples (v, r, Z, used_ml)
+
+    for v in range(v_min, v_max + 1):
+        remaining = capacity_ml - 3500 * v
+        if remaining < 0:
+            continue
+        # s = floor(remaining / 750)
+        s = remaining // 750
+        if s < 0:
+            continue
+        r = 4 * v + s
+        used_ml = 500 * v + 750 * r
+        Z = v + r
+        # track best
+        if (best_Z is None) or (Z > best_Z):
+            best_Z = Z
+            best_solutions = [(v, r, Z, used_ml)]
+        elif Z == best_Z:
+            best_solutions.append((v, r, Z, used_ml))
+
+    # Ensure we found a solution
+    if best_Z is None:
+        best_Z = 0
+
+    # Final required print (only this line should be printed as final output)
+    print(f"FINAL_OBJ: {best_Z}")
+
+if __name__ == "__main__":
+    main()
+```

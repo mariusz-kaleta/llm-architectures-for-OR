@@ -1,0 +1,203 @@
+[MODELER]:
+Let’s model this as a linear programming (LP) problem.
+
+### Decision variables
+
+Let  
+- \(x\) = number of times process J is used  
+- \(y\) = number of times process P is used  
+
+We assume \(x \ge 0\), \(y \ge 0\), and (if required by the context) \(x, y\) are integers or nonnegative reals.
+
+### Objective (maximize extracted metal)
+
+Each run of:
+- Process J produces 5 units of metal  
+- Process P produces 9 units of metal  
+
+So total metal \(M\) is:
+\[
+M = 5x + 9y
+\]
+
+We want to maximize this:
+\[
+\max \; 5x + 9y
+\]
+
+### Constraints
+
+1. **Water usage constraint**
+
+Each run of:
+- J uses 8 units of water  
+- P uses 6 units of water  
+
+Total available water is at most 1500 units:
+\[
+8x + 6y \le 1500
+\]
+
+2. **Pollution constraint**
+
+Each run of:
+- J produces 3 units of pollution  
+- P produces 5 units of pollution  
+
+Total allowed pollution is at most 1350 units:
+\[
+3x + 5y \le 1350
+\]
+
+3. **Non-negativity**
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+### Solving the model analytically
+
+We solve the system where both resource constraints are binding (likely at the optimum):
+
+\[
+\begin{cases}
+8x + 6y = 1500 \\
+3x + 5y = 1350
+\end{cases}
+\]
+
+From the second equation:
+\[
+3x = 1350 - 5y \Rightarrow x = 450 - \frac{5}{3}y
+\]
+
+Substitute into the first:
+\[
+8\left(450 - \frac{5}{3}y\right) + 6y = 1500 \\
+3600 - \frac{40}{3}y + 6y = 1500
+\]
+
+Combine \(y\)-terms:
+\[
+6y = \frac{18}{3}y,\quad -\frac{40}{3}y + \frac{18}{3}y = -\frac{22}{3}y
+\]
+\[
+3600 - \frac{22}{3}y = 1500
+\]
+
+Move 1500:
+\[
+2100 = \frac{22}{3}y \Rightarrow y = \frac{2100 \cdot 3}{22} = \frac{6300}{22} = \frac{3150}{11} \approx 286.36
+\]
+
+Then
+\[
+x = 450 - \frac{5}{3} \cdot \frac{3150}{11}
+= 450 - \frac{15750}{33}
+= \frac{14850}{33} - \frac{15750}{33}
+= -\frac{900}{33} < 0
+\]
+
+This gives \(x < 0\), which violates \(x \ge 0\). So the intersection of the two constraints is infeasible, and the optimum lies on a boundary where one of the variables is 0 or one constraint is non-binding.
+
+Check corner points:
+
+1. \(x = 0\):  
+   - Water: \(6y \le 1500 \Rightarrow y \le 250\)  
+   - Pollution: \(5y \le 1350 \Rightarrow y \le 270\)  
+   Feasible max: \(y = 250\) (water limits).  
+   Metal: \(M = 5(0) + 9(250) = 2250\).
+
+2. \(y = 0\):  
+   - Water: \(8x \le 1500 \Rightarrow x \le 187.5\)  
+   - Pollution: \(3x \le 1350 \Rightarrow x \le 450\)  
+   Feasible max: \(x = 187.5\) (water limits).  
+   Metal: \(M = 5(187.5) = 937.5\).
+
+The point where pollution binds with one process alone (we already saw water is more restrictive in each case):
+
+- All J: \(x = 187.5, y = 0\) already checked.  
+- All P: \(x = 0, y = 250\) already checked.
+
+Compare metal:
+- All J: 937.5 units  
+- All P: 2250 units  
+
+Thus the maximum metal is obtained by using only process P until water runs out.
+
+### Optimal solution
+
+- \(x^* = 0\) (use process J zero times)  
+- \(y^* = 250\) (use process P 250 times)
+
+Resource usage at optimum:
+- Water: \(8\cdot 0 + 6\cdot 250 = 1500\) (fully used)  
+- Pollution: \(3\cdot 0 + 5\cdot 250 = 1250 \le 1350\) (not fully used)
+
+Maximum metal extracted:
+\[
+M^* = 5(0) + 9(250) = 2250 \text{ units}
+\]
+
+If you require integer numbers of processes, \(x=0, y=250\) is already integer and optimal for the same LP.
+
+---
+
+### Python tools to solve this
+
+Any linear programming solver will work. For Python:
+
+- **PuLP** (`pulp`) – simple high-level LP modeling:
+  ```python
+  import pulp as pl
+
+  model = pl.LpProblem("MetalExtraction", pl.LpMaximize)
+  x = pl.LpVariable("x_J", lowBound=0)
+  y = pl.LpVariable("y_P", lowBound=0)
+
+  # Objective
+  model += 5*x + 9*y
+
+  # Constraints
+  model += 8*x + 6*y <= 1500
+  model += 3*x + 5*y <= 1350
+
+  model.solve()
+  print("x_J =", x.value(), "y_P =", y.value())
+  print("Max metal =", pl.value(model.objective))
+  ```
+
+- **SciPy** (`scipy.optimize.linprog`) – for continuous LPs.
+- **OR-Tools** (`ortools.linear_solver`) – powerful for LP and MILP, good if you later add integrality or more complex constraints.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def solve_metal_extraction():
+    # Create the LP problem: maximize 5x + 9y
+    model = pl.LpProblem("MetalExtraction", pl.LpMaximize)
+
+    # Decision variables: x, y >= 0
+    x = pl.LpVariable("x_J", lowBound=0)
+    y = pl.LpVariable("y_P", lowBound=0)
+
+    # Objective function
+    model += 5 * x + 9 * y
+
+    # Constraints
+    model += 8 * x + 6 * y <= 1500  # Water constraint
+    model += 3 * x + 5 * y <= 1350  # Pollution constraint
+
+    # Solve the model
+    model.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    objective_value = pl.value(model.objective)
+    return objective_value
+
+if __name__ == "__main__":
+    obj_val = solve_metal_extraction()
+    print(f"FINAL_OBJ: {obj_val}")

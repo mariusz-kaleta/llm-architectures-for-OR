@@ -1,0 +1,42 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Ramen_Fries_Diet", pulp.LpMinimize)
+
+# Decision variables: number of ramen packs (x) and fries packs (y)
+x = pulp.LpVariable('ramen', lowBound=0)
+y = pulp.LpVariable('fries', lowBound=0)
+
+# Objective: Minimize total sodium intake (mg)
+# Ramen: 100 mg, Fries: 75 mg
+prob += 100 * x + 75 * y
+
+# Constraints:
+# Calories: at least 3000
+# Ramen: 400 cal, Fries: 300 cal
+prob += 400 * x + 300 * y >= 3000, "CalorieRequirement"
+
+# Protein: at least 80 grams
+# Ramen: 20 g, Fries: 10 g
+prob += 20 * x + 10 * y >= 80, "ProteinRequirement"
+
+# At most 30% of meals can be ramen:
+# x <= 0.3 * (x + y)  ->  0.7x <= 0.3y  -> 7x <= 3y
+prob += 7 * x <= 3 * y, "RamenFractionConstraint"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+# Get results
+x_val = pulp.value(x)
+y_val = pulp.value(y)
+obj_val = pulp.value(prob.objective)
+
+# Print solution details (optional)
+print(f"Optimal number of ramen packs: {x_val}")
+print(f"Optimal number of fries packs: {y_val}")
+print(f"Minimum sodium intake (mg): {obj_val}")
+
+# Final required output
+print(f"FINAL_OBJ: {obj_val}")

@@ -1,0 +1,98 @@
+[MODELER]:
+Mathematical model
+
+Decision variables
+- s = number of small kegs used (integer, s ≥ 0)
+- l = number of large kegs used (integer, l ≥ 0)
+
+Objective
+- Maximize total water transported: Z = 40 s + 100 l  (liters)
+
+Constraints
+- Availability of small kegs: s ≤ 30
+- Availability of large kegs: l ≤ 10
+- Small kegs at least twice number of large: s ≥ 2 l
+- Total kegs limit: s + l ≤ 25
+- At least 5 kegs must be large: l ≥ 5
+- Integrality: s, l ∈ Z
+
+Solution (analysis)
+Because the objective coefficients are positive, for a feasible l you should use as many small kegs as allowed (subject to s ≤ 30 and s + l ≤ 25). For integer l we therefore set s = min(30, 25 − l), provided this satisfies s ≥ 2 l. Feasibility requires min(30, 25 − l) ≥ 2 l → 25 − l ≥ 2 l → l ≤ 8. So l ∈ {5,6,7,8}.
+
+Evaluate objective for each feasible l with s = 25 − l (since 25 − l ≤ 30 in these cases):
+- l = 5 → s = 20 → Z = 40·20 + 100·5 = 1300 L
+- l = 6 → s = 19 → Z = 1360 L
+- l = 7 → s = 18 → Z = 1420 L
+- l = 8 → s = 17 → Z = 1480 L
+
+Maximum occurs at l = 8, s = 17 with Z = 1480 liters.
+
+Recommended solvers / libraries
+- pulp (linear/integer programming, easy to use for small ILPs)
+- OR-Tools CP-SAT (fast for integer/CP problems)
+- scipy.optimize (continuous LP only; not for integer constraints)
+- brute-force/enumeration with Python (feasible here because variable ranges are small)
+
+Example (pulp) snippet
+(from pulp import LpProblem, LpMaximize, LpVariable, lpSum, PULP_CBC_CMD)
+- Define integer variables s, l
+- Add constraints from above
+- Maximize 40*s + 100*l
+- Solve and read integer solution
+
+Final answer
+Use 17 small kegs and 8 large kegs. This transports 1480 liters, which is maximal under the given constraints.
+
+---
+
+[CODER]:
+```python
+# Self-contained script to solve the integer optimization problem by enumeration
+
+# Decision variables:
+# s = number of small kegs used (integer, s >= 0)
+# l = number of large kegs used (integer, l >= 0)
+#
+# Objective: maximize Z = 40*s + 100*l
+# Constraints:
+# s <= 30
+# l <= 10
+# s >= 2*l
+# s + l <= 25
+# l >= 5
+
+best_obj = None
+best_s = None
+best_l = None
+
+for l in range(0, 11):          # large kegs 0..10
+    for s in range(0, 31):      # small kegs 0..30
+        # check constraints
+        if s > 30:
+            continue
+        if l > 10:
+            continue
+        if s < 2 * l:
+            continue
+        if s + l > 25:
+            continue
+        if l < 5:
+            continue
+
+        obj = 40 * s + 100 * l
+
+        if (best_obj is None) or (obj > best_obj):
+            best_obj = obj
+            best_s = s
+            best_l = l
+
+# Ensure a feasible solution was found
+if best_obj is None:
+    raise ValueError("No feasible solution found under the given constraints.")
+
+# Print chosen solution (optional informative line)
+print(f"Best solution found: s = {best_s}, l = {best_l}, Z = {best_obj}")
+
+# Final required output line (must be the last line)
+print(f"FINAL_OBJ: {best_obj}")
+```

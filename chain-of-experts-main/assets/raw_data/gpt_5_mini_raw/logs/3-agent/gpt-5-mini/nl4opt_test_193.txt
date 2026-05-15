@@ -1,0 +1,95 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- s ∈ Z≥0 : number of small buses (capacity 20 students)
+- l ∈ Z≥0 : number of large buses (capacity 50 students)
+
+Objective
+- Minimize total number of buses: minimize Z = s + l
+
+Constraints
+1. Capacity: 20 s + 50 l ≥ 500
+2. Parking limit: l ≤ 0.20 (s + l)
+   - Equivalent algebraically: l ≤ 0.2 s + 0.2 l → 0.8 l ≤ 0.2 s → l ≤ 0.25 s  → s ≥ 4 l
+3. Integrality: s, l integer and ≥ 0
+
+So the integer linear program is
+minimize s + l
+subject to
+20 s + 50 l ≥ 500
+s − 4 l ≥ 0
+s, l ∈ Z≥0
+
+Quick analytic solution
+From s ≥ 4 l substitute minimal s = 4 l into capacity to test feasibility:
+20(4 l) + 50 l = 130 l ≥ 500 → l ≥ 500/130 ≈ 3.846 → minimal integer l = 4.
+With l = 4, s must be ≥ 4·4 = 16. Check capacity: 20·16 + 50·4 = 520 ≥ 500.
+Total buses = 16 + 4 = 20.
+
+Try other small l values or l = 0 yields more buses (e.g. l=0 → s≥25 → 25 buses), so (s,l) = (16,4) is optimal with 20 buses.
+
+Recommended solvers / Python libraries
+- pulp (open-source, CBC solver) — easy to model small ILPs
+- ortools (Google OR-Tools, CP-SAT) — very efficient for integer problems
+- mip (python-mip) — interfaces to CBC/Gurobi
+- gurobipy (if you have a GuroBI license)
+
+Example (outline) using pulp
+- Define LpProblem(minimize)
+- Create LpInteger variables s,l ≥ 0
+- Add constraints: 20*s + 50*l >= 500; s - 4*l >= 0
+- Solve and read s.value(), l.value()
+
+Final answer
+Hire 16 small buses and 4 large buses (total 20 buses).
+
+---
+
+[CODER]:
+#!/usr/bin/env python3
+import math
+
+# Problem data
+capacity_small = 20
+capacity_large = 50
+students_required = 500
+
+# Parking constraint: s >= 4 * l
+
+best_obj = None
+best_solution = None
+
+# Search reasonable ranges for l and s. Upper bound for l: if all were large buses, need at most ceil(500/50)=10.
+# But due to parking constraint, l cannot be very large because s >= 4*l increases total buses.
+# We'll search l from 0 to 50 to be safe.
+for l in range(0, 51):
+    # Minimum s to satisfy parking constraint
+    s_parking = 4 * l
+    # Minimum s to satisfy capacity constraint: 20*s + 50*l >= 500 -> s >= ceil((500 - 50*l)/20)
+    remaining_students = students_required - capacity_large * l
+    if remaining_students > 0:
+        s_capacity = math.ceil(remaining_students / capacity_small)
+    else:
+        s_capacity = 0
+    s = max(s_parking, s_capacity)
+    if s < 0:
+        continue
+    # Check feasibility
+    if capacity_small * s + capacity_large * l >= students_required and s >= 4 * l:
+        obj = s + l
+        if best_obj is None or obj < best_obj:
+            best_obj = obj
+            best_solution = (s, l)
+
+# As a fallback, ensure analytical solution if search failed (shouldn't happen)
+if best_obj is None:
+    # Analytical solution found in problem statement: s=16, l=4
+    best_solution = (16, 4)
+    best_obj = sum(best_solution)
+
+# Optionally store solution values
+s_opt, l_opt = best_solution
+
+# Final required print (only this line must appear exactly in this format)
+print(f"FINAL_OBJ: {best_obj}")

@@ -1,0 +1,49 @@
+[MONOLITH]:
+import pulp
+
+# Data (from problem statement)
+# Decision variables: number of batches
+# Bagels: x, Croissants: y
+profit_bagel = 20.0
+profit_croissant = 40.0
+
+# Resource usage per batch
+oven_bagel = 2.0        # hours per bagel batch
+oven_croissant = 1.0    # hours per croissant batch
+
+chef_bagel = 0.25       # pastry chef hours per bagel batch
+chef_croissant = 2.0    # pastry chef hours per croissant batch
+
+# Available resources per day
+oven_available = 70.0
+chef_available = 32.0
+
+# Define the LP problem
+prob = pulp.LpProblem("Bakery_Production", pulp.LpMaximize)
+
+# Decision variables (continuous, non-negative)
+x = pulp.LpVariable("bagel_batches", lowBound=0, cat="Continuous")
+y = pulp.LpVariable("croissant_batches", lowBound=0, cat="Continuous")
+
+# Objective: maximize profit
+prob += profit_bagel * x + profit_croissant * y, "Total_Profit"
+
+# Constraints
+prob += oven_bagel * x + oven_croissant * y <= oven_available, "Oven_Limit"
+prob += chef_bagel * x + chef_croissant * y <= chef_available, "Chef_Limit"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+# Extract results
+opt_x = pulp.value(x)
+opt_y = pulp.value(y)
+opt_obj = pulp.value(prob.objective)
+
+# Optional: print solution details
+print(f"Optimal bagel batches (x): {opt_x}")
+print(f"Optimal croissant batches (y): {opt_y}")
+print(f"Optimal profit: {opt_obj}")
+
+# Final required output line (must be the last line)
+print(f"FINAL_OBJ: {opt_obj}")

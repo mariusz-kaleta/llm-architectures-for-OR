@@ -1,0 +1,115 @@
+[MODELER]:
+Model this as a linear program where the decision is how many hours to run each lab.
+
+### Decision variables
+Let  
+- \(x_1 \ge 0\): hours lab 1 is run  
+- \(x_2 \ge 0\): hours lab 2 is run  
+
+### Objective
+Minimize the total time the labs are run:
+\[
+\min \; Z = x_1 + x_2
+\]
+
+### Constraints
+
+1. **Heart pills demand (at least 20,000):**
+
+Lab 1 produces 20 heart pills/hour, lab 2 produces 30 heart pills/hour:
+\[
+20x_1 + 30x_2 \;\ge\; 20000
+\]
+
+2. **Lung pills demand (at least 30,000):**
+
+Lab 1 produces 30 lung pills/hour, lab 2 produces 40 lung pills/hour:
+\[
+30x_1 + 40x_2 \;\ge\; 30000
+\]
+
+3. **Worker hours limit (at most 1500 worker hours):**
+
+Each hour of lab 1 uses 3 worker-hours; each hour of lab 2 uses 5 worker-hours:
+\[
+3x_1 + 5x_2 \;\le\; 1500
+\]
+
+4. **Nonnegativity:**
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+That fully specifies the optimization model.
+
+---
+
+### Suitable Python libraries
+
+Any standard linear programming solver can handle this. Good options:
+
+- **PuLP** (`pulp`): very straightforward for LPs, integrates with CBC or other solvers.
+- **OR-Tools Linear Solver** (`ortools.linear_solver`): efficient, industrial-grade.
+- **SciPy** (`scipy.optimize.linprog`): also works well for LPs.
+
+Example outline with PuLP:
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Lab_Scheduling", pl.LpMinimize)
+
+# Variables
+x1 = pl.LpVariable('x1', lowBound=0)
+x2 = pl.LpVariable('x2', lowBound=0)
+
+# Objective
+prob += x1 + x2
+
+# Constraints
+prob += 20*x1 + 30*x2 >= 20000      # heart
+prob += 30*x1 + 40*x2 >= 30000      # lung
+prob += 3*x1 + 5*x2 <= 1500         # worker hours
+
+# Solve
+prob.solve()
+print("Lab 1 hours:", x1.value())
+print("Lab 2 hours:", x2.value())
+print("Total time:", (x1.value() + x2.value()))
+```
+
+This directly encodes the mathematical model above and finds the optimal number of hours for each lab.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("Lab_Scheduling", pl.LpMinimize)
+
+    # Variables
+    x1 = pl.LpVariable('x1', lowBound=0)
+    x2 = pl.LpVariable('x2', lowBound=0)
+
+    # Objective: Minimize total hours
+    prob += x1 + x2
+
+    # Constraints
+    prob += 20 * x1 + 30 * x2 >= 20000      # Heart pills demand
+    prob += 30 * x1 + 40 * x2 >= 30000      # Lung pills demand
+    prob += 3 * x1 + 5 * x2 <= 1500         # Worker hours limit
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Final required print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

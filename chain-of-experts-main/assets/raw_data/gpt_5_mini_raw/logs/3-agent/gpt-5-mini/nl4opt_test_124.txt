@@ -1,0 +1,113 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x ∈ Z_{\ge 0}: number of high-intensity drills.
+- y ∈ Z_{\ge 0}: number of low-intensity drills.
+
+Objective
+- Minimize total drills: minimize Z = x + y.
+
+Parameters
+- High processes 50 gems/day and uses 50 water/day.
+- Low processes 30 gems/day and uses 20 water/day.
+- Required gems per day: 800.
+- Water available per day: 700.
+- At most 40% of drills can be high-intensity.
+- At least 10 low-intensity drills: y ≥ 10.
+
+Constraints (linear)
+1. Processing requirement:
+   50 x + 30 y ≥ 800.
+
+2. Water limit:
+   50 x + 20 y ≤ 700.
+
+3. Proportion limit (x/(x+y) ≤ 0.4). For x+y>0 this is linearized as:
+   x ≤ 0.4 (x + y)  ⇔  0.6 x ≤ 0.4 y  ⇔  3 x ≤ 2 y.
+
+4. Minimum low-intensity drills:
+   y ≥ 10.
+
+5. Integrality and nonnegativity:
+   x, y ∈ Z_{\ge 0}.
+
+Solution (analytical / small integer search)
+- Feasible integer solutions can be enumerated for small x.
+- The minimum achievable total drills is 22 with two optimal integer solutions:
+  - (x, y) = (7, 15) → 50·7 + 30·15 = 800 gems, water 50·7 + 20·15 = 650 ≤ 700, proportion 7/22 ≈ 31.8% ≤ 40%.
+  - (x, y) = (8, 14) → 820 gems, water 680, proportion ≈ 36.4%.
+
+If you want to minimize noise subject to the same primary objective (i.e., secondarily minimize x), choose (7 high, 15 low).
+
+Suggested solvers / Python libraries
+- pulp (simple MILP formulation, uses CBC by default)
+- OR-Tools CP-SAT (robust for integer/CP problems)
+- pyomo with a MILP solver (GLPK, CBC, Gurobi if available)
+- If using commercial solvers, Gurobi or CPLEX are excellent.
+
+Optional short example (pulp)
+- Formulate variables x,y as LpInteger, add constraints above, set objective x+y and solve with pulp (CBC). This will return the integer optimal solutions shown.
+
+If you want, I can provide the actual Python/pulp or OR-Tools code to solve and enumerate the optimal solutions.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained search for the integer optimization problem described.
+
+# Parameters
+gems_high = 50
+water_high = 50
+gems_low = 30
+water_low = 20
+required_gems = 800
+available_water = 700
+min_low = 10
+
+# We'll do a complete integer enumeration over reasonable bounds.
+# From water constraint: 50x + 20y <= 700 -> x <= 14 if y = 0. So x in [0..14] is safe.
+# For y, gems constraint 30y >= 800 -> y >= 27 if x = 0, but we also require y >= 10. We'll search up to 50 to be safe.
+max_x = 50
+max_y = 50
+
+best_obj = None
+best_solutions = []
+
+for x in range(0, max_x + 1):
+    for y in range(0, max_y + 1):
+        # integrality and nonnegativity are ensured by loops
+        # Constraint 4: minimum low-intensity drills
+        if y < min_low:
+            continue
+        # Constraint 3: 3x <= 2y (proportion limit)
+        if 3 * x > 2 * y:
+            continue
+        # Constraint 1: processing requirement
+        if gems_high * x + gems_low * y < required_gems:
+            continue
+        # Constraint 2: water limit
+        if water_high * x + water_low * y > available_water:
+            continue
+
+        total_drills = x + y
+        if (best_obj is None) or (total_drills < best_obj):
+            best_obj = total_drills
+            best_solutions = [(x, y)]
+        elif total_drills == best_obj:
+            best_solutions.append((x, y))
+
+# If tie-breaker: minimize x (as secondary objective "minimize noise"), pick smallest x among best_solutions
+if best_solutions:
+    best_solutions.sort(key=lambda sol: (sol[0], sol[1]))
+    chosen_solution = best_solutions[0]
+else:
+    chosen_solution = None
+
+# Final objective value
+value = best_obj if best_obj is not None else 0
+
+print(f"FINAL_OBJ: {value}")
+```

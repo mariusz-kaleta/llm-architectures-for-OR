@@ -1,0 +1,118 @@
+[MODELER]:
+Here is a formal optimization model for the problem.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of basketballs produced (nonnegative integer)  
+- \(y\) = number of footballs produced (nonnegative integer)
+
+If integrality is not essential, you can also model \(x, y\) as continuous nonnegative variables, then round the solution.
+
+## 2. Objective
+
+Maximize the total number of sports equipment produced:
+\[
+\max \ Z = x + y
+\]
+
+## 3. Constraints
+
+### a) Material constraint
+
+Each basketball uses 5 units of material, each football uses 3 units. Total available material is 1500 units:
+\[
+5x + 3y \le 1500
+\]
+
+### b) Labor (time) constraint
+
+Each basketball takes 1 hour, each football takes 2 hours. Total available labor is 750 hours:
+\[
+x + 2y \le 750
+\]
+
+### c) Product mix constraints
+
+1. There must be at least three times as many basketballs as footballs:
+   \[
+   x \ge 3y
+   \]
+
+2. At least 50 footballs must be produced:
+   \[
+   y \ge 50
+   \]
+
+### d) Nonnegativity (and integrality)
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+Optionally (to enforce whole products):
+\[
+x, y \in \mathbb{Z}
+\]
+
+## 4. Complete mathematical model
+
+\[
+\begin{aligned}
+\max\ & x + y \\
+\text{s.t. } 
+& 5x + 3y \le 1500, \\
+& x + 2y \le 750, \\
+& x \ge 3y, \\
+& y \ge 50, \\
+& x, y \ge 0 \ (\text{and integer if required}).
+\end{aligned}
+\]
+
+## 5. Suitable Python libraries
+
+To solve this linear optimization problem programmatically, you can use:
+
+- **PuLP** – user-friendly LP/MIP modeling in pure Python.
+- **OR-Tools (Google)** – powerful, fast linear and mixed-integer solver interfaces.
+- **Pyomo** – more general modeling framework for optimization problems.
+- **SciPy `scipy.optimize.linprog`** – if you treat variables as continuous and don’t need integrality.
+
+For a straightforward linear/integer programming model like this, **PuLP** or **OR-Tools** are excellent choices.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+# Create the problem: maximize total number of sports equipment
+prob = pulp.LpProblem("Sports_Production", pulp.LpMaximize)
+
+# Decision variables: number of basketballs (x) and footballs (y), integers and nonnegative
+x = pulp.LpVariable('x', lowBound=0, cat='Integer')
+y = pulp.LpVariable('y', lowBound=0, cat='Integer')
+
+# Objective function: maximize x + y
+prob += x + y, "Total_Equipment"
+
+# Constraints
+
+# Material constraint: 5x + 3y <= 1500
+prob += 5 * x + 3 * y <= 1500, "Material"
+
+# Labor constraint: x + 2y <= 750
+prob += x + 2 * y <= 750, "Labor"
+
+# Product mix: x >= 3y
+prob += x >= 3 * y, "Mix1"
+
+# At least 50 footballs: y >= 50
+prob += y >= 50, "Min_Footballs"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract objective value
+final_obj = pulp.value(prob.objective)
+
+# Print the final objective value in required format
+print(f"FINAL_OBJ: {final_obj}")

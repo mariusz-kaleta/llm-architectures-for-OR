@@ -1,0 +1,95 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x = number of model trains to produce (units)
+- y = number of model planes to produce (units)
+
+Objective
+- Maximize profit Z = 8x + 10y
+
+Constraints
+- Wood: 3x + 4y ≤ 120
+- Paint: 3x + 2y ≤ 90
+- Nonnegativity: x ≥ 0, y ≥ 0
+(If integer production is required: x, y ∈ Z≥0)
+
+Solution (analytic)
+Evaluate corner points of the feasible region:
+- Intersection of both constraints: solve 3x+4y=120 and 3x+2y=90 → y=15, x=20 → Z = 8·20 + 10·15 = 310
+- x=0 → y ≤ min(120/4, 90/2) = 30 → Z = 10·30 = 300
+- y=0 → x ≤ min(120/3, 90/3) = 30 → Z = 8·30 = 240
+
+Maximum occurs at x = 20, y = 15 with maximum profit $310.
+
+Suggested Python libraries
+- pulp (simple LP/IP modeling and solving)
+- OR-Tools (CP-SAT for integer problems or linear solver)
+- scipy.optimize.linprog (continuous LP)
+- cvxpy (convex optimization modeling)
+
+Example (pulp) code
+- Continuous or integer: set x,y = LpVariable(..., cat='Integer') if integrality needed.
+
+from pulp import LpMaximize, LpProblem, LpVariable, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("models", LpMaximize)
+x = LpVariable('trains', lowBound=0, cat='Integer')   # use cat='Continuous' if fractional allowed
+y = LpVariable('planes', lowBound=0, cat='Integer')
+
+prob += 8*x + 10*y                     # objective
+prob += 3*x + 4*y <= 120               # wood
+prob += 3*x + 2*y <= 90                # paint
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print("trains =", int(x.value()), "planes =", int(y.value()), "profit =", 8*int(x.value()) + 10*int(y.value()))
+
+This returns trains = 20, planes = 15, profit = 310.
+
+---
+
+[CODER]:
+#!/usr/bin/env python3
+# Self-contained solver for the model train/plane production LP
+# Maximize Z = 8x + 10y
+# s.t. 3x + 4y <= 120
+#      3x + 2y <=  90
+#      x, y >= 0
+
+# We'll evaluate the corner points of the feasible region analytically.
+
+def evaluate_profit(x, y):
+    return 8*x + 10*y
+
+# Corner 1: intersection of the two constraints
+# Solve:
+# 3x + 4y = 120
+# 3x + 2y =  90
+# Subtract: 2y = 30 -> y = 15 -> 3x + 2*15 = 90 -> 3x = 60 -> x = 20
+x1, y1 = 20.0, 15.0
+z1 = evaluate_profit(x1, y1)
+
+# Corner 2: x = 0, then y <= min(120/4, 90/2)
+x2 = 0.0
+y2 = min(120.0/4.0, 90.0/2.0)
+z2 = evaluate_profit(x2, y2)
+
+# Corner 3: y = 0, then x <= min(120/3, 90/3)
+y3 = 0.0
+x3 = min(120.0/3.0, 90.0/3.0)
+z3 = evaluate_profit(x3, y3)
+
+# Collect and pick best
+candidates = [
+    (x1, y1, z1),
+    (x2, y2, z2),
+    (x3, y3, z3)
+]
+
+x_opt, y_opt, profit_opt = max(candidates, key=lambda t: t[2])
+
+# Print solution (optional informative line)
+print(f"Optimal solution: x = {int(x_opt) if x_opt.is_integer() else x_opt}, y = {int(y_opt) if y_opt.is_integer() else y_opt}, profit = {int(profit_opt) if profit_opt.is_integer() else profit_opt}")
+
+# Final required output line
+print(f"FINAL_OBJ: {int(profit_opt) if profit_opt.is_integer() else profit_opt}")

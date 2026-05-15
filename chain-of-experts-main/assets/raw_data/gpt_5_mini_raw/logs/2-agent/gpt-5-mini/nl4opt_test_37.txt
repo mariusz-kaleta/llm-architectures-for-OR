@@ -1,0 +1,129 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of thin jars produced (>= 0)
+  - y = number of stubby jars produced (>= 0)
+
+  (If jars must be integer, declare x,y ∈ Z≥0; otherwise continuous.)
+
+- Objective
+  Maximize profit P = 5x + 9y
+
+- Constraints
+  - Shaping time: 50x + 30y ≤ 3000 (minutes)
+  - Baking time:   90x +150y ≤ 4000 (minutes)
+  - Nonnegativity: x ≥ 0, y ≥ 0
+  - (Optional integrality: x,y integers)
+
+Solving (continuous LP)
+- Solve the LP max 5x+9y subject to the two time constraints. The baking constraint is binding and profit per baking minute is higher for stubby jars (9/150 = 0.06) than for thin jars (5/90 ≈ 0.0556). The continuous optimum is
+  x = 0, y = 4000/150 = 26.666...,
+  giving profit P = 9*(4000/150) = $240.
+
+Integer (realistic) solution
+- Jars are discrete. With integer variables, fill the baking capacity with as many stubby jars as possible: y ≤ floor(4000/150) = 26. With 26 stubby jars there remain 100 baking minutes, enough to make one thin jar (needs 90). So the best integer-feasible solution found is
+  x = 1 thin jar, y = 26 stubby jars,
+  profit P = 5*1 + 9*26 = $239.
+  (You can check nearby integer combinations; none give higher profit.)
+
+Recommended solvers / Python libraries
+- pulp (simple LP / MILP; use LpInteger for integrality)
+- OR-Tools linear solver or CP-SAT (for integer/large problems)
+- scipy.optimize.linprog (continuous LP only)
+- cvxpy (convex/LP modeling)
+- commercial solvers: Gurobi, CPLEX if available and large scale
+
+Example (pulp) outline
+- Continuous LP:
+  - Define LpProblem, LpVariables x,y ≥ 0 (continuous), add constraints and objective, solve.
+- Integer MILP:
+  - Define x,y with cat='Integer' and solve similarly.
+
+Answer
+- If fractional jars allowed: produce 26.666... stubby jars (the LP optimum) — profit $240.
+- If jars must be whole: produce 1 thin jar and 26 stubby jars for maximum profit $239.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the jar production LP / MILP problem.
+# Computes continuous LP optimum (fractional jars allowed) and integer optimum (jars must be whole).
+# Prints results and ends with the required FINAL_OBJ line.
+
+# Problem data
+profit_x = 5   # profit per thin jar
+profit_y = 9   # profit per stubby jar
+
+# Constraints (coefficients and right-hand sides)
+# 50x + 30y <= 3000   (shaping minutes)
+# 90x +150y <= 4000   (baking minutes)
+
+a1_x, a1_y, b1 = 50.0, 30.0, 3000.0
+a2_x, a2_y, b2 = 90.0,150.0, 4000.0
+
+# 1) Continuous LP solution: evaluate objective at feasible corner points.
+# Feasible corners in nonnegative quadrant are:
+# (0,0), (x_max_on_x_axis,0), (0,y_max_on_y_axis)
+# where x_max_on_x_axis = min(b1/a1_x, b2/a2_x)
+# and y_max_on_y_axis = min(b1/a1_y, b2/a2_y)
+
+x_max_axis = min(b1 / a1_x, b2 / a2_x)
+y_max_axis = min(b1 / a1_y, b2 / a2_y)
+
+corners = [
+    (0.0, 0.0),
+    (x_max_axis, 0.0),
+    (0.0, y_max_axis),
+]
+
+def profit(x, y):
+    return profit_x * x + profit_y * y
+
+# Evaluate corners
+best_cont = None
+for (xv, yv) in corners:
+    p = profit(xv, yv)
+    if (best_cont is None) or (p > best_cont[0]):
+        best_cont = (p, xv, yv)
+
+cont_obj, cont_x, cont_y = best_cont
+
+# 2) Integer MILP solution: brute-force over reasonable bounds
+# Upper bounds for search:
+# x <= floor(min(b1/a1_x, b2/a2_x))
+# y <= floor(min(b1/a1_y, b2/a2_y))
+
+import math
+x_upper = int(math.floor(min(b1 / a1_x, b2 / a2_x)))
+y_upper = int(math.floor(min(b1 / a1_y, b2 / a1_y)))  # note: a1_y used twice? fix below
+
+# Fix: y_upper should be min(b1/a1_y, b2/a2_y)
+y_upper = int(math.floor(min(b1 / a1_y, b2 / a2_y)))
+
+best_int = None
+for xi in range(0, x_upper + 1):
+    for yi in range(0, y_upper + 1):
+        # Check constraints
+        if (a1_x * xi + a1_y * yi) <= b1 + 1e-9 and (a2_x * xi + a2_y * yi) <= b2 + 1e-9:
+            p = profit(xi, yi)
+            if (best_int is None) or (p > best_int[0]):
+                best_int = (p, xi, yi)
+
+if best_int is None:
+    int_obj, int_x, int_y = 0, 0, 0
+else:
+    int_obj, int_x, int_y = best_int
+
+# Print results
+print("Continuous LP solution (fractional jars allowed):")
+print(f" x = {cont_x:.6f}, y = {cont_y:.6f}, profit = {cont_obj:.6f}")
+print()
+print("Integer solution (jars must be whole):")
+print(f" x = {int_x}, y = {int_y}, profit = {int_obj}")
+
+# Final required line: print only this line in this exact format
+print(f"FINAL_OBJ: {int(int_obj)}")
+```

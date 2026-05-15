@@ -1,0 +1,221 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Minimise the **total transport time** required to move at least 120 patients to the hospital.  
+   - Total time = (number of helicopter trips × 1 hour) + (number of bus trips × 3 hours).
+
+2. Suggested model type  
+   - Model: **Integer Linear Programming (ILP)**.  
+     - Decision variables are naturally counts of trips, so they must be integers.  
+     - Objective and constraints are all linear in those variables.
+
+3. Main decision variables  
+   Define integer, non-negative variables such as:  
+   - H = number of helicopter trips.  
+   - B = number of bus trips.  
+
+   (If needed later, you can derive number of patients transported by each mode as 5H and 8B.)
+
+4. Key constraints to consider  
+
+   a) Patient coverage requirement  
+   - Each helicopter trip transports 5 patients.  
+   - Each bus trip transports 8 patients.  
+   - At least 120 patients must be transported:  
+     - 5H + 8B ≥ 120.  
+
+   b) Minimum helicopter share of trips  
+   - “At least 30% of the trips should be by helicopter.”  
+   - This is about **number of trips**, not patients:  
+     - H ≥ 0.3 × (H + B).  
+   - This will be a linear constraint once rearranged.
+
+   c) Maximum number of bus trips  
+   - At most 10 bus trips are allowed:  
+     - B ≤ 10.  
+
+   d) Non-negativity and integrality  
+   - H ≥ 0, B ≥ 0.  
+   - H and B must be **integers** (number of trips cannot be fractional).
+
+5. Objective function structure  
+
+   - Minimise total time T:  
+     - T = 1 × H + 3 × B.  
+   - This is linear in the decision variables.
+
+6. Modelling strategy notes for the Modeller  
+
+   - Keep the model very compact: 2 integer variables, 3–4 linear constraints, 1 linear objective.  
+   - Explicitly enforce integrality; otherwise, the LP relaxation might yield fractional trips.  
+   - After solving, verify:  
+     - Total patients transported ≥ 120.  
+     - H/(H + B) ≥ 0.3.  
+     - B ≤ 10.  
+   - If multiple optimal solutions exist, any one satisfying all constraints is acceptable unless the user later specifies secondary criteria (e.g., minimise number of trips or helicopters).
+
+---
+
+[MODELER]:
+Here is a clean mathematical optimisation model of the problem, followed by implementation notes.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(H \in \mathbb{Z}_{\ge 0}\): number of helicopter trips  
+- \(B \in \mathbb{Z}_{\ge 0}\): number of bus trips  
+
+Both are integer and non‑negative.
+
+Derived (not decision) quantities:
+
+- Patients by helicopter: \(5H\)  
+- Patients by bus: \(8B\)  
+- Total trips: \(H + B\)  
+- Total patients: \(5H + 8B\)
+
+---
+
+## 2. Objective function
+
+Minimise total transport time \(T\):
+
+\[
+\min \; T = 1 \cdot H + 3 \cdot B
+\]
+
+- 1 hour per helicopter trip  
+- 3 hours per bus trip  
+
+---
+
+## 3. Constraints
+
+### a) Patient coverage requirement
+
+At least 120 patients transported:
+
+\[
+5H + 8B \;\ge\; 120
+\]
+
+### b) Minimum helicopter share of trips
+
+At least 30% of the trips must be by helicopter:
+
+\[
+\frac{H}{H + B} \;\ge\; 0.3 \quad \text{(when } H + B > 0\text{)}
+\]
+
+Rearrange to a linear form:
+
+\[
+H \;\ge\; 0.3(H + B)
+\]
+\[
+H \;\ge\; 0.3H + 0.3B
+\]
+\[
+0.7H \;\ge\; 0.3B
+\]
+\[
+7H \;\ge\; 3B
+\]
+
+So the linear constraint is:
+
+\[
+7H - 3B \;\ge\; 0
+\]
+
+Note: Given 120 patients and integer trips, \(H + B > 0\) will be automatically satisfied by feasibility.
+
+### c) Maximum number of bus trips
+
+At most 10 bus trips:
+
+\[
+B \;\le\; 10
+\]
+
+### d) Non‑negativity and integrality
+
+\[
+H \in \mathbb{Z}_{\ge 0}, \quad B \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Full ILP formulation
+
+\[
+\begin{aligned}
+\min \quad & T = H + 3B \\
+\text{s.t.} \quad
+& 5H + 8B \;\ge\; 120 & \text{(patients)} \\
+& 7H - 3B \;\ge\; 0 & \text{(≥30% helicopter trips)} \\
+& B \;\le\; 10 & \text{(bus limit)} \\
+& H, B \in \mathbb{Z}_{\ge 0} & \text{(integrality, non-negativity)}
+\end{aligned}
+\]
+
+Any optimal integer solution \((H^*, B^*)\) gives how many helicopter and bus trips to schedule.
+
+---
+
+## 5. Suitable Python libraries
+
+This is a small Integer Linear Program with two integer variables and a few linear constraints. Any standard MILP/LP solver is appropriate:
+
+- `PuLP` (pure Python modeling, can use CBC by default; very suitable here)
+- `pyomo` (more general modeling framework, supports many solvers)
+- `ortools.linear_solver` from Google OR-Tools (MILP solver with CBC, SCIP, or GLOP)
+- `scipy.optimize.linprog` **cannot** handle integrality directly, so it’s not ideal unless you relax integrality and then round/adjust (not recommended for exact solution here).
+
+For a straightforward implementation:
+
+- Use **PuLP**: simplest for teaching/demo.
+- Or **OR-Tools** if you already use Google’s optimization tools.
+
+If you want, I can next provide sample PuLP or OR-Tools code that sets up and solves this exact model.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: minimize total transport time
+    prob = pulp.LpProblem("Helicopter_Bus_Transport", pulp.LpMinimize)
+
+    # Decision variables: H = helicopter trips, B = bus trips
+    H = pulp.LpVariable('H', lowBound=0, cat='Integer')
+    B = pulp.LpVariable('B', lowBound=0, cat='Integer')
+
+    # Objective function: minimize T = H + 3B
+    prob += H + 3 * B, "Total_Transport_Time"
+
+    # Constraints
+
+    # At least 120 patients: 5H + 8B >= 120
+    prob += 5 * H + 8 * B >= 120, "Patient_Coverage"
+
+    # At least 30% of trips by helicopter: 7H - 3B >= 0
+    prob += 7 * H - 3 * B >= 0, "Helicopter_Share"
+
+    # At most 10 bus trips: B <= 10
+    prob += B <= 10, "Bus_Limit"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get optimal objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print the final objective value in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

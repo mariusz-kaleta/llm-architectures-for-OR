@@ -1,0 +1,295 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- Goal: **Minimise the total number of vehicles purchased** (sedans + buses),  
+  while:
+  - Serving **at least 4600 tourists per day**, and  
+  - Keeping **daily pollution at or below 800 units**.
+
+2. **Suggested model type**
+
+- Model: **Integer Linear Programming (ILP)**  
+  (Both sedans and buses are purchased in whole units; linear relationships for capacity and pollution.)
+
+3. **Main decision variables**
+
+Define two integer decision variables:
+
+- \(S\): Number of **sedans** to purchase.
+- \(B\): Number of **buses** to purchase.
+
+(Nonnegative integers.)
+
+4. **Key constraints to consider**
+
+a) **Tourist capacity requirement**
+
+- A sedan provides **50 tourists/day**.
+- A bus provides **250 tourists/day**.
+- Need to handle **at least 4600 tourists/day**.
+
+Formulate a capacity constraint involving:
+- 50 per sedan,
+- 250 per bus,
+- ≥ 4600 total.
+
+b) **Pollution limit**
+
+- A sedan causes **10 units of pollution/day**.
+- A bus causes **40 units of pollution/day**.
+- Total pollution must be **≤ 800 units/day**.
+
+Formulate a pollution constraint involving:
+- 10 per sedan,
+- 40 per bus,
+- ≤ 800 total.
+
+c) **Non-negativity and integrality**
+
+- Both S and B must be:
+  - **Nonnegative**.
+  - **Integer** (you cannot buy a fraction of a vehicle).
+
+5. **Objective function**
+
+- Minimise the **total number of vehicles**:
+  - Minimise \(S + B\).
+
+6. **Modelling strategy / checks**
+
+- This is a **small 2-variable ILP**; can be:
+  - Solved by enumeration of feasible integer pairs,  
+  - Or by a standard ILP solver.
+- After solving, ensure the chosen \((S, B)\) pair:
+  - Meets or exceeds 4600 tourists/day,
+  - Does not exceed 800 pollution units/day,
+  - Has the **smallest possible value of \(S + B\)** among all feasible pairs.
+
+7. **Interpretation focus for the modeller**
+
+- Emphasise the **trade-off**:
+  - Buses give more capacity and more pollution per vehicle, but pollution **per tourist** is lower.
+  - Sedans give flexibility but increase vehicle count.
+- The final answer must clearly state:
+  - **Number of sedans**,
+  - **Number of buses**,
+  - **Total capacity achieved**,
+  - **Total pollution**,
+  - And verify all constraints are satisfied with the **minimum total vehicles**.
+
+---
+
+[MODELER]:
+Below is a full mathematical model of the problem, followed by the optimal solution and how to solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \( S \in \mathbb{Z}_{\ge 0} \): number of sedans to purchase  
+- \( B \in \mathbb{Z}_{\ge 0} \): number of buses to purchase  
+
+Both must be nonnegative integers.
+
+---
+
+## 2. Objective
+
+Minimise the total number of vehicles:
+
+\[
+\min \; S + B
+\]
+
+---
+
+## 3. Constraints
+
+### a) Tourist capacity requirement
+
+Each sedan carries 50 tourists/day, each bus 250 tourists/day.  
+At least 4600 tourists/day must be served:
+
+\[
+50S + 250B \;\ge\; 4600
+\]
+
+---
+
+### b) Pollution constraint
+
+Each sedan causes 10 units of pollution/day, each bus 40 units/day.  
+Total pollution must not exceed 800 units/day:
+
+\[
+10S + 40B \;\le\; 800
+\]
+
+---
+
+### c) Non-negativity and integrality
+
+\[
+S \ge 0,\quad B \ge 0,\quad S, B \in \mathbb{Z}
+\]
+
+This is a 2-variable Integer Linear Program (ILP).
+
+---
+
+## 4. Solving the model analytically (outline)
+
+Use the constraints:
+
+1. Capacity: \(50S + 250B \ge 4600 \Rightarrow S + 5B \ge 92\)
+2. Pollution: \(10S + 40B \le 800 \Rightarrow S + 4B \le 80\)
+
+So:
+
+\[
+\begin{aligned}
+S &\ge 92 - 5B \\
+S &\le 80 - 4B
+\end{aligned}
+\]
+
+For feasibility: \(92 - 5B \le 80 - 4B \Rightarrow B \ge 12\).  
+Also \(S \ge 0\) and \(S \le 80 - 4B\) imply \(80 - 4B \ge 0 \Rightarrow B \le 20\).
+
+So \(B \in \{12,13,\dots,20\}\), and for each B:
+
+\[
+S \in [\;92 - 5B,\;80 - 4B\;] \cap \mathbb{Z}
+\]
+
+To minimise \(S + B\), use the smallest feasible \(S\) for each B: \(S = 92 - 5B\).
+
+Then:
+
+\[
+S + B = (92 - 5B) + B = 92 - 4B
+\]
+
+This decreases as B increases, so take the largest feasible \(B\), which is \(B = 20\):
+
+- \(B = 20\)
+- \(S = 92 - 5 \cdot 20 = -8\) → not allowed (S must be ≥ 0)
+
+So we need the *largest* B in [12,20] such that \(S = 92 - 5B \ge 0\):
+
+\[
+92 - 5B \ge 0 \Rightarrow B \le 18.4
+\]
+
+Thus, check integer \(B \in \{12,\dots,18\}\), with \(S = 92 - 5B\):
+
+- \(B = 18 \Rightarrow S = 92 - 90 = 2,\; S+B=20\)
+- Larger B (19,20) make S negative, so infeasible.
+- Any smaller B gives larger \(S + B = 92 - 4B\), hence worse.
+
+So the optimal solution is:
+
+- \(S^* = 2\) sedans  
+- \(B^* = 18\) buses  
+
+Check constraints:
+
+- Capacity: \(50\cdot 2 + 250\cdot 18 = 100 + 4500 = 4600 \ge 4600\) ✓  
+- Pollution: \(10\cdot 2 + 40\cdot 18 = 20 + 720 = 740 \le 800\) ✓  
+- Total vehicles: \(2 + 18 = 20\) (minimal).
+
+---
+
+## 5. Final recommendation
+
+The company should purchase:
+
+- **Sedans:** 2  
+- **Buses:** 18  
+
+This yields:
+
+- **Total capacity:** 4600 tourists/day  
+- **Total pollution:** 740 units/day (within the 800-unit limit)  
+- **Total vehicles:** 20 (minimum possible under all constraints)
+
+---
+
+## 6. Python implementation suggestions
+
+This is a small ILP. Suitable libraries:
+
+- `PuLP` (simple, pure Python)
+- `ortools.linear_solver` (Google OR-Tools)
+- `scipy.optimize` is more suited to continuous problems; for integer constraints, prefer PuLP or OR-Tools.
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("TourismFleetPlanning", pl.LpMinimize)
+
+# Decision variables
+S = pl.LpVariable("Sedans", lowBound=0, cat="Integer")
+B = pl.LpVariable("Buses", lowBound=0, cat="Integer")
+
+# Objective: minimize total vehicles
+prob += S + B
+
+# Capacity constraint
+prob += 50 * S + 250 * B >= 4600
+
+# Pollution constraint
+prob += 10 * S + 40 * B <= 800
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Sedans:", pl.value(S))
+print("Buses:", pl.value(B))
+print("Total vehicles:", pl.value(S + B))
+print("Capacity:", 50 * pl.value(S) + 250 * pl.value(B))
+print("Pollution:", 10 * pl.value(S) + 40 * pl.value(B))
+```
+
+This will return `Sedans = 2`, `Buses = 18` as above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("TourismFleetPlanning", pl.LpMinimize)
+
+    # Decision variables
+    S = pl.LpVariable("Sedans", lowBound=0, cat="Integer")
+    B = pl.LpVariable("Buses", lowBound=0, cat="Integer")
+
+    # Objective: minimize total number of vehicles
+    prob += S + B
+
+    # Constraints
+    # Capacity constraint: 50S + 250B >= 4600
+    prob += 50 * S + 250 * B >= 4600
+
+    # Pollution constraint: 10S + 40B <= 800
+    prob += 10 * S + 40 * B <= 800
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract final objective value
+    final_obj = pl.value(S + B)
+
+    # Print strictly in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

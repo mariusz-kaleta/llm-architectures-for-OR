@@ -1,0 +1,43 @@
+[MONOLITH]:
+import pulp
+
+# Initialize the problem: minimize number of drills
+prob = pulp.LpProblem("GemFactoryDrills", pulp.LpMinimize)
+
+# Decision variables: number of high (H) and low (L) intensity drills
+H = pulp.LpVariable('H', lowBound=0, cat='Integer')
+L = pulp.LpVariable('L', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of drills
+prob += H + L, "TotalDrills"
+
+# Constraints
+
+# 1. Production: each day must process at least 800 gems
+#    50H + 30L >= 800
+prob += 50 * H + 30 * L >= 800, "ProductionRequirement"
+
+# 2. Water usage: cannot exceed 700 units
+#    50H + 20L <= 700
+prob += 50 * H + 20 * L <= 700, "WaterLimit"
+
+# 3. High intensity noise constraint: at most 40% of drills are high intensity
+#    H <= 0.4 * (H + L) -> 0.6H <= 0.4L -> 3H <= 2L
+prob += 3 * H <= 2 * L, "HighIntensityFraction"
+
+# 4. At least 10 low intensity drills
+prob += L >= 10, "MinLowIntensity"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract and print the solution
+H_val = pulp.value(H)
+L_val = pulp.value(L)
+obj_val = pulp.value(prob.objective)
+
+print(f"High intensity drills: {H_val}")
+print(f"Low intensity drills: {L_val}")
+print(f"Total drills: {obj_val}")
+
+print(f"FINAL_OBJ: {obj_val}")

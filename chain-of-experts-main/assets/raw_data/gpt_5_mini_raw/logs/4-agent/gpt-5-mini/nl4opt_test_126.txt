@@ -1,0 +1,150 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Maximise the total number of flowers delivered to the stores.
+
+2. Suggested model type
+- Model: Integer Linear Program (ILP) — two integer decision variables, linear objective, linear constraints. (Because bouquet counts must be whole numbers. For a very small problem you can also solve it by simple algebraic reasoning/enumeration.)
+
+3. Main decision variables
+- s = number of small bouquets transported (each contains 5 flowers).
+- l = number of large bouquets transported (each contains 10 flowers).
+(Both s and l are nonnegative integers.)
+
+4. Key constraints to include (description only)
+- Upper bounds per bouquet type: s cannot exceed 80; l cannot exceed 50.
+- Total-bouquets capacity: the sum of small and large bouquets cannot exceed 70.
+- Minimum large-bouquet requirement: at least 20 large bouquets must be transported.
+- Popularity requirement: the number of small bouquets must be at least twice the number of large bouquets.
+- Integrality and nonnegativity: s and l must be integer and >= 0.
+
+5. Objective (description)
+- Maximise the total flowers: increase 5 flowers per small bouquet and 10 flowers per large bouquet.
+
+6. Suggested solving approach
+- Use an ILP solver (e.g., any MILP package) with the two integer variables and the listed constraints.
+- Given the small problem size, also solve by reasoning: because large bouquets give more flowers per bouquet, push l as high as feasible subject to constraints, then set s as large as allowed by the total-bouquet capacity while respecting the s >= 2*l constraint and s <= 80.
+- Verify corner (extreme) feasible points because the optimum will lie on constraint boundaries.
+
+7. Quick analytic conclusion (for verification)
+- From s >= 2*l and s + l <= 70 you get an effective bound on l (three bouquets per “unit”): l cannot exceed floor(70/3) = 23. With the given lower bound l >= 20, the best choice is l = 23. Then set s as large as allowed by s + l <= 70, giving s = 70 − 23 = 47 (this also satisfies s >= 2*l and s <= 80).
+- This yields total flowers = 10*23 + 5*47 = 465.
+
+Deliverables for the Modeller
+- Implement the ILP with variables s and l, the listed constraints, and the linear objective (maximize total flowers). Solve with an ILP solver and verify the analytic candidate solution (s = 47, l = 23).
+
+---
+
+[MODELER]:
+Below is a formal modelling of the problem, a short analytic solution, and a ready-to-run ILP implementation (two solver options) you can use to verify the result.
+
+1) Decision variables
+- s ∈ Z≥0 : number of small bouquets transported (each contains 5 flowers).
+- l ∈ Z≥0 : number of large bouquets transported (each contains 10 flowers).
+
+2) Constraints
+- Upper bounds per type: s ≤ 80, l ≤ 50.
+- Total-bouquets capacity: s + l ≤ 70.
+- Minimum large bouquets: l ≥ 20.
+- Popularity requirement: s ≥ 2·l.
+- Integrality & nonnegativity: s, l integers ≥ 0.
+
+3) Objective
+Maximise total flowers delivered:
+Maximize Z = 5·s + 10·l.
+
+4) Quick analytic reasoning
+From s ≥ 2·l and s + l ≤ 70:
+2·l + l ≤ 70 ⇒ 3·l ≤ 70 ⇒ l ≤ floor(70/3) = 23.
+Also we need l ≥ 20 and l ≤ 50, so feasible l is 20..23. Flowers per bouquet: large bouquets give more flowers per unit, so choose the maximum feasible l (l = 23). Then s = 70 − l = 47 (this satisfies s ≥ 2·l since 47 ≥ 46, and s ≤ 80). Objective value:
+Z = 5·47 + 10·23 = 235 + 230 = 465 flowers.
+
+Thus the optimal plan is s = 47 small bouquets and l = 23 large bouquets, total flowers = 465.
+
+5) ILP implementations (suggested libraries)
+- pulp (simple, pure-Python interface to CBC or other solvers)
+- OR-Tools CP-SAT (google ortools) — robust for integer programs
+- mip (Python-MIP) or gurobi/cplex (if available and licensed)
+
+Example using pulp:
+
+from pulp import LpProblem, LpVariable, LpInteger, LpMaximize, lpSum, value
+
+# Define problem
+prob = LpProblem("Bouquets", LpMaximize)
+
+# Variables
+s = LpVariable('s', lowBound=0, upBound=80, cat=LpInteger)
+l = LpVariable('l', lowBound=0, upBound=50, cat=LpInteger)
+
+# Objective
+prob += 5*s + 10*l
+
+# Constraints
+prob += s + l <= 70
+prob += l >= 20
+prob += s >= 2*l
+
+# Solve
+prob.solve()
+print("Status:", prob.status)
+print("s =", int(s.value()), "l =", int(l.value()))
+print("Total flowers =", value(prob.objective))
+
+Example using OR-Tools CP-SAT:
+
+from ortools.sat.python import cp_model
+
+model = cp_model.CpModel()
+s = model.NewIntVar(0, 80, 's')
+l = model.NewIntVar(0, 50, 'l')
+
+model.Add(s + l <= 70)
+model.Add(l >= 20)
+model.Add(s >= 2*l)
+
+model.Maximize(5*s + 10*l)
+
+solver = cp_model.CpSolver()
+solver.Solve(model)
+print("s =", solver.Value(s), "l =", solver.Value(l))
+print("Total flowers =", 5*solver.Value(s) + 10*solver.Value(l))
+
+Both implementations should return s = 47, l = 23 and objective 465.
+
+6) Final answer
+Transport 47 small bouquets and 23 large bouquets to maximize flowers delivered (465 flowers).
+
+---
+
+[CODER]:
+```python
+# Self-contained solver for the bouquet transportation ILP (enumeration)
+# Finds integers s (small bouquets) and l (large bouquets) maximizing 5*s + 10*l
+# Subject to:
+#   0 <= s <= 80
+#   0 <= l <= 50
+#   s + l <= 70
+#   l >= 20
+#   s >= 2*l
+
+best_obj = None
+best_s = None
+best_l = None
+
+for l in range(0, 51):   # l up to 50
+    for s in range(0, 81):  # s up to 80
+        if s + l > 70:
+            continue
+        if l < 20:
+            continue
+        if s < 2 * l:
+            continue
+        obj = 5 * s + 10 * l
+        if (best_obj is None) or (obj > best_obj):
+            best_obj = obj
+            best_s = s
+            best_l = l
+
+# As required, print only the final objective value in the specified format.
+print(f"FINAL_OBJ: {best_obj}")
+```

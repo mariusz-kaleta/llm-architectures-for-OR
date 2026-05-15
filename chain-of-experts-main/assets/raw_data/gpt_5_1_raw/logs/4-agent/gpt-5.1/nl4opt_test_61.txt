@@ -1,0 +1,199 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Minimise the total number of printers purchased (sum of premium and regular printers) while meeting throughput and ink constraints and respecting the preference for premium printers.
+
+2. Suggested model type  
+   - Model: Integer Linear Programming (ILP).  
+     - Variables are naturally counts of printers → must be non‑negative integers.  
+     - All relationships (pages per minute, ink use, comparisons between printer counts) are linear.
+
+3. Main decision variables  
+   - Let:
+     - Premium printers: number of premium printers to purchase.  
+     - Regular printers: number of regular printers to purchase.  
+   - Both are integer and ≥ 0.
+
+4. Key constraints to consider  
+
+   a) Printing capacity requirement  
+   - Each premium printer: 30 pages/min.  
+   - Each regular printer: 20 pages/min.  
+   - Total capacity must be at least 200 pages per minute.  
+   - Constraint: combined pages per minute from all printers ≥ 200.
+
+   b) Ink usage limit  
+   - Each premium printer: 4 units of ink per minute.  
+   - Each regular printer: 3 units of ink per minute.  
+   - Total ink usage must not exceed 35 units per minute.  
+   - Constraint: combined ink usage from all printers ≤ 35.
+
+   c) Preference for premium printers  
+   - The number of regular printers must be strictly less than the number of premium printers.  
+   - Constraint: regular printers < premium printers.  
+     - In ILP form, implement as: regular printers + 1 ≤ premium printers (to handle strict inequality in a standard way).
+
+   d) Non-negativity and integrality  
+   - Premium printers ≥ 0, integer.  
+   - Regular printers ≥ 0, integer.
+
+5. Objective function  
+   - Minimise total number of printers:  
+     - Objective: minimise (premium printers + regular printers).
+
+6. Modelling / solution strategy hints for the Modeller  
+   - Because the problem is very small (only two decision variables with small coefficients), it can be solved either:  
+     - By formulating the ILP and using a standard solver, or  
+     - By a simple enumeration or graphical method for explanation purposes.  
+   - When solving, first check feasibility (there must exist pairs (premium, regular) that satisfy both the pages and ink constraints as well as the premium preference).  
+   - Among all feasible integer solutions, identify the one with the smallest sum (premium + regular).  
+
+This structure is sufficient for the Modeller to build and solve the optimisation model.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model and a suggestion of how to implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x \in \mathbb{Z}_{\ge 0}\): number of premium printers to buy  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of regular printers to buy
+
+---
+
+## 2. Objective
+
+Minimize the total number of printers:
+
+\[
+\min \; Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+1. **Printing capacity requirement (≥ 200 pages/min)**  
+
+   Each premium printer: 30 pages/min  
+   Each regular printer: 20 pages/min  
+
+   \[
+   30x + 20y \;\ge\; 200
+   \]
+
+2. **Ink usage limit (≤ 35 units/min)**  
+
+   Each premium printer: 4 ink units/min  
+   Each regular printer: 3 ink units/min  
+
+   \[
+   4x + 3y \;\le\; 35
+   \]
+
+3. **Preference for premium printers (regular < premium)**  
+
+   Strict inequality is modeled as:
+
+   \[
+   y + 1 \;\le\; x
+   \]
+
+4. **Non‑negativity and integrality**
+
+   \[
+   x \ge 0,\; y \ge 0,\quad x,y \in \mathbb{Z}
+   \]
+
+---
+
+## 4. Model type
+
+- This is an **Integer Linear Programming (ILP)** problem:
+  - Linear objective
+  - Linear constraints
+  - Integer decision variables
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard MILP/ILP solver library can handle this very efficiently:
+
+- **PuLP** (pure Python, easy to use, interfaces to CBC, GLPK, etc.)  
+- **OR-Tools** (Google’s optimization suite; has a CP-SAT solver good for integer problems)  
+- **Pyomo** (more general algebraic modeling language for optimization)  
+- If you have access to commercial solvers:
+  - **Gurobi**, **CPLEX**, **FICO Xpress** (via their Python APIs)
+
+For a problem this small, **PuLP** or **OR-Tools CP-SAT** are more than sufficient.
+
+---
+
+## 6. Example: PuLP formulation (Python)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Printer_Selection", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('premium', lowBound=0, cat='Integer')
+y = pl.LpVariable('regular', lowBound=0, cat='Integer')
+
+# Objective: minimize total printers
+prob += x + y
+
+# Constraints
+prob += 30*x + 20*y >= 200, "Capacity"
+prob += 4*x + 3*y <= 35,    "Ink"
+prob += y + 1 <= x,         "Premium_preference"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Premium printers (x):", pl.value(x))
+print("Regular printers (y):", pl.value(y))
+print("Total printers:", pl.value(x + y))
+```
+
+This code directly implements the model above and finds the optimal number of premium and regular printers.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Problem definition
+    prob = pl.LpProblem("Printer_Selection", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('premium', lowBound=0, cat='Integer')
+    y = pl.LpVariable('regular', lowBound=0, cat='Integer')
+
+    # Objective: minimize total printers
+    prob += x + y
+
+    # Constraints
+    prob += 30 * x + 20 * y >= 200, "Capacity"
+    prob += 4 * x + 3 * y <= 35, "Ink"
+    prob += y + 1 <= x, "Premium_preference"
+
+    # Solve the ILP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the final objective value
+    obj_value = pl.value(x + y)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

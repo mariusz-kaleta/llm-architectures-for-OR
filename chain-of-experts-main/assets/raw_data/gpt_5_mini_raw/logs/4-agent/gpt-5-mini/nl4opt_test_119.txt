@@ -1,0 +1,137 @@
+[PLANNER]:
+1) Key optimisation goal
+- Minimise the total fuel (liters of gas) consumed to deliver the required mail.
+
+2) Suggested model type
+- Integer Linear Program (ILP) / Mixed Integer Program: decision variables are counts of whole trips (integers). Because the problem size is very small, enumeration (search over feasible integer pairs) is also a simple viable solution method.
+
+3) Main decision variables (described verbally)
+- Number of regular-boat trips (nonnegative integer).
+- Number of speed-boat trips (nonnegative integer).
+
+4) Objective components (for the modeller)
+- Fuel per trip: regular boat uses 10 liters per trip; speed boat uses 20 liters per trip.
+- Objective: choose trip counts to minimize total fuel = (fuel per regular trip * regular trips) + (fuel per speed trip * speed trips).
+
+5) Key constraints (describe them in words)
+- Mail-delivery capacity constraint: the total mail capacity provided by all trips must be at least the required number of mail pieces to deliver.
+  - Regular-boat capacity per trip = 20 pieces.
+  - Speed-boat capacity per trip = 30 pieces.
+  - Required total pieces = 1000.
+- Upper bound on regular trips: the number of regular-boat trips cannot exceed 20.
+- Proportion constraint on trip types: at least 50% of all trips must be speed-boat trips. (Equivalently, the number of speed-boat trips must be at least the number of regular-boat trips.)
+- Integrality and nonnegativity: both trip counts must be nonnegative integers.
+- Optional implied bounds: you can compute trivial upper bounds for speed trips from the mail requirement (e.g., if only speed boats were used), to tighten the search domain.
+
+6) Solution approach & checks for the modeller
+- Solve the ILP with any solver (CBC, Gurobi, CPLEX, etc.) or perform simple enumeration over the small integer domain (regular trips 0..20; speed trips from 0 up to the computed upper bound).
+- Verify feasibility (there must exist a feasible combination that meets the mail requirement while satisfying the proportion constraint).
+- If multiple solutions tie on fuel, optionally use a secondary objective to minimize total trips (for faster delivery or cost of trips).
+- Report the optimal integer trip counts, total fuel consumed, and total mail capacity delivered (to ensure no under-delivery).
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- r ∈ Z, r ≥ 0 : number of regular-boat trips.
+- s ∈ Z, s ≥ 0 : number of speed-boat trips.
+
+Objective
+- Minimize total fuel consumption: minimize F = 10·r + 20·s.
+
+Constraints
+1. Mail capacity:
+   20·r + 30·s ≥ 1000.
+2. Upper bound on regular trips:
+   r ≤ 20.
+3. Proportion (at least 50% of trips are speed boats):
+   s ≥ r.  (Derivation: s ≥ 0.5·(r + s) ⇒ s ≥ r.)
+4. Integrality:
+   r, s ∈ Z≥0.
+
+Trivial additional bounds to tighten the domain
+- r ∈ {0, …, 20} (given).
+- s ∈ {0, …, ceil(1000/30) = 34} (if only speed boats used).
+
+Optional secondary objective (tie-breaker)
+- If multiple (r,s) yield the same minimum fuel, minimize total trips T = r + s.
+
+Solution (analysis)
+- Regular boats are more fuel-efficient (20 pieces / 10 L = 2 pieces/L) than speed boats (30 pieces / 20 L = 1.5 pieces/L), so we want as many regular trips as allowed while satisfying s ≥ r.
+- With r = 20 (the maximum), s must be at least 20 by the proportion constraint. Those values give capacity 20·20 + 30·20 = 1000 (exactly required) and fuel F = 10·20 + 20·20 = 600 liters.
+- Any other feasible integer (r,s) yields F ≥ 600, so the unique optimal integer solution is r = 20, s = 20 with total fuel 600 L and total delivered mail 1000 pieces.
+
+Suggested solution methods and Python libraries
+- Small-integer ILP: pulp (CBC), OR-Tools (CP-SAT or linear solver), or Gurobi/CPLEX if available.
+- Simple enumeration (brute-force) is trivial and efficient here (r = 0..20, s = 0..34).
+- If you want to model a secondary objective, use a lexicographic approach (solve for min fuel, then fix fuel and minimize trips) or add a tiny epsilon weight to the secondary objective.
+
+Example approaches (short pseudocode / Python outline)
+
+1) Brute-force enumeration (fast and simple)
+- Loop r from 0 to 20, s from 0 to 34.
+- Keep feasible pairs (20r + 30s ≥ 1000 and s ≥ r).
+- Choose pair with minimal 10r + 20s; tie-break by minimal r + s if desired.
+
+2) ILP with pulp (example)
+- Variables: r = LpVariable('r', lowBound=0, upBound=20, cat='Integer'); s = LpVariable('s', lowBound=0, upBound=34, cat='Integer')
+- Objective: LpMinimize(10*r + 20*s)
+- Constraints: 20*r + 30*s >= 1000; s - r >= 0
+- Solve with default CBC or other solver.
+
+All of the above will return the optimal solution r = 20, s = 20 (total fuel 600 L, capacity delivered 1000 pieces).
+
+---
+
+[CODER]:
+```python
+# Self-contained script to solve the described ILP by brute-force enumeration.
+
+# Decision variables bounds (directly initialized)
+r_min, r_max = 0, 20            # r ∈ {0,...,20}
+s_min, s_max = 0, 34            # s ∈ {0,...,34} (ceil(1000/30)=34)
+
+# Parameters
+mail_per_r = 20
+mail_per_s = 30
+fuel_per_r = 10
+fuel_per_s = 20
+required_mail = 1000
+
+# Best solution trackers
+best_obj = None
+best_solutions = []  # list of tuples (r,s,obj)
+
+for r in range(r_min, r_max + 1):
+    for s in range(s_min, s_max + 1):
+        # Constraints:
+        # 1) Mail capacity
+        if mail_per_r * r + mail_per_s * s < required_mail:
+            continue
+        # 2) Proportion: s >= r
+        if s < r:
+            continue
+        # Objective: minimize fuel
+        obj = fuel_per_r * r + fuel_per_s * s
+        if (best_obj is None) or (obj < best_obj):
+            best_obj = obj
+            best_solutions = [(r, s, obj)]
+        elif obj == best_obj:
+            best_solutions.append((r, s, obj))
+
+# Tie-breaker: minimize total trips r + s
+if not best_solutions:
+    raise RuntimeError("No feasible solution found.")
+best_solution = min(best_solutions, key=lambda t: (t[0] + t[1], t[0], t[1]))
+best_r, best_s, best_obj = best_solution
+best_trips = best_r + best_s
+best_capacity = mail_per_r * best_r + mail_per_s * best_s
+
+# Optional informational print (can be removed if only FINAL_OBJ is desired)
+print(f"Optimal solution found: r={best_r}, s={best_s}, fuel={best_obj}, trips={best_trips}, capacity={best_capacity}")
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {best_obj}")
+```

@@ -1,0 +1,115 @@
+[MODELER]:
+Model
+
+Decision variables
+- x1 = number of setups (batches) at table 1 (>= 0)
+- x2 = number of setups (batches) at table 2 (>= 0)
+
+(If the number of setups must be whole numbers, add integer constraints x1,x2 ∈ Z≥0. The continuous LP below will still give an integer solution in this case.)
+
+Objective
+- Maximize total slime produced: maximize S = 4 x1 + 5 x2
+
+Constraints
+- Powder availability: 3 x1 + 8 x2 ≤ 100
+- Glue availability:   5 x1 + 6 x2 ≤ 90
+- Mess limit:          2 x1 + 4 x2 ≤ 30
+- Nonnegativity:       x1 ≥ 0, x2 ≥ 0
+
+Summary (mathematical)
+Maximize S = 4x1 + 5x2
+subject to
+3x1 + 8x2 ≤ 100
+5x1 + 6x2 ≤ 90
+2x1 + 4x2 ≤ 30
+x1, x2 ≥ 0
+
+Solution (analysis + result)
+Check feasibility: the mess constraint simplifies to x1 + 2x2 ≤ 15 and is tighter than the powder and glue constraints in this instance (the powder and glue bounds lie outside the triangle defined by x1,x2 ≥ 0 and x1 + 2x2 ≤ 15). The objective is linear so the maximum is at an extreme point. Evaluate extremes:
+
+- (x1,x2) = (0,0) → S = 0
+- (x1,x2) = (15,0) → S = 4·15 = 60
+- (x1,x2) = (0,7.5) → S = 5·7.5 = 37.5
+
+Maximum is S = 60 at x1 = 15, x2 = 0.
+
+Interpretation: set up table 1 fifteen times and table 2 zero times. This uses 45 units powder, 75 units glue, and produces 30 units mess (all within limits) and yields 60 units of slime.
+
+Recommended solvers / libraries
+- For continuous LP: scipy.optimize.linprog, PuLP (with CBC), CVXOPT
+- For integer/MIP: PuLP with CBC or GLPK, OR-Tools CP-SAT or MIP solver
+- For modeling convenience: Pyomo, PuLP, OR-Tools
+
+Example (PuLP) Python sketch
+- Use pulp.LpProblem, pulp.LpVariable, set objective and constraints, solve. (This will return x1=15, x2=0.)
+
+---
+
+[CODER]:
+import numpy as np
+
+# Define the linear program
+# Maximize S = 4*x1 + 5*x2
+# subject to:
+# 3*x1 + 8*x2 <= 100
+# 5*x1 + 6*x2 <= 90
+# 2*x1 + 4*x2 <= 30
+# x1 >= 0, x2 >= 0
+
+tol = 1e-9
+
+# Represent the constraint boundary lines as (a, b, c) for a*x1 + b*x2 = c
+lines = [
+    (3.0, 8.0, 100.0),  # powder
+    (5.0, 6.0, 90.0),   # glue
+    (2.0, 4.0, 30.0),   # mess
+    (1.0, 0.0, 0.0),    # x1 = 0
+    (0.0, 1.0, 0.0)     # x2 = 0
+]
+
+feasible_points = []
+
+# Compute intersections of every pair of lines
+n = len(lines)
+for i in range(n):
+    a1, b1, c1 = lines[i]
+    for j in range(i + 1, n):
+        a2, b2, c2 = lines[j]
+        A = np.array([[a1, b1],
+                      [a2, b2]], dtype=float)
+        rhs = np.array([c1, c2], dtype=float)
+        # Check if matrix is singular
+        if abs(np.linalg.det(A)) < 1e-12:
+            continue
+        try:
+            x = np.linalg.solve(A, rhs)
+        except np.linalg.LinAlgError:
+            continue
+        x1, x2 = x[0], x[1]
+        # Check feasibility: satisfy all inequalities within tolerance
+        if x1 >= -tol and x2 >= -tol:
+            if (3.0 * x1 + 8.0 * x2 <= 100.0 + tol and
+                5.0 * x1 + 6.0 * x2 <= 90.0 + tol and
+                2.0 * x1 + 4.0 * x2 <= 30.0 + tol):
+                # Clip tiny negative values to zero
+                x1 = 0.0 if abs(x1) < tol else x1
+                x2 = 0.0 if abs(x2) < tol else x2
+                feasible_points.append((x1, x2))
+
+# Ensure the origin is included
+feasible_points.append((0.0, 0.0))
+
+# Evaluate objective at feasible points
+best_obj = -np.inf
+best_point = None
+for x1, x2 in feasible_points:
+    obj = 4.0 * x1 + 5.0 * x2
+    if obj > best_obj + tol:
+        best_obj = obj
+        best_point = (x1, x2)
+
+# If best_obj is effectively integer, convert to int for clean output
+if abs(best_obj - round(best_obj)) < 1e-8:
+    best_obj = int(round(best_obj))
+
+print(f"FINAL_OBJ: {best_obj}")

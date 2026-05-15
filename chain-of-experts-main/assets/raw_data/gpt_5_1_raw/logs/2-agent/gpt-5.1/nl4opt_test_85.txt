@@ -1,0 +1,126 @@
+[MODELER]:
+Here is a natural linear programming (LP) formulation of the problem.
+
+## Decision variables
+
+Let:
+- \(x_L \ge 0\): number of (possibly fractional) tanks of light oil to process  
+- \(x_N \ge 0\): number of (possibly fractional) tanks of non-sticky oil to process  
+- \(x_H \ge 0\): number of (possibly fractional) tanks of heavy oil to process  
+
+(“Full or partial tanks” explicitly allows non-integer values.)
+
+## Objective function
+
+Maximize total net revenue:
+
+\[
+\max Z = 550 x_L + 750 x_N + 950 x_H
+\]
+
+## Constraints
+
+### Compound A availability
+
+Each tank requires:
+- Light oil: 3 units of A  
+- Non-sticky oil: 6 units of A  
+- Heavy oil: 9 units of A  
+
+Total compound A used cannot exceed 250 units:
+
+\[
+3x_L + 6x_N + 9x_H \le 250
+\]
+
+### Compound B availability
+
+Each tank requires:
+- Light oil: 3 units of B  
+- Non-sticky oil: 2 units of B  
+- Heavy oil: 3 units of B  
+
+Total compound B used cannot exceed 150 units:
+
+\[
+3x_L + 2x_N + 3x_H \le 150
+\]
+
+### Non-negativity
+
+\[
+x_L \ge 0,\quad x_N \ge 0,\quad x_H \ge 0
+\]
+
+That fully defines the LP.
+
+---
+
+## Suitable Python libraries
+
+You can solve this LP with any standard linear programming library, for example:
+
+- `pulp` (very straightforward for educational LPs)
+- `scipy.optimize.linprog` (part of SciPy, good for continuous LPs)
+- `ortools.linear_solver` from Google OR-Tools (industrial-strength, supports LP/MIP)
+
+### Example in PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Maple_Oil_Production", pl.LpMaximize)
+
+# Decision variables
+x_L = pl.LpVariable("x_L", lowBound=0)  # light oil
+x_N = pl.LpVariable("x_N", lowBound=0)  # non-sticky oil
+x_H = pl.LpVariable("x_H", lowBound=0)  # heavy oil
+
+# Objective
+prob += 550 * x_L + 750 * x_N + 950 * x_H
+
+# Constraints
+prob += 3 * x_L + 6 * x_N + 9 * x_H <= 250   # Compound A
+prob += 3 * x_L + 2 * x_N + 3 * x_H <= 150   # Compound B
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("x_L (light):     ", x_L.value())
+print("x_N (non-sticky):", x_N.value())
+print("x_H (heavy):     ", x_H.value())
+print("Max revenue:     ", pl.value(prob.objective))
+```
+
+This code directly implements the model above and will give you the optimal number of (possibly partial) tanks of each oil to process.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+# Define the LP problem (Maximization)
+prob = pl.LpProblem("Maple_Oil_Production", pl.LpMaximize)
+
+# Decision variables
+x_L = pl.LpVariable("x_L", lowBound=0)  # light oil
+x_N = pl.LpVariable("x_N", lowBound=0)  # non-sticky oil
+x_H = pl.LpVariable("x_H", lowBound=0)  # heavy oil
+
+# Objective function
+prob += 550 * x_L + 750 * x_N + 950 * x_H
+
+# Constraints
+prob += 3 * x_L + 6 * x_N + 9 * x_H <= 250   # Compound A availability
+prob += 3 * x_L + 2 * x_N + 3 * x_H <= 150   # Compound B availability
+
+# Solve the problem
+prob.solve()
+
+# Get objective value
+objective_value = pl.value(prob.objective)
+
+# Final required print
+print(f"FINAL_OBJ: {objective_value}")

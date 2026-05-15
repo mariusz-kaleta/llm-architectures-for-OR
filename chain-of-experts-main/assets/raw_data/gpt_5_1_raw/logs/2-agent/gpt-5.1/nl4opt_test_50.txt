@@ -1,0 +1,182 @@
+[MODELER]:
+Let’s turn this into a linear optimization model.
+
+### 1. Decision variables
+
+Let  
+- \(x_1 \ge 0\) = kilograms of **Mix 1** to produce  
+- \(x_2 \ge 0\) = kilograms of **Mix 2** to produce  
+
+### 2. Composition of mixes
+
+- Mix 1: 20% cat paw, 80% gold shark  
+  - Cat paw used: \(0.20 x_1\)  
+  - Gold shark used: \(0.80 x_1\)
+
+- Mix 2: 35% cat paw, 65% gold shark  
+  - Cat paw used: \(0.35 x_2\)  
+  - Gold shark used: \(0.65 x_2\)
+
+### 3. Resource constraints
+
+Available:
+- Cat paw snacks: 20 kg  
+- Gold shark snacks: 50 kg  
+
+So:
+
+1. Cat paw constraint  
+\[
+0.20 x_1 + 0.35 x_2 \le 20
+\]
+
+2. Gold shark constraint  
+\[
+0.80 x_1 + 0.65 x_2 \le 50
+\]
+
+3. Nonnegativity  
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+### 4. Objective function (maximize profit)
+
+Profit:
+- Mix 1: \$12 per kg → profit \(= 12 x_1\)
+- Mix 2: \$15 per kg → profit \(= 15 x_2\)
+
+Maximize:
+\[
+\max Z = 12 x_1 + 15 x_2
+\]
+
+### 5. Complete mathematical model
+
+\[
+\begin{aligned}
+\max_{x_1, x_2} \quad & Z = 12 x_1 + 15 x_2 \\
+\text{s.t.} \quad & 0.20 x_1 + 0.35 x_2 \le 20 \quad \text{(cat paw)}\\
+& 0.80 x_1 + 0.65 x_2 \le 50 \quad \text{(gold shark)}\\
+& x_1 \ge 0,\; x_2 \ge 0
+\end{aligned}
+\]
+
+### 6. Solving the system analytically
+
+At the optimum, both ingredients will be fully used (because both mixes are profitable and use both resources), so set constraints to equality:
+
+\[
+\begin{cases}
+0.20 x_1 + 0.35 x_2 = 20 \\
+0.80 x_1 + 0.65 x_2 = 50
+\end{cases}
+\]
+
+Multiply the first equation by 4:
+
+\[
+0.80 x_1 + 1.40 x_2 = 80
+\]
+
+Subtract the second equation:
+
+\[
+(0.80 x_1 + 1.40 x_2) - (0.80 x_1 + 0.65 x_2) = 80 - 50
+\]
+\[
+0.75 x_2 = 30 \Rightarrow x_2 = 40
+\]
+
+Substitute into the first equation:
+
+\[
+0.20 x_1 + 0.35 \cdot 40 = 20
+\]
+\[
+0.20 x_1 + 14 = 20 \Rightarrow 0.20 x_1 = 6 \Rightarrow x_1 = 30
+\]
+
+So:
+
+- \(x_1 = 30\) kg of Mix 1  
+- \(x_2 = 40\) kg of Mix 2  
+
+Profit:
+\[
+Z = 12 \cdot 30 + 15 \cdot 40 = 360 + 600 = 960
+\]
+
+**Answer:** Prepare 30 kg of the first mix and 40 kg of the second mix to maximize profit.
+
+---
+
+### 7. How to solve this in Python
+
+This is a linear program. Suitable libraries:
+
+- `PuLP` (very straightforward for LPs)
+- `scipy.optimize.linprog`
+- `ortools.linear_solver` from Google OR-Tools
+
+Example with PuLP:
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("SnackMix", pl.LpMaximize)
+
+# Variables
+x1 = pl.LpVariable("Mix1_kg", lowBound=0)
+x2 = pl.LpVariable("Mix2_kg", lowBound=0)
+
+# Objective
+prob += 12 * x1 + 15 * x2
+
+# Constraints
+prob += 0.20 * x1 + 0.35 * x2 <= 20   # cat paw
+prob += 0.80 * x1 + 0.65 * x2 <= 50   # gold shark
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Mix 1 (kg):", x1.value())
+print("Mix 2 (kg):", x2.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This will return approximately 30 kg of Mix 1 and 40 kg of Mix 2.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Create the LP maximization problem
+    prob = pl.LpProblem("SnackMix", pl.LpMaximize)
+
+    # Decision variables
+    x1 = pl.LpVariable("Mix1_kg", lowBound=0)
+    x2 = pl.LpVariable("Mix2_kg", lowBound=0)
+
+    # Objective function: maximize profit
+    prob += 12 * x1 + 15 * x2
+
+    # Constraints
+    prob += 0.20 * x1 + 0.35 * x2 <= 20   # cat paw constraint
+    prob += 0.80 * x1 + 0.65 * x2 <= 50   # gold shark constraint
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    max_profit = pl.value(prob.objective)
+
+    # Print result in required format
+    print(f"FINAL_OBJ: {max_profit}")
+
+if __name__ == "__main__":
+    main()

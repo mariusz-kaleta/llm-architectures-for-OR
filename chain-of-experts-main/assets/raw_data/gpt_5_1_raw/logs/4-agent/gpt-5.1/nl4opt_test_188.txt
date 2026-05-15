@@ -1,0 +1,229 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total number of furnaces purchased while satisfying heating needs, energy limits, and composition requirements.
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP), or more specifically a small 2‑variable Integer Program (both variables must be non‑negative integers).
+
+3. Main decision variables  
+Define two decision variables:
+
+- NewFurnaces: number of new model furnaces to purchase.  
+- OldFurnaces: number of old model furnaces to purchase.
+
+Both must be integers ≥ 0.
+
+4. Key constraints to consider  
+
+a) Heating requirement (coverage of apartments)  
+- Each new furnace heats 10 apartments.  
+- Each old furnace heats 15 apartments.  
+- The building must be able to heat at least 200 apartments.  
+→ Constraint: Total apartments heated by new + old furnaces must be ≥ 200.
+
+b) Electricity availability (daily energy limit)  
+- Each new furnace uses 200 kWh/day.  
+- Each old furnace uses 250 kWh/day.  
+- The building has at most 3500 kWh/day available.  
+→ Constraint: Total daily energy consumption from all furnaces must be ≤ 3500 kWh.
+
+c) Composition constraint: maximum old‑model share  
+- At most 35% of the furnaces can be the old model.  
+→ Constraint: OldFurnaces ≤ 0.35 × (NewFurnaces + OldFurnaces).  
+This is linear and can be rearranged to a standard linear form for the solver.
+
+d) Minimum number of new furnaces  
+- At least 5 new model furnaces must be used.  
+→ Constraint: NewFurnaces ≥ 5.
+
+e) Integrality and non‑negativity  
+- NewFurnaces and OldFurnaces must be integer values (you cannot buy fractional furnaces).  
+- Both variables should be constrained to be ≥ 0.
+
+5. Objective function structure  
+
+- Objective: Minimise total number of furnaces.  
+→ Objective variable: NewFurnaces + OldFurnaces.  
+The model will search over integer pairs (NewFurnaces, OldFurnaces) that satisfy all constraints and pick the combination with the smallest total.
+
+6. Modelling strategy / solution approach  
+
+- Use ILP with 2 decision variables and the above linear constraints.  
+- Since the problem is tiny, a solver will find an optimal solution instantly; alternatively, it can be solved graphically or by enumerating feasible integer solutions along the boundary of the constraints.  
+- After solving, verify the chosen solution by checking:  
+  - Total apartments heated ≥ 200.  
+  - Total kWh consumption ≤ 3500.  
+  - OldFurnaces is ≤ 35% of total furnaces.  
+  - NewFurnaces ≥ 5.  
+  - Total number of furnaces is minimal among all feasible integer combinations.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model of the problem and suitable Python tools to solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_N \in \mathbb{Z}_{\ge 0}\): number of new furnaces to purchase  
+- \(x_O \in \mathbb{Z}_{\ge 0}\): number of old furnaces to purchase  
+
+(Both must be non‑negative integers.)
+
+---
+
+## 2. Objective
+
+Minimise the total number of furnaces:
+
+\[
+\min \; z = x_N + x_O
+\]
+
+---
+
+## 3. Constraints
+
+### a) Heating requirement
+
+Each new furnace heats 10 apartments, each old furnace heats 15 apartments, and we need to heat at least 200 apartments:
+
+\[
+10 x_N + 15 x_O \;\ge\; 200
+\]
+
+---
+
+### b) Electricity availability
+
+Each new furnace uses 200 kWh/day, each old furnace uses 250 kWh/day, with at most 3500 kWh/day available:
+
+\[
+200 x_N + 250 x_O \;\le\; 3500
+\]
+
+---
+
+### c) Maximum old‑model share (at most 35% old)
+
+At most 35% of all furnaces can be the old model:
+
+\[
+x_O \;\le\; 0.35(x_N + x_O)
+\]
+
+Rearrange to standard linear form:
+
+\[
+x_O \le 0.35x_N + 0.35x_O  
+\Rightarrow 0.65x_O \le 0.35x_N  
+\Rightarrow 65x_O \le 35x_N
+\]
+
+So we can use either:
+
+- Fractional coefficients:
+  \[
+  x_O - 0.35x_N \le 0
+  \]
+- Or integer coefficients:
+  \[
+  65x_O - 35x_N \le 0
+  \]
+
+Both are linear; the second avoids floating point in the model.
+
+---
+
+### d) Minimum number of new furnaces
+
+At least 5 new furnaces must be purchased:
+
+\[
+x_N \;\ge\; 5
+\]
+
+---
+
+### e) Integrality and non‑negativity
+
+\[
+x_N, x_O \in \mathbb{Z}, \quad x_N \ge 0, \; x_O \ge 0
+\]
+
+---
+
+## 4. Full integer linear program (ILP)
+
+\[
+\begin{aligned}
+\min \quad & x_N + x_O \\
+\text{s.t.} \quad
+& 10x_N + 15x_O \;\ge\; 200 &\text{(heating)} \\
+& 200x_N + 250x_O \;\le\; 3500 &\text{(electricity)} \\
+& 65x_O - 35x_N \;\le\; 0 &\text{(max 35% old)} \\
+& x_N \;\ge\; 5 &\text{(min new)} \\
+& x_N, x_O \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+This is a tiny 2‑variable ILP; any standard MILP/LP library will solve it instantly. Good choices:
+
+- `PuLP` (pure Python, easy syntax, can use CBC by default)
+- `ortools.linear_solver` (Google OR‑Tools; very efficient MILP solver interface)
+- `Pyomo` (more general algebraic modeling; overkill but flexible)
+- `scipy.optimize` is less suitable here because it doesn’t natively enforce integrality; you’d need extra workarounds.
+
+If you want a direct, concise implementation, I’d recommend:
+
+- `pulp` for readability and teaching purposes, or
+- `ortools` for production‑grade solvers.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem
+    prob = pulp.LpProblem("Furnace_Selection", pulp.LpMinimize)
+
+    # Decision variables
+    x_N = pulp.LpVariable('x_N', lowBound=0, cat=pulp.LpInteger)  # new furnaces
+    x_O = pulp.LpVariable('x_O', lowBound=0, cat=pulp.LpInteger)  # old furnaces
+
+    # Objective: minimize total number of furnaces
+    prob += x_N + x_O, "Total_Furnaces"
+
+    # Constraints
+
+    # Heating requirement: 10 x_N + 15 x_O >= 200
+    prob += 10 * x_N + 15 * x_O >= 200, "Heating"
+
+    # Electricity availability: 200 x_N + 250 x_O <= 3500
+    prob += 200 * x_N + 250 * x_O <= 3500, "Electricity"
+
+    # Maximum 35% old furnaces: 65 x_O - 35 x_N <= 0
+    prob += 65 * x_O - 35 * x_N <= 0, "Max_Old_Share"
+
+    # Minimum number of new furnaces: x_N >= 5
+    prob += x_N >= 5, "Min_New"
+
+    # Solve
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

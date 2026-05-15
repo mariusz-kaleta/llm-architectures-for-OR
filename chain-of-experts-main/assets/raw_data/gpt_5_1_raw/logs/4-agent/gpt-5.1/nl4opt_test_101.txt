@@ -1,0 +1,257 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Minimise the **total daily water** required to hydrate all soil bags used in the garden bed.
+
+2. Suggested model type  
+   - Model: **Linear Programming (LP)** with two decision variables and linear constraints.
+
+3. Main decision variables  
+   Define variables as integer counts of bags (the modeller can later decide whether to relax integrality if appropriate):
+   - \(x_s\): Number of **subsoil** bags used.
+   - \(x_t\): Number of **topsoil** bags used.
+
+   Notes for modelling:
+   - Objective coefficients:  
+     - Subsoil: 10 units of water per bag per day.  
+     - Topsoil: 6 units of water per bag per day.
+   - Combined capacity: There can be at most 150 bags in total (subsoil + topsoil).
+
+4. Key constraints to consider  
+
+   a. Capacity / availability of total bags  
+   - The total number of bags (subsoil + topsoil) cannot exceed the truck capacity / available stock:
+     - \(x_s + x_t \leq 150\).
+
+   b. Minimum topsoil requirement  
+   - At least 10 bags of topsoil must be used:
+     - \(x_t \geq 10\).
+
+   c. Maximum share of topsoil (cost-related composition constraint)  
+   - At most 30% of all soil bags can be topsoil:
+     - \(x_t \leq 0.30 \times (x_s + x_t)\).  
+   - The modeller should convert this to an equivalent linear inequality without division to keep the LP in standard form.
+
+   d. Nonnegativity and integrality  
+   - Both variables must be nonnegative:
+     - \(x_s \geq 0\), \(x_t \geq 0\).
+   - In a realistic setting, bag counts must be integers (use integer or mixed-integer programming); for simple textbook treatment, they may be left as continuous and rounded to feasible integers afterward if necessary.
+
+5. Objective function structure  
+
+   - Minimise total daily water usage:
+     - Total water = \(10 \times x_s + 6 \times x_t\).  
+   - The modeller should set this as the LP objective function.
+
+6. Modelling strategy / key checks for the Modeller  
+
+   - Ensure that the “at most 30% topsoil” constraint is **correctly linearised** (no division by decision variables).  
+   - Observe that the objective will push the solution toward using more of the soil type with **lower water coefficient** per bag, while the composition and minimum-topsoil constraints will bound that tendency.
+   - After solving the LP, check:
+     - That all constraints are satisfied (especially the 30% rule).
+     - That the solution respects integrality (if using integer programming); if relaxed, adjust as needed to the nearest feasible integer point and compare water usage.
+
+This structure provides everything required for the Modeller to write and solve the LP/MIP to obtain the optimal numbers of subsoil and topsoil bags.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, with all pieces identified and ready to implement.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_s \in \mathbb{Z}_{\ge 0}\): number of subsoil bags purchased.  
+- \(x_t \in \mathbb{Z}_{\ge 0}\): number of topsoil bags purchased.
+
+(You may relax to \(x_s, x_t \ge 0\) real for a pure LP.)
+
+---
+
+## 2. Objective function
+
+Minimise the total daily water needed to hydrate all bags:
+
+\[
+\min \; Z = 10\,x_s + 6\,x_t
+\]
+
+- Each subsoil bag uses 10 units of water per day.  
+- Each topsoil bag uses 6 units of water per day.
+
+---
+
+## 3. Constraints
+
+### (a) Total capacity of bags
+
+The total number of bags the truck can carry is at most 150:
+
+\[
+x_s + x_t \le 150
+\]
+
+---
+
+### (b) Minimum topsoil requirement
+
+At least 10 bags of topsoil must be used:
+
+\[
+x_t \ge 10
+\]
+
+---
+
+### (c) At most 30% of all bags are topsoil
+
+Text: “At most 30% of all bags of soil can be topsoil.”
+
+Start from:
+
+\[
+x_t \le 0.30 \,(x_s + x_t)
+\]
+
+Eliminate the division / variable in denominator (linearisation):
+
+\[
+\begin{aligned}
+x_t &\le 0.30 x_s + 0.30 x_t \\
+x_t - 0.30 x_t &\le 0.30 x_s \\
+0.70 x_t &\le 0.30 x_s \\
+7x_t &\le 3x_s \quad\text{(multiplying both sides by 10)}
+\end{aligned}
+\]
+
+So the linear constraint in standard form is:
+
+\[
+7x_t \le 3x_s
+\]
+
+This is the key composition constraint.
+
+---
+
+### (d) Nonnegativity and integrality
+
+\[
+x_s \ge 0,\quad x_t \ge 0,\quad x_s, x_t \in \mathbb{Z}
+\]
+
+If you treat it as a standard LP (continuous), just drop integrality:
+
+\[
+x_s, x_t \ge 0
+\]
+
+---
+
+## 4. Complete model (MIP form)
+
+\[
+\begin{aligned}
+\text{Minimise} \quad & Z = 10x_s + 6x_t \\
+\text{subject to} \quad 
+& x_s + x_t \le 150, \\
+& x_t \ge 10, \\
+& 7x_t \le 3x_s, \\
+& x_s, x_t \in \mathbb{Z}_{\ge 0}.
+\end{aligned}
+\]
+
+---
+
+## 5. Notes on solution structure
+
+- Water per bag:
+  - Subsoil: 10
+  - Topsoil: 6 (better, uses less water)
+- The objective “wants” more topsoil (6 < 10) but:
+  - We must respect that topsoil is at most 30% of total bags (7x_t ≤ 3x_s).
+  - We must also use at least 10 topsoil bags (x_t ≥ 10).
+- Capacity 150 may or may not bind at optimum; the solver will determine this.
+
+---
+
+## 6. Suitable Python libraries
+
+This is a small linear / mixed-integer optimisation problem. Any standard LP/MIP library works well:
+
+- **PuLP** (pure Python, easy to use; uses CBC by default for MIP)
+- **OR-Tools** (from Google; `pywraplp` / `linear_solver` or CP-SAT)
+- **Pyomo** (more general modelling environment; can call CBC, GLPK, Gurobi, CPLEX, etc.)
+- If you relax integrality:
+  - `scipy.optimize.linprog` can solve the continuous LP version.
+
+For a quick start, PuLP or OR-Tools are the most straightforward.
+
+---
+
+## 7. Example PuLP formulation (MIP)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Soil_Water_Min", pl.LpMinimize)
+
+# Decision variables (integer)
+x_s = pl.LpVariable("x_s", lowBound=0, cat="Integer")  # subsoil bags
+x_t = pl.LpVariable("x_t", lowBound=0, cat="Integer")  # topsoil bags
+
+# Objective
+prob += 10 * x_s + 6 * x_t, "Total_Water"
+
+# Constraints
+prob += x_s + x_t <= 150,          "Capacity"
+prob += x_t >= 10,                 "Min_Topsoil"
+prob += 7 * x_t <= 3 * x_s,        "Max_30pct_Topsoil"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Results
+print("Status:", pl.LpStatus[prob.status])
+print("Subsoil bags (x_s):", pl.value(x_s))
+print("Topsoil bags (x_t):", pl.value(x_t))
+print("Min total water:", pl.value(prob.objective))
+```
+
+You can adapt the same mathematical model to OR-Tools or Pyomo with analogous variable, objective, and constraint definitions.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Soil_Water_Min", pl.LpMinimize)
+
+    # Decision variables (integer)
+    x_s = pl.LpVariable("x_s", lowBound=0, cat="Integer")  # subsoil bags
+    x_t = pl.LpVariable("x_t", lowBound=0, cat="Integer")  # topsoil bags
+
+    # Objective function: minimize total daily water
+    prob += 10 * x_s + 6 * x_t, "Total_Water"
+
+    # Constraints
+    prob += x_s + x_t <= 150,   "Capacity"
+    prob += x_t >= 10,          "Min_Topsoil"
+    prob += 7 * x_t <= 3 * x_s, "Max_30pct_Topsoil"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract the objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

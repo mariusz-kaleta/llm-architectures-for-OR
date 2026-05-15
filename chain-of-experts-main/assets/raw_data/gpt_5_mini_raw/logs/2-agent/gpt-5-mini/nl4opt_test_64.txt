@@ -1,0 +1,93 @@
+[MODELER]:
+Model type: integer linear program (ILP)
+
+Decision variables
+- x_o = number of old vans (integer, >= 0)
+- x_n = number of new vans (integer, 0 <= x_n <= 30)
+
+Objective
+- Minimize total pollution: minimize P = 50 x_o + 30 x_n
+
+Constraints
+- Capacity requirement: 100 x_o + 80 x_n >= 5000
+- New van limit: x_n <= 30
+- Integrality and nonnegativity: x_o, x_n ∈ Z_{\ge 0}
+
+Mathematical formulation
+- minimize 50 x_o + 30 x_n
+- subject to
+  - 100 x_o + 80 x_n ≥ 5000
+  - 0 ≤ x_n ≤ 30, x_n ∈ Z
+  - x_o ≥ 0, x_o ∈ Z
+
+Solution reasoning (simple analytic)
+- Pollution per bottle: old = 50/100 = 0.5 units/bottle, new = 30/80 = 0.375 units/bottle. New vans are more pollution-efficient, so use as many new vans as allowed.
+- Use x_n = 30 (max). Capacity provided by new vans = 30*80 = 2400 bottles. Remaining bottles required = 5000 − 2400 = 2600, so x_o = 2600/100 = 26 (an integer).
+- Check: total bottles = 26*100 + 30*80 = 5000 (meets requirement).
+- Total pollution = 26*50 + 30*30 = 1300 + 900 = 2200 units.
+
+Optimal solution
+- Old vans: x_o = 26
+- New vans: x_n = 30
+- Minimum total pollution: 2200 units
+
+Suggested Python solvers/libraries
+- pulp (high-level MILP modeling, uses CBC by default)
+- OR-Tools (efficient, Google solver for MIP)
+- pyomo with a MIP solver (GLPK, CBC, CPLEX, Gurobi)
+- cvxpy (with integer solver backends)
+(SciPy.optimize is not suitable for mixed-integer problems.)
+
+Example (pulp)
+```
+import pulp
+
+prob = pulp.LpProblem("MinPollution", pulp.LpMinimize)
+x_o = pulp.LpVariable('x_o', lowBound=0, cat='Integer')
+x_n = pulp.LpVariable('x_n', lowBound=0, upBound=30, cat='Integer')
+
+prob += 50*x_o + 30*x_n                     # objective
+prob += 100*x_o + 80*x_n >= 5000            # capacity
+prob.solve()
+
+print(pulp.value(x_o), pulp.value(x_n), pulp.value(prob.objective))
+# Expected output: 26 30 2200
+```
+
+This ILP and the analytic argument both give the optimal solution above.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data
+pollution_old = 50
+pollution_new = 30
+cap_old = 100
+cap_new = 80
+required_capacity = 5000
+max_new = 30
+
+# Brute-force search over integer feasible solutions
+best_obj = None
+best_xo = None
+best_xn = None
+
+# Upper bound for x_o: if no new vans, need ceil(required_capacity / cap_old)
+xo_upper = math.ceil(required_capacity / cap_old) + 50  # extra margin
+
+for xn in range(0, max_new + 1):
+    for xo in range(0, xo_upper + 1):
+        if cap_old * xo + cap_new * xn >= required_capacity:
+            obj = pollution_old * xo + pollution_new * xn
+            if (best_obj is None) or (obj < best_obj):
+                best_obj = obj
+                best_xo = xo
+                best_xn = xn
+
+# Print solution details (optional)
+print(f"Optimal x_o = {best_xo}, x_n = {best_xn}, pollution = {best_obj}")
+
+# Final required line (must be the very last line)
+print(f"FINAL_OBJ: {best_obj}")

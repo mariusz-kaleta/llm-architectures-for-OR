@@ -1,0 +1,114 @@
+[MODELER]:
+Here is a clean mathematical formulation of the problem as a linear program.
+
+## Decision variables
+
+Let  
+- \(x_1 \ge 0\): number of model trains to make  
+- \(x_2 \ge 0\): number of model planes to make  
+
+(We will later restrict them to integers if necessary: \(x_1, x_2 \in \mathbb{Z}_{\ge 0}\).)
+
+## Objective
+
+Maximize total profit:
+\[
+\max Z = 8x_1 + 10x_2
+\]
+
+where  
+- 8 = profit per model train  
+- 10 = profit per model plane  
+
+## Constraints
+
+Resource constraints:
+
+1. Wood constraint  
+   Each train uses 3 units of wood; each plane uses 4 units. Total wood ≤ 120:
+   \[
+   3x_1 + 4x_2 \le 120
+   \]
+
+2. Paint constraint  
+   Each train uses 3 units of paint; each plane uses 2 units. Total paint ≤ 90:
+   \[
+   3x_1 + 2x_2 \le 90
+   \]
+
+3. Non‑negativity (and integrality, if models must be whole):  
+   \[
+   x_1 \ge 0,\quad x_2 \ge 0,\quad x_1, x_2 \in \mathbb{Z}
+   \]
+
+This is a 2‑variable linear programming problem (integer linear programming if we enforce integer counts).
+
+## Analytic solution (outline)
+
+To find the optimal solution, solve the system where both constraints are tight:
+
+\[
+\begin{cases}
+3x_1 + 4x_2 = 120 \\
+3x_1 + 2x_2 = 90
+\end{cases}
+\Rightarrow x_2 = 15,\ x_1 = 20
+\]
+
+Check feasibility:
+
+- Wood: \(3(20) + 4(15) = 60 + 60 = 120 \le 120\)  
+- Paint: \(3(20) + 2(15) = 60 + 30 = 90 \le 90\)  
+
+Profit:
+\[
+Z = 8(20) + 10(15) = 160 + 150 = 310
+\]
+
+This corner point is optimal for the LP; it is also integral, so it is optimal for the integer version.
+
+**Optimal production plan:**
+
+- Make 20 model trains  
+- Make 15 model planes  
+- Maximum profit = \$310  
+
+## Suitable Python libraries
+
+Any standard LP/ILP solver can handle this small model:
+
+- `PuLP` – simple syntax for linear and integer programming, good for teaching and small models.
+- `ortools.linear_solver` from Google OR-Tools – powerful linear and mixed‑integer solver.
+- `scipy.optimize.linprog` – can solve the continuous LP (without integrality); here it already gives an integral solution.
+- Higher-end options (if needed): `gurobipy` (Gurobi), `docplex` (CP Optimizer / CPLEX).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def main():
+    # Create the problem: maximize profit
+    prob = pulp.LpProblem("Model_Production", pulp.LpMaximize)
+
+    # Decision variables (integer, non-negative)
+    x1 = pulp.LpVariable('x1', lowBound=0, cat='Integer')  # trains
+    x2 = pulp.LpVariable('x2', lowBound=0, cat='Integer')  # planes
+
+    # Objective function: Maximize 8x1 + 10x2
+    prob += 8 * x1 + 10 * x2
+
+    # Constraints
+    prob += 3 * x1 + 4 * x2 <= 120  # Wood constraint
+    prob += 3 * x1 + 2 * x2 <= 90   # Paint constraint
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get optimal objective value
+    final_obj = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

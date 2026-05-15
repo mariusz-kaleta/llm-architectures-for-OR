@@ -1,0 +1,89 @@
+[MODELER]:
+Formal (integer) optimization model
+
+Variables
+- b ∈ Z≥0 : number of buses
+- c ∈ Z≥0 : number of personal cars
+
+Objective
+- Minimize total vehicles T = b + c
+
+Constraints
+1. Capacity: 9b + 4c ≥ 100
+2. More buses than cars (strict): b ≥ c + 1
+3. Minimum cars: c ≥ 5
+
+Full mathematical statement
+minimize    T = b + c
+subject to  9b + 4c ≥ 100
+            b − c ≥ 1
+            c ≥ 5
+            b, c ∈ Z≥0
+
+Solution (short reasoning)
+Because vehicles are integers and the problem is small, you can search over feasible c (c ≥ 5) and choose the smallest b satisfying b ≥ c+1 and 9b + 4c ≥ 100. Doing so yields the optimal solution:
+- c = 5 cars
+- b = 9 buses
+Total vehicles = 9 + 5 = 14, capacity = 9·9 + 4·5 = 101 ≥ 100.
+
+Suggested solver libraries
+- PuLP (with CBC) — easy to model MILP problems in Python.
+- OR-Tools CP-SAT — fast integer/CP solver for small combinatorial problems.
+- mip (python-mip) or Pyomo — for MILP modelling with various solvers.
+(Do not use scipy.optimize for this because it does continuous optimization and won’t enforce integer constraints.)
+
+You can also solve this by direct enumeration (very small search space) instead of a full MILP solver.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the integer optimization problem by enumeration.
+
+from math import ceil
+
+# Problem data
+CAPACITY_REQUIREMENT = 100
+BUS_CAPACITY = 9
+CAR_CAPACITY = 4
+MIN_CARS = 5
+
+# Search bounds
+# c >= MIN_CARS. Upper bound for c can be modest because larger c increases objective.
+C_MAX = 200
+
+best_T = None
+best_b = None
+best_c = None
+
+for c in range(MIN_CARS, C_MAX + 1):
+    # Minimum buses required by capacity: BUS_CAPACITY * b >= CAPACITY_REQUIREMENT - CAR_CAPACITY * c
+    remaining = CAPACITY_REQUIREMENT - CAR_CAPACITY * c
+    if remaining <= 0:
+        needed_b_by_capacity = 0
+    else:
+        needed_b_by_capacity = ceil(remaining / BUS_CAPACITY)
+    # Minimum buses required by "more buses than cars" constraint: b >= c + 1
+    needed_b_by_relation = c + 1
+    b = max(needed_b_by_capacity, needed_b_by_relation)
+    # b must be nonnegative integer (constructed as int already)
+    if b < 0:
+        continue
+    # Check feasibility explicitly
+    if BUS_CAPACITY * b + CAR_CAPACITY * c >= CAPACITY_REQUIREMENT and b >= c + 1 and c >= MIN_CARS:
+        T = b + c
+        if best_T is None or T < best_T:
+            best_T = T
+            best_b = b
+            best_c = c
+
+# At this point best_T holds the minimal total vehicles
+if best_T is None:
+    # No feasible solution found (should not happen for this problem)
+    value = None
+else:
+    value = best_T
+
+print(f"FINAL_OBJ: {value}")
+```

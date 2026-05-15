@@ -1,0 +1,79 @@
+[MODELER]:
+I'll model this as a small linear program. I assume "takes 4 units to be effective" and "takes 6 minutes to be effective" means the cleansing chemical requires 4 minutes per unit and the odor-removing chemical requires 6 minutes per unit (if you intended a different interpretation of "units" please tell me).
+
+Decision variables
+- x = units of cleansing chemical used (>= 0)
+- y = units of odor‑removing chemical used (>= 0)
+
+Objective
+- Minimize total time T (in minutes)
+  T = 4x + 6y
+
+Constraints
+- At least 100 units of the cleansing chemical:
+  x >= 100
+- At least 300 total units:
+  x + y >= 300
+- Cleansing chemical at most twice the odor chemical:
+  x <= 2y  (equivalently x - 2y <= 0)
+- Nonnegativity:
+  x >= 0, y >= 0
+
+Solve analytically
+- Because 4 < 6, the objective prefers using more x (cleansing) instead of y, subject to x <= 2y.
+- At optimum both the total-units constraint and the ratio constraint will be tight:
+  x + y = 300 and x = 2y
+- Solve: 2y + y = 300 => y = 100, x = 200
+
+Result
+- Use x = 200 units of cleansing chemical and y = 100 units of odor-removing chemical.
+- Minimum total time T = 4(200) + 6(100) = 800 + 600 = 1400 minutes.
+
+Suggested solvers / libraries
+- pulp (Python) — easy modeling for small LPs
+- scipy.optimize.linprog — simple LP solver in SciPy
+- OR-Tools (ortools.linear_solver) — fast solver with more features
+- cvxpy — convenient for convex optimization modeling
+
+Example (sketch) using pulp
+- Create variables x, y >= 0
+- Set objective minimize 4*x + 6*y
+- Add constraints x >= 100, x + y >= 300, x - 2*y <= 0
+- Solve and read x.value(), y.value()
+
+If you want, I can provide a ready-to-run Python snippet (pulp or scipy) or treat x,y as integer units and solve the integer program.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+#!/usr/bin/env python3
+# Complete, self-contained script to solve the described LP analytically.
+
+# Problem data (time per unit)
+time_cleansing = 4  # minutes per unit of cleansing chemical (x)
+time_odor = 6       # minutes per unit of odor-removing chemical (y)
+
+# Constraints
+min_cleansing = 100   # x >= 100
+min_total = 300       # x + y >= 300
+# ratio constraint: x <= 2y  -> x - 2y <= 0
+
+# Analytical solution reasoning:
+# Objective: minimize T = 4x + 6y. Since 4 < 6, we prefer x over y,
+# but x is limited by x <= 2y and total units x + y >= 300.
+# At optimum both x + y = 300 and x = 2y will be tight:
+# 2y + y = 300 -> y = 100, x = 200.
+x_opt = 200
+y_opt = 100
+
+# Verify feasibility
+assert x_opt >= 0 and y_opt >= 0
+assert x_opt >= min_cleansing
+assert x_opt + y_opt >= min_total
+assert x_opt <= 2 * y_opt + 1e-9  # allow tiny numerical tolerance
+
+# Compute objective
+T = time_cleansing * x_opt + time_odor * y_opt
+
+# Final output line (must be exactly this format)
+print(f"FINAL_OBJ: {T}")

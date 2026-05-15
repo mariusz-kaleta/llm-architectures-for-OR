@@ -1,0 +1,174 @@
+[MODELER]:
+Here is a formal optimization model for the clinic’s swab scheduling problem.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \( T \): number of throat swabs performed  
+- \( N \): number of nasal swabs performed  
+
+Since these represent counts of patients, we require:
+
+- \( T \ge 0,\ N \ge 0 \)
+- \( T, N \) integers (in fact, nonnegative integers)
+
+---
+
+## 2. Objective
+
+Each patient gets **one** swab (either throat or nasal). So the number of patients seen is:
+
+\[
+\text{Patients} = T + N
+\]
+
+We want to **maximize** the number of patients:
+
+\[
+\max \; Z = T + N
+\]
+
+---
+
+## 3. Constraints
+
+1. **Time constraint**
+
+   - Throat swab: 5 minutes each  
+   - Nasal swab: 3 minutes each  
+   - Total clinic time available: 20,000 minutes
+
+   Hence:
+
+   \[
+   5T + 3N \le 20000
+   \]
+
+2. **Minimum nasal swabs**
+
+   At least 30 nasal swabs must be done:
+
+   \[
+   N \ge 30
+   \]
+
+3. **Discomfort constraint**
+
+   At least 4 times as many throat swabs as nasal swabs:
+
+   \[
+   T \ge 4N
+   \]
+
+4. **Non-negativity and integrality**
+
+   \[
+   T, N \in \mathbb{Z}_{\ge 0}
+   \]
+
+---
+
+## 4. Solving the model analytically (optional reasoning)
+
+To maximize \(T + N\), we expect to use all the available time:
+
+\[
+5T + 3N = 20000
+\]
+
+Use the constraint \(T \ge 4N\). On the time boundary, if we set \(T = 4N\):
+
+\[
+5(4N) + 3N = 20N + 3N = 23N = 20000
+\Rightarrow N = \frac{20000}{23} \approx 869.565
+\]
+
+Since \(N\) must be an integer, try \(N = 869\) and \(N = 870\).
+
+- For \(N = 869\), from the time constraint:
+  \[
+  5T + 3(869) \le 20000 \Rightarrow 5T \le 20000 - 2607 = 17393
+  \Rightarrow T \le 3478.6
+  \]
+  With \(T \ge 4N = 3476\), the largest integer \(T\) is \(T = 3478\).
+
+  Check time: \(5 \cdot 3478 + 3 \cdot 869 = 17390 + 2607 = 19997 \le 20000\).
+
+  Total patients: \(3478 + 869 = 4347\).
+
+- For \(N = 870\):
+  \[
+  5T + 3(870) \le 20000 \Rightarrow 5T \le 20000 - 2610 = 17390
+  \Rightarrow T \le 3478
+  \]
+  But we also need \(T \ge 4N = 3480\), which is impossible. So \(N=870\) is infeasible.
+
+Thus, the optimal solution is:
+
+- \(N^* = 869\)  
+- \(T^* = 3478\)  
+
+These satisfy all constraints and maximize \(T + N\).
+
+---
+
+## 5. Final answer
+
+To maximize the number of patients seen under the given conditions:
+
+- Perform **3,478 throat swabs**  
+- Perform **869 nasal swabs**  
+
+This uses 19,997 minutes of the 20,000 available and yields **4,347 patients**.
+
+---
+
+## 6. Suggested Python libraries
+
+This is a small linear integer optimization problem. Suitable Python libraries:
+
+- **PuLP** (`pulp`): Simple interface to define LP/ILP problems; good for educational / small to medium problems.
+- **OR-Tools Linear Solver** (`ortools.linear_solver`): Very efficient, supports integer variables and multiple solvers.
+- **SciPy** (`scipy.optimize.linprog`): For linear programming with continuous variables; here you’d relax integrality (the fractional optimum is near the integer one).
+
+For exact integer modeling, **PuLP** or **OR-Tools** is recommended.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+# Create the problem
+prob = pulp.LpProblem("Swab_Scheduling", pulp.LpMaximize)
+
+# Decision variables
+T = pulp.LpVariable('T', lowBound=0, cat='Integer')  # Throat swabs
+N = pulp.LpVariable('N', lowBound=0, cat='Integer')  # Nasal swabs
+
+# Objective: maximize number of patients
+prob += T + N, "Total_Patients"
+
+# Constraints
+
+# Time constraint: 5T + 3N <= 20000
+prob += 5 * T + 3 * N <= 20000, "Time_Constraint"
+
+# Minimum nasal swabs: N >= 30
+prob += N >= 30, "Min_Nasal"
+
+# Discomfort constraint: T >= 4N
+prob += T >= 4 * N, "Discomfort_Constraint"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+T_opt = int(pulp.value(T))
+N_opt = int(pulp.value(N))
+objective_value = int(pulp.value(prob.objective))
+
+# Print results (only the final required line for objective)
+print(f"FINAL_OBJ: {objective_value}")

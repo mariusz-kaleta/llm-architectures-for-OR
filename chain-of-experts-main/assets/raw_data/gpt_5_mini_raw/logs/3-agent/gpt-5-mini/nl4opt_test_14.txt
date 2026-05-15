@@ -1,0 +1,97 @@
+[MODELER]:
+Model type
+- Integer linear program (ILP).
+
+Decision variables
+- S ∈ Z_{\ge 0}: number of scooters.
+- R ∈ Z_{\ge 0}: number of rickshaws.
+
+Objective
+- Minimize S (the total number of scooters used).
+
+Constraints
+1. Capacity: 2S + 3R ≥ 300 (must carry at least 300 visitors).
+2. Rickshaw proportion: at most 40% of vehicles can be rickshaws:
+   R ≤ 0.4 (S + R).
+   This can be rearranged to an integer-linear form: 3R ≤ 2S (multiply both sides by 10 then simplify),
+   or equivalently 3R - 2S ≤ 0.
+3. Integrality and nonnegativity: S, R ∈ Z_{\ge 0}.
+
+Full ILP
+- minimize S
+- subject to
+    2S + 3R ≥ 300
+    3R - 2S ≤ 0
+    S, R ∈ Z_{\ge 0}
+
+Simple analytical solution
+- From 3R ≤ 2S we get R ≤ (2/3)S. For a given S the maximum capacity achievable (with the largest allowed R) is
+  2S + 3·((2/3)S) = 2S + 2S = 4S.
+- To reach 300 visitors we need 4S ≥ 300 ⇒ S ≥ 75.
+- Choose S = 75 and the maximum allowed R = ⌊(2/3)·75⌋ = 50.
+- Check capacity: 2·75 + 3·50 = 150 + 150 = 300. All constraints satisfied.
+
+Optimal solution
+- Minimum number of scooters S* = 75 with R* = 50 rickshaws.
+
+Suggested Python libraries for solving
+- pulp (easy to use for small ILPs)
+- ortools (CP-SAT) (fast and robust for integer problems)
+- pyomo + a solver (CBC, GLPK, Gurobi, CPLEX) for larger or more complex models
+- scipy.optimize is not suitable for integer linear programs (continuous only).
+
+Example using pulp
+(from pulp import LpProblem, LpVariable, LpMinimize, LpInteger, lpSum, PULP_CBC_CMD)
+
+prob = LpProblem("park_transport", LpMinimize)
+S = LpVariable("S", lowBound=0, cat=LpInteger)
+R = LpVariable("R", lowBound=0, cat=LpInteger)
+prob += S  # objective
+prob += 2*S + 3*R >= 300
+prob += 3*R - 2*S <= 0
+prob.solve(PULP_CBC_CMD(msg=False))
+print("S =", int(S.value()), "R =", int(R.value()))
+
+This will return S = 75, R = 50.
+
+Notes
+- Be careful with interpreting "at most 40% of the vehicles used can be rickshaws": the model used R ≤ 0.4 (S + R). If the intent were instead "at most 40% of the vehicles owned are rickshaws" or a different base for the percentage, the constraint would need to be adjusted accordingly.
+
+---
+
+[CODER]:
+import math
+
+# Problem data (embedded directly)
+required_capacity = 300
+
+# We'll search for the minimal S (nonnegative integer) that allows some integer R >= 0
+# satisfying:
+#   2S + 3R >= required_capacity
+#   3R - 2S <= 0   (i.e., R <= (2/3)S)
+# Search S from 0 up to a safe upper bound.
+S_upper = 300
+
+solution_found = False
+S_opt = None
+R_opt = None
+
+for S in range(0, S_upper + 1):
+    # Minimum R needed to meet capacity (may be negative, clamp to 0)
+    R_min = max(0, math.ceil((required_capacity - 2 * S) / 3))
+    # Maximum R allowed by proportion constraint
+    R_max = (2 * S) // 3
+    if R_min <= R_max:
+        S_opt = S
+        # choose R = R_max (maximises rickshaws while respecting proportion)
+        R_opt = R_max
+        solution_found = True
+        break
+
+if not solution_found:
+    raise RuntimeError("No feasible solution found within search bounds.")
+
+# Final objective is the number of scooters S_opt
+final_obj = S_opt
+
+print(f"FINAL_OBJ: {final_obj}")

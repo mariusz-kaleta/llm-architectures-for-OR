@@ -1,0 +1,194 @@
+[MODELER]:
+Let’s model this as a linear optimization (linear programming) problem.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of units of sulfate in the shampoo  
+- \(y\) = number of units of ginger in the shampoo  
+
+Both must be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+## 2. Objective function (time to be effective)
+
+Each ingredient has a “time per unit” to be effective:
+
+- Sulfate: \(0.5\) minutes per unit  
+- Ginger: \(0.75\) minutes per unit  
+
+If the mixture’s effectiveness time is simply the sum of (time per unit × units), the total time is:
+\[
+T = 0.5x + 0.75y
+\]
+
+We want to **minimize** this total time:
+\[
+\min \; 0.5x + 0.75y
+\]
+
+*(Note: The statement “one must be added before the other” does not change the linear model here unless a more detailed process model is given; with the data provided, the standard interpretation is a linear objective as above.)*
+
+## 3. Constraints
+
+1. **Minimum sulfate requirement**:  
+   At least 100 units of sulfate:
+   \[
+   x \ge 100
+   \]
+
+2. **Total units requirement**:  
+   The shampoo must contain a total of 400 units of ingredients:
+   \[
+   x + y = 400
+   \]
+
+3. **Sulfate not too large relative to ginger**:  
+   At most twice as much sulfate as ginger:
+   \[
+   x \le 2y
+   \]
+
+4. **Nonnegativity**:
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+
+## 4. Simplifying the model
+
+Use the total-units constraint to write:
+\[
+y = 400 - x
+\]
+
+Substitute into the ratio constraint \(x \le 2y\):
+
+\[
+x \le 2(400 - x) \\
+x \le 800 - 2x \\
+3x \le 800 \\
+x \le \frac{800}{3} \approx 266.67
+\]
+
+Also, we already have:
+\[
+x \ge 100
+\]
+
+So feasible \(x\) values satisfy:
+\[
+100 \le x \le \frac{800}{3}
+\]
+
+Objective in one variable:
+\[
+T(x) = 0.5x + 0.75(400 - x)
+     = 0.5x + 300 - 0.75x
+     = 300 - 0.25x
+\]
+
+This is **decreasing** in \(x\) (coefficient of \(x\) is \(-0.25\)), so to minimize \(T\), we should choose the **largest feasible** \(x\):
+
+\[
+x^* = \frac{800}{3} \approx 266.67
+\]
+
+Then
+\[
+y^* = 400 - x^* = 400 - \frac{800}{3} = \frac{400}{3} \approx 133.33
+\]
+
+Total minimum time:
+\[
+T^* = 0.5x^* + 0.75y^* = 0.5\left(\frac{800}{3}\right) + 0.75\left(\frac{400}{3}\right)
+    = \frac{400}{3} + \frac{300}{3}
+    = \frac{700}{3} \approx 233.33 \text{ minutes}
+\]
+
+## 5. Final optimal solution (continuous units)
+
+- Sulfate:  
+  \[
+  x^* = \frac{800}{3} \approx 266.67 \text{ units}
+  \]
+- Ginger:  
+  \[
+  y^* = \frac{400}{3} \approx 133.33 \text{ units}
+  \]
+
+If units must be integers, the problem becomes an integer linear program and you would check integer points near \((267,133)\) that satisfy all constraints.
+
+## 6. Suitable Python libraries
+
+This is a standard linear program; good choices include:
+
+- **PuLP** (`pulp`): Very straightforward for teaching and small LPs.
+- **SciPy**: `scipy.optimize.linprog` for continuous linear programs (no integer constraints).
+- **OR-Tools** (`ortools.linear_solver`): Google’s optimization suite; supports LP and MIP (integer versions).
+- **Pyomo**: More general modeling framework, useful if you extend the model later.
+
+A minimal PuLP setup (continuous version):
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Shampoo_Mix", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable("sulfate", lowBound=0)
+y = pl.LpVariable("ginger",  lowBound=0)
+
+# Objective
+prob += 0.5*x + 0.75*y
+
+# Constraints
+prob += x >= 100          # min sulfate
+prob += x + y == 400      # total units
+prob += x <= 2*y          # sulfate <= 2 * ginger
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal sulfate:", x.value())
+print("Optimal ginger:", y.value())
+print("Minimum time:", pl.value(prob.objective))
+```
+
+This corresponds exactly to the formal model above.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Shampoo_Mix", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable("sulfate", lowBound=0)
+    y = pl.LpVariable("ginger", lowBound=0)
+
+    # Objective function: minimize total time
+    prob += 0.5 * x + 0.75 * y
+
+    # Constraints
+    prob += x >= 100          # Minimum sulfate
+    prob += x + y == 400      # Total units
+    prob += x <= 2 * y        # Sulfate not more than twice ginger
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract optimal objective value
+    optimal_time = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {optimal_time}")
+
+if __name__ == "__main__":
+    main()

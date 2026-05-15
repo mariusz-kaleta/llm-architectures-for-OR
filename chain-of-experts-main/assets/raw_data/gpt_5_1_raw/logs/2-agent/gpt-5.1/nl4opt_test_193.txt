@@ -1,0 +1,128 @@
+[MODELER]:
+Here is a mathematical optimization model for the problem.
+
+## Decision variables
+
+Let  
+- \(x\) = number of small buses (integer, \(x \ge 0\))  
+- \(y\) = number of large buses (integer, \(y \ge 0\))
+
+## Objective
+
+Minimize the total number of buses:
+\[
+\min \; x + y
+\]
+
+## Constraints
+
+1. **Capacity constraint (at least 500 students):**
+
+Each small bus carries 20 students, each large bus carries 50 students:
+\[
+20x + 50y \;\ge\; 500
+\]
+
+2. **Parking constraint (at most 20% of buses can be large):**
+
+At most 20% of total buses are large:
+\[
+y \;\le\; 0.2(x + y)
+\]
+
+This can be rewritten without decimals:
+\[
+5y \;\le\; x + y \quad \Rightarrow \quad 4y \;\le\; x
+\]
+
+3. **Non-negativity and integrality:**
+
+\[
+x \in \mathbb{Z}_{\ge 0}, \quad y \in \mathbb{Z}_{\ge 0}
+\]
+
+## Final model (compact form)
+
+\[
+\begin{aligned}
+\min \quad & x + y \\
+\text{s.t.} \quad 
+& 20x + 50y \ge 500 \\
+& 4y \le x \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is an **integer linear programming (ILP)** problem.
+
+## Suitable Python libraries
+
+You can solve this model using any standard MILP/LP library. Good choices:
+
+- `pulp` (simple and pure Python, works with CBC solver)
+- `ortools.linear_solver` (Google OR-Tools, efficient for integer problems)
+- `pyomo` (more general modeling framework)
+- `scipy.optimize.linprog` (only if you relax integrality to continuous variables; not ideal here if you need integer solutions)
+
+For this specific problem, `pulp` or `ortools` is very convenient:
+
+### Example outline with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Bus_Selection", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('small_buses', lowBound=0, cat='Integer')
+y = pl.LpVariable('large_buses', lowBound=0, cat='Integer')
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 20*x + 50*y >= 500            # capacity
+prob += 4*y <= x                      # at most 20% large
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Small buses:", x.value())
+print("Large buses:", y.value())
+print("Total buses:", x.value() + y.value())
+```
+
+This captures the optimization model you need.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import itertools
+
+def solve_bus_problem():
+    best_obj = None
+    best_solution = None
+
+    # Brute force search over reasonable bounds
+    # Max buses if all small: 500/20 = 25; add margin
+    for x in range(0, 51):   # small buses
+        for y in range(0, 51):  # large buses
+            # Capacity constraint
+            if 20 * x + 50 * y < 500:
+                continue
+            # Parking constraint: 4y <= x
+            if 4 * y > x:
+                continue
+            # Objective
+            obj = x + y
+            if best_obj is None or obj < best_obj:
+                best_obj = obj
+                best_solution = (x, y)
+
+    return best_obj, best_solution
+
+if __name__ == "__main__":
+    obj, (x_opt, y_opt) = solve_bus_problem()
+    # Required final print
+    print(f"FINAL_OBJ: {obj}")

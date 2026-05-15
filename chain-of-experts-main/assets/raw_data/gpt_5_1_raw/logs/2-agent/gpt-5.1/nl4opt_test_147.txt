@@ -1,0 +1,106 @@
+[MODELER]:
+Model this as an integer linear program.
+
+### Decision variables
+Let  
+- \(x\) = number of cars used (integer, \(x \ge 0\))  
+- \(y\) = number of buses used (integer, \(0 \le y \le 4\))
+
+### Objective
+Minimize total pollution:
+\[
+\min \; Z = 10x + 30y
+\]
+
+### Constraints
+
+1. **Capacity (transport at least 300 employees):**
+   \[
+   4x + 20y \ge 300
+   \]
+
+2. **Bus limit:**
+   \[
+   y \le 4
+   \]
+
+3. **Non-negativity and integrality:**
+   \[
+   x \in \mathbb{Z}_{\ge 0}, \quad y \in \mathbb{Z}_{\ge 0}
+   \]
+
+### Manual reasoning / solution
+
+Notice pollution per employee:
+- Car: \(10/4 = 2.5\) units per employee  
+- Bus: \(30/20 = 1.5\) units per employee  
+
+So buses are more efficient, but we are limited to 4 buses.
+
+Use the maximum number of buses: \(y = 4\).
+
+Capacity from 4 buses:
+\[
+20 \cdot 4 = 80 \text{ employees}
+\]
+Still need:
+\[
+300 - 80 = 220 \text{ employees}
+\]
+
+Cars needed:
+\[
+4x \ge 220 \Rightarrow x \ge 55
+\]
+So \(x = 55\).
+
+Check:
+- Capacity: \(4 \cdot 55 + 20 \cdot 4 = 220 + 80 = 300\) ✅  
+- Pollution: \(10 \cdot 55 + 30 \cdot 4 = 550 + 120 = 670\) units  
+
+Any fewer buses (say \(y=3\)) would require:
+\[
+4x + 20 \cdot 3 \ge 300 \Rightarrow 4x \ge 240 \Rightarrow x \ge 60
+\]
+Pollution: \(10 \cdot 60 + 30 \cdot 3 = 600 + 90 = 690 > 670\), so worse.
+
+Thus the optimal solution is:
+- **55 cars and 4 buses**.
+
+### Suitable Python libraries
+
+This is a small integer linear program; any standard MILP or LP solver will handle it:
+
+- `PuLP` (very simple for teaching / prototyping)
+- `ortools.linear_solver` (Google OR-Tools, very robust)
+- `scipy.optimize.linprog` (for the LP relaxation; here you need integrality, so better use MILP libraries)
+- Higher-end solvers via Python APIs: `gurobipy`, `cplex`, `mip` if available.
+
+For teaching or quick implementation, `PuLP` or OR-Tools are ideal.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+# Create the problem
+prob = pulp.LpProblem("Transport_Pollution_Minimization", pulp.LpMinimize)
+
+# Decision variables
+x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # number of cars
+y = pulp.LpVariable('y', lowBound=0, upBound=4, cat='Integer')  # number of buses
+
+# Objective function: Minimize total pollution
+prob += 10 * x + 30 * y
+
+# Constraints
+prob += 4 * x + 20 * y >= 300  # capacity constraint
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve the final objective value
+final_obj = pulp.value(prob.objective)
+
+# Print the final objective value as required
+print(f"FINAL_OBJ: {final_obj}")

@@ -1,0 +1,55 @@
+[MONOLITH]:
+```python
+# Optimization of shifts for a delivery person (bikes vs scooters)
+# Solve integer linear program to maximize tips.
+
+import pulp
+
+# Data initialization
+tips_bike = 50       # tips per bike shift
+tips_scooter = 43    # tips per scooter shift
+
+orders_bike = 10     # orders delivered per bike shift
+orders_scooter = 7   # orders delivered per scooter shift
+
+energy_bike = 5      # energy units per bike shift
+energy_scooter = 6   # energy units per scooter shift
+
+max_shifts = 40      # total available shifts per month
+max_energy = 230     # total available energy units
+min_orders = 320     # required minimum orders
+min_scooter_shifts = 5  # at least this many scooter shifts
+
+# Define problem
+prob = pulp.LpProblem("Delivery_Shifts", pulp.LpMaximize)
+
+# Decision variables: integer number of shifts
+x = pulp.LpVariable('bike_shifts', lowBound=0, cat='Integer')                       # bikes
+y = pulp.LpVariable('scooter_shifts', lowBound=min_scooter_shifts, cat='Integer')   # scooters (at least 5)
+
+# Objective: maximize tips
+prob += tips_bike * x + tips_scooter * y, "Total_Tips"
+
+# Constraints
+prob += x + y <= max_shifts, "Shift_Availability"
+prob += energy_bike * x + energy_scooter * y <= max_energy, "Energy_Limit"
+prob += orders_bike * x + orders_scooter * y >= min_orders, "Order_Requirement"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract solution
+bike_opt = int(pulp.value(x))
+scooter_opt = int(pulp.value(y))
+obj_val = pulp.value(prob.objective)
+
+# Print results
+print(f"Status: {pulp.LpStatus[prob.status]}")
+print(f"bike_shifts = {bike_opt}")
+print(f"scooter_shifts = {scooter_opt}")
+print(f"Total tips = {obj_val}")
+
+# Final required output line (must be the very last line)
+print(f"FINAL_OBJ: {obj_val}")
+```

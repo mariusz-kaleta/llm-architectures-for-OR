@@ -1,0 +1,154 @@
+[MODELER]:
+Model
+
+Decision variables
+- t_N >= 0 : hours the northern factory runs.
+- t_W >= 0 : hours the western factory runs.
+
+Objective
+- Minimize total operating time: minimize Z = t_N + t_W.
+
+Constraints
+- Injection production: 800 t_N + 650 t_W >= 800,000 (grams)
+- Cream production:     700 t_N + 750 t_W >= 700,000 (grams)
+- Plastic availability: 40  t_N + 35  t_W <= 60,000 (units)
+- Nonnegativity: t_N >= 0, t_W >= 0
+
+(All production rates are grams per hour as given; hours are the decision units.)
+
+Solution (analysis and numeric)
+Solve the 2-variable linear program. The intersection of the injection and cream constraints gives:
+800 t_N + 650 t_W = 800,000
+700 t_N + 750 t_W = 700,000
+
+Solving yields t_N = 1000 hours, t_W = 0 hours. This solution satisfies the plastic constraint (40·1000 = 40,000 ≤ 60,000), so it is feasible. The total time is Z = 1000 hours.
+
+Feasibility check for alternatives:
+- Running only the western factory requires at least 1230.769 hours to meet injections (worse).
+- Any S < 1000 total hours makes the injection constraint infeasible, so 1000 is the minimum possible total.
+
+Recommendation
+Run the northern factory for 1000 hours and do not run the western factory (t_N = 1000, t_W = 0). Total minimal operating time = 1000 hours.
+
+Suggested Python solvers/libraries
+- pulp (simple, pure-Python LP modeling)
+- scipy.optimize.linprog (for continuous LPs)
+- OR-Tools (for LP/MIP and larger models)
+- cvxpy (convex optimization modeling)
+
+Example (PuLP) code snippet
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, value
+
+prob = LpProblem("FactoryHours", LpMinimize)
+tN = LpVariable("tN", lowBound=0)
+tW = LpVariable("tW", lowBound=0)
+
+prob += tN + tW  # objective
+prob += 800*tN + 650*tW >= 800000
+prob += 700*tN + 750*tW >= 700000
+prob += 40*tN + 35*tW <= 60000
+
+prob.solve()
+print(value(tN), value(tW), value(prob.objective))
+
+This will return tN = 1000, tW = 0, objective = 1000.
+
+---
+
+[CODER]:
+```python
+import numpy as np
+
+# Define constraint coefficients and RHS
+# Constraints as equalities for intersection purposes:
+# 1) 800 tN + 650 tW >= 800000
+# 2) 700 tN + 750 tW >= 700000
+# 3) 40  tN + 35  tW <= 60000
+# Axes: tN = 0, tW = 0
+
+lines = [
+    {"A": np.array([800.0, 650.0]), "b": 800000.0, "type": ">="},  # c1
+    {"A": np.array([700.0, 750.0]), "b": 700000.0, "type": ">="},  # c2
+    {"A": np.array([40.0, 35.0]),   "b": 60000.0,  "type": "<="},  # c3
+    {"A": np.array([1.0, 0.0]),     "b": 0.0,      "type": "="},   # tN = 0
+    {"A": np.array([0.0, 1.0]),     "b": 0.0,      "type": "="},   # tW = 0
+]
+
+tol = 1e-8
+
+def is_feasible(pt):
+    tN, tW = pt
+    if tN < -tol or tW < -tol:
+        return False
+    # Check c1: >=
+    lhs1 = 800.0*tN + 650.0*tW
+    if lhs1 + tol < 800000.0:
+        return False
+    # Check c2: >=
+    lhs2 = 700.0*tN + 750.0*tW
+    if lhs2 + tol < 700000.0:
+        return False
+    # Check c3: <=
+    lhs3 = 40.0*tN + 35.0*tW
+    if lhs3 - tol > 60000.0:
+        return False
+    return True
+
+candidates = []
+
+# Compute intersections of all pairs of lines
+n = len(lines)
+for i in range(n):
+    for j in range(i+1, n):
+        A = np.vstack([lines[i]["A"], lines[j]["A"]])
+        b = np.array([lines[i]["b"], lines[j]["b"]])
+        # Solve A x = b if invertible
+        if abs(np.linalg.det(A)) < 1e-12:
+            continue
+        x = np.linalg.solve(A, b)
+        if np.all(np.isfinite(x)):
+            candidates.append(x)
+
+# Also include axis corner points explicitly (0,0) in case it's feasible (it won't be here)
+candidates.append(np.array([0.0, 0.0]))
+
+# Filter feasible points and compute objective tN + tW
+feasible_points = []
+for pt in candidates:
+    if is_feasible(pt):
+        feasible_points.append(pt)
+
+if not feasible_points:
+    # As fallback, solve analytically by linear programming using simple enumeration of extremes:
+    # This LP is small; check single-variable solutions (tW=0 or tN=0) by satisfying >= constraints minimally.
+    # tW = 0 -> need tN = max(800000/800, 700000/700) = max(1000, 1000) = 1000
+    tN_only = np.array([max(800000.0/800.0, 700000.0/700.0), 0.0])
+    # Check plastic constraint
+    if is_feasible(tN_only):
+        feasible_points.append(tN_only)
+    # tN = 0 -> tW = max(800000/650, 700000/750)
+    tW_only = np.array([0.0, max(800000.0/650.0, 700000.0/750.0)])
+    if is_feasible(tW_only):
+        feasible_points.append(tW_only)
+
+if not feasible_points:
+    raise RuntimeError("No feasible solution found by enumeration.")
+
+# Find minimal objective
+best_pt = None
+best_obj = float("inf")
+for pt in feasible_points:
+    obj = pt[0] + pt[1]
+    if obj < best_obj - 1e-9:
+        best_obj = obj
+        best_pt = pt
+
+# Format the objective value: integer if essentially integer
+if abs(best_obj - round(best_obj)) < 1e-8:
+    final_value = int(round(best_obj))
+else:
+    final_value = float(best_obj)
+
+# Final required print (only this line should be the final output line)
+print(f"FINAL_OBJ: {final_value}")
+```

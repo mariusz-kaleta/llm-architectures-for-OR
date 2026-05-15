@@ -1,0 +1,121 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x1 = number of times Demonstration 1 is performed (nonnegative integer)
+  - x2 = number of times Demonstration 2 is performed (nonnegative integer)
+
+- Objective
+  - Maximize total minty foam: maximize Z = 25 x1 + 18 x2
+
+- Constraints
+  - Mint availability: 10 x1 + 12 x2 ≤ 120
+  - Active ingredient availability: 20 x1 + 15 x2 ≤ 100
+  - Black tar limit: 5 x1 + 3 x2 ≤ 50
+  - Integrality and nonnegativity: x1, x2 ∈ Z_{\ge 0} (or x1,x2 ≥ 0 for the LP relaxation)
+
+Remarks on solving analytically
+- Check which resource is binding. Compare foam per unit of the scarce resource (active ingredient):
+  - Demo1: 25 foam / 20 active = 1.25 foam per active
+  - Demo2: 18 foam / 15 active = 1.20 foam per active
+  Demo1 is more efficient in terms of active ingredient, and the active-ingredient constraint 20 x1 + 15 x2 ≤ 100 is the tightest here.
+
+- Evaluate the corner solutions of the feasible region (nonnegativity plus active constraint is dominant):
+  - x1 = 5, x2 = 0 uses all active ingredient and gives Z = 25·5 + 18·0 = 125
+  - x1 = 0, x2 = 100/15 = 20/3 ≈ 6.666 gives Z ≈ 120
+  - Other intersections violate the active-ingredient constraint or give smaller Z.
+
+Therefore the optimal integer solution is
+- x1 = 5 (perform Demonstration 1 five times)
+- x2 = 0 (perform Demonstration 2 zero times)
+Total minty foam = 125 units. This solution respects all constraints:
+- Mint used: 10·5 = 50 ≤ 120
+- Active used: 20·5 = 100 ≤ 100 (binds)
+- Black tar: 5·5 = 25 ≤ 50
+
+Suggested Python libraries
+- For small integer linear programs: PuLP (pulp), OR-Tools (ortools.linear_solver), or Pyomo + a solver (CBC, GLPK)
+- For LP relaxation: scipy.optimize.linprog
+- For large/industrial problems: commercial solvers (Gurobi, CPLEX) via their Python APIs
+
+Example (PuLP) sketch
+
+from pulp import LpProblem, LpMaximize, LpVariable, LpInteger, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("demo_mix", LpMaximize)
+x1 = LpVariable('x1', lowBound=0, cat=LpInteger)
+x2 = LpVariable('x2', lowBound=0, cat=LpInteger)
+
+prob += 25*x1 + 18*x2
+prob += 10*x1 + 12*x2 <= 120
+prob += 20*x1 + 15*x2 <= 100
+prob += 5*x1 + 3*x2 <= 50
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print(x1.value(), x2.value(), "Total foam =", 25*x1.value()+18*x2.value())
+
+This will return x1=5, x2=0, total foam = 125.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Exhaustive integer search for the given ILP
+# Decision variables:
+#   x1, x2 are nonnegative integers
+# Objective:
+#   Maximize Z = 25*x1 + 18*x2
+# Constraints:
+#   10*x1 + 12*x2 <= 120
+#   20*x1 + 15*x2 <= 100
+#   5*x1  + 3*x2  <= 50
+
+from math import floor
+
+# Coefficients and right-hand-sides
+c1, c2 = 25, 18
+A = [
+    (10, 12, 120),  # mint: 10*x1 + 12*x2 <= 120
+    (20, 15, 100),  # active ingredient: 20*x1 + 15*x2 <= 100
+    (5,  3,  50)    # black tar: 5*x1 + 3*x2 <= 50
+]
+
+# Compute safe upper bounds for x1 and x2 from each constraint
+x1_bounds = []
+x2_bounds = []
+for a1, a2, rhs in A:
+    if a1 > 0:
+        x1_bounds.append(rhs // a1)
+    if a2 > 0:
+        x2_bounds.append(rhs // a2)
+
+# Global search bounds (add a small safety margin of +0)
+x1_max = max(x1_bounds) if x1_bounds else 0
+x2_max = max(x2_bounds) if x2_bounds else 0
+
+best_obj = None
+best_x1 = None
+best_x2 = None
+
+for x1 in range(0, x1_max + 1):
+    for x2 in range(0, x2_max + 1):
+        # Check all constraints
+        feasible = True
+        for a1, a2, rhs in A:
+            if a1 * x1 + a2 * x2 > rhs:
+                feasible = False
+                break
+        if not feasible:
+            continue
+        obj = c1 * x1 + c2 * x2
+        if (best_obj is None) or (obj > best_obj):
+            best_obj = obj
+            best_x1 = x1
+            best_x2 = x2
+
+# Print solution details (optional)
+print(f"Optimal integer solution: x1={best_x1}, x2={best_x2}, Objective={best_obj}")
+
+# Final required output line (must be the last line)
+print(f"FINAL_OBJ: {best_obj}")
+```

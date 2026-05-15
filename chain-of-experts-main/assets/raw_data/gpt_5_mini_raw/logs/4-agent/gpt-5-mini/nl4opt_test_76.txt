@@ -1,0 +1,129 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Maximise the total liters of glacial water transported.
+
+2. Suggested model type
+- Model: Integer Linear Programming (ILP / MILP). (Counts of kegs are integer; the objective and constraints are linear.)  
+- Note: Because the problem is small, an exhaustive enumeration over the few feasible large-keg counts is also an easy, reliable method.
+
+3. Main decision variables
+- s = number of small kegs used (integer, non‑negative).
+- l = number of large kegs used (integer, non‑negative).
+
+4. Key constraints to include (described in words)
+- Availability limits: at most 30 small kegs available; at most 10 large kegs available.
+- Required ratio: use at least twice as many small kegs as large kegs (number of small kegs >= 2 × number of large kegs).
+- Total kegs limit: can transport at most 25 kegs in total (small + large ≤ 25).
+- Minimum large kegs: at least 5 kegs must be large.
+- Integrality and non‑negativity: s and l must be non‑negative integers.
+
+5. Objective function (description)
+- Maximise total liters = (40 liters per small keg) × s + (100 liters per large keg) × l.
+
+6. Modelling/solution notes and quick solving guidance
+- Because the feasible l range is small (l is between 5 and 10 but feasibility with other constraints reduces it further), you can solve by enumerating feasible l values, setting s to the maximum allowed by availability and total-keg limit while respecting s ≥ 2·l, and picking the l,s pair with largest total liters. This is faster and simpler than invoking a full ILP solver for such a small problem.
+- Check feasibility first: some combinations (e.g., many large kegs) will violate the s ≥ 2·l or total kegs limit.
+
+7. Expected optimal solution (for convenience)
+- Following the above procedure yields optimal counts: use 8 large kegs and 17 small kegs (total 25 kegs), which maximises transported water (100×8 + 40×17 = 1480 liters).
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- s ∈ Z≥0 : number of small kegs used.
+- l ∈ Z≥0 : number of large kegs used.
+
+Objective
+- Maximise total liters transported: maximize Z = 40·s + 100·l.
+
+Constraints
+- Availability limits:
+  - s ≤ 30
+  - l ≤ 10
+- Required ratio:
+  - s ≥ 2·l
+- Total kegs limit:
+  - s + l ≤ 25
+- Minimum large kegs:
+  - l ≥ 5
+- Integrality:
+  - s, l ∈ Z
+
+Summary (MILP)
+Maximise Z = 40s + 100l
+subject to
+  s ≤ 30
+  l ≤ 10
+  s ≥ 2l
+  s + l ≤ 25
+  l ≥ 5
+  s, l ∈ Z≥0
+
+Quick (and simple) solution method
+Because l is bounded tightly (5 ≤ l ≤ 10) and the objective coefficients are positive, for any feasible l you should set s as large as allowed by the upper bounds while respecting s ≥ 2l. Concretely:
+- For each integer l from 5 to 10 compute s_max = min(30, 25 − l).
+- Feasible s must also satisfy s ≥ 2l; if 2l > s_max the pair is infeasible.
+- If feasible, choose s = s_max (because 40 > 0) and compute Z.
+
+Enumeration yields:
+- l=5 → s_max=20, feasible (s≥10) → Z=100·5 + 40·20 = 1300
+- l=6 → s_max=19, feasible (s≥12) → Z=1360
+- l=7 → s_max=18, feasible (s≥14) → Z=1420
+- l=8 → s_max=17, feasible (s≥16) → Z=1480  ← optimum
+- l=9 → s_max=16, infeasible (need s≥18)
+- l=10 → s_max=15, infeasible (need s≥20)
+
+Optimal solution
+- Use 8 large kegs and 17 small kegs (l = 8, s = 17).
+- Total water = 100·8 + 40·17 = 1480 liters.
+
+Recommended solver libraries
+- For small/hand enumeration: plain Python (for-loop).
+- MILP libraries (if you prefer a solver interface):
+  - pulp (simple Python MILP wrapper; solves with CBC by default)
+  - OR-Tools CP-SAT (fast, especially for integer problems)
+  - gurobi or CPLEX (commercial, if available)
+- scipy.optimize is not suitable because it does not handle integer variables directly.
+
+Example (conceptual) Python approaches
+- Simple enumeration: loop l in range(5,11), set s = min(30, 25-l), check s >= 2*l.
+- ILP with pulp: define integer variables s,l, add the listed constraints, and maximise 40*s + 100*l.
+
+If you want, I can provide a short Python code snippet using either enumeration or pulp to solve this.
+
+---
+
+[CODER]:
+# Self-contained script to solve the MILP by enumeration
+# Decision variables: s (small kegs), l (large kegs)
+# Objective: maximize Z = 40*s + 100*l
+# Constraints:
+#   s <= 30
+#   l <= 10
+#   s >= 2*l
+#   s + l <= 25
+#   l >= 5
+#   s, l are nonnegative integers
+
+best_z = None
+best_s = None
+best_l = None
+
+for l in range(5, 11):  # l from 5 to 10 inclusive
+    s_max = min(30, 25 - l)  # upper bound on s from availability and total kegs
+    if s_max < 0:
+        continue
+    if s_max < 2 * l:
+        continue  # infeasible because s must be at least 2*l
+    s = s_max  # objective coefficient for s is positive, so take largest feasible s
+    z = 40 * s + 100 * l
+    if best_z is None or z > best_z:
+        best_z = z
+        best_s = s
+        best_l = l
+
+# Final objective value
+print(f"FINAL_OBJ: {best_z}")

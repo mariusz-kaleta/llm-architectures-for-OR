@@ -1,0 +1,128 @@
+[MODELER]:
+1) Mathematical model (direct interpretation: he must invest the entire $100,000)
+
+Variables
+- T = dollars invested in telecom
+- H = dollars invested in healthcare
+
+Objective
+- Maximize profit P = 0.03 T + 0.01 H
+
+Constraints
+- Total money invested: T + H = 100000
+- Telecom at least three times healthcare: T >= 3 H
+- Telecom upper bound: T <= 70000
+- Nonnegativity: T >= 0, H >= 0
+
+Feasibility check
+From T + H = 100000 and T >= 3H:
+- T >= 3(100000 − T) → 4T >= 300000 → T >= 75000.
+This contradicts T <= 70000. Therefore the system is infeasible: there is no way to invest the entire $100,000 while satisfying all given constraints.
+
+2) Reasonable alternative (allow leaving uninvested funds)
+Introduce U = dollars not invested (U >= 0). Then
+- T + H + U = 100000
+- T >= 3 H
+- T <= 70000
+- Maximize P = 0.03 T + 0.01 H
+
+Because telecom has the higher return, we first set T to its allowed maximum T = 70000. The constraint T >= 3H then gives H <= 70000/3 = 23333.333... The remaining available money for H is 100000 − 70000 = 30000, so the feasible H is min(30000, 70000/3) = 70000/3 ≈ 23,333.33. Put any leftover into U.
+
+Optimal allocation under this relaxed model:
+- T* = $70,000
+- H* = $70,000 / 3 = $23,333.33...
+- U* = 100000 − 70000 − 70000/3 = $6,666.66...
+
+Profit:
+P* = 0.03·70000 + 0.01·(70000/3) = 2100 + 700/3 = 7000/3 ≈ $2,333.33
+
+3) Minimal change to make original problem feasible
+If he must invest all $100,000, one minimal change is to relax the telecom upper bound to at least $75,000 (so T <= 75000). With T >= 3H and T + H = 100000 this gives T = 75,000 and H = 25,000, profit 0.03·75000 + 0.01·25000 = $2,500.
+
+4) Suggested solvers / libraries
+- pulp (LP modelling and CBC solver) — easy for linear programs.
+- scipy.optimize.linprog — good for small LPs.
+- OR-Tools (Google OR-Tools) — industrial-strength solver, supports linear programming.
+Any of these will detect infeasibility or return the optimal solution for the relaxed model.
+
+If you want, I can provide a short Python example (pulp or linprog) that models both the “must invest all” case (and shows infeasibility) and the relaxed case with U.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+#!/usr/bin/env python3
+# Self-contained script to analyze the investment problem described.
+# It checks feasibility of the original model (T+H=100000, T>=3H, T<=70000)
+# and solves the relaxed model allowing uninvested funds U >= 0.
+# At the very end it prints the final objective value in the exact required format.
+
+# Problem data
+TOTAL = 100000.0
+r_T = 0.03  # telecom return
+r_H = 0.01  # healthcare return
+T_upper = 70000.0
+
+# 1) Check feasibility of original problem (must invest entire TOTAL)
+# Constraints:
+#   T + H = TOTAL
+#   T >= 3 H
+#   T <= T_upper
+#   T, H >= 0
+#
+# From T + H = TOTAL => H = TOTAL - T
+# Constraint T >= 3H => T >= 3(TOTAL - T) -> 4T >= 3TOTAL -> T >= 0.75 * TOTAL
+T_required_min = 0.75 * TOTAL  # 75000.0
+feasible_original = (T_required_min <= T_upper) and (T_required_min <= TOTAL)  # also T_nonneg implied
+
+# Print feasibility result
+print("Original problem feasibility check:")
+print(f"  Required minimum T from T>=3H and T+H=TOTAL: {T_required_min}")
+print(f"  Telecom upper bound T <= {T_upper}")
+print(f"  Feasible to invest entire ${TOTAL}? {'Yes' if feasible_original else 'No'}")
+
+if feasible_original:
+    # If feasible (not expected for given numbers), compute the solution.
+    T_orig = max(T_required_min, 0.0)
+    H_orig = TOTAL - T_orig
+    P_orig = r_T * T_orig + r_H * H_orig
+    print("Original problem solution (invest all funds):")
+    print(f"  T = {T_orig}")
+    print(f"  H = {H_orig}")
+    print(f"  Profit P = {P_orig}")
+else:
+    print("  No feasible allocation exists that invests the entire amount while satisfying all constraints.")
+
+# 2) Relaxed model: allow uninvested funds U >= 0
+# Variables: T, H, U with T + H + U = TOTAL, T >= 3H, T <= T_upper, all >=0
+# Objective: maximize P = r_T * T + r_H * H
+#
+# Since r_T > r_H, we want T as large as possible subject to constraints.
+# So set T = T_upper (if feasible), then H is limited by both H <= (TOTAL - T) and H <= T/3.
+T_relaxed = min(T_upper, TOTAL)  # T_upper <= TOTAL in this problem
+# H_max_by_budget = TOTAL - T_relaxed
+H_max_by_budget = TOTAL - T_relaxed
+# H_max_by_ratio = T_relaxed / 3
+H_max_by_ratio = T_relaxed / 3.0
+H_relaxed = min(H_max_by_budget, H_max_by_ratio)
+U_relaxed = TOTAL - T_relaxed - H_relaxed
+P_relaxed = r_T * T_relaxed + r_H * H_relaxed
+
+print("\nRelaxed problem (allow uninvested funds) solution:")
+print(f"  T = {T_relaxed}")
+print(f"  H = {H_relaxed}")
+print(f"  U = {U_relaxed}")
+print(f"  Profit P = {P_relaxed}")
+
+# 3) Minimal change to make original problem feasible:
+# Need T_upper >= 0.75 * TOTAL to allow feasibility. Minimal change is to set T_upper = 0.75 * TOTAL.
+T_min_to_feasible = T_required_min
+H_if_min_change = TOTAL - T_min_to_feasible
+P_if_min_change = r_T * T_min_to_feasible + r_H * H_if_min_change
+
+print("\nMinimal change to make original problem feasible (raise telecom upper bound):")
+print(f"  New required upper bound T_upper >= {T_min_to_feasible}")
+print(f"  If T_upper set to {T_min_to_feasible}: T = {T_min_to_feasible}, H = {H_if_min_change}")
+print(f"  Profit P = {P_if_min_change}")
+
+# Final required output line: print only this line in the exact format.
+print(f"FINAL_OBJ: {P_relaxed}")

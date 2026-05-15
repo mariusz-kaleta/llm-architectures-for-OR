@@ -1,0 +1,229 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximize the total kilograms of hay processed over all 200 acres, subject to fuel and methane limits.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP), continuous decision variables (acres can be fractional unless the problem explicitly requires integers).
+
+3. Main decision variables  
+   - Let:
+     - x₁ = number of acres processed using the windrower  
+     - x₂ = number of acres processed using the hay harvester  
+
+   (If needed later, the Modeller can add variables for hay output, fuel use, and methane produced per method, but for the core model these can be expressed directly from x₁ and x₂.)
+
+4. Objective function structure  
+   - Maximize total hay processed:
+     - Hay from windrower = 10 kg/acre × x₁  
+     - Hay from hay harvester = 8 kg/acre × x₂  
+     - Objective: maximize 10·x₁ + 8·x₂  
+
+5. Key constraints to consider  
+
+   a) Land availability  
+   - Total acres used by both machines cannot exceed the total land:
+     - x₁ + x₂ ≤ 200  
+   - Also nonnegativity:
+     - x₁ ≥ 0  
+     - x₂ ≥ 0  
+
+   b) Fuel availability  
+   - Fuel usage per acre:
+     - Windrower uses 2 kg fuel/acre → total fuel for windrower = 2·x₁  
+     - Harvester uses 1 kg fuel/acre → total fuel for harvester = 1·x₂  
+   - Total fuel cannot exceed 300 kg:
+     - 2·x₁ + 1·x₂ ≤ 300  
+
+   c) Methane production limit  
+   - Methane production per acre:
+     - Windrower: 5 kg methane/acre → 5·x₁  
+     - Harvester: 3 kg methane/acre → 3·x₂  
+   - Total methane cannot exceed 800 kg:
+     - 5·x₁ + 3·x₂ ≤ 800  
+
+   d) Optional (if interpretation requires full use of land)  
+   - If the problem is interpreted as “he must process all 200 acres,” add:
+     - x₁ + x₂ = 200  
+   - Otherwise, the ≤ form already suffices.
+
+6. Modelling strategy / solution approach  
+   - Formulate the LP with the objective and constraints listed above.  
+   - Solve using any LP method (graphical method is feasible with two variables; or simplex via software).  
+   - Identify the feasible region defined by:
+     - Land constraint  
+     - Fuel constraint  
+     - Methane constraint  
+     - Nonnegativity  
+   - Evaluate the objective at each corner (extreme point) of the feasible region to find the maximum hay processed.  
+   - Report optimal x₁, x₂ (acres for each machine) and the resulting maximum hay processed, and check that all constraints (land, fuel, methane) are satisfied.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by notes on how to solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_1\) = acres processed using the windrower  
+- \(x_2\) = acres processed using the hay harvester  
+
+Both are continuous and non‑negative:
+
+- \(x_1 \ge 0\)  
+- \(x_2 \ge 0\)
+
+Since the problem says the farmer “must process hay” on 200 acres, we will assume all land is used (equality, not inequality).
+
+---
+
+## 2. Objective function
+
+Maximize the total kilograms of hay processed:
+
+- Windrower: 10 kg/acre → total \(= 10 x_1\)  
+- Harvester: 8 kg/acre → total \(= 8 x_2\)
+
+Objective:
+
+\[
+\max \; Z = 10x_1 + 8x_2
+\]
+
+---
+
+## 3. Constraints
+
+### a) Land constraint
+
+Total acres processed equals available land:
+
+\[
+x_1 + x_2 = 200
+\]
+
+(If you wanted to allow leaving some land unused, this would be \(x_1 + x_2 \le 200\).)
+
+### b) Fuel availability
+
+- Windrower uses 2 kg fuel/acre → \(2x_1\)
+- Harvester uses 1 kg fuel/acre → \(x_2\)
+- Fuel limited to 300 kg:
+
+\[
+2x_1 + x_2 \le 300
+\]
+
+### c) Methane production limit
+
+- Windrower: 5 kg methane/acre → \(5x_1\)
+- Harvester: 3 kg methane/acre → \(3x_2\)
+- Methane limited to 800 kg:
+
+\[
+5x_1 + 3x_2 \le 800
+\]
+
+### d) Nonnegativity
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+---
+
+## 4. Complete LP formulation
+
+\[
+\begin{aligned}
+\max \quad & 10x_1 + 8x_2 \\
+\text{s.t.} \quad 
+& x_1 + x_2 = 200 \\
+& 2x_1 + x_2 \le 300 \\
+& 5x_1 + 3x_2 \le 800 \\
+& x_1 \ge 0,\; x_2 \ge 0
+\end{aligned}
+\]
+
+This is a standard linear program (LP) with two continuous variables.
+
+---
+
+## 5. Suitable Python libraries
+
+Any LP solver will handle this easily. Good options:
+
+- `PuLP` (pure Python wrapper, easy syntax; uses CBC or other solvers)
+- `scipy.optimize.linprog` (SciPy, convenient for small LPs)
+- `ortools.linear_solver` from Google OR-Tools (industrial-strength, but slightly more verbose)
+
+For teaching and clarity, `PuLP` is a very good choice.
+
+---
+
+## 6. Example with PuLP
+
+```python
+import pulp as pl
+
+# Define the problem (maximization)
+prob = pl.LpProblem("Hay_Processing", pl.LpMaximize)
+
+# Decision variables
+x1 = pl.LpVariable('x1_windrower_acres', lowBound=0)
+x2 = pl.LpVariable('x2_harvester_acres', lowBound=0)
+
+# Objective function
+prob += 10 * x1 + 8 * x2, "Total_Hay_kg"
+
+# Constraints
+prob += x1 + x2 == 200, "Land"
+prob += 2 * x1 + x2 <= 300, "Fuel"
+prob += 5 * x1 + 3 * x2 <= 800, "Methane"
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("x1 (windrower acres):", x1.value())
+print("x2 (harvester acres):", x2.value())
+print("Max hay (kg):", pl.value(prob.objective))
+```
+
+You can switch to `scipy.optimize.linprog` or OR-Tools with the same mathematical formulation if you prefer a different solver ecosystem.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem (maximization)
+    prob = pl.LpProblem("Hay_Processing", pl.LpMaximize)
+
+    # Decision variables
+    x1 = pl.LpVariable('x1_windrower_acres', lowBound=0)
+    x2 = pl.LpVariable('x2_harvester_acres', lowBound=0)
+
+    # Objective function: Maximize total hay (kg)
+    prob += 10 * x1 + 8 * x2, "Total_Hay_kg"
+
+    # Constraints
+    prob += x1 + x2 == 200, "Land"
+    prob += 2 * x1 + x2 <= 300, "Fuel"
+    prob += 5 * x1 + 3 * x2 <= 800, "Methane"
+
+    # Solve the problem
+    prob.solve()
+
+    # Extract the objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective value in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

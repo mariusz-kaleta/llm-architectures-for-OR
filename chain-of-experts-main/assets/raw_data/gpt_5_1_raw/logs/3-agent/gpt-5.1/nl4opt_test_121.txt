@@ -1,0 +1,205 @@
+[MODELER]:
+Let’s turn this into a linear optimization model.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of carrots sold per month  
+- \(y\) = number of cucumbers sold per month  
+
+Assume all produced are sold, so purchases = sales.
+
+## 2. Objective function
+
+Profit per unit:  
+- Carrot: \$0.75  
+- Cucumber: \$0.80  
+
+Total monthly profit:
+\[
+\max\; P = 0.75x + 0.80y
+\]
+
+## 3. Constraints
+
+### a) Budget constraint
+
+Budget per month for purchasing:
+
+- Carrot cost: \$0.30 each  
+- Cucumber cost: \$0.50 each  
+- Total budget: \$500  
+
+\[
+0.30x + 0.50y \le 500
+\]
+
+### b) Relationship between cucumbers and carrots
+
+“The number of cucumbers sold is at most a third of the number of carrots sold”:
+
+\[
+y \le \frac{1}{3}x
+\]
+
+### c) Bounds on number of carrots
+
+“At least 300 carrots but at most 500 carrots are sold each month”:
+
+\[
+300 \le x \le 500
+\]
+
+### d) Non-negativity and integrality (if needed)
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+If the store only sells whole vegetables (which is realistic), you would use integer constraints:
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+## 4. Full mathematical model
+
+\[
+\begin{aligned}
+\max_{x, y} \quad & 0.75x + 0.80y \\
+\text{s.t.} \quad
+& 0.30x + 0.50y \le 500 \\
+& y \le \frac{1}{3}x \\
+& 300 \le x \le 500 \\
+& x, y \ge 0 \quad (\text{and integer if required})
+\end{aligned}
+\]
+
+## 5. Solving the model (analysis to find the optimal point)
+
+Because profit increases with both \(x\) and \(y\), at optimum we’ll tend to hit constraints as equalities.
+
+From \(y \le \frac{1}{3}x\), profit grows with \(y\) (\(0.80 > 0\)), so we use the maximum allowed:
+\[
+y = \frac{1}{3}x.
+\]
+
+Plug into budget:
+\[
+0.30x + 0.50\left(\frac{1}{3}x\right) \le 500
+\]
+\[
+0.30x + \frac{0.50}{3}x = 0.30x + 0.1667x = 0.4667x \le 500
+\]
+\[
+x \le \frac{500}{0.4667} \approx 1071.4
+\]
+
+This does not conflict with \(x \le 500\), so the binding upper limit for \(x\) is actually the carrot cap:
+\[
+x = 500.
+\]
+
+Then
+\[
+y = \frac{1}{3} \cdot 500 \approx 166.67.
+\]
+
+If we require integer values:
+- Try \(x = 500\), \(y = 166\):  
+  Budget: \(0.3 \cdot 500 + 0.5 \cdot 166 = 150 + 83 = 233 \le 500\) (ok)  
+  Profit: \(0.75 \cdot 500 + 0.80 \cdot 166 = 375 + 132.8 = 507.8\).
+
+Given our constraints, increasing \(x\) to its maximum (500) and then taking \(y\) as close as possible to \(x/3\) is optimal. You can check nearby integer combinations (e.g., \(y = 167\) violates \(y \le x/3\), since \(167 > 500/3\)).
+
+**Optimal solution (continuous model):**
+- Carrots: \(x^* = 500\)  
+- Cucumbers: \(y^* = 500/3 \approx 166.67\)
+
+**Practical integer solution:**
+- Carrots: 500  
+- Cucumbers: 166  
+
+## 6. Python libraries to solve this
+
+This is a linear program (or an integer linear program if you force integers), so you can use:
+
+- `PuLP` (user-friendly LP/MIP modeling in pure Python)
+- `scipy.optimize.linprog` (for continuous LP, no integer support)
+- `OR-Tools` (`ortools.linear_solver` for LP/MIP from Google)
+- `Pyomo` (more general algebraic modeling)
+
+For a quick start with integer decisions, `PuLP` or OR-Tools are very suitable.
+
+### Example with PuLP (integer version)
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Carrots_Cucumbers_Profit_Max", pl.LpMaximize)
+
+# Decision variables (integers)
+x = pl.LpVariable('carrots', lowBound=0, cat='Integer')
+y = pl.LpVariable('cucumbers', lowBound=0, cat='Integer')
+
+# Objective
+prob += 0.75 * x + 0.80 * y
+
+# Constraints
+prob += 0.30 * x + 0.50 * y <= 500          # Budget
+prob += y <= (1.0 / 3.0) * x                # Cucumber limit
+prob += x >= 300                            # Min carrots
+prob += x <= 500                            # Max carrots
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal carrots:", x.value())
+print("Optimal cucumbers:", y.value())
+print("Maximum profit:", pl.value(prob.objective))
+```
+
+This will return approximately:
+- Optimal carrots: 500  
+- Optimal cucumbers: 166  
+- Maximum profit: about 507.8 dollars.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Carrots_Cucumbers_Profit_Max", pl.LpMaximize)
+
+    # Decision variables (integers)
+    x = pl.LpVariable('carrots', lowBound=0, cat='Integer')
+    y = pl.LpVariable('cucumbers', lowBound=0, cat='Integer')
+
+    # Objective function: maximize profit
+    prob += 0.75 * x + 0.80 * y
+
+    # Constraints
+    # Budget constraint
+    prob += 0.30 * x + 0.50 * y <= 500
+
+    # Relationship between cucumbers and carrots
+    prob += y <= (1.0 / 3.0) * x
+
+    # Bounds on number of carrots
+    prob += x >= 300
+    prob += x <= 500
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective value in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

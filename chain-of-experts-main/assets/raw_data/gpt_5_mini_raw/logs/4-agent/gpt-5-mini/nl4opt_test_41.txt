@@ -1,0 +1,126 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Maximise total profit from producing crepe cakes, sponge cakes, and birthday cakes given limited batter and milk.
+
+2) Suggested model type
+- Model: Linear Programming with integer decision variables (Mixed Integer Linear Program, MILP). Use an LP solver with integrality enforced (or solve LP relaxation and round only if appropriate).
+
+3) Main decision variables
+- Number of crepe cakes to produce (nonnegative integer).
+- Number of sponge cakes to produce (nonnegative integer).
+- Number of birthday cakes to produce (nonnegative integer).
+
+(Units: each variable counts cakes; resource amounts in grams; profits in dollars.)
+
+4) Key constraints to consider
+- Total batter constraint: Sum of batter used by all cakes cannot exceed 20,000 grams. (Each crepe uses 400 g, each sponge 500 g, each birthday 450 g.)
+- Total milk constraint: Sum of milk used by all cakes cannot exceed 14,000 grams. (Each crepe uses 200 g, each sponge 300 g, each birthday 350 g.)
+- Non-negativity and integrality: Counts of cakes must be whole numbers and not negative.
+- Implicit/no demand limits: There are no given upper bounds per cake type beyond ingredient limits; if practical production limits (oven time, staff, storage, or market demand) exist, add corresponding upper-bound constraints.
+- Optional modelling notes: if solver cannot enforce integers or if integer requirement is not strict, you may solve the LP relaxation first to get a bound; then apply integer enforcement or rounding and check resource feasibility.
+
+Output expected from the modeller
+- Provide the optimal counts for each cake type (crepe, sponge, birthday) and the resulting maximum profit, plus verification that batter and milk constraints are satisfied. If multiple optimal integer solutions exist, report any one and note alternatives.
+
+---
+
+[MODELER]:
+Below I convert the problem into a formal MILP, show the solution, verify constraints, and list solver options.
+
+1) Decision variables
+- x1 ∈ Z≥0 : number of crepe cakes
+- x2 ∈ Z≥0 : number of sponge cakes
+- x3 ∈ Z≥0 : number of birthday cakes
+
+(Units: cakes. Resources in grams, profit in dollars.)
+
+2) Parameters
+- Batter available B = 20,000 g
+- Milk available M = 14,000 g
+- Batter per cake: b1 = 400 (crepe), b2 = 500 (sponge), b3 = 450 (birthday)
+- Milk per cake: m1 = 200 (crepe), m2 = 300 (sponge), m3 = 350 (birthday)
+- Profit per cake: p1 = 12 (crepe), p2 = 10 (sponge), p3 = 15 (birthday)
+
+3) Objective (maximize total profit)
+Maximize Z = 12 x1 + 10 x2 + 15 x3
+
+4) Constraints
+- Batter: 400 x1 + 500 x2 + 450 x3 ≤ 20,000
+- Milk:   200 x1 + 300 x2 + 350 x3 ≤ 14,000
+- Integrality and non-negativity: x1, x2, x3 ∈ Z≥0
+
+5) Solve and optimal solution (analysis & result)
+Solve the LP/MILP. The LP relaxation (continuous variables) yields an optimal corner where both resource constraints bind. Solving the two binding equations gives a family of basic solutions; maximizing the objective along that line leads to the corner with:
+
+x1 = 14 (crepe cakes)
+x2 = 0  (sponge cakes)
+x3 = 32 (birthday cakes)
+
+Total profit Z = 12·14 + 10·0 + 15·32 = 168 + 480 = $648.
+
+Verification of resource usage:
+- Batter used = 400·14 + 500·0 + 450·32 = 5,600 + 0 + 14,400 = 20,000 g (≤ 20,000)
+- Milk used   = 200·14 + 300·0 + 350·32 = 2,800 + 0 + 11,200 = 14,000 g (≤ 14,000)
+
+Both constraints are exactly binding. The solution is integer and feasible, so it is optimal for the MILP. There is no better integer solution (the LP optimum is integer here), so this is the global optimum. 
+
+6) Notes
+- If additional practical limits exist (oven time, demand), add upper bounds x_i ≤ U_i.
+- If solver cannot enforce integrality or you want a quick bound, solve the LP relaxation first (continuous); if the LP gives integer values, that is optimal for the MILP.
+
+7) Recommended solvers / Python libraries
+- PuLP (with default CBC) — simple, widely available for small MILPs.
+- OR-Tools (CP-SAT for integer problems) — fast and robust.
+- scipy.optimize.linprog — for LP relaxations only (no integer support).
+- CVXPY — for modeling; uses external MIP solvers for integer problems.
+- Commercial: Gurobi, CPLEX — very fast for larger models (require license).
+
+Example (minimal) PuLP formulation you can run:
+- Define LpProblem (maximize), LpInteger variables x1,x2,x3 ≥0
+- Add batter and milk constraints
+- Set objective 12*x1 + 10*x2 + 15*x3
+- Solve and read x1,x2,x3 and objective value.
+
+If you want, I can provide a ready-to-run PuLP or OR-Tools Python script that implements this model and prints solution and resource usage.
+
+---
+
+[CODER]:
+import pulp
+
+# Parameters
+B = 20000  # batter available (g)
+M = 14000  # milk available (g)
+
+b1, b2, b3 = 400, 500, 450  # batter per cake (g)
+m1, m2, m3 = 200, 300, 350  # milk per cake (g)
+p1, p2, p3 = 12, 10, 15     # profit per cake ($)
+
+# Define problem
+prob = pulp.LpProblem("Cake_Production", pulp.LpMaximize)
+
+# Decision variables (integer, >=0)
+x1 = pulp.LpVariable("x1_crepe", lowBound=0, cat="Integer")
+x2 = pulp.LpVariable("x2_sponge", lowBound=0, cat="Integer")
+x3 = pulp.LpVariable("x3_birthday", lowBound=0, cat="Integer")
+
+# Objective
+prob += p1 * x1 + p2 * x2 + p3 * x3
+
+# Constraints
+prob += b1 * x1 + b2 * x2 + b3 * x3 <= B, "Batter"
+prob += m1 * x1 + m2 * x2 + m3 * x3 <= M, "Milk"
+
+# Solve (CBC by default)
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Retrieve objective value
+obj_val = pulp.value(prob.objective)
+# If objective is essentially integer, convert to int for neat output
+if obj_val is None:
+    value = None
+else:
+    value = int(round(obj_val)) if abs(obj_val - round(obj_val)) < 1e-6 else obj_val
+
+print(f"FINAL_OBJ: {value}")

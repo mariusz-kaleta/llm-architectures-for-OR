@@ -1,0 +1,74 @@
+[MODELER]:
+Model
+
+- Decision variables:
+  - b ∈ Z_{\ge 0} = number of bikes
+  - c ∈ Z_{\ge 0} = number of cars
+
+- Objective:
+  - Minimise b (the number of bikes).
+
+- Constraints:
+  1. Capacity: 3b + 5c ≥ 500 (must carry at least 500 people).
+  2. At most 40% of vehicles are cars: c/(b + c) ≤ 0.4. This rearranges to
+     c ≤ 0.4(b + c) ⇒ 0.6 c ≤ 0.4 b ⇒ c ≤ (2/3) b, equivalently b ≥ 1.5 c.
+  3. b, c are nonnegative integers.
+
+Continuous relaxation intuition
+- If c is pushed to its allowed maximum relative to b, at optimum we expect both constraints to be tight:
+  c = (2/3) b and 3b + 5c = 500.
+  Substitute c = (2/3) b: (3 + 5*(2/3)) b = (3 + 10/3)b = (19/3)b = 500 ⇒ b = 1500/19 ≈ 78.947.
+- b must be integer, so b ≥ 79. Checking integer feasibility shows b = 79 with maximal allowed cars (floor(2/3·79)=52) gives capacity 497 < 500, so infeasible. Next integer b = 80 works.
+
+Feasible integer solution with minimal b
+- Take b = 80. Minimal c to satisfy capacity: 3·80 + 5c ≥ 500 ⇒ 5c ≥ 260 ⇒ c ≥ 52.
+- Proportion constraint allows up to c ≤ floor((2/3)·80) = 53, so c = 52 is feasible.
+- Check: 3·80 + 5·52 = 240 + 260 = 500 and c/(b+c) = 52/132 ≈ 0.3939 ≤ 0.4.
+
+Conclusion (optimal)
+- Minimum number of bikes: b = 80.
+- Corresponding number of cars (smallest feasible): c = 52.
+(Any c = 52 or 53 with b = 80 satisfies constraints, but cars = 52 is the minimal-car choice that attains capacity exactly.)
+
+Recommended solvers / Python libraries
+- Integer linear programming: PuLP (with CBC), OR-Tools (CP-SAT), or Gurobi/CPLEX if available.
+- For brute force or small enumeration: plain Python (loop over c or b) or use NumPy for vectorised checks.
+- Example approach: use PuLP to model variables as LpInteger, add constraints 3b+5c >= 500 and c <= (2/3)*b, and minimize b.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data
+capacity_required = 500
+
+# Search bounds
+b_upper = 500  # safe upper bound for bikes
+
+best_b = None
+best_c = None
+
+for b in range(0, b_upper + 1):
+    # maximum allowed cars given proportion constraint c <= (2/3) b
+    c_max = (2 * b) // 3
+    # search for any c in [0, c_max] satisfying capacity
+    feasible_c = None
+    for c in range(c_max + 1):
+        if 3 * b + 5 * c >= capacity_required:
+            feasible_c = c
+            break
+    if feasible_c is not None:
+        best_b = b
+        best_c = feasible_c
+        break  # minimal b found
+
+# If no feasible found within bounds (shouldn't happen), set to None
+if best_b is None:
+    raise ValueError("No feasible solution found within search bounds.")
+
+# Print final objective value as required
+print(f"FINAL_OBJ: {best_b}")
+```

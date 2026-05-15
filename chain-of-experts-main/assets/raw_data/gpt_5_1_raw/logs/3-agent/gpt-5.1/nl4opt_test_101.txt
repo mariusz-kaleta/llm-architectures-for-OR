@@ -1,0 +1,175 @@
+[MODELER]:
+Here is a clean mathematical model for your problem.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of bags of **subsoil**  
+- \(y\) = number of bags of **topsoil**
+
+Both are nonnegative integers:
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 2. Objective function
+
+Water needed per day:
+- Subsoil: 10 units per bag  
+- Topsoil: 6 units per bag  
+
+Total daily water consumption:
+\[
+W = 10x + 6y
+\]
+
+We want to **minimize** this:
+\[
+\min\; 10x + 6y
+\]
+
+---
+
+## 3. Constraints
+
+1. **Total bag availability (truck capacity):**  
+   At most 150 bags in total:
+   \[
+   x + y \le 150
+   \]
+
+2. **Minimum topsoil requirement:**  
+   At least 10 bags of topsoil:
+   \[
+   y \ge 10
+   \]
+
+3. **Topsoil proportion limit (expensive):**  
+   At most 30% of all bags can be topsoil:
+   \[
+   y \le 0.3(x + y)
+   \]
+
+   This is a linear constraint; rearrange:
+
+   \[
+   y \le 0.3x + 0.3y
+   \]
+   \[
+   y - 0.3y \le 0.3x
+   \]
+   \[
+   0.7y \le 0.3x
+   \]
+   \[
+   7y \le 3x
+   \]
+
+So the model is:
+
+\[
+\begin{align}
+\min \quad & 10x + 6y\\[4pt]
+\text{s.t.} \quad
+& x + y \le 150\\
+& y \ge 10\\
+& 7y \le 3x\\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{align}
+\]
+
+---
+
+## 4. Problem structure and intuition
+
+- This is a **(small) integer linear program (ILP)**.  
+- The water-per-bag usage is:
+  - Subsoil: 10 units/bag
+  - Topsoil: 6 units/bag  
+  So, **topsoil uses less water per bag** than subsoil.
+- Thus, to minimize water, the model will try to:
+  - Use as **many topsoil bags as allowed** (subject to the 30% cap and other constraints),
+  - And fill the remaining requirement with subsoil.
+
+You can solve this exactly with any MILP solver.
+
+---
+
+## 5. Suitable Python libraries
+
+This is a linear (integer) optimization problem; any standard MILP library works well:
+
+- **PuLP** (pure Python, easy to use, interfaces to CBC, GLPK, etc.)
+- **OR-Tools** (Google OR-Tools: `pywraplp` for linear/integer programming)
+- **Pyomo** (more general modeling framework, works with various solvers)
+- **SciPy**: `scipy.optimize.linprog` can solve the LP relaxation, but not integer constraints directly. For the full integer version, prefer PuLP or OR-Tools.
+
+---
+
+## 6. Example implementation with PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Soil_Water_Minimization", pl.LpMinimize)
+
+# Decision variables (integer, non-negative)
+x = pl.LpVariable('subsoil_bags', lowBound=0, cat='Integer')
+y = pl.LpVariable('topsoil_bags', lowBound=0, cat='Integer')
+
+# Objective: minimize total water
+prob += 10*x + 6*y
+
+# Constraints
+prob += x + y <= 150          # truck capacity / total bags
+prob += y >= 10               # min topsoil
+prob += 7*y <= 3*x            # topsoil at most 30% of total
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Subsoil bags (x):", pl.value(x))
+print("Topsoil bags (y):", pl.value(y))
+print("Total water:", pl.value(10*x + 6*y))
+```
+
+This code directly implements the model given above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("Soil_Water_Minimization", pl.LpMinimize)
+
+    # Decision variables (integer, non-negative)
+    x = pl.LpVariable('subsoil_bags', lowBound=0, cat='Integer')
+    y = pl.LpVariable('topsoil_bags', lowBound=0, cat='Integer')
+
+    # Objective: minimize total water
+    prob += 10 * x + 6 * y
+
+    # Constraints
+    prob += x + y <= 150          # truck capacity / total bags
+    prob += y >= 10               # minimum topsoil
+    prob += 7 * y <= 3 * x        # topsoil at most 30% of total
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pl.value(10 * x + 6 * y)
+
+    # Required final output
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

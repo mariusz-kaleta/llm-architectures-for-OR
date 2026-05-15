@@ -1,0 +1,141 @@
+[MODELER]:
+Let’s turn this into a linear optimization model.
+
+## 1. Decision variables
+
+Let  
+- \(x_B \ge 0\): number of batches of bagels produced per day  
+- \(x_C \ge 0\): number of batches of croissants produced per day  
+
+(If batches must be whole numbers, we will later add \(x_B, x_C \in \mathbb{Z}_{\ge 0}\).)
+
+## 2. Objective function
+
+Profit per batch:  
+- Bagels: \$20 per batch  
+- Croissants: \$40 per batch  
+
+Maximize total daily profit:
+\[
+\max Z = 20x_B + 40x_C
+\]
+
+## 3. Constraints
+
+### Oven time constraint
+Each batch needs:  
+- Bagels: 2 hours  
+- Croissants: 1 hour  
+
+Total oven time available: 70 hours.
+
+\[
+2x_B + 1x_C \le 70
+\]
+
+### Pastry chef time constraint
+Each batch needs:  
+- Bagels: 0.25 hours  
+- Croissants: 2 hours  
+
+Total pastry chef time available: 32 hours.
+
+\[
+0.25x_B + 2x_C \le 32
+\]
+
+### Non-negativity
+\[
+x_B \ge 0,\quad x_C \ge 0
+\]
+
+If we require whole batches:
+\[
+x_B, x_C \in \mathbb{Z}_{\ge 0}
+\]
+
+## 4. Using all available capacity
+
+“Using all the available capacity” suggests both resource constraints are binding (equalities) at optimum:
+
+\[
+\begin{cases}
+2x_B + x_C = 70\\
+0.25x_B + 2x_C = 32
+\end{cases}
+\]
+
+Solve:
+
+From the second:
+\[
+0.25x_B + 2x_C = 32 \Rightarrow x_B = 4(32 - 2x_C) = 128 - 8x_C
+\]
+
+Substitute into the first:
+\[
+2(128 - 8x_C) + x_C = 70 \Rightarrow 256 - 16x_C + x_C = 70
+\]
+\[
+256 - 15x_C = 70 \Rightarrow 15x_C = 186 \Rightarrow x_C = 12.4
+\]
+\[
+x_B = 128 - 8(12.4) = 128 - 99.2 = 28.8
+\]
+
+Profit:
+\[
+Z = 20(28.8) + 40(12.4) = 576 + 496 = 1072
+\]
+
+So, **continuous solution**:
+- Bagels: \(x_B = 28.8\) batches  
+- Croissants: \(x_C = 12.4\) batches  
+- Max profit: **\$1,072**
+
+If integer batches are required, you’d solve the integer program near these values.
+
+## 5. Suitable Python libraries
+
+For this linear optimization problem:
+
+- **PuLP** (`pulp`): simple LP/MIP modeling in pure Python, good for introductory use.
+- **OR-Tools** (`ortools.linear_solver`): powerful, supports LP and MIP with various solvers.
+- **SciPy** (`scipy.optimize.linprog`): good for continuous LP (fractional batches allowed), not integer.
+
+Given possible integer batches, **PuLP** or **OR-Tools** are recommended.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: maximize profit
+    prob = pulp.LpProblem("Bakery_Production", pulp.LpMaximize)
+
+    # Decision variables: integer batches of bagels (x_B) and croissants (x_C)
+    x_B = pulp.LpVariable('x_B', lowBound=0, cat='Integer')
+    x_C = pulp.LpVariable('x_C', lowBound=0, cat='Integer')
+
+    # Objective function: Maximize 20*x_B + 40*x_C
+    prob += 20 * x_B + 40 * x_C, "Total_Profit"
+
+    # Constraints
+    # Oven time: 2x_B + x_C <= 70
+    prob += 2 * x_B + 1 * x_C <= 70, "Oven_Time"
+
+    # Pastry chef time: 0.25x_B + 2x_C <= 32
+    prob += 0.25 * x_B + 2 * x_C <= 32, "Chef_Time"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the final objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print the result in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,217 @@
+[MODELER]:
+We can model this as a linear programming (LP) problem.
+
+Let the decision variables be:
+- \(x\): number of thin jars to make per week  
+- \(y\): number of stubby jars to make per week  
+
+Both should be nonnegative:
+- \(x \ge 0\)
+- \(y \ge 0\)
+
+### Constraints
+
+1. **Shaping time constraint**  
+   Each thin jar requires 50 minutes, each stubby jar 30 minutes, with 3000 minutes available:
+   \[
+   50x + 30y \le 3000
+   \]
+
+2. **Baking time constraint**  
+   Each thin jar requires 90 minutes, each stubby jar 150 minutes, with 4000 minutes available:
+   \[
+   90x + 150y \le 4000
+   \]
+
+### Objective function
+
+Maximize weekly profit:
+- Profit per thin jar: \$5  
+- Profit per stubby jar: \$9  
+
+So we want to:
+\[
+\text{Maximize } Z = 5x + 9y
+\]
+
+---
+
+### Solving the LP analytically
+
+We look at the corner points of the feasible region defined by the constraints.
+
+1. Intercepts from shaping constraint \(50x + 30y \le 3000\):
+   - If \(x = 0\): \(30y = 3000 \Rightarrow y = 100\)
+   - If \(y = 0\): \(50x = 3000 \Rightarrow x = 60\)
+
+2. Intercepts from baking constraint \(90x + 150y \le 4000\):
+   - If \(x = 0\): \(150y = 4000 \Rightarrow y = \frac{4000}{150} \approx 26.67\)
+   - If \(y = 0\): \(90x = 4000 \Rightarrow x = \frac{4000}{90} \approx 44.44\)
+
+3. Intersection of the two constraints:
+   \[
+   \begin{cases}
+   50x + 30y = 3000 \\
+   90x + 150y = 4000
+   \end{cases}
+   \]
+   Solve:
+
+   From the first:
+   \[
+   50x = 3000 - 30y \Rightarrow x = 60 - 0.6y
+   \]
+
+   Substitute into the second:
+   \[
+   90(60 - 0.6y) + 150y = 4000
+   \]
+   \[
+   5400 - 54y + 150y = 4000
+   \]
+   \[
+   5400 + 96y = 4000
+   \]
+   \[
+   96y = -1400 \Rightarrow y = -\frac{1400}{96} < 0
+   \]
+
+   This gives a negative \(y\), so the two constraints intersect outside the feasible region (where \(x, y \ge 0\)). Thus the binding constraint will be the tighter one for each direction.
+
+Feasible corner points given nonnegativity:
+- A: \((x, y) = (0, 0)\)
+- B: \((60, 0)\) from shaping constraint (and it satisfies baking: \(90*60 = 5400 > 4000\), so this is actually infeasible)
+- C: \((0, 26.67)\) from baking constraint (and it satisfies shaping: \(30*26.67 \approx 800 < 3000\), feasible)
+- D: \((44.44, 0)\) from baking constraint (and it satisfies shaping: \(50*44.44 \approx 2222 < 3000\), feasible)
+
+So the true feasible corners are:
+- (0, 0)
+- (44.44, 0)
+- (0, 26.67)
+
+Evaluate profit:
+
+1. At \((0, 0)\):
+   \[
+   Z = 5(0) + 9(0) = 0
+   \]
+
+2. At \((44.44, 0)\):
+   \[
+   Z = 5(44.44) + 9(0) \approx 222.22
+   \]
+
+3. At \((0, 26.67)\):
+   \[
+   Z = 5(0) + 9(26.67) \approx 240
+   \]
+
+The maximum profit occurs at \((x, y) = (0, 26.67)\).  
+
+If we restrict to integer numbers of jars, we’d check near \((0, 27)\):
+
+- \((0, 27)\):  
+  Shaping: \(30*27 = 810 \le 3000\)  
+  Baking: \(150*27 = 4050 > 4000\) → infeasible  
+
+- \((0, 26)\):  
+  Shaping: \(30*26 = 780 \le 3000\)  
+  Baking: \(150*26 = 3900 \le 4000\) → feasible  
+  Profit: \(Z = 9*26 = 234\)
+
+- \((1, 26)\):  
+  Shaping: \(50*1 + 30*26 = 50 + 780 = 830 \le 3000\)  
+  Baking: \(90*1 + 150*26 = 90 + 3900 = 3990 \le 4000\) → feasible  
+  Profit: \(Z = 5*1 + 9*26 = 5 + 234 = 239\)
+
+- \((2, 26)\):  
+  Baking: \(90*2 + 150*26 = 180 + 3900 = 4080 > 4000\) → infeasible
+
+So with integer constraints, the optimal is:
+- \(x = 1\) thin jar  
+- \(y = 26\) stubby jars  
+with profit \$239.
+
+If fractional jars were allowed (standard LP, no integrality), the optimal is:
+- \(x = 0\) thin  
+- \(y \approx 26.67\) stubby  
+with profit about \$240.
+
+Given the real-world context, the integer solution is usually what’s desired:
+- The artisan should make 1 thin jar and 26 stubby jars per week.
+
+---
+
+### Python libraries suitable for solving
+
+To implement and solve this model in Python, these libraries are appropriate:
+
+- `PuLP` – simple, pure-Python LP/MIP modeling:
+  ```python
+  import pulp as pl
+
+  # Define problem
+  prob = pl.LpProblem("Jars_Profit_Max", pl.LpMaximize)
+
+  x = pl.LpVariable('thin', lowBound=0, cat='Integer')
+  y = pl.LpVariable('stubby', lowBound=0, cat='Integer')
+
+  # Objective
+  prob += 5*x + 9*y
+
+  # Constraints
+  prob += 50*x + 30*y <= 3000
+  prob += 90*x + 150*y <= 4000
+
+  prob.solve()
+  print(pl.value(x), pl.value(y), pl.value(prob.objective))
+  ```
+
+- `ortools.linear_solver` (Google OR-Tools) – efficient for LP/MIP:
+  ```python
+  from ortools.linear_solver import pywraplp
+
+  solver = pywraplp.Solver.CreateSolver('CBC_MIXED_INTEGER_PROGRAMMING')
+  x = solver.IntVar(0, solver.infinity(), 'thin')
+  y = solver.IntVar(0, solver.infinity(), 'stubby')
+
+  solver.Maximize(5*x + 9*y)
+  solver.Add(50*x + 30*y <= 3000)
+  solver.Add(90*x + 150*y <= 4000)
+
+  status = solver.Solve()
+  ```
+
+For continuous (non-integer) LP, `scipy.optimize.linprog` is also suitable.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Jars_Profit_Max", pl.LpMaximize)
+
+    # Decision variables: integers, nonnegative
+    x = pl.LpVariable('thin', lowBound=0, cat='Integer')
+    y = pl.LpVariable('stubby', lowBound=0, cat='Integer')
+
+    # Objective function: Maximize profit
+    prob += 5 * x + 9 * y
+
+    # Constraints
+    prob += 50 * x + 30 * y <= 3000  # Shaping time
+    prob += 90 * x + 150 * y <= 4000  # Baking time
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

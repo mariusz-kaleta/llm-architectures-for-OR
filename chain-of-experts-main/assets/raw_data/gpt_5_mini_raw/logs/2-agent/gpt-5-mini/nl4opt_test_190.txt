@@ -1,0 +1,100 @@
+[MODELER]:
+Mathematical model
+
+Decision variables
+- x_B = number of black milk tea bottles produced (≥ 0, integer).
+- x_M = number of matcha milk tea bottles produced (≥ 0, integer).
+
+Objective
+- Maximize profit Z = 7.5 x_B + 5 x_M.
+
+Constraints
+- Milk availability: 600 x_B + 525 x_M ≤ 30000 (grams).
+- Honey availability: 10 x_B + 5 x_M ≤ 500 (grams).
+- x_B, x_M ≥ 0 (and integer if bottles must be whole).
+
+Solution (analysis)
+- Divide the milk constraint by 75: 8 x_B + 7 x_M ≤ 400.
+- Divide the honey constraint by 5: 2 x_B + x_M ≤ 100.
+
+Check corner points of the feasible polygon:
+- x_B = 0 → x_M ≤ 30000/525 ≈ 57.1429 → profit ≈ 5 × 57.1429 = 285.71.
+- x_M = 0 → x_B ≤ 30000/600 = 50 (also from honey: 10x_B ≤ 500 → x_B ≤ 50) → profit = 7.5 × 50 = 375.
+- Intersection of 8x_B + 7x_M = 400 and 2x_B + x_M = 100 gives x_B = 50, x_M = 0 (same as previous).
+
+Maximum profit occurs at x_B = 50, x_M = 0, giving maximum profit $375. (Since the LP optimum is integer here, integrality does not change the solution.)
+
+Recommended Python libraries for solving
+- pulp (easy linear/integer programming interface in Python).
+- OR-Tools (Google CP-SAT / linear solver for larger/complex integer programs).
+- scipy.optimize.linprog (for continuous LPs).
+- cvxpy (declarative convex optimization; supports integer variables via mixed-integer backends).
+
+Example (pulp) snippet
+- Define variables x_B, x_M ≥ 0 (and cat="Integer" if needed).
+- Add milk and honey constraints.
+- Set objective to maximize 7.5*x_B + 5*x_M.
+- Solve and read x_B, x_M.
+
+If you want, I can provide the exact pulp or OR-Tools code and run through sensitivity (shadow prices) or handle the integer requirement explicitly.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+#!/usr/bin/env python3
+# Self-contained solver for the milk tea production integer program (enumeration)
+
+# Problem data (initialized directly)
+profit_per_B = 7.5  # profit for black milk tea
+profit_per_M = 5.0  # profit for matcha milk tea
+
+# Resource usage per bottle
+milk_per_B = 600    # grams
+milk_per_M = 525    # grams
+milk_available = 30000  # grams
+
+honey_per_B = 10    # grams
+honey_per_M = 5     # grams
+honey_available = 500   # grams
+
+# Determine reasonable upper bounds for enumeration (integer variables)
+max_xB_by_milk = milk_available // milk_per_B
+max_xB_by_honey = honey_available // honey_per_B
+max_xB = int(min(max_xB_by_milk, max_xB_by_honey))
+
+max_xM_by_milk = milk_available // milk_per_M
+max_xM_by_honey = honey_available // honey_per_M
+max_xM = int(min(max_xM_by_milk, max_xM_by_honey))
+
+best_profit = None
+best_xB = 0
+best_xM = 0
+
+# Enumerate integer feasible solutions
+for xB in range(0, max_xB + 1):
+    # For each xB, we can bound xM more tightly by remaining resources
+    remaining_milk = milk_available - milk_per_B * xB
+    remaining_honey = honey_available - honey_per_B * xB
+    if remaining_milk < 0 or remaining_honey < 0:
+        continue
+    # Upper bound for xM given remaining resources
+    ub_xM_by_milk = remaining_milk // milk_per_M
+    ub_xM_by_honey = remaining_honey // honey_per_M
+    ub_xM = int(min(ub_xM_by_milk, ub_xM_by_honey, max_xM))
+    for xM in range(0, ub_xM + 1):
+        # Check constraints (redundant given bounds but kept for safety)
+        if milk_per_B * xB + milk_per_M * xM > milk_available:
+            continue
+        if honey_per_B * xB + honey_per_M * xM > honey_available:
+            continue
+        profit = profit_per_B * xB + profit_per_M * xM
+        if (best_profit is None) or (profit > best_profit):
+            best_profit = profit
+            best_xB = xB
+            best_xM = xM
+
+# Print chosen solution (optional informative output)
+print(f"Optimal integer solution: x_B = {best_xB}, x_M = {best_xM}, profit = {best_profit}")
+
+# Final required output line (must be exactly this format)
+print(f"FINAL_OBJ: {best_profit}")

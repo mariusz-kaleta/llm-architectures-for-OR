@@ -1,0 +1,141 @@
+[MODELER]:
+Formulate this as a linear optimization (linear programming) problem.
+
+### Decision variables
+Let  
+- \(x_s \ge 0\): number of small containers to use  
+- \(x_\ell \ge 0\): number of large containers to use  
+
+(If the problem requires whole containers only, then \(x_s, x_\ell\) should be integers.)
+
+### Objective
+Each small container produces 20 units of paste.  
+Each large container produces 30 units of paste.
+
+Maximize total paste:
+\[
+\max Z = 20x_s + 30x_\ell
+\]
+
+### Constraints
+
+**Water constraint**  
+Each small container uses 10 units of water.  
+Each large container uses 20 units of water.  
+Total available water: 500 units.
+
+\[
+10x_s + 20x_\ell \le 500
+\]
+
+**Powdered pill constraint**  
+Each small container uses 15 units of powder.  
+Each large container uses 20 units of powder.  
+Total available powder: 700 units.
+
+\[
+15x_s + 20x_\ell \le 700
+\]
+
+**Non-negativity**
+\[
+x_s \ge 0, \quad x_\ell \ge 0
+\]
+
+**(Optional) Integrality**
+\[
+x_s, x_\ell \in \mathbb{Z}_{\ge 0}
+\]
+
+### Solving the model analytically (continuous case)
+
+Divide the water constraint by 10:
+\[
+x_s + 2x_\ell \le 50
+\]
+
+Divide the powder constraint by 5:
+\[
+3x_s + 4x_\ell \le 140
+\]
+
+Solve the intersection of the two binding constraints:
+\[
+\begin{cases}
+x_s + 2x_\ell = 50 \\
+3x_s + 4x_\ell = 140
+\end{cases}
+\]
+
+From the first: \(x_s = 50 - 2x_\ell\).  
+Substitute into the second:
+\[
+3(50 - 2x_\ell) + 4x_\ell = 140 \\
+150 - 6x_\ell + 4x_\ell = 140 \\
+150 - 2x_\ell = 140 \\
+-2x_\ell = -10 \\
+x_\ell = 5
+\]
+Then
+\[
+x_s = 50 - 2\cdot 5 = 40
+\]
+
+Objective value:
+\[
+Z = 20(40) + 30(5) = 800 + 150 = 950
+\]
+
+Check both resources:
+- Water: \(10\cdot 40 + 20\cdot 5 = 400 + 100 = 500\) (fully used)  
+- Powder: \(15\cdot 40 + 20\cdot 5 = 600 + 100 = 700\) (fully used)
+
+So the optimal solution (also integer) is:
+- Use 40 small containers
+- Use 5 large containers
+- Maximum paste produced: 950 units
+
+### Suitable Python libraries
+
+You can model and solve this with:
+
+- **PuLP** (simple LP/MILP modeling in pure Python)
+- **OR-Tools** (Google’s optimization suite, has linear solvers)
+- **SciPy (`scipy.optimize.linprog`)** (for continuous linear programming; not ideal if you strictly need integrality)
+- **Pyomo** (more general algebraic modeling language, good for LP/MILP)
+
+For this problem (small LP, potential integer variables), **PuLP** or **OR-Tools linear solver** are most convenient.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: maximize total paste
+    model = pulp.LpProblem("Paste_Production", pulp.LpMaximize)
+
+    # Decision variables: number of small and large containers (integer, non-negative)
+    x_s = pulp.LpVariable('x_s', lowBound=0, cat='Integer')  # small containers
+    x_l = pulp.LpVariable('x_l', lowBound=0, cat='Integer')  # large containers
+
+    # Objective function: Maximize 20*x_s + 30*x_l
+    model += 20 * x_s + 30 * x_l, "Total_Paste"
+
+    # Water constraint: 10*x_s + 20*x_l <= 500
+    model += 10 * x_s + 20 * x_l <= 500, "Water"
+
+    # Powder constraint: 15*x_s + 20*x_l <= 700
+    model += 15 * x_s + 20 * x_l <= 700, "Powder"
+
+    # Solve the model
+    model.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Retrieve the objective value
+    final_obj = pulp.value(model.objective)
+
+    # Print final objective as required
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

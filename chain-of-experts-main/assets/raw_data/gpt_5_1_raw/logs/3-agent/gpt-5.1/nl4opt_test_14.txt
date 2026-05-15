@@ -1,0 +1,111 @@
+[MODELER]:
+Here is a clean mathematical model of the problem.
+
+### 1. Decision variables
+
+Let  
+- \(x\) = number of scooters used (integer, \(x \ge 0\))  
+- \(y\) = number of rickshaws used (integer, \(y \ge 0\))
+
+### 2. Objective
+
+Minimize the total number of scooters used:
+
+\[
+\min \; x
+\]
+
+### 3. Constraints
+
+1. **Capacity constraint (must transport at least 300 visitors):**
+
+Each scooter carries 2 people, each rickshaw carries 3 people:
+
+\[
+2x + 3y \;\ge\; 300
+\]
+
+2. **Pollution constraint (at most 40% of vehicles can be rickshaws):**
+
+At most 40% of all vehicles (\(x + y\)) are rickshaws (\(y\)):
+
+\[
+\frac{y}{x + y} \;\le\; 0.4
+\]
+
+For linear programming, rewrite this as:
+
+\[
+y \le 0.4(x + y)
+\]
+
+\[
+y \le 0.4x + 0.4y
+\]
+
+\[
+0.6y \le 0.4x
+\]
+
+\[
+3y \le 2x
+\]
+
+3. **Non-negativity and integrality:**
+
+\[
+x \ge 0,\quad y \ge 0,\quad x,y \in \mathbb{Z}
+\]
+
+### 4. Model type
+
+This is a small **integer linear programming (ILP)** problem:
+
+- Linear objective
+- Linear constraints
+- Integer decision variables
+
+### 5. Suitable Python libraries
+
+You can solve this with any standard MILP/LP solver. In Python, good options include:
+
+- **PuLP** (easy to use, pure Python interface, can use CBC solver by default)
+- **OR-Tools** (from Google, has a CP-SAT solver good for integer problems)
+- **Pyomo** (flexible modeling, works with many solvers)
+- **scipy.optimize** is less suitable here because it does not natively handle integer variables in its core LP solvers.
+
+For this problem, **PuLP** or **OR-Tools** would be the most straightforward choices.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the MILP problem
+    prob = pulp.LpProblem("Scooters_Rickshaws_Optimization", pulp.LpMinimize)
+
+    # Decision variables: x = scooters, y = rickshaws
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')
+
+    # Objective: minimize number of scooters
+    prob += x
+
+    # Capacity constraint: 2x + 3y >= 300
+    prob += 2 * x + 3 * y >= 300, "Capacity"
+
+    # Pollution constraint: 3y <= 2x
+    prob += 3 * y <= 2 * x, "Pollution"
+
+    # Solve
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract optimal value of objective
+    final_obj = pulp.value(prob.objective)
+
+    # Print the required final objective
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

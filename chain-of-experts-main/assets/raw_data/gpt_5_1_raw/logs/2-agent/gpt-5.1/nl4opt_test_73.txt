@@ -1,0 +1,145 @@
+[MODELER]:
+Let’s turn this into an optimization model and then solve it.
+
+### 1. Decision variables
+
+Let  
+- \(T\) = amount invested in telecom (in dollars)  
+- \(H\) = amount invested in healthcare (in dollars)
+
+Both must be nonnegative:
+\[
+T \ge 0,\quad H \ge 0
+\]
+
+### 2. Constraints
+
+1. **Total budget**: He invests all his money.
+\[
+T + H = 100{,}000
+\]
+
+2. **Telecom at least three times healthcare**:
+\[
+T \ge 3H
+\]
+
+3. **Telecom at most 70,000**:
+\[
+T \le 70{,}000
+\]
+
+### 3. Objective function
+
+Profit (interest earned) is:
+
+- Telecom: 3% of \(T\) → \(0.03T\)
+- Healthcare: 1% of \(H\) → \(0.01H\)
+
+Maximize total profit:
+\[
+\max Z = 0.03T + 0.01H
+\]
+
+---
+
+### 4. Solving analytically
+
+Use the budget constraint \(H = 100{,}000 - T\) and substitute in the telecom-ratio constraint:
+
+- From \(T \ge 3H\):
+  \[
+  T \ge 3(100{,}000 - T) \Rightarrow T \ge 300{,}000 - 3T
+  \Rightarrow 4T \ge 300{,}000 \Rightarrow T \ge 75{,}000
+  \]
+
+So combined constraints on \(T\) are:
+\[
+T \ge 75{,}000,\quad T \le 70{,}000
+\]
+
+These are inconsistent: no \(T\) can satisfy both \(T \ge 75{,}000\) and \(T \le 70{,}000\) at the same time. Hence:
+
+**There is no feasible investment plan** that satisfies all the given conditions simultaneously.
+
+So the linear program is **infeasible**; the constraints are contradictory.
+
+---
+
+### 5. Suitable Python libraries
+
+To model and check feasibility programmatically, you could use linear programming libraries such as:
+
+- `PuLP` (simple LP modeling in Python)
+- `ortools.linear_solver` (Google OR-Tools)
+- `scipy.optimize.linprog` (for generic LPs)
+
+Example with PuLP (just to detect infeasibility):
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Investment", pl.LpMaximize)
+
+# Variables
+T = pl.LpVariable("Telecom", lowBound=0)
+H = pl.LpVariable("Healthcare", lowBound=0)
+
+# Objective
+prob += 0.03*T + 0.01*H
+
+# Constraints
+prob += T + H == 100000
+prob += T >= 3*H
+prob += T <= 70000
+
+# Solve
+prob.solve()
+print("Status:", pl.LpStatus[prob.status])
+print("Telecom =", pl.value(T))
+print("Healthcare =", pl.value(H))
+```
+
+This will report the status as **Infeasible**, confirming there is no solution under the stated constraints.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the LP problem
+    prob = pl.LpProblem("Investment", pl.LpMaximize)
+
+    # Decision variables
+    T = pl.LpVariable("Telecom", lowBound=0)
+    H = pl.LpVariable("Healthcare", lowBound=0)
+
+    # Objective function
+    prob += 0.03 * T + 0.01 * H
+
+    # Constraints
+    prob += T + H == 100000
+    prob += T >= 3 * H
+    prob += T <= 70000
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Determine final objective:
+    # If infeasible, treat objective as None or a specific indicator value
+    status = pl.LpStatus[prob.status]
+    if status != "Optimal":
+        # No feasible solution; objective is undefined. Use NaN to reflect this.
+        final_obj = float('nan')
+    else:
+        final_obj = pl.value(prob.objective)
+
+    print(f"Status: {status}")
+    print(f"Telecom (T): {pl.value(T)}")
+    print(f"Healthcare (H): {pl.value(H)}")
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

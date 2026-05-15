@@ -1,0 +1,44 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+profit_premium = 500   # profit per premium desktop
+profit_regular = 300   # profit per regular desktop
+
+cost_premium = 2000    # cost to make premium
+cost_regular = 1000    # cost to make regular
+
+max_units = 200        # can sell at most 200 desktops per month
+max_budget = 300000    # spending limit for making desktops
+
+# Define the LP problem (maximize profit)
+prob = pulp.LpProblem("Desktop_Production", pulp.LpMaximize)
+
+# Decision variables: number of premium (p) and regular (r) desktops
+p = pulp.LpVariable("premium_desktops", lowBound=0, cat=pulp.LpInteger)
+r = pulp.LpVariable("regular_desktops", lowBound=0, cat=pulp.LpInteger)
+
+# Objective: maximize total profit
+prob += profit_premium * p + profit_regular * r
+
+# Constraints
+prob += p + r <= max_units                       # sales limit
+prob += cost_premium * p + cost_regular * r <= max_budget  # budget limit
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+# Retrieve results
+p_val = int(p.varValue) if p.varValue is not None else None
+r_val = int(r.varValue) if r.varValue is not None else None
+obj_val = pulp.value(prob.objective)
+
+# Print solution details
+print(f"Premium desktops (p): {p_val}")
+print(f"Regular desktops (r): {r_val}")
+
+# Final objective print as required (must be the last line)
+# Convert to int if it's effectively integer
+if obj_val is not None and abs(obj_val - round(obj_val)) < 1e-6:
+    obj_val = int(round(obj_val))
+print(f"FINAL_OBJ: {obj_val}")

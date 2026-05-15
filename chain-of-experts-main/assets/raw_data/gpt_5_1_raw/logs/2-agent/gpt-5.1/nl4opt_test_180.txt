@@ -1,0 +1,136 @@
+[MODELER]:
+Here is a clean optimization model for this problem.
+
+---
+
+## 1. Decision variables
+
+Let:
+
+- \( x \) = number of oranges (nonnegative, real; if whole fruits are required, integer)
+- \( y \) = number of grapefruits (nonnegative, real; if whole fruits are required, integer)
+
+Domain:
+\[
+x \ge 0, \quad y \ge 0
+\]
+If you need whole fruits:
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 2. Objective function (minimize sugar)
+
+Each orange has 5 g sugar, each grapefruit has 6 g sugar.
+
+Total sugar:
+\[
+\text{Sugar} = 5x + 6y
+\]
+
+Objective:
+\[
+\min \; 5x + 6y
+\]
+
+---
+
+## 3. Constraints
+
+### Vitamin C requirement
+
+- One orange: 5 units of vitamin C  
+- One grapefruit: 7 units of vitamin C  
+- Need at least 80 units:
+
+\[
+5x + 7y \;\ge\; 80
+\]
+
+### Vitamin A requirement
+
+- One orange: 3 units of vitamin A  
+- One grapefruit: 5 units of vitamin A  
+- Need at least 70 units:
+
+\[
+3x + 5y \;\ge\; 70
+\]
+
+### Preference constraint (oranges vs. grapefruits)
+
+The patient must eat at least 2 times as many oranges as grapefruits:
+
+\[
+x \;\ge\; 2y
+\]
+
+---
+
+## 4. Complete mathematical model
+
+\[
+\begin{aligned}
+\min_{x, y} \quad & 5x + 6y \\
+\text{s.t.} \quad & 5x + 7y \ge 80 \quad \text{(vitamin C)} \\
+                  & 3x + 5y \ge 70 \quad \text{(vitamin A)} \\
+                  & x \ge 2y \quad \text{(preference)} \\
+                  & x \ge 0,\; y \ge 0 \\
+                  & x, y \in \mathbb{Z} \quad \text{(if whole fruits are required)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+This is a small linear (and possibly integer) optimization problem. Good choices:
+
+- `PuLP` – very easy to model LP/ILP in pure Python
+- `ortools.linear_solver` (from Google OR-Tools) – efficient and powerful
+- `scipy.optimize.linprog` – for continuous linear problems (no integer constraints)
+
+If you want integer solutions (x, y as whole fruits), use:
+
+- `PuLP` (with CBC solver, which is included)
+- or `ortools.linear_solver.pywraplp` with an integer programming solver like CBC or SCIP.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def solve_fruit_problem():
+    # Create the problem: minimize sugar
+    prob = pulp.LpProblem("Minimize_Sugar", pulp.LpMinimize)
+
+    # Decision variables: number of oranges (x) and grapefruits (y), integer and >= 0
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')
+
+    # Objective function: minimize 5x + 6y (total sugar)
+    prob += 5 * x + 6 * y
+
+    # Constraints
+    # Vitamin C: 5x + 7y >= 80
+    prob += 5 * x + 7 * y >= 80, "Vitamin_C"
+
+    # Vitamin A: 3x + 5y >= 70
+    prob += 3 * x + 5 * y >= 70, "Vitamin_A"
+
+    # Preference: x >= 2y
+    prob += x >= 2 * y, "Preference"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pulp.value(prob.objective)
+
+    return obj_value
+
+if __name__ == "__main__":
+    value = solve_fruit_problem()
+    print(f"FINAL_OBJ: {value}")

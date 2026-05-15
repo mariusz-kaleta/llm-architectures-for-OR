@@ -1,0 +1,226 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Minimise total sugar intake from the two syrups while satisfying minimum/maximum medicine requirements for throat and lungs.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with continuous decision variables (assuming servings can be fractional).  
+   - If servings must be whole numbers, then: Integer Linear Programming (ILP).
+
+3. Main decision variables  
+   - Let:
+     - Variable 1: Number of servings of syrup 1 the patient takes.
+     - Variable 2: Number of servings of syrup 2 the patient takes.
+
+4. Objective function structure  
+   - Minimise: total sugar =  
+     (sugar per serving of syrup 1) × (servings of syrup 1)  
+     + (sugar per serving of syrup 2) × (servings of syrup 2).  
+   - Use 0.5 as the sugar coefficient for syrup 1 and 0.3 for syrup 2.
+
+5. Key constraints to consider  
+
+   a) Throat medicine upper limit  
+   - Total throat medicine delivered by both syrups must not exceed the patient’s maximum throat requirement (5 units).  
+   - Use coefficients:
+     - 0.5 units of throat medicine per serving of syrup 1.  
+     - 0.2 units of throat medicine per serving of syrup 2.  
+   - Constraint type: “≤” with right-hand side = 5.
+
+   b) Lungs medicine lower limit  
+   - Total lungs medicine delivered must be at least the minimum required (4 units).  
+   - Use coefficients:
+     - 0.4 units of lungs medicine per serving of syrup 1.  
+     - 0.5 units of lungs medicine per serving of syrup 2.  
+   - Constraint type: “≥” with right-hand side = 4.
+
+   c) Non-negativity constraints  
+   - The number of servings of each syrup cannot be negative.  
+   - Both decision variables must be ≥ 0.
+
+   d) (Optional) Practicality/integrality  
+   - If the context requires whole servings only, add integrality constraints (variables must be integers).
+
+6. Modelling / solution strategy notes for the Modeller  
+
+   - This is a 2-variable LP with one “≤” constraint and one “≥” constraint plus non-negativity.  
+   - Use a graphical solution or a standard LP solver to:
+     - Identify the feasible region defined by the throat and lungs constraints and non-negativity.  
+     - Evaluate the objective function (sugar) at the corner points (extreme points) of the feasible region.  
+   - The optimal solution will occur at one of these corner points:
+     - Intersection of the throat and lungs constraints.  
+     - Intersection of each constraint with one of the axes (where one syrup’s servings is zero), provided these points are feasible.  
+   - Compare sugar intake at all feasible corners and pick the one with the minimum value as the optimal servings of syrup 1 and syrup 2.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model of the problem, followed by how you would implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_1 \ge 0\): number of servings of syrup 1  
+- \(x_2 \ge 0\): number of servings of syrup 2  
+
+If servings must be whole numbers, then additionally:
+- \(x_1, x_2 \in \mathbb{Z}_{\ge 0}\)
+
+---
+
+## 2. Objective function (minimise sugar)
+
+Per serving:
+
+- Syrup 1: 0.5 units of sugar  
+- Syrup 2: 0.3 units of sugar  
+
+Total sugar intake:
+\[
+\text{Sugar} = 0.5 x_1 + 0.3 x_2
+\]
+
+Objective:
+\[
+\min \; Z = 0.5 x_1 + 0.3 x_2
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Throat medicine upper limit
+
+Per serving:
+
+- Syrup 1: 0.5 units of throat medicine  
+- Syrup 2: 0.2 units of throat medicine  
+
+Total throat medicine must not exceed 5 units:
+\[
+0.5 x_1 + 0.2 x_2 \;\le\; 5
+\]
+
+### 3.2 Lungs medicine lower limit
+
+Per serving:
+
+- Syrup 1: 0.4 units of lungs medicine  
+- Syrup 2: 0.5 units of lungs medicine  
+
+Total lungs medicine must be at least 4 units:
+\[
+0.4 x_1 + 0.5 x_2 \;\ge\; 4
+\]
+
+### 3.3 Non-negativity (and optional integrality)
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+Optionally (if only whole servings are allowed):
+\[
+x_1, x_2 \in \mathbb{Z}
+\]
+
+---
+
+## 4. Classification of the model
+
+- Type: Linear Programming (LP) with continuous variables \(x_1, x_2\).  
+- If integrality is required: Integer Linear Programming (ILP), specifically a 2-variable MILP.
+
+---
+
+## 5. Suitable Python libraries
+
+For this LP/ILP, any standard linear optimizer is appropriate:
+
+- `PuLP` (pure Python, easy syntax; uses CBC by default):
+  - Good for both LP and MILP.
+- `scipy.optimize.linprog`:
+  - Good for continuous LP (no integrality).
+- `ortools.linear_solver` from Google OR-Tools:
+  - Powerful for LP and MILP, industrial-grade solvers.
+
+---
+
+## 6. Example: PuLP implementation (LP version)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Syrup_Sugar_Minimization", pl.LpMinimize)
+
+# Decision variables (continuous, >= 0)
+x1 = pl.LpVariable('x1', lowBound=0)  # servings of syrup 1
+x2 = pl.LpVariable('x2', lowBound=0)  # servings of syrup 2
+
+# Objective: minimize total sugar
+prob += 0.5 * x1 + 0.3 * x2, "Total_Sugar"
+
+# Constraints
+
+# Throat medicine <= 5
+prob += 0.5 * x1 + 0.2 * x2 <= 5, "Throat_Limit"
+
+# Lungs medicine >= 4
+prob += 0.4 * x1 + 0.5 * x2 >= 4, "Lungs_Requirement"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal servings of syrup 1 (x1):", x1.value())
+print("Optimal servings of syrup 2 (x2):", x2.value())
+print("Minimum sugar:", pl.value(prob.objective))
+```
+
+To enforce integer servings, declare variables as `cat=pl.LpInteger`:
+
+```python
+x1 = pl.LpVariable('x1', lowBound=0, cat=pl.LpInteger)
+x2 = pl.LpVariable('x2', lowBound=0, cat=pl.LpInteger)
+```
+
+---
+
+This fully captures the mathematical optimization model and gives you a concrete path to solve it programmatically.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem: minimize sugar
+    prob = pl.LpProblem("Syrup_Sugar_Minimization", pl.LpMinimize)
+
+    # Decision variables (continuous, non-negative)
+    x1 = pl.LpVariable('x1', lowBound=0)  # servings of syrup 1
+    x2 = pl.LpVariable('x2', lowBound=0)  # servings of syrup 2
+
+    # Objective: minimize total sugar
+    prob += 0.5 * x1 + 0.3 * x2, "Total_Sugar"
+
+    # Constraints
+    # Throat medicine <= 5
+    prob += 0.5 * x1 + 0.2 * x2 <= 5, "Throat_Limit"
+
+    # Lungs medicine >= 4
+    prob += 0.4 * x1 + 0.5 * x2 >= 4, "Lungs_Requirement"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

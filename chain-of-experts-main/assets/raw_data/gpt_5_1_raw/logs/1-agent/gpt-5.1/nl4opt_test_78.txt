@@ -1,0 +1,35 @@
+[MONOLITH]:
+import pulp
+
+# Initialize the problem
+prob = pulp.LpProblem("Grain_Transport", pulp.LpMaximize)
+
+# Decision variables: number of large bags (L) and tiny bags (T)
+L = pulp.LpVariable('Large_Bags', lowBound=0, cat='Continuous')
+T = pulp.LpVariable('Tiny_Bags', lowBound=20, cat='Continuous')  # at least 20 tiny bags
+
+# Objective: maximize total grain weight (kg)
+prob += 25 * L + 6 * T, "Total_Grain_Weight"
+
+# Constraints
+# Energy constraint
+prob += 4 * L + 1.5 * T <= 110, "Energy_Limit"
+
+# Popularity constraint: twice as many large bags as tiny bags
+prob += L == 2 * T, "Popularity_Ratio"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+# Retrieve results
+L_opt = pulp.value(L)
+T_opt = pulp.value(T)
+obj_val = pulp.value(prob.objective)
+
+# Print solution
+print(f"Optimal number of large bags: {L_opt}")
+print(f"Optimal number of tiny bags: {T_opt}")
+print(f"Maximum total grain weight: {obj_val} kg")
+
+# Final objective value in required format
+print(f"FINAL_OBJ: {obj_val}")

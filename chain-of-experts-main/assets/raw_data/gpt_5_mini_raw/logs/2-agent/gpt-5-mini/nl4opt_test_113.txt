@@ -1,0 +1,170 @@
+[MODELER]:
+Model type
+- Linear program (continuous variables, maximize profit).
+
+Decision variables
+- x = acres of apples (acres)
+- y = acres of pears (acres)
+
+Objective
+- Maximize profit Z = 2x + 4y  (dollars)
+
+Constraints
+1. Land limit: x + y ≤ 50
+2. Minimum apples: x ≥ 5
+3. Minimum pears: y ≥ 10
+4. Ben prefers more pears than apples: y ≥ x  (interpretation as a requirement; see note below)
+5. Workforce limit: y ≤ 2x
+6. Nonnegativity: x, y ≥ 0 (redundant with the explicit lower bounds)
+
+Solution method (analysis)
+- This is a 2-variable LP; optimal solution lies at a vertex of the feasible polygon. The feasible vertices are:
+  - (x,y) = (5,10) → Z = 50
+  - (10,10) → Z = 60
+  - (25,25) → Z = 150
+  - (50/3,100/3) ≈ (16.6667,33.3333) → Z = 500/3 ≈ 166.6667
+
+Optimal solution
+- Apples: x = 50/3 acres ≈ 16.67 acres
+- Pears:  y = 100/3 acres ≈ 33.33 acres
+- Maximum profit: Z = 500/3 dollars ≈ $166.67
+
+Note
+- If the preference "he prefers to grow more pears than apples" is not a strict requirement but only a verbal preference, dropping the constraint y ≥ x does not change the optimal point in this instance; the same (50/3,100/3) remains optimal.
+
+Recommended Python libraries to solve
+- pulp (simple model + solver), example: pulp.LpProblem + pulp.PULP_CBC_CMD
+- scipy.optimize.linprog (simplex or interior-point)
+- OR-Tools (linear solver)
+- cvxpy (convex optimization DSL)
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the LP:
+# Maximize Z = 2x + 4y
+# s.t.
+#   x + y <= 50
+#   x >= 5
+#   y >= 10
+#   y >= x
+#   y <= 2x
+# x,y real
+
+from math import isclose
+
+# Define equality forms of the boundary lines: a*x + b*y = c
+equations = [
+    (1.0, 1.0, 50.0),   # x + y = 50
+    (1.0, 0.0, 5.0),    # x = 5
+    (0.0, 1.0, 10.0),   # y = 10
+    (-1.0, 1.0, 0.0),   # y = x  -> -x + y = 0
+    (-2.0, 1.0, 0.0),   # y = 2x -> -2x + y = 0
+]
+
+# Tolerance for numerical comparisons
+tol = 1e-9
+
+def solve_pair(eq1, eq2):
+    a1,b1,c1 = eq1
+    a2,b2,c2 = eq2
+    det = a1*b2 - a2*b1
+    if abs(det) < tol:
+        return None  # parallel or coincident
+    x = (c1*b2 - c2*b1) / det
+    y = (a1*c2 - a2*c1) / det
+    return (x,y)
+
+# Generate all intersections
+points = []
+n = len(equations)
+for i in range(n):
+    for j in range(i+1, n):
+        pt = solve_pair(equations[i], equations[j])
+        if pt is None:
+            continue
+        x,y = pt
+        # Normalize tiny near-zero values to 0
+        if abs(x) < 1e-12: x = 0.0
+        if abs(y) < 1e-12: y = 0.0
+        points.append((x,y))
+
+# Also consider potential corner points defined by single-variable bounds intersecting implicit domain:
+# (x=5 with y at its feasible min/max), (y=10 with x at feasible min/max)
+# But those are already covered by equalities above (x=5, y=10, x+y=50, etc.)
+
+# Filter unique points (within tol)
+unique_points = []
+for x,y in points:
+    found = False
+    for ux,uy in unique_points:
+        if isclose(x, ux, rel_tol=0, abs_tol=1e-8) and isclose(y, uy, rel_tol=0, abs_tol=1e-8):
+            found = True
+            break
+    if not found:
+        unique_points.append((x,y))
+
+# Define feasibility check
+def is_feasible(x,y):
+    if x + y > 50.0 + tol: return False
+    if x < 5.0 - tol: return False
+    if y < 10.0 - tol: return False
+    if y < x - tol: return False
+    if y > 2.0*x + tol: return False
+    return True
+
+# Keep only feasible vertices
+feasible_vertices = []
+for x,y in unique_points:
+    if is_feasible(x,y):
+        feasible_vertices.append((x,y))
+
+# It's possible that some constraint intersections occur outside feasible region.
+# For completeness, also add the explicit lower-bound corner (5,10) if it's feasible
+if is_feasible(5.0, 10.0):
+    if not any(isclose(5.0, vx, abs_tol=1e-8) and isclose(10.0, vy, abs_tol=1e-8) for vx,vy in feasible_vertices):
+        feasible_vertices.append((5.0, 10.0))
+
+# Evaluate objective Z = 2x + 4y at feasible vertices
+best_obj = None
+best_point = None
+for x,y in feasible_vertices:
+    Z = 2.0*x + 4.0*y
+    if (best_obj is None) or (Z > best_obj + 1e-12):
+        best_obj = Z
+        best_point = (x,y)
+
+# As a fallback (shouldn't be needed), consider scanning some boundaries discretely
+if best_obj is None:
+    # Fallback: brute force grid search over feasible rectangle to find a feasible point
+    best_obj = -1e99
+    best_point = None
+    for xi in [5.0 + i*0.5 for i in range(0, 201)]:  # up to 105 but x+y<=50 will limit
+        for yi in [10.0 + j*0.5 for j in range(0, 201)]:
+            if is_feasible(xi, yi):
+                Z = 2.0*xi + 4.0*yi
+                if Z > best_obj:
+                    best_obj = Z
+                    best_point = (xi, yi)
+
+# Print solution summary (optional)
+if best_point is not None:
+    x_opt, y_opt = best_point
+    # Round small numerical noise
+    if abs(x_opt - round(x_opt, 12)) < 1e-12:
+        x_opt = round(x_opt, 12)
+    if abs(y_opt - round(y_opt, 12)) < 1e-12:
+        y_opt = round(y_opt, 12)
+    if abs(best_obj - round(best_obj, 12)) < 1e-12:
+        best_obj = round(best_obj, 12)
+
+    # Print some informative lines (not the required FINAL_OBJ line)
+    print(f"Optimal x (apples acres): {x_opt}")
+    print(f"Optimal y (pears acres):  {y_opt}")
+    print(f"Maximum profit Z:         {best_obj}")
+
+# Final required output line (must be the very last line)
+print(f"FINAL_OBJ: {best_obj}")
+```

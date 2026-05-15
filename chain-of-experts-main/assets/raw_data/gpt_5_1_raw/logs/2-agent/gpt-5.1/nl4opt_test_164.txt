@@ -1,0 +1,157 @@
+[MODELER]:
+Here is a clean optimization model for the problem.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of refrigerators sold and installed  
+- \(y\) = number of stoves sold and installed  
+
+Both must be nonnegative:
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+(If we assume only whole appliances can be sold, then \(x, y\) are integers.)
+
+---
+
+## 2. Objective function
+
+Profit per unit:
+
+- Refrigerator: \$400
+- Stove: \$260
+
+Total profit:
+
+\[
+\text{Maximize } Z = 400x + 260y
+\]
+
+---
+
+## 3. Constraints
+
+### Mover time
+
+- Refrigerator: 60 minutes each
+- Stove: 45 minutes each
+- Available mover time: 20,000 minutes
+
+So:
+
+\[
+60x + 45y \le 20000
+\]
+
+### Setup time
+
+- Refrigerator: 20 minutes each
+- Stove: 25 minutes each
+- Available setup time: 13,000 minutes
+
+So:
+
+\[
+20x + 25y \le 13000
+\]
+
+### Nonnegativity (and integrality if needed)
+
+\[
+x \ge 0,\quad y \ge 0 \quad (\text{and typically } x, y \in \mathbb{Z})
+\]
+
+---
+
+## 4. Complete mathematical model
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 400x + 260y \\
+\text{subject to} \quad
+& 60x + 45y \le 20000 \quad \text{(mover time)}\\
+& 20x + 25y \le 13000 \quad \text{(setup time)}\\
+& x \ge 0, \; y \ge 0 \\
+& x, y \in \mathbb{Z} \quad \text{(if whole units required)}
+\end{aligned}
+\]
+
+---
+
+## 5. Solving with Python – library suggestions
+
+This is a small linear programming (LP) / integer linear programming (ILP) problem.
+
+Good Python libraries to solve it:
+
+- `pulp` – simple and learner‑friendly for LP/ILP  
+- `ortools.linear_solver` (from Google OR-Tools) – powerful and fast  
+- `scipy.optimize.linprog` – for continuous LP (treats \(x, y\) as real, not necessarily integers)
+
+Example with PuLP (continuous LP; to enforce integrality, use `cat="Integer"`):
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Appliance_Profit_Max", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable("refrigerators", lowBound=0)  # add cat="Integer" if needed
+y = pl.LpVariable("stoves", lowBound=0)         # add cat="Integer" if needed
+
+# Objective
+prob += 400 * x + 260 * y
+
+# Constraints
+prob += 60 * x + 45 * y <= 20000   # mover time
+prob += 20 * x + 25 * y <= 13000   # setup time
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal refrigerators (x):", x.value())
+print("Optimal stoves (y):", y.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This code directly implements the mathematical model above.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define problem (Maximization)
+    prob = pl.LpProblem("Appliance_Profit_Max", pl.LpMaximize)
+
+    # Decision variables (integer, nonnegative)
+    x = pl.LpVariable("refrigerators", lowBound=0, cat="Integer")
+    y = pl.LpVariable("stoves", lowBound=0, cat="Integer")
+
+    # Objective function
+    prob += 400 * x + 260 * y
+
+    # Constraints
+    prob += 60 * x + 45 * y <= 20000   # mover time
+    prob += 20 * x + 25 * y <= 13000   # setup time
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pl.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

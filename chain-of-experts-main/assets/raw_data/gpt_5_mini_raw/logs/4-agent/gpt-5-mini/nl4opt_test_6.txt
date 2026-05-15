@@ -1,0 +1,179 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Maximise the total number of meals delivered by choosing how many electric bikes and scooters to operate.
+
+2) Suggested model type
+- Model: Integer Linear Program (ILP). Two integer decision variables; objective and all constraints are linear. Because the problem has only two integer variables, a direct enumeration (simple integer search) is also practical.
+
+3) Main decision variables
+- B = number of electric bikes to use (integer, >= 0).
+- S = number of electric scooters to use (integer, >= 0).
+
+4) Objective (described)
+- Maximise total meals delivered, computed as (meals per bike * number of bikes) + (meals per scooter * number of scooters).
+
+5) Key constraints to include (described)
+- Battery/charge budget: total charge consumed by all vehicles cannot exceed the available charge units.
+- Vehicle capacity: each bike carries 8 meals, each scooter 5 meals (used in objective).
+- Fleet composition (city rule): bikes may be at most 30% of the total electric vehicles. Implement this as a linear constraint on B and S (avoid dividing by zero since at least 20 scooters are required).
+- Minimum scooters: at least 20 scooters must be used.
+- Nonnegativity and integrality: B and S are nonnegative integers.
+- Implicit (useful) bounds: upper bounds on B and S from charge limit (e.g., if using only bikes or only scooters) to tighten the search.
+
+6) Practical modelling/implementation notes for the Modeller
+- Linearise the proportion restriction so it is implemented as a linear inequality (no ratio). Because S is bounded away from zero by its minimum, division-by-zero is not an issue.
+- Because there are only two integer variables, you can solve with any MILP solver (CBC/GLPK/Gurobi/Cplex) or by brute-force enumeration: iterate feasible S values (from the minimum up to the upper bound from charge), compute the maximum feasible B for each S under the charge and composition constraints, evaluate the objective, and pick the best integer pair.
+- Add simple tight bounds before solving to reduce work: maximum possible bikes given charge, maximum possible scooters given charge.
+- Verify feasibility: the constraints must allow at least one feasible solution (S >= 20 helps ensure nonzero denominators for the percentage constraint).
+
+7) Input parameters (for clarity to the Modeller)
+- Meals per bike: 8
+- Meals per scooter: 5
+- Charge per bike: 3 units
+- Charge per scooter: 2 units
+- Total available charge: 200 units
+- Bikes at most 30% of total vehicles
+- Minimum number of scooters: 20
+
+Deliverable expected from Modeller
+- An ILP formulation (variable definitions, objective described in algebraic form, and constraints in algebraic form) and the optimal integer values for B and S with the corresponding maximum number of meals. If using enumeration, provide the search procedure and the pair (B,S) that maximises meals.
+
+---
+
+[MODELER]:
+Below is a clear ILP formulation, a small exact enumeration method (good because there are only two integer variables), solver suggestions, and the optimal solution.
+
+1) Decision variables
+- B ∈ Z_{\ge 0} : number of electric bikes to operate.
+- S ∈ Z_{\ge 0} : number of electric scooters to operate.
+
+2) Parameters (given)
+- m_B = 8 : meals per bike.
+- m_S = 5 : meals per scooter.
+- c_B = 3 : charge units per bike.
+- c_S = 2 : charge units per scooter.
+- C = 200 : total available charge units.
+- bike_share_max = 0.30 (bikes at most 30% of total vehicles).
+- S_min = 20 : minimum scooters.
+
+3) Objective
+Maximise total meals:
+Maximise Z = m_B * B + m_S * S = 8B + 5S
+
+4) Constraints (linear)
+- Charge budget:
+3B + 2S ≤ 200
+
+- City rule (bikes ≤ 30% of all electric vehicles):
+B ≤ 0.3 (B + S).
+Rewritten as a linear inequality (multiply out):
+0.7 B ≤ 0.3 S  => multiply by 10 to use integer coefficients:
+7 B ≤ 3 S
+
+- Minimum scooters:
+S ≥ 20
+
+- Integrality and nonnegativity:
+B, S ∈ Z_{\ge 0}
+
+5) Useful implicit bounds (tighten search)
+- From charge alone:
+B ≤ floor(200/3) = 66
+S ≤ floor(200/2) = 100
+- From composition constraint with S ≥ 20:
+B ≤ floor(3*S/7) (so for S = 20, B ≤ 8)
+
+6) Simple exact enumeration (recommended; fast)
+Because only two integer variables, iterate S over its feasible integer range and compute the best feasible B for each S:
+
+For S from S_min to floor(C / c_S) (i.e., 20..100):
+  B_max_charge = floor((C - c_S * S) / c_B)  # from 3B + 2S ≤ 200
+  B_max_share  = floor((3 * S) / 7)           # from 7B ≤ 3S
+  B_max = min(B_max_charge, B_max_share)
+  If B_max ≥ 0:
+    compute meals = 8 * B_max + 5 * S
+    keep (B_max, S) if meals is largest seen
+
+This is O(100) checks and trivial.
+
+7) Recommended solvers / libraries
+- pulp (open source Python interface to CBC/GLPK) — simple to implement ILP.
+- OR-Tools (Google) — fast, modern solver APIs.
+- scipy.optimize is not ideal (LP only, not integer); use integer-capable solvers.
+- Commercial: Gurobi or CPLEX if available.
+
+8) Optimal solution (computed by enumeration / solving the ILP)
+- Optimal (B, S) = (26, 61)
+- Charge used: 3*26 + 2*61 = 78 + 122 = 200 (all charge used).
+- Composition check: 7*26 = 182 ≤ 3*61 = 183 (bikes ≤ 30% of total vehicles).
+- Total meals = 8*26 + 5*61 = 208 + 305 = 513
+
+Thus operate 26 electric bikes and 61 electric scooters to deliver a maximum of 513 meals under the constraints.
+
+9) (Optional) Short Python (outline) using enumeration
+- Loop S = 20..100
+- Compute B_max = min((200 - 2*S)//3, (3*S)//7)
+- If B_max >= 0 evaluate objective 8*B_max + 5*S
+- Track best pair
+
+This will return B=26, S=61, meals=513.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the ILP by exact enumeration (two integer variables)
+
+# Initialize parameters
+m_B = 8    # meals per bike
+m_S = 5    # meals per scooter
+c_B = 3    # charge units per bike
+c_S = 2    # charge units per scooter
+C   = 200  # total available charge units
+
+bike_share_max = 0.30  # bikes at most 30% of total vehicles (used to derive 7B <= 3S)
+S_min = 20             # minimum scooters
+
+# Derived integer constraint coefficients: 7B <= 3S
+# Search bounds
+S_upper = C // c_S  # 100
+
+best_obj = None
+best_B = None
+best_S = None
+
+for S in range(S_min, S_upper + 1):
+    # Charge-based bound for B
+    remaining_charge = C - c_S * S
+    if remaining_charge < 0:
+        continue
+    B_max_charge = remaining_charge // c_B
+
+    # Share-based bound for B: 7B <= 3S  => B <= floor(3S/7)
+    B_max_share = (3 * S) // 7
+
+    B_max = min(B_max_charge, B_max_share)
+    if B_max < 0:
+        continue
+
+    B = B_max
+    obj = m_B * B + m_S * S
+
+    if (best_obj is None) or (obj > best_obj):
+        best_obj = obj
+        best_B = B
+        best_S = S
+
+# Final result
+value = best_obj
+
+# (Optional internal check - will raise if solution invalid)
+assert best_B is not None and best_S is not None
+assert 3*best_B + 2*best_S <= C
+assert 7*best_B <= 3*best_S
+assert best_S >= S_min
+
+# Print final objective in required format
+print(f"FINAL_OBJ: {value}")
+```

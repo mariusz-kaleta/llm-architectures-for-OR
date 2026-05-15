@@ -1,0 +1,94 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - L = number of liquid hand sanitizers produced (integer, >= 0)
+  - F = number of foam hand sanitizers produced (integer, >= 0)
+
+- Objective
+  - Maximize total hands cleaned: Z = 30 L + 20 F
+
+- Constraints
+  1. Water availability: 40 L + 60 F <= 2000  (equivalently 2L + 3F <= 100)
+  2. Alcohol availability: 50 L + 40 F <= 2100 (equivalently 5L + 4F <= 210)
+  3. Foam must exceed liquid: F >= L + 1
+  4. Liquid production limit: L <= 30
+  5. Nonnegativity and integrality: L, F integer >= 0
+
+Notes:
+- The strict “exceed” is implemented as F >= L + 1 because variables are integer counts.
+- If non‑integer solutions were acceptable (continuous production), replace (3) by F >= L + ε or F >= L (with care about strictness).
+
+Solving analytically / reasoning
+- Because a liquid unit cleans more hands (30) than a foam unit (20), for optimality you want the foam count as small as allowed by F >= L+1. Set F = L + 1 and maximize L subject to the resource constraints.
+- Substitute F = L + 1 into water constraint: 40L + 60(L+1) <= 2000 => 5L <= 97 => L <= 19 (integer)
+- Check other constraints: with L = 19, F = 20 the alcohol constraint and L <= 30 are satisfied.
+
+Optimal solution
+- L = 19 liquid sanitizers
+- F = 20 foam sanitizers
+- Maximum hands cleaned = 30*19 + 20*20 = 970
+
+Recommended libraries to solve (with small integer program like this)
+- PuLP (open-source Python LP/MIP interface, solver CBC included)
+- OR-Tools (Google CP-SAT for integer/CP optimization)
+- (Commercial) Gurobi or CPLEX if available for larger problems
+- scipy.optimize.linprog for continuous LP relaxations (does not handle integer constraints)
+
+Example (Pyton/PuLP sketch)
+- Define integer variables L,F
+- Add the four constraints above
+- Maximize 30*L + 20*F
+- Solve with the default CBC solver
+
+This formulation is linear (integer), so any of the above MIP solvers will find the proven optimal solution L=19, F=20.
+
+---
+
+[CODER]:
+```python
+# Self-contained solver for the integer LP described in the prompt.
+# Searches integer feasible (L, F) pairs by enumeration (no external solvers required).
+
+def solve():
+    best_obj = None
+    best_pair = None
+
+    # Decision variable bounds
+    L_min, L_max = 0, 30  # L <= 30
+    for L in range(L_min, L_max + 1):
+        # F must be >= L + 1
+        F_min = L + 1
+
+        # From water: 40L + 60F <= 2000  => F <= (2000 - 40L) / 60
+        if 2000 - 40 * L < 0:
+            continue
+        F_max_water = (2000 - 40 * L) // 60
+
+        # From alcohol: 50L + 40F <= 2100 => F <= (2100 - 50L) / 40
+        if 2100 - 50 * L < 0:
+            continue
+        F_max_alcohol = (2100 - 50 * L) // 40
+
+        F_max = min(F_max_water, F_max_alcohol)
+        if F_max < F_min:
+            continue
+
+        for F in range(F_min, F_max + 1):
+            # Nonnegativity already ensured
+            # Compute objective: maximize 30L + 20F
+            obj = 30 * L + 20 * F
+            if (best_obj is None) or (obj > best_obj):
+                best_obj = obj
+                best_pair = (L, F)
+
+    return best_obj, best_pair
+
+if __name__ == "__main__":
+    best_obj, best_pair = solve()
+    # Ensure we found a solution
+    if best_obj is None:
+        best_obj = 0
+    # Final output (must be the last line and in the exact required format)
+    print(f"FINAL_OBJ: {best_obj}")
+```

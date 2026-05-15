@@ -1,0 +1,45 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+items_per_top = 50        # items/day for top-loading model
+items_per_front = 75      # items/day for front-loading model
+energy_top = 85           # kWh/day for top-loading
+energy_front = 100        # kWh/day for front-loading
+
+required_items = 5000     # must wash at least this many items per day
+available_energy = 7000   # available kWh per day
+
+min_front_machines = 10   # at least this many front-loading machines
+# At most 40% of machines can be top-loading -> 3*x <= 2*y (equivalently x <= (2/3)*y)
+
+# Define problem
+prob = pulp.LpProblem("Laundromat_Machines_Minimize_Count", pulp.LpMinimize)
+
+# Decision variables: number of machines (integers)
+x = pulp.LpVariable("top_loading", lowBound=0, cat="Integer")   # top-loading count
+y = pulp.LpVariable("front_loading", lowBound=0, cat="Integer") # front-loading count
+
+# Objective: minimize total number of machines
+prob += x + y, "Total_Machines"
+
+# Constraints
+prob += items_per_top * x + items_per_front * y >= required_items, "Item_Capacity"
+prob += energy_top * x + energy_front * y <= available_energy, "Energy_Limit"
+prob += 3 * x <= 2 * y, "Top_Loading_Max_40pct"  # enforces x <= (2/3) y
+prob += y >= min_front_machines, "Min_Front_Loading"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+x_val = int(pulp.value(x))
+y_val = int(pulp.value(y))
+obj_val = int(pulp.value(prob.objective))
+
+# Print solution details
+print(f"Top-loading machines (x): {x_val}")
+print(f"Front-loading machines (y): {y_val}")
+
+# Final required print (must be the last output)
+print(f"FINAL_OBJ: {obj_val}")

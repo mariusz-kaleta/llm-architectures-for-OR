@@ -1,0 +1,161 @@
+[MODELER]:
+Define decision variables:
+
+- \(x\): number of packs of blueberries  
+- \(y\): number of packs of strawberries  
+
+Assume \(x, y \ge 0\) and (if packs must be whole) \(x, y\) are integers.
+
+Data:
+
+- Blueberries: 3 units antioxidants, 5 units minerals, 5 g sugar  
+- Strawberries: 1 unit antioxidants, 7 units minerals, 7 g sugar  
+
+### Constraints
+
+1. Antioxidant requirement (at least 90 units):
+\[
+3x + y \;\ge\; 90
+\]
+
+2. Mineral requirement (at least 100 units):
+\[
+5x + 7y \;\ge\; 100
+\]
+
+3. Strawberries at least 3 times blueberries:
+\[
+y \;\ge\; 3x
+\]
+
+4. Nonnegativity (and possibly integrality):
+\[
+x \ge 0,\quad y \ge 0,\quad x,y \in \mathbb{Z} \text{ if integer packs are required}
+\]
+
+### Objective function
+
+Minimize total sugar intake:
+
+\[
+\min\; Z = 5x + 7y
+\]
+
+This is a linear programming problem (or integer linear programming problem).
+
+---
+
+### Solving analytically (continuous LP)
+
+Because all coefficients are positive and we are minimizing, the optimum will lie on the boundary of the constraints. Try to satisfy constraints as tightly as possible.
+
+From \(y \ge 3x\), to minimize sugar (where strawberries have higher sugar per pack), we will expect this to be tight at optimum:
+\[
+y = 3x
+\]
+
+Substitute into antioxidant constraint:
+\[
+3x + y = 3x + 3x = 6x \ge 90 \;\Rightarrow\; x \ge 15
+\]
+
+Substitute into mineral constraint:
+\[
+5x + 7y = 5x + 7(3x) = 5x + 21x = 26x \ge 100 \;\Rightarrow\; x \ge \frac{100}{26} \approx 3.846
+\]
+
+The binding lower bound is \(x \ge 15\). Using \(y = 3x\), we get:
+
+- \(x = 15\)
+- \(y = 45\)
+
+Check constraints:
+
+- Antioxidants: \(3(15) + 45 = 90\) ✓  
+- Minerals: \(5(15) + 7(45) = 75 + 315 = 390 \ge 100\) ✓  
+- Ratio: \(45 = 3 \cdot 15\) ✓  
+
+Total sugar:
+\[
+Z = 5(15) + 7(45) = 75 + 315 = 390 \text{ grams}
+\]
+
+Thus, in the continuous/integer setting, the optimal solution is:
+
+- Blueberries: 15 packs  
+- Strawberries: 45 packs  
+
+---
+
+### Python implementation suggestions
+
+This is a small linear program; suitable libraries include:
+
+- `PuLP` (very straightforward for teaching/education)  
+- `scipy.optimize.linprog` (for continuous LP only)  
+- `ortools.linear_solver` from Google OR-Tools (handles LP and MILP)  
+- `pyomo` (for more advanced modeling)
+
+Example with PuLP (integer version):
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Diet_Sugar_Minimization", pl.LpMinimize)
+
+# Decision variables (integer)
+x = pl.LpVariable('blueberries', lowBound=0, cat='Integer')
+y = pl.LpVariable('strawberries', lowBound=0, cat='Integer')
+
+# Objective: minimize sugar
+prob += 5 * x + 7 * y
+
+# Constraints
+prob += 3 * x + y >= 90      # antioxidants
+prob += 5 * x + 7 * y >= 100 # minerals
+prob += y >= 3 * x           # strawberry/blueberry ratio
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Blueberry packs:", x.value())
+print("Strawberry packs:", y.value())
+print("Min sugar:", pl.value(prob.objective))
+```
+
+This will return \(x = 15\), \(y = 45\), sugar = 390.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Diet_Sugar_Minimization", pl.LpMinimize)
+
+    # Decision variables (integer packs, nonnegative)
+    x = pl.LpVariable('blueberries', lowBound=0, cat='Integer')
+    y = pl.LpVariable('strawberries', lowBound=0, cat='Integer')
+
+    # Objective: minimize total sugar 5x + 7y
+    prob += 5 * x + 7 * y
+
+    # Constraints
+    prob += 3 * x + y >= 90       # Antioxidants
+    prob += 5 * x + 7 * y >= 100  # Minerals
+    prob += y >= 3 * x            # Strawberries at least 3 times blueberries
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

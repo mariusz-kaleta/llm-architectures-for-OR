@@ -1,0 +1,181 @@
+[MODELER]:
+Below is a mathematical optimization model for the problem, followed by how you could solve it in Python.
+
+---
+
+## 1. Define decision variables
+
+Let:
+
+- \( x \) = number of small bones produced (integer, \( x \ge 0 \))
+- \( y \) = number of large bones produced (integer, \( y \ge 0 \))
+
+---
+
+## 2. Objective: Minimize meat usage
+
+Each small bone uses 12 units of meat, each large bone uses 15 units of meat.
+
+Minimize total meat:
+\[
+\min \; M = 12x + 15y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Tooth medication availability
+
+Each small bone uses 10 units of tooth medication, and each large bone uses 15 units. Total available is 2000 units.
+
+\[
+10x + 15y \leq 2000
+\]
+
+### b) At least 50% of bones must be small
+
+“At least 50% of the bones made must be small” means:
+\[
+x \ge \frac{1}{2}(x + y)
+\]
+
+Simplify:
+\[
+2x \ge x + y \quad \Rightarrow \quad x \ge y
+\]
+
+### c) At least 30 large bones
+
+\[
+y \ge 30
+\]
+
+### d) Non-negativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete mathematical model
+
+\[
+\begin{aligned}
+\text{Minimize} \quad & 12x + 15y \\
+\text{subject to} \quad 
+& 10x + 15y \le 2000, \\
+& x \ge y, \\
+& y \ge 30, \\
+& x, y \in \mathbb{Z}_{\ge 0}.
+\end{aligned}
+\]
+
+---
+
+## 5. Reasoning for the optimal solution (outline)
+
+- To *minimize meat*, you want as few total bones as possible, subject to the constraints.
+- Given the medication limit, the binding condition is usually \(10x + 15y = 2000\) (otherwise you could reduce bones further and use less meat).
+- Combine with \(x \ge y\) and \(y \ge 30\).  
+  Solving the linear relaxation shows that optimality is at the smallest feasible \(y\), which is \(y = 30\), and then:
+
+  \[
+  10x + 15(30) \le 2000 \Rightarrow 10x + 450 \le 2000 \Rightarrow 10x \le 1550 \Rightarrow x \le 155
+  \]
+
+  Also must have \(x \ge y = 30\). To minimize meat, make as *few* bones as possible, i.e., minimal \(x\) that still respects constraints. But because we also must use no more than 2000 units of medication (not exactly 2000), we can pick the smallest feasible \(x\) and \(y\):
+
+  - Minimal \(y\) is 30.
+  - For meat minimization, there is no requirement to use all medication, so smallest \(x\) allowed by constraints is \(x = y = 30\).
+
+  Check constraints:
+  - Medication: \(10(30) + 15(30) = 300 + 450 = 750 \le 2000\) (OK)
+  - Share: \(x = y \Rightarrow 50\% \) are small (OK)
+  - Large bones: \(y = 30\) (OK)
+
+Thus, the meat is:
+\[
+M = 12(30) + 15(30) = 360 + 450 = 810
+\]
+
+**Optimal production plan:**
+- Small bones: \(x = 30\)
+- Large bones: \(y = 30\)
+
+---
+
+## 6. Suitable Python libraries
+
+This is a small integer linear program (ILP). Good choices:
+
+- `PuLP` (simple modeling interface, open source)
+- `ortools.linear_solver` (Google OR-Tools)
+- `scipy.optimize.linprog` (for continuous relaxation; here we need integers, so use MILP solvers instead)
+
+---
+
+## 7. Example implementation using PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+problem = pl.LpProblem("Dog_Bone_Production", pl.LpMinimize)
+
+# Decision variables (non-negative integers)
+x = pl.LpVariable('small_bones', lowBound=0, cat='Integer')
+y = pl.LpVariable('large_bones', lowBound=0, cat='Integer')
+
+# Objective: Minimize meat usage
+problem += 12 * x + 15 * y, "Total_Meat"
+
+# Constraints
+problem += 10 * x + 15 * y <= 2000, "Tooth_Medication"
+problem += x >= y,                  "At_Least_Half_Small"
+problem += y >= 30,                 "Min_Large_Bones"
+
+# Solve
+status = problem.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[status])
+print("Optimal number of small bones (x):", pl.value(x))
+print("Optimal number of large bones (y):", pl.value(y))
+print("Minimum meat used:", pl.value(12 * x + 15 * y))
+```
+
+This will output:
+
+- `small_bones = 30`
+- `large_bones = 30`
+- `Minimum meat = 810`
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+# Define the problem
+problem = pl.LpProblem("Dog_Bone_Production", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('small_bones', lowBound=0, cat='Integer')
+y = pl.LpVariable('large_bones', lowBound=0, cat='Integer')
+
+# Objective: Minimize meat usage
+problem += 12 * x + 15 * y
+
+# Constraints
+problem += 10 * x + 15 * y <= 2000          # Tooth medication
+problem += x >= y                           # At least 50% small
+problem += y >= 30                          # At least 30 large bones
+
+# Solve the problem
+status = problem.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Get objective value
+final_obj = pl.value(12 * x + 15 * y)
+
+# Print required outputs (only final objective required by spec)
+print(f"FINAL_OBJ: {final_obj}")

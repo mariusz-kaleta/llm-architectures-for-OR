@@ -1,0 +1,237 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Minimise the total amount of gelatine used in producing first-dose and second-dose vaccines, subject to antibiotics availability and logical dose requirements.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with two continuous (or integer, if vaccines must be whole units) decision variables.
+
+3. Main decision variables  
+   Define decision variables as:
+   - x₁: Number of first-dose vaccines to produce.  
+   - x₂: Number of second-dose vaccines to produce.
+
+4. Objective function structure (conceptual)  
+   - Each first-dose uses 20 mg gelatine.  
+   - Each second-dose uses 60 mg gelatine.  
+   - Objective: Minimise total gelatine = 20·x₁ + 60·x₂.
+
+5. Key constraints to consider  
+
+   a) Antibiotics availability  
+   - Total antibiotics used by both vaccine types cannot exceed 35,000 units.  
+   - Each first-dose uses 30 units of antibiotics.  
+   - Each second-dose uses 65 units of antibiotics.  
+   - Constraint: 30·x₁ + 65·x₂ ≤ 35,000.
+
+   b) Dose sequencing / logical relationship  
+   - First-dose vaccines must exceed second-dose vaccines because they are required before the second-dose.  
+   - Constraint: x₁ > x₂.  
+   - For modelling, implement as x₁ ≥ x₂ + ε; if integer variables are used, x₁ ≥ x₂ + 1 is sufficient.
+
+   c) Minimum requirement for second-dose  
+   - At least 40 second-dose vaccines must be produced.  
+   - Constraint: x₂ ≥ 40.
+
+   d) Non-negativity and integrality  
+   - Cannot produce a negative number of vaccines.  
+   - x₁ ≥ 0, x₂ ≥ 0.  
+   - Decide whether to model x₁, x₂ as integers (more realistic) or continuous (standard LP relaxation; likely still yields integer solution due to structure).
+
+6. Additional modelling notes / strategy  
+
+   - Variables are few (two), so the solution can be verified graphically or via simple LP solver.  
+   - Check corner/feasible boundary points where:  
+     • Antibiotics constraint is binding,  
+     • x₂ hits its minimum (40),  
+     • x₁ is just greater than x₂.  
+   - Evaluate the objective at candidate points to find the minimum gelatine usage.  
+   - If using strict inequality x₁ > x₂ is problematic in an LP solver, replace with x₁ ≥ x₂ + 1 when using integer variables, or x₁ ≥ x₂ + δ with a small δ if using continuous approximation and a practical context allows.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model of the problem, followed by recommendations for Python libraries to solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_1\) = number of first-dose vaccines to produce  
+- \(x_2\) = number of second-dose vaccines to produce  
+
+Because vaccines are counted in units, it is natural to require:
+
+- \(x_1, x_2 \in \mathbb{Z}_{\ge 0}\) (non-negative integers)
+
+You can also relax them to continuous variables if an approximate fractional solution is acceptable.
+
+---
+
+## 2. Objective function
+
+We want to minimise total gelatine used.
+
+- First-dose uses 20 mg per vaccine  
+- Second-dose uses 60 mg per vaccine  
+
+Total gelatine (mg) used:
+
+\[
+\text{Gelatine} = 20 x_1 + 60 x_2
+\]
+
+**Objective:**
+
+\[
+\min \; Z = 20 x_1 + 60 x_2
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Antibiotics availability
+
+Total antibiotics used cannot exceed 35,000 units.
+
+- First-dose uses 30 units  
+- Second-dose uses 65 units  
+
+\[
+30 x_1 + 65 x_2 \le 35000
+\]
+
+---
+
+### 3.2 Dose sequencing / logical requirement
+
+There must be **more first-dose than second-dose vaccines** manufactured:
+
+\[
+x_1 > x_2
+\]
+
+In an optimisation model, strict inequalities are not allowed directly. Two standard formulations:
+
+- If \(x_1, x_2\) are integers:
+
+  \[
+  x_1 \ge x_2 + 1
+  \]
+
+- If \(x_1, x_2\) are continuous:
+
+  \[
+  x_1 \ge x_2 + \delta
+  \]
+  with a small positive \(\delta\) (e.g. 0.001); but integer modelling is more precise here.
+
+Given vaccine counts, using integers and:
+
+\[
+x_1 \ge x_2 + 1
+\]
+
+is recommended.
+
+---
+
+### 3.3 Minimum second-dose requirement
+
+At least 40 second-dose vaccines must be produced:
+
+\[
+x_2 \ge 40
+\]
+
+---
+
+### 3.4 Non-negativity and integrality
+
+\[
+x_1 \ge 0, \quad x_2 \ge 0
+\]
+
+and (if enforced):
+
+\[
+x_1, x_2 \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete mathematical model
+
+\[
+\begin{aligned}
+\min \quad & Z = 20 x_1 + 60 x_2 \\[4pt]
+\text{s.t.} \quad 
+& 30 x_1 + 65 x_2 \le 35000 && \text{(antibiotics limit)} \\[4pt]
+& x_1 \ge x_2 + 1          && \text{(more first-dose than second-dose)} \\[4pt]
+& x_2 \ge 40               && \text{(minimum second-dose)} \\[4pt]
+& x_1, x_2 \ge 0           && \text{(non-negativity)} \\[4pt]
+& x_1, x_2 \in \mathbb{Z}  && \text{(integrality, if required)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+This is a small linear (integer) program with 2 variables and a few constraints. Any standard LP/MIP solver is suitable:
+
+1. **PuLP**
+   - High-level LP/MIP modelling in pure Python.
+   - Can use CBC (bundled), GLPK, CPLEX, Gurobi, etc.
+   - Very easy for educational and small problems.
+   - Recommended: `pulp.LpProblem`, `pulp.LpVariable`, `LpMinimize`.
+
+2. **OR-Tools (Google)**
+   - Excellent for linear and integer optimisation.
+   - Use the `pywraplp` module (`Solver.CreateSolver('CBC')` or others).
+   - Good if you might extend to more complex combinatorial problems.
+
+3. **Pyomo**
+   - More general algebraic modelling language in Python.
+   - Good if you plan to scale to larger/more complex models.
+
+For this specific problem, **PuLP** or **OR-Tools** is more than sufficient and very convenient.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: minimize total gelatine
+    prob = pulp.LpProblem("Vaccine_Production", pulp.LpMinimize)
+
+    # Decision variables (integers, non-negative)
+    x1 = pulp.LpVariable('x1', lowBound=0, cat='Integer')  # first-dose vaccines
+    x2 = pulp.LpVariable('x2', lowBound=0, cat='Integer')  # second-dose vaccines
+
+    # Objective function: minimize gelatine usage
+    prob += 20 * x1 + 60 * x2
+
+    # Constraints
+    # Antibiotics limit
+    prob += 30 * x1 + 65 * x2 <= 35000
+
+    # More first-dose than second-dose: x1 >= x2 + 1
+    prob += x1 >= x2 + 1
+
+    # Minimum second-dose requirement
+    prob += x2 >= 40
+
+    # Solve the problem using the default solver (CBC bundled with PuLP)
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the final objective value
+    final_obj = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,93 @@
+[MODELER]:
+Formal model
+
+Variables
+- s ∈ Z≥0 : number of seasonal volunteers
+- f ∈ Z≥0 : number of full‑time volunteers
+
+Objective
+- Maximize total gifts delivered: maximize G = 5 s + 8 f
+
+Constraints
+1. Points budget: 2 s + 5 f ≤ 200
+2. At most 30% of volunteers can be seasonal:
+   s ≤ 0.3 (s + f)
+   (equivalently 0.7 s ≤ 0.3 f → s ≤ (3/7) f)
+3. Minimum full‑time required: f ≥ 10
+4. Integrality: s, f integers (nonnegative)
+
+Remarks on constraint (2): the algebraic rearrangement s ≤ (3/7) f is equivalent to s ≤ 0.3(s+f) and gives a linear constraint suitable for linear/integer programming.
+
+Solving (sketch)
+- Seasonal volunteers deliver more gifts per point (5/2 = 2.5 gifts/point) than full‑time (8/5 = 1.6), so to maximize gifts you try to use as many seasonals as allowed by the 30% rule and the points budget.
+- For each feasible f (f ≥ 10), set s = min( floor((3/7) f), floor((200 − 5 f)/2) ) and evaluate 5 s + 8 f; search over feasible f (e.g. f = 10..40).
+
+Optimal integer solution
+- f = 34 full‑time volunteers
+- s = 14 seasonal volunteers
+- Total gifts = 8·34 + 5·14 = 272 + 70 = 342
+- Points used = 5·34 + 2·14 = 170 + 28 = 198 ≤ 200
+- Fraction seasonal = 14 / (34+14) = 14 / 48 ≈ 29.17% ≤ 30%
+
+Suggested solvers / Python libraries
+- pulp (open‑source LP/MIP solver interface)
+- OR‑Tools (CP‑SAT or linear solver for integer programs)
+- mip (Python‑MIP) or gurobipy (if you have a Gurobi licence)
+- For small integer search you can also implement a simple loop in pure Python
+
+Example (PuLP) snippet
+- Use this to verify/solve exactly in Python:
+
+from pulp import LpProblem, LpMaximize, LpVariable, LpInteger, lpSum, value
+
+prob = LpProblem("volunteers", LpMaximize)
+s = LpVariable('s', lowBound=0, cat=LpInteger)
+f = LpVariable('f', lowBound=10, cat=LpInteger)  # f >= 10
+prob += 5*s + 8*f  # objective
+prob += 2*s + 5*f <= 200
+prob += 7*s <= 3*f  # equivalent to s <= (3/7) f
+prob.solve()
+print(int(value(s)), int(value(f)), value(prob.objective))
+
+This model will return s=14, f=34, objective 342.
+
+If you want, I can provide a full runnable script or show the continuous LP relaxation and how the integrality changes the solution.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+# Self-contained script to solve the integer optimization by enumeration
+# Variables:
+#   s >= 0 integer (seasonal)
+#   f >= 10 integer (full-time)
+# Objective: maximize 5*s + 8*f
+# Constraints:
+#   2*s + 5*f <= 200
+#   7*s <= 3*f  (equivalent to s <= (3/7) f)
+
+best_obj = None
+best_s = None
+best_f = None
+
+# f is bounded by points budget: 5*f <= 200 -> f <= 40
+for f in range(10, 41):
+    # seasonal bound from 30% rule: s <= floor((3/7) * f)
+    s_max_frac = (3 * f) // 7
+    # seasonal bound from points budget: 2*s <= 200 - 5*f -> s <= floor((200 - 5*f)/2)
+    remaining_points = 200 - 5 * f
+    if remaining_points < 0:
+        # infeasible for this f
+        continue
+    s_max_points = remaining_points // 2
+    s_max = min(s_max_frac, s_max_points)
+    if s_max < 0:
+        continue
+    s = s_max  # since objective coefficient for s is positive, take maximum feasible s
+    obj = 5 * s + 8 * f
+    if (best_obj is None) or (obj > best_obj):
+        best_obj = obj
+        best_s = s
+        best_f = f
+
+# Final objective value
+print(f"FINAL_OBJ: {best_obj}")

@@ -1,0 +1,254 @@
+[PLANNER]:
+1. **Key optimisation goal**  
+   - Goal: Maximize the truck owner’s total monthly profit from selling mangos and guavas, given a budget limit and sales constraints.
+
+2. **Suggested model type**  
+   - Model: Linear Programming (LP)  
+   - Reason: Objective and all constraints are linear in the numbers of mangos and guavas.
+
+3. **Main decision variables**  
+   Define decision variables as:
+   - \(x\): number of mangos purchased/sold per month  
+   - \(y\): number of guavas purchased/sold per month  
+
+   (Implicit assumption: everything purchased is sold; no inventory or wastage.)
+
+4. **Objective function (conceptual)**  
+   - Profit per mango = selling profit = \$3  
+   - Profit per guava = selling profit = \$4  
+   - Objective: Maximize total profit = 3·(number of mangos) + 4·(number of guavas), i.e.  
+     - Maximize: \(3x + 4y\)
+
+5. **Key constraints to consider**
+
+   a. **Budget (spending) constraint**  
+   - Total purchase cost ≤ \$20,000  
+   - Cost per mango = \$5  
+   - Cost per guava = \$3  
+   - So: 5·(number of mangos) + 3·(number of guavas) ≤ 20,000  
+     - Constraint: \(5x + 3y \le 20000\)
+
+   b. **Mango demand bounds**  
+   - At least 100 mangos are sold each month  
+   - At most 150 mangos are sold each month  
+     - Constraints: \(x \ge 100\) and \(x \le 150\)
+
+   c. **Guava relative demand constraint**  
+   - Number of guavas sold is at most one-third of the mangos sold  
+     - Constraint: \(y \le \frac{1}{3}x\)
+
+   d. **Non-negativity and integrality**  
+   - Cannot sell a negative number of fruits  
+     - Constraints: \(x \ge 0, \; y \ge 0\)  
+   - Realistically, the numbers of fruits should be integers; depending on modelling requirement, the modeller can:  
+     - Start with continuous LP (real-valued x,y) and round as needed, or  
+     - Formulate as an Integer Linear Program (ILP) if exact integrality is required.
+
+6. **Modelling strategy / solution approach**
+
+   - Formulate the LP with above objective and constraints.
+   - Work in two dimensions (x,y), so graphical solution is straightforward:
+     - Plot feasible region defined by:
+       - Budget line: 5x + 3y ≤ 20000  
+       - Mango bounds: 100 ≤ x ≤ 150  
+       - Guava ratio: y ≤ x/3  
+       - Non-negativity: x ≥ 0, y ≥ 0
+   - Identify corner (extreme) points of the feasible region:
+     - Intersections of:
+       - x = 100, x = 150
+       - y = x/3
+       - 5x + 3y = 20000
+       - With y = 0 if relevant
+   - Evaluate the profit function 3x + 4y at each feasible corner point to find the maximum.
+   - If integrality is enforced, check integer points near the optimal continuous solution, but the scale here is small for x (100–150), so exact integer search over x and corresponding feasible y can be done easily.
+
+This gives the Modeller a clear structure to set up and solve the optimisation problem.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by how you could implement and solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of mangos purchased/sold per month  
+- \(y\) = number of guavas purchased/sold per month  
+
+(Assume everything bought is sold; no inventory.)
+
+We will treat \(x, y\) as continuous in the LP. If you want exact integer counts, we can easily change to integer variables.
+
+---
+
+## 2. Objective function
+
+Profit per fruit:
+
+- Mango: profit = \$3 per mango  
+- Guava: profit = \$4 per guava  
+
+Total monthly profit:
+
+\[
+\text{Maximize } Z = 3x + 4y
+\]
+
+---
+
+## 3. Constraints
+
+1. **Budget (purchase cost) constraint**
+
+Each mango costs \$5, each guava costs \$3, and total spending is at most \$20,000:
+
+\[
+5x + 3y \le 20000
+\]
+
+2. **Mango sales bounds**
+
+At least 100 and at most 150 mangos sold per month:
+
+\[
+x \ge 100
+\]
+\[
+x \le 150
+\]
+
+3. **Guava-to-mango ratio**
+
+Number of guavas sold is at most one-third of the mangos sold:
+
+\[
+y \le \frac{1}{3}x
+\]
+
+4. **Non-negativity**
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+If integers are required:
+
+\[
+x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full LP / ILP model
+
+**Continuous LP version:**
+
+\[
+\begin{aligned}
+\max_{x,y}\quad & 3x + 4y \\
+\text{s.t.}\quad 
+& 5x + 3y \le 20000 \\
+& 100 \le x \le 150 \\
+& y \le \frac{1}{3}x \\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+**Integer version (if exact counts are required):**
+
+Same as above, plus \(x,y\) integers.
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard LP / MILP solver can handle this easily:
+
+- `PuLP` (pure Python, easy syntax; can use CBC solver by default)
+- `ortools.linear_solver` from Google OR-Tools (very robust, good for LP/MIP)
+- `scipy.optimize.linprog` (for continuous LP only)
+- `Pyomo` (more general modeling, but heavier)
+
+For a simple educational LP/ILP, I recommend:
+
+- **PuLP** for simplicity, or
+- **OR-Tools** for performance and industrial-strength features.
+
+---
+
+## 6. Example implementation in Python (PuLP)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Fruit_Profit_Maximization", pl.LpMaximize)
+
+# Decision variables (continuous; use cat="Integer" if integrality is required)
+x = pl.LpVariable('mangos', lowBound=0)
+y = pl.LpVariable('guavas', lowBound=0)
+
+# Objective function: Maximize 3x + 4y
+prob += 3 * x + 4 * y
+
+# Constraints
+prob += 5 * x + 3 * y <= 20000          # Budget
+prob += x >= 100                        # At least 100 mangos
+prob += x <= 150                        # At most 150 mangos
+prob += y <= (1.0 / 3.0) * x            # Guavas at most one-third of mangos
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal mangos (x):", x.varValue)
+print("Optimal guavas (y):", y.varValue)
+print("Maximum profit:", pl.value(prob.objective))
+```
+
+To enforce integrality:
+
+```python
+x = pl.LpVariable('mangos', lowBound=0, cat="Integer")
+y = pl.LpVariable('guavas', lowBound=0, cat="Integer")
+```
+
+---
+
+If you’d like, I can next compute the optimal solution analytically (by hand) and then confirm it numerically using one of these libraries.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem: Maximize profit
+    prob = pl.LpProblem("Fruit_Profit_Maximization", pl.LpMaximize)
+
+    # Decision variables: integers (exact counts)
+    x = pl.LpVariable('mangos', lowBound=0, cat="Integer")
+    y = pl.LpVariable('guavas', lowBound=0, cat="Integer")
+
+    # Objective: Maximize 3x + 4y
+    prob += 3 * x + 4 * y
+
+    # Constraints
+    prob += 5 * x + 3 * y <= 20000        # Budget constraint
+    prob += x >= 100                      # At least 100 mangos
+    prob += x <= 150                      # At most 150 mangos
+    prob += y <= (1.0 / 3.0) * x          # Guavas at most one-third of mangos
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print only the required final objective line
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

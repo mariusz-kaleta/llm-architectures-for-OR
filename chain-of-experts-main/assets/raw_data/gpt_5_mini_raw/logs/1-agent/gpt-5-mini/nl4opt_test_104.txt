@@ -1,0 +1,46 @@
+[MONOLITH]:
+import pulp
+
+# Data from the problem
+cap_limo = 12   # capacity of a limousine
+cap_bus = 18    # capacity of a bus
+required_people = 400
+min_limo_fraction = 0.7  # at least 70% of vehicles must be limousines
+
+# Create the integer linear programming problem
+prob = pulp.LpProblem("Party_Transport", pulp.LpMinimize)
+
+# Decision variables: number of limousines (L) and buses (B)
+L = pulp.LpVariable("L", lowBound=0, cat="Integer")
+B = pulp.LpVariable("B", lowBound=0, cat="Integer")
+
+# Objective: minimize total number of vehicles
+prob += L + B, "TotalVehicles"
+
+# Capacity constraint: transport at least required_people
+prob += cap_limo * L + cap_bus * B >= required_people, "Capacity"
+
+# At least 70% of the vehicles must be limousines:
+# L >= 0.7*(L + B)  --> 0.3*L - 0.7*B >= 0
+# Multiply by 10 to avoid decimals: 3*L - 7*B >= 0
+prob += 3 * L - 7 * B >= 0, "LimoFraction"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve results
+L_opt = int(pulp.value(L))
+B_opt = int(pulp.value(B))
+total_vehicles = int(pulp.value(prob.objective))
+total_capacity = cap_limo * L_opt + cap_bus * B_opt
+limo_fraction = L_opt / total_vehicles if total_vehicles > 0 else 0.0
+
+# Print solution details
+print(f"Optimal number of limousines (L): {L_opt}")
+print(f"Optimal number of buses (B): {B_opt}")
+print(f"Total vehicles: {total_vehicles}")
+print(f"Total passenger capacity: {total_capacity}")
+print(f"Fraction of vehicles that are limousines: {limo_fraction:.4f}")
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {total_vehicles}")

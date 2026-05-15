@@ -1,0 +1,73 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of small bouquets (integer, x ≥ 0)
+  - y = number of large bouquets (integer, y ≥ 0)
+
+- Objective
+  - Maximize total flowers: maximize Z = 5x + 10y
+
+- Constraints
+  - Small bouquets capacity: x ≤ 80
+  - Large bouquets capacity: y ≤ 50
+  - Total bouquets capacity: x + y ≤ 70
+  - At least 20 large bouquets: y ≥ 20
+  - At least twice as many small as large: x ≥ 2y
+
+- Integrality
+  - x and y must be integers (counts of bouquets)
+
+Analytic solution
+- Use x + y ≤ 70 and x ≥ 2y → 2y ≤ x ≤ 70 − y, so 2y ≤ 70 − y ⇒ 3y ≤ 70 ⇒ y ≤ 23 (since y integer and also y ≥ 20).
+- Thus y ∈ {20,21,22,23}. The objective is 5x + 10y = 5(x + 2y), which increases with x and y. For fixed y the best x is the largest feasible: x = 70 − y (this still satisfies x ≥ 2y for y ≤ 23).
+- Evaluate at y = 23: x = 70 − 23 = 47 gives Z = 5·47 + 10·23 = 465 flowers. This is maximal because Z = 350 + 5y and y is maximized at 23.
+
+Optimal solution
+- Small bouquets x = 47
+- Large bouquets y = 23
+- Total flowers = 465
+
+Suggested solvers / Python libraries
+- For exact integer solution (recommended): PuLP (with CBC/GUROBI), OR-Tools CP-SAT, or Python-MIP.
+- For continuous relaxation: scipy.optimize.linprog or cvxpy (but these do not enforce integrality without MILP extensions).
+
+Minimal PuLP example (if you want to solve in code)
+- Use PuLP or OR-Tools to model the integer linear program (PuLP example omitted here but is straightforward with variables, objective, and constraints described above).
+
+---
+
+[CODER]:
+#!/usr/bin/env python3
+# Self-contained solver for the bouquet integer program via exhaustive search
+
+# Problem data (initialized directly)
+max_x = 80       # small bouquets capacity
+max_y = 50       # large bouquets capacity
+total_cap = 70   # total bouquets capacity: x + y <= total_cap
+min_y = 20       # at least 20 large bouquets
+# x >= 2y
+
+# Search over integer feasible solutions
+best_obj = None
+best_x = None
+best_y = None
+
+for y in range(min_y, max_y + 1):
+    for x in range(0, max_x + 1):
+        if x + y > total_cap:
+            continue
+        if x < 2 * y:
+            continue
+        # feasible, compute objective Z = 5x + 10y
+        z = 5 * x + 10 * y
+        if (best_obj is None) or (z > best_obj):
+            best_obj = z
+            best_x = x
+            best_y = y
+
+# assign value variable as required for exact print format
+value = best_obj if best_obj is not None else 0
+
+# Final required output line
+print(f"FINAL_OBJ: {value}")

@@ -1,0 +1,42 @@
+[MONOLITH]:
+import pulp
+
+# Initialize the problem: minimize total weekly wage bill
+prob = pulp.LpProblem("Accounting_Staffing_Problem", pulp.LpMinimize)
+
+# Decision variables
+# x_s: number of senior accountants
+# x_j: number of junior accountants
+x_s = pulp.LpVariable('Senior', lowBound=0, cat='Continuous')
+x_j = pulp.LpVariable('Junior', lowBound=0, cat='Continuous')
+
+# Objective function: Minimize wage bill
+prob += 3000 * x_s + 1000 * x_j, "Total_Wage_Bill"
+
+# Constraints
+
+# At least 100 accountants in total
+prob += x_s + x_j >= 100, "Total_Accountants"
+
+# At least 5 senior accountants
+prob += x_s >= 5, "Min_Senior"
+
+# Number of senior accountants at least one third of juniors: x_s >= (1/3) * x_j
+prob += x_s - (1.0/3.0) * x_j >= 0, "Senior_to_Junior_Ratio"
+
+# Weekly wage bill below or equal to 150000
+prob += 3000 * x_s + 1000 * x_j <= 150000, "Budget_Constraint"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Get the final objective value
+final_obj = pulp.value(prob.objective)
+
+# Print the decision variables and objective for verification (not required, but useful)
+print(f"Senior accountants: {x_s.value()}")
+print(f"Junior accountants: {x_j.value()}")
+print(f"Total wage bill: {final_obj}")
+
+# Required final print
+print(f"FINAL_OBJ: {final_obj}")

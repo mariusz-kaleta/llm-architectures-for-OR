@@ -1,0 +1,39 @@
+[MONOLITH]:
+import pulp
+
+# Initialize the problem
+prob = pulp.LpProblem("Recycling_Bins_Optimization", pulp.LpMaximize)
+
+# Decision variables: number of small (S) and large (L) bins
+S = pulp.LpVariable('Small_Bins', lowBound=0, cat='Integer')
+L = pulp.LpVariable('Large_Bins', lowBound=0, cat='Integer')
+
+# Objective: Maximize total recycling capacity
+# Small bin: 25 units, Large bin: 60 units
+prob += 25 * S + 60 * L, "Total_Recycling_Capacity"
+
+# Constraints
+
+# Worker constraint: Small bin requires 2 workers, large bin requires 5 workers, total <= 100
+prob += 2 * S + 5 * L <= 100, "Worker_Constraint"
+
+# Relationship between bins: number of small bins must be three times the number of large bins
+prob += S == 3 * L, "Bin_Ratio_Constraint"
+
+# Minimum number of bins
+prob += S >= 10, "Min_Small_Bins"
+prob += L >= 4, "Min_Large_Bins"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+S_opt = int(pulp.value(S))
+L_opt = int(pulp.value(L))
+obj_value = pulp.value(prob.objective)
+
+# Print results
+print(f"Optimal number of small bins: {S_opt}")
+print(f"Optimal number of large bins: {L_opt}")
+print(f"Maximum total recycling capacity: {obj_value}")
+print(f"FINAL_OBJ: {obj_value}")

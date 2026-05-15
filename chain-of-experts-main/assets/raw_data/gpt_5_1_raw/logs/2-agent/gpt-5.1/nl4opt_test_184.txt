@@ -1,0 +1,135 @@
+[MODELER]:
+Let’s model this as a small integer linear programming (ILP) problem.
+
+### Decision variables
+
+Let  
+- \(x\) = number of medium carts  
+- \(y\) = number of large carts  
+
+Both must be nonnegative integers:
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+### Objective
+
+Each medium cart carries 30 kg, each large cart carries 70 kg.  
+We want to maximize total transported rice:
+
+\[
+\text{Maximize } Z = 30x + 70y
+\]
+
+### Constraints
+
+1. **Horse availability**  
+   Medium carts use 2 horses each, large carts 4 horses each, and only 60 horses are available:
+   \[
+   2x + 4y \le 60
+   \]
+
+2. **Ratio between cart types**  
+   The number of medium carts must be three times the number of large carts:
+   \[
+   x = 3y
+   \]
+
+3. **Minimum number of carts**  
+   At least 5 of each type:
+   \[
+   x \ge 5
+   \]
+   \[
+   y \ge 5
+   \]
+
+4. **Integrality**  
+   \[
+   x, y \text{ integers}
+   \]
+
+---
+
+### Solving the model analytically
+
+Use the ratio constraint \(x = 3y\) in the horse constraint:
+
+\[
+2(3y) + 4y \le 60 \quad\Rightarrow\quad 6y + 4y \le 60 \quad\Rightarrow\quad 10y \le 60 \quad\Rightarrow\quad y \le 6
+\]
+
+We also have \(y \ge 5\), so \(y\) can be 5 or 6 (and must be integer).
+
+- If \(y = 5\), then \(x = 3 \cdot 5 = 15\)  
+  - Horses used: \(2 \cdot 15 + 4 \cdot 5 = 30 + 20 = 50 \le 60\)  
+  - Rice transported: \(30 \cdot 15 + 70 \cdot 5 = 450 + 350 = 800\) kg  
+
+- If \(y = 6\), then \(x = 3 \cdot 6 = 18\)  
+  - Horses used: \(2 \cdot 18 + 4 \cdot 6 = 36 + 24 = 60 \le 60\)  
+  - Rice transported: \(30 \cdot 18 + 70 \cdot 6 = 540 + 420 = 960\) kg  
+
+Between these feasible solutions, 960 kg is larger than 800 kg.
+
+**Optimal solution:**
+- Medium carts: \(x = 18\)  
+- Large carts: \(y = 6\)  
+- Maximum rice: 960 kg
+
+---
+
+### Suitable Python libraries to solve this
+
+Although this problem is easy to solve analytically, in a general setting you can model and solve it with:
+
+- **PuLP** (`pulp`): Simple interface for linear and integer programming in Python.
+- **OR-Tools** (`ortools.linear_solver`): Google’s optimization suite, very good for integer and mixed-integer problems.
+- **Pyomo**: More general algebraic modeling language, suitable for larger optimization models.
+
+For a small ILP like this, **PuLP** or **OR-Tools** would be the most straightforward choices.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def main():
+    # Create the ILP problem: maximize total transported rice
+    prob = pulp.LpProblem("Rice_Transport_Problem", pulp.LpMaximize)
+
+    # Decision variables: nonnegative integers
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # medium carts
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # large carts
+
+    # Objective function: maximize 30x + 70y
+    prob += 30 * x + 70 * y, "Total_Rice_Transported"
+
+    # Constraints
+    # 1. Horse availability: 2x + 4y <= 60
+    prob += 2 * x + 4 * y <= 60, "Horse_Constraint"
+
+    # 2. Ratio between cart types: x = 3y
+    prob += x == 3 * y, "Ratio_Constraint"
+
+    # 3. Minimum number of carts: x >= 5, y >= 5
+    prob += x >= 5, "Min_Medium_Carts"
+    prob += y >= 5, "Min_Large_Carts"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    x_val = pulp.value(x)
+    y_val = pulp.value(y)
+    obj_val = pulp.value(prob.objective)
+
+    # Ensure we have integer solutions (as required)
+    x_val = int(round(x_val))
+    y_val = int(round(y_val))
+    obj_val = int(round(obj_val))
+
+    # Print results (only final objective value in the required format)
+    print(f"FINAL_OBJ: {obj_val}")
+
+if __name__ == "__main__":
+    main()

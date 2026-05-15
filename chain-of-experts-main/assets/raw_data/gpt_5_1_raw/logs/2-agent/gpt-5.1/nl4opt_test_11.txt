@@ -1,0 +1,141 @@
+[MODELER]:
+Let’s turn this into an optimization model.
+
+### 1. Decision variables
+
+Let  
+- \( b \) = number of bikes (integer, \( b \ge 0 \))  
+- \( c \) = number of cars (integer, \( c \ge 0 \))
+
+### 2. Objective
+
+We want to **minimize the number of bikes** used:
+
+\[
+\min \; b
+\]
+
+### 3. Constraints
+
+#### a) Capacity constraint (transport at least 500 people)
+
+Each bike carries 3 people, each car carries 5 people:
+
+\[
+3b + 5c \;\ge\; 500
+\]
+
+#### b) Car proportion constraint (at most 40% of vehicles are cars)
+
+Cars must be at most 40% of the total number of vehicles:
+
+\[
+c \;\le\; 0.4(b + c)
+\]
+
+Multiply both sides by 10 to clear decimals:
+
+\[
+10c \le 4b + 4c \quad\Rightarrow\quad 6c \le 4b \quad\Rightarrow\quad 3c \le 2b
+\]
+
+So the constraint can be written as:
+
+\[
+3c \;\le\; 2b
+\]
+
+#### c) Integrality and non-negativity
+
+\[
+b, c \in \mathbb{Z}_{\ge 0}
+\]
+
+### 4. Full model
+
+\[
+\begin{aligned}
+\min \quad & b \\
+\text{s.t.} \quad
+& 3b + 5c \ge 500 \\
+& 3c \le 2b \\
+& b, c \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+### 5. Solving approach and Python libraries
+
+This is a small **integer linear program (ILP)**. Any MILP solver will handle it easily. In Python, good choices include:
+
+- **PuLP** (`pulp`) – simple modeling of linear/integer programs; can use CBC (default), GLPK, or others.
+- **OR-Tools** (`ortools.linear_solver`) – Google’s optimization library, powerful and fast.
+- **Pyomo** – more general algebraic modeling language for optimization.
+
+For this specific problem, **PuLP** or **OR-Tools** is ideal.
+
+### 6. Optional: Example PuLP skeleton
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("BanquetTransport", pl.LpMinimize)
+
+# Decision variables
+b = pl.LpVariable('bikes', lowBound=0, cat=pl.LpInteger)
+c = pl.LpVariable('cars',  lowBound=0, cat=pl.LpInteger)
+
+# Objective
+prob += b
+
+# Constraints
+prob += 3*b + 5*c >= 500           # capacity
+prob += 3*c <= 2*b                 # car proportion
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Bikes:", pl.value(b))
+print("Cars:", pl.value(c))
+```
+
+This code directly implements the model above and will return the optimal numbers of bikes and cars.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("BanquetTransport", pl.LpMinimize)
+
+    # Decision variables
+    b = pl.LpVariable('bikes', lowBound=0, cat=pl.LpInteger)
+    c = pl.LpVariable('cars',  lowBound=0, cat=pl.LpInteger)
+
+    # Objective: minimize number of bikes
+    prob += b
+
+    # Constraints
+    prob += 3 * b + 5 * c >= 500      # capacity constraint
+    prob += 3 * c <= 2 * b           # car proportion constraint
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    bikes_opt = pl.value(b)
+    cars_opt = pl.value(c)
+
+    # Print solution details (optional)
+    print(f"Optimal bikes: {bikes_opt}")
+    print(f"Optimal cars: {cars_opt}")
+
+    # Final objective value (number of bikes)
+    final_obj = bikes_opt
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,194 @@
+[MODELER]:
+We can model this as a small integer linear programming (ILP) problem.
+
+### 1. Decision variables
+
+Let  
+
+- \( c \in \mathbb{Z}_{\ge 0} \): number of cows  
+- \( e \in \mathbb{Z}_{\ge 0} \): number of elephants  
+
+Both must be nonnegative integers.
+
+### 2. Objective
+
+Minimize the total number of animals:
+
+\[
+\min \; c + e
+\]
+
+### 3. Constraints
+
+1. **Capacity (bricks carried):**  
+   Each cow carries 20 bricks, each elephant carries 50 bricks, and we need at least 1000 bricks:
+
+   \[
+   20c + 50e \;\ge\; 1000
+   \]
+
+2. **Elephants not exceeding cows:**  
+
+   \[
+   e \;\le\; c
+   \]
+
+3. **At most twice as many cows as elephants:**  
+
+   \[
+   c \;\le\; 2e
+   \]
+
+4. **Integrality and nonnegativity:**
+
+   \[
+   c, e \in \mathbb{Z}_{\ge 0}
+   \]
+
+### 4. Solving the model (outline)
+
+This is a small ILP; typical Python libraries that can solve it:
+
+- `PuLP` (linear/integer programming, easy syntax, pure Python)
+- `ortools.linear_solver` (Google OR-Tools, very good for ILP)
+- `pyomo` (more general algebraic modeling, can call various solvers)
+- `scipy.optimize` is less suitable here because it does not directly handle integer variables; you’d need a custom approach.
+
+### 5. Python/PuLP skeleton
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Animals_for_Bricks", pl.LpMinimize)
+
+# Variables
+c = pl.LpVariable('cows', lowBound=0, cat='Integer')
+e = pl.LpVariable('elephants', lowBound=0, cat='Integer')
+
+# Objective
+prob += c + e
+
+# Constraints
+prob += 20*c + 50*e >= 1000       # bricks requirement
+prob += e <= c                    # elephants not more than cows
+prob += c <= 2*e                  # cows at most twice elephants
+
+# Solve
+prob.solve()
+print(pl.value(c), pl.value(e), "animals:", pl.value(c) + pl.value(e))
+```
+
+### 6. Optimal solution (by analysis)
+
+Solving the model (by hand or with code) yields:
+
+- \( c = 10 \) cows  
+- \( e = 10 \) elephants  
+
+Check:
+
+- Bricks: \(20 \cdot 10 + 50 \cdot 10 = 200 + 500 = 700\) → this is insufficient, so we must increase.
+  
+Let’s solve properly:
+
+We need \(20c + 50e \ge 1000\).
+
+Use the constraints \(e \le c \le 2e\). Test integer \(e\) and corresponding feasible \(c\) ranges:
+
+We want to minimize \(c+e\). A quick way is to express \(c = k e\) with \(1 \le k \le 2\). Approximate:
+
+- Bricks per animal pair of ratio \(k\):  
+  Per elephant-cow pair: \(20k + 50\) bricks for \(k+1\) animals.
+
+Try a direct search:
+
+For a given \(e\), \(c\) must satisfy:  
+- \( e \le c \le 2e \)
+- \( 20c + 50e \ge 1000 \Rightarrow c \ge (1000 - 50e)/20\)
+
+Thus
+
+\[
+c \ge \max\left(e,\; \left\lceil \frac{1000 - 50e}{20} \right\rceil \right), \quad c \le 2e
+\]
+
+We need some \(e\) where this is feasible and \(c+e\) minimal.
+
+Try a few values:
+
+- \( e = 10\):  
+  \(c \ge (1000 - 500)/20 = 25\). Also \(c \ge e = 10\) → \(c \ge 25\).  
+  But \(c \le 2e = 20\) → infeasible.
+
+- \( e = 12\):  
+  \(c \ge (1000 - 600)/20 = 20\); \(c \ge 12\) → \(c \ge 20\).  
+  \(c \le 24\). So feasible \(c \in [20,24]\).  
+  Min \(c = 20\). Total animals \(= 20 + 12 = 32\). Bricks: \(20·20 + 50·12 = 400 + 600 = 1000\).
+
+- Check if smaller total is possible:
+
+  - \( e = 11\):  
+    \(c \ge (1000 - 550)/20 = 22.5 \Rightarrow 23\); \(c \ge 11\) → \(c \ge 23\).  
+    \(c \le 22\) (since \(2e = 22\)) → infeasible.
+
+  - \( e = 9\):  
+    \(c \ge (1000 - 450)/20 = 27.5 \Rightarrow 28\); but \(c \le 18\) → infeasible.
+  
+  - \( e = 13\):  
+    \(c \ge (1000 - 650)/20 = 17.5 \Rightarrow 18\); \(c \ge 13\) → \(c \ge 18\).  
+    \(c \le 26\). Minimal \(c = 18\). Total = 31 animals. Bricks: \(20·18 + 50·13 = 360 + 650 = 1010\).
+
+  - \( e = 14\):  
+    \(c \ge (1000 - 700)/20 = 15\); \(c \ge 14\) → \(c \ge 15\).  
+    \(c \le 28\). Minimal \(c = 15\). Total = 29 animals. Bricks: \(20·15 + 50·14 = 300 + 700 = 1000\).
+
+  - \( e = 15\):  
+    \(c \ge (1000 - 750)/20 = 12.5 \Rightarrow 13\); \(c \ge 15\) → \(c \ge 15\).  
+    \(c \le 30\). Minimal \(c = 15\). Total = 30 animals. Bricks: \(20·15 + 50·15 = 300 + 750 = 1050\).
+
+We see totals: 32 (e=12), 31 (e=13), 29 (e=14), 30 (e=15). The smallest so far is 29 animals at \(e = 14, c = 15\).
+
+Check if any \(e > 15\) can give fewer than 29 animals: with \(e \ge 16\), even if \(c = e\), total animals \(c+e \ge 32\). So 29 is minimal.
+
+**Optimal solution:**
+- Cows: \(c = 15\)  
+- Elephants: \(e = 14\)  
+- Total animals: \(15 + 14 = 29\)  
+- Bricks carried: \(20·15 + 50·14 = 300 + 700 = 1000\) (meets requirement exactly).
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Animals_for_Bricks", pl.LpMinimize)
+
+    # Decision variables
+    c = pl.LpVariable('cows', lowBound=0, cat='Integer')
+    e = pl.LpVariable('elephants', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of animals
+    prob += c + e
+
+    # Constraints
+    prob += 20 * c + 50 * e >= 1000      # bricks requirement
+    prob += e <= c                       # elephants not more than cows
+    prob += c <= 2 * e                   # cows at most twice elephants
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    cows_val = pl.value(c)
+    elephants_val = pl.value(e)
+    final_obj = pl.value(c + e)
+
+    # Optional: check feasibility (not printed in required final line)
+    # print("Cows:", cows_val, "Elephants:", elephants_val, "Total animals:", final_obj)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

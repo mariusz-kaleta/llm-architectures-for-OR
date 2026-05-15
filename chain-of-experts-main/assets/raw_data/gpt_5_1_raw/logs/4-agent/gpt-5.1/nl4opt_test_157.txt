@@ -1,0 +1,219 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total number of trips (sum of truck trips and van trips) while satisfying shipping and budget requirements and the operational restriction on trucks vs vans.
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP), or a simpler Integer Programming model, since the decision variables (number of trucks and vans) must be non‑negative integers.
+
+3. Main decision variables  
+Define integer decision variables, for example:
+
+- T = number of truck trips to use  
+- V = number of van trips to use  
+
+We only need these two variables.
+
+4. Key constraints to consider  
+
+a) Capacity (demand) constraint  
+- Each truck trip carries 1000 patties.  
+- Each van trip carries 500 patties.  
+- At least 50,000 patties must be shipped.  
+
+Total patties shipped by all trips must be ≥ 50,000, expressed via T and V.
+
+b) Budget (cost) constraint  
+- Each truck trip costs $300.  
+- Each van trip costs $100.  
+- Total budget is $12,500.  
+
+Total shipping cost using T and V must be ≤ 12,500.
+
+c) Operational truck–van relationship  
+- Number of trucks must not exceed the number of vans.  
+
+Impose a constraint linking T and V to ensure trucks are not more numerous than vans.
+
+d) Non‑negativity and integrality  
+- T ≥ 0, V ≥ 0.  
+- T and V must be integers (you cannot take fractional trips).
+
+5. Objective formulation strategy  
+
+- Objective is to minimise total number of trips: T + V.  
+- Because trucks have larger capacity but are more expensive per trip, there is an efficiency trade‑off; the model should find the combination (T, V) with the smallest T + V that:  
+  - Ships at least 50,000 patties,  
+  - Stays within the $12,500 budget,  
+  - Respects T ≤ V.
+
+6. Modelling / solution approach guidance  
+
+- Construct the ILP with T and V as integer variables, linear constraints as outlined, and a linear objective T + V.  
+- Given the very small dimension (2 variables), it can be solved by:  
+  - Standard ILP solver, or  
+  - Manual enumeration / inspection (e.g., examining feasible integer pairs that satisfy all constraints and checking T + V).  
+
+- Check edge cases:  
+  - Solutions that just meet patties requirement (near 50,000).  
+  - Solutions that saturate the budget.  
+  - Solutions where T = V (since T cannot exceed V, the “max truck” scenario is when T = V).  
+
+The modeller’s main task is to encode these pieces and then search over feasible (T, V) to find the minimum of T + V.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model of the problem, plus suggestions for how to solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(T \in \mathbb{Z}_{\ge 0}\): number of truck trips  
+- \(V \in \mathbb{Z}_{\ge 0}\): number of van trips  
+
+Both must be non‑negative integers.
+
+---
+
+## 2. Objective
+
+Minimise the total number of trips (truck + van):
+
+\[
+\min \; T + V
+\]
+
+---
+
+## 3. Constraints
+
+### a) Capacity (demand) constraint
+
+Each truck trip carries 1000 patties, each van trip carries 500 patties. At least 50,000 patties must be shipped:
+
+\[
+1000T + 500V \;\ge\; 50{,}000
+\]
+
+### b) Budget (cost) constraint
+
+Each truck trip costs \$300, each van trip costs \$100. Total budget is \$12,500:
+
+\[
+300T + 100V \;\le\; 12{,}500
+\]
+
+### c) Operational truck–van relationship
+
+Number of trucks must not exceed number of vans:
+
+\[
+T \;\le\; V
+\]
+
+### d) Non‑negativity and integrality
+
+\[
+T \ge 0,\quad V \ge 0,\quad T, V \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete ILP model
+
+\[
+\begin{aligned}
+\min \quad & T + V \\
+\text{s.t.} \quad
+& 1000T + 500V \;\ge\; 50{,}000 \\
+& 300T + 100V \;\le\; 12{,}500 \\
+& T - V \;\le\; 0 \\
+& T, V \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+Any integer linear programming solver will handle this easily:
+
+- **PuLP** (`pulp`): Very simple modelling interface, uses CBC (open-source) by default.
+- **OR‑Tools** (`ortools.linear_solver`): Google’s optimisation suite, fast and robust.
+- **Pyomo** (`pyomo.environ`): More general modelling framework for algebraic optimisation models.
+- **SciPy** (`scipy.optimize`) is *not* ideal here because it doesn’t natively enforce integer variables; use an ILP-specific tool instead.
+
+For a small 2‑variable ILP like this, **PuLP** or **OR‑Tools** is perfectly sufficient.
+
+---
+
+## 6. Example PuLP implementation
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Meat_Shop_Shipping", pl.LpMinimize)
+
+# Decision variables
+T = pl.LpVariable("Trucks", lowBound=0, cat="Integer")
+V = pl.LpVariable("Vans", lowBound=0, cat="Integer")
+
+# Objective: minimize total number of trips
+prob += T + V, "Total_Trips"
+
+# Capacity constraint
+prob += 1000 * T + 500 * V >= 50000, "Capacity"
+
+# Budget constraint
+prob += 300 * T + 100 * V <= 12500, "Budget"
+
+# Operational constraint: trucks not more than vans
+prob += T <= V, "Truck_van_relationship"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal number of truck trips (T):", pl.value(T))
+print("Optimal number of van trips (V):", pl.value(V))
+print("Minimum total trips:", pl.value(T + V))
+```
+
+This code encodes exactly the ILP model above and finds the optimal numbers of truck and van trips.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Meat_Shop_Shipping", pl.LpMinimize)
+
+    # Decision variables
+    T = pl.LpVariable("Trucks", lowBound=0, cat="Integer")
+    V = pl.LpVariable("Vans", lowBound=0, cat="Integer")
+
+    # Objective: minimize total number of trips
+    prob += T + V, "Total_Trips"
+
+    # Constraints
+    prob += 1000 * T + 500 * V >= 50000, "Capacity"
+    prob += 300 * T + 100 * V <= 12500, "Budget"
+    prob += T <= V, "Truck_van_relationship"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(T + V)
+
+    # Final required print
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

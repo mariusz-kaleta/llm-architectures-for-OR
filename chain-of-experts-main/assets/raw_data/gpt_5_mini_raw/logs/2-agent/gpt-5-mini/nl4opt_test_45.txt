@@ -1,0 +1,175 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x = number of containers of Oil Max to produce (>= 0)
+- y = number of containers of Oil Max Pro to produce (>= 0)
+
+Parameters (given)
+- Resource per container:
+  - Oil Max: A:46 g, B:43 g, C:56 g
+  - Oil Max Pro: A:13 g, B:4 g, C:45 g
+- Available resource amounts: A_total = 1345 g, B_total = 346 g, C_total = 1643 g
+- Profit per container: p_x = $10 (Oil Max), p_y = $15 (Oil Max Pro)
+
+Constraints (resource limits)
+- 46 x + 13 y <= 1345  (substance A)
+- 43 x + 4  y <= 346   (substance B)
+- 56 x + 45 y <= 1643  (substance C)
+- x >= 0, y >= 0
+(If containers must be integral, add x, y integer.)
+
+Objective
+Maximize total profit:  Z = 10 x + 15 y
+
+Solving the continuous LP (x,y real >=0)
+Solve the linear program:
+  maximize 10x + 15y
+  subject to the three linear inequalities above.
+
+Feasible corner points are:
+- (0, 0) -> profit 0
+- (0, 1643/45 ≈ 36.5111) -> profit = 15*(1643/45) = 1643/3 ≈ $547.6667
+- intersection of B and C: (x ≈ 5.2605, y ≈ 29.9741) -> profit ≈ $502.22
+- (346/43 ≈ 8.0465, 0) -> profit ≈ $80.47
+
+The continuous LP optimum is at x = 0, y = 1643/45 ≈ 36.5111 (produce only Oil Max Pro, possibly fractional), with maximum profit Z = 1643/3 ≈ $547.67.
+
+Practical integer solution
+Containers are usually integer in practice. If x and y must be integers, search over integer feasible (x,y) pairs (or solve as an integer program). Checking integer feasible solutions shows the best integer solution is:
+- x = 0 containers of Oil Max
+- y = 36 containers of Oil Max Pro
+Profit = 36 * $15 = $540
+(37 containers of Pro would violate the C constraint: 37*45 = 1665 > 1643.)
+
+Recommended Python libraries to solve this
+- pulp — easy-to-use LP/MIP modelling (can solve continuous and integer versions).
+- OR-Tools (ortools.linear_solver) — fast solver, supports MIP.
+- scipy.optimize.linprog — for continuous LPs.
+- cvxpy — modelling for convex programs (continuous LPs).
+- gurobipy or CPLEX Python API — if you have commercial solvers and need high performance.
+
+Small example (conceptual) using pulp (integer version)
+- Define variables as LpVariable('x', lowBound=0, cat='Integer') and LpVariable('y', lowBound=0, cat='Integer')
+- Add the three constraints
+- Maximize 10*x + 15*y
+- Solve and read x.value(), y.value()
+
+Summary answer
+- Continuous (fractional) optimum: x = 0, y = 1643/45 ≈ 36.5111; max profit ≈ $547.67.
+- Integer (practical) optimum: x = 0, y = 36; max profit = $540.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data
+# Coefficients for constraints: a1*x + a2*y <= b
+constraints = [
+    (46.0, 13.0, 1345.0),  # A constraint
+    (43.0,  4.0,  346.0),  # B constraint
+    (56.0, 45.0, 1643.0),  # C constraint
+]
+# Objective coefficients (maximize)
+p_x = 10.0
+p_y = 15.0
+
+tol = 1e-9
+
+# Helper: check feasibility of a point (x,y)
+def feasible(x, y, cons):
+    if x < -tol or y < -tol:
+        return False
+    for (a1, a2, b) in cons:
+        if a1 * x + a2 * y - b > tol:
+            return False
+    return True
+
+# Generate candidate corner points for continuous LP:
+candidates = []
+# origin
+candidates.append((0.0, 0.0))
+
+# intersections with axes (x=0 or y=0)
+for (a1, a2, b) in constraints:
+    if abs(a2) > tol:
+        candidates.append((0.0, b / a2))
+    if abs(a1) > tol:
+        candidates.append((b / a1, 0.0))
+
+# intersections of pairs of constraint lines
+for i in range(len(constraints)):
+    a1, a2, b1 = constraints[i]
+    for j in range(i + 1, len(constraints)):
+        c1, c2, b2 = constraints[j]
+        # Solve:
+        # a1*x + a2*y = b1
+        # c1*x + c2*y = b2
+        det = a1 * c2 - a2 * c1
+        if abs(det) < tol:
+            # parallel or nearly so; skip
+            continue
+        x = (b1 * c2 - a2 * b2) / det
+        y = (a1 * b2 - b1 * c1) / det
+        candidates.append((x, y))
+
+# Filter feasible candidates and evaluate objective
+best_cont_x = None
+best_cont_y = None
+best_cont_obj = -math.inf
+
+for (x, y) in candidates:
+    if feasible(x, y, constraints):
+        obj = p_x * x + p_y * y
+        if obj > best_cont_obj + tol:
+            best_cont_obj = obj
+            best_cont_x = x
+            best_cont_y = y
+
+# Round small negatives to zero for display
+if best_cont_x is not None:
+    if abs(best_cont_x) < 1e-12:
+        best_cont_x = 0.0
+    if abs(best_cont_y) < 1e-12:
+        best_cont_y = 0.0
+
+# Now solve the integer version by brute force search
+# bounds for search
+x_bound = math.floor(min(
+    (b / a1) if a1 > 0 else math.inf
+    for (a1, a2, b) in constraints
+))
+y_bound = math.floor(min(
+    (b / a2) if a2 > 0 else math.inf
+    for (a1, a2, b) in constraints
+))
+
+# safety caps
+x_bound = max(0, x_bound)
+y_bound = max(0, y_bound)
+
+best_int_x = 0
+best_int_y = 0
+best_int_obj = -math.inf
+
+for xi in range(0, x_bound + 1):
+    for yi in range(0, y_bound + 1):
+        if feasible(xi, yi, constraints):
+            obj = p_x * xi + p_y * yi
+            if obj > best_int_obj + tol:
+                best_int_obj = obj
+                best_int_x = xi
+                best_int_y = yi
+
+# Print results (informational)
+print("Continuous LP optimum (may be fractional):")
+print(f" x = {best_cont_x:.8f}, y = {best_cont_y:.8f}, profit = {best_cont_obj:.8f}")
+print("Integer (practical) optimum:")
+print(f" x = {best_int_x}, y = {best_int_y}, profit = {best_int_obj}")
+
+# Final required line (must be the last printed line)
+print(f"FINAL_OBJ: {int(best_int_obj)}")
+```

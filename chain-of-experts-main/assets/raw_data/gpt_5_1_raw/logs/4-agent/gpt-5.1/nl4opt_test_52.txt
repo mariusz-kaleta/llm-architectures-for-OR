@@ -1,0 +1,241 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximise the total number of snacks shipped in the suitcases.
+
+2. Suggested model type  
+   - Model: Integer Linear Programming (ILP) – a 2‑variable integer optimisation problem (can be solved by graphical or enumeration methods, but formulate as ILP).
+
+3. Main decision variables  
+   - Let:
+     - SmallSuitcases = number of small suitcases to send (integer, ≥ 0)  
+     - LargeSuitcases = number of large suitcases to send (integer, ≥ 0)
+
+4. Objective function (conceptual)  
+   - Each small suitcase holds 50 snacks; each large suitcase holds 80 snacks.  
+   - Objective: Maximise total snacks = 50·SmallSuitcases + 80·LargeSuitcases.
+
+5. Key constraints to consider  
+
+   a) Preference for small suitcases  
+   - At least twice as many small suitcases as large suitcases:  
+     - SmallSuitcases ≥ 2 × LargeSuitcases  
+
+   b) Availability of small suitcases  
+   - At most 70 small suitcases available:  
+     - SmallSuitcases ≤ 70  
+
+   c) Availability of large suitcases  
+   - At most 50 large suitcases available:  
+     - LargeSuitcases ≤ 50  
+
+   d) Minimum number of large suitcases  
+   - Must send at least 15 large suitcases:  
+     - LargeSuitcases ≥ 15  
+
+   e) Total number of suitcases  
+   - Can send at most 70 suitcases in total:  
+     - SmallSuitcases + LargeSuitcases ≤ 70  
+
+   f) Integrality and non-negativity  
+   - SmallSuitcases and LargeSuitcases are non-negative integers.
+
+6. Modelling / solving strategy for the Modeller  
+
+   - Step 1: Express the decision variables and constraints as above in a standard ILP form.  
+   - Step 2: Because there are only two variables, consider using a graphical approach:
+     - Plot the feasible region defined by all constraints in the (LargeSuitcases, SmallSuitcases) plane.
+     - Ensure any candidate point satisfies all inequality constraints and integrality.
+   - Step 3: Determine corner (extreme) points of the feasible region by intersecting constraint lines:
+     - Include boundaries from: SmallSuitcases = 2·LargeSuitcases, SmallSuitcases = 70, LargeSuitcases = 15, LargeSuitcases = 50, SmallSuitcases + LargeSuitcases = 70, plus axes as needed.
+   - Step 4: Evaluate the objective function (total snacks) at each feasible corner point; then check for the best feasible integer point(s) if corners are not integral.  
+   - Step 5: Select the integer combination (SmallSuitcases, LargeSuitcases) with the highest total snacks consistent with all constraints.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem as an integer linear program, followed by notes on how to solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \( S \in \mathbb{Z}_{\ge 0} \): number of small suitcases to send  
+- \( L \in \mathbb{Z}_{\ge 0} \): number of large suitcases to send  
+
+---
+
+## 2. Objective function
+
+Each small suitcase carries 50 snacks and each large suitcase carries 80 snacks.  
+We want to maximise the total number of snacks shipped:
+
+\[
+\max \; Z = 50S + 80L
+\]
+
+---
+
+## 3. Constraints
+
+1. **Preference for small suitcases**  
+   At least twice as many small as large:
+
+   \[
+   S \;\ge\; 2L
+   \]
+
+2. **Availability of small suitcases**  
+
+   \[
+   S \;\le\; 70
+   \]
+
+3. **Availability of large suitcases**  
+
+   \[
+   L \;\le\; 50
+   \]
+
+4. **Minimum number of large suitcases**
+
+   \[
+   L \;\ge\; 15
+   \]
+
+5. **Total number of suitcases limit**  
+
+   \[
+   S + L \;\le\; 70
+   \]
+
+6. **Integrality and non‑negativity**
+
+   \[
+   S, L \in \mathbb{Z}, \quad S \ge 0, \; L \ge 0
+   \]
+
+---
+
+## 4. Model summary (standard ILP form)
+
+\[
+\begin{aligned}
+\max\quad & 50S + 80L \\
+\text{s.t.}\quad
+& S - 2L \;\ge\; 0 \\
+& S \;\le\; 70 \\
+& L \;\le\; 50 \\
+& L \;\ge\; 15 \\
+& S + L \;\le\; 70 \\
+& S, L \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries and a sketch of usage
+
+For this 2-variable ILP, many libraries will work; appropriate choices include:
+
+- `PuLP` (pure Python linear/integer programming modeling)
+- `OR-Tools` (Google’s optimisation suite, `pywraplp` for integer programming)
+- `Pyomo` (more general algebraic modeling, uses external solvers)
+- `scipy.optimize.linprog` (but this handles continuous, not integer, so not ideal here unless you relax integrality)
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Snack_Suitcases", pl.LpMaximize)
+
+# Decision variables (integer, non-negative)
+S = pl.LpVariable('SmallSuitcases', lowBound=0, cat='Integer')
+L = pl.LpVariable('LargeSuitcases', lowBound=0, cat='Integer')
+
+# Objective
+prob += 50 * S + 80 * L
+
+# Constraints
+prob += S >= 2 * L           # Preference for small
+prob += S <= 70              # Small availability
+prob += L <= 50              # Large availability
+prob += L >= 15              # Minimum large
+prob += S + L <= 70          # Total suitcase limit
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=0))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal S (small):", pl.value(S))
+print("Optimal L (large):", pl.value(L))
+print("Max snacks:", pl.value(50 * S + 80 * L))
+```
+
+### Example with OR-Tools
+
+```python
+from ortools.linear_solver import pywraplp
+
+solver = pywraplp.Solver.CreateSolver('CBC')
+
+S = solver.IntVar(0, solver.infinity(), 'SmallSuitcases')
+L = solver.IntVar(0, solver.infinity(), 'LargeSuitcases')
+
+# Objective
+solver.Maximize(50 * S + 80 * L)
+
+# Constraints
+solver.Add(S >= 2 * L)
+solver.Add(S <= 70)
+solver.Add(L <= 50)
+solver.Add(L >= 15)
+solver.Add(S + L <= 70)
+
+status = solver.Solve()
+
+if status == pywraplp.Solver.OPTIMAL:
+    print("Optimal S:", S.solution_value())
+    print("Optimal L:", L.solution_value())
+    print("Max snacks:", 50 * S.solution_value() + 80 * L.solution_value())
+```
+
+These formulations precisely capture the optimisation description from the original text.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Snack_Suitcases", pl.LpMaximize)
+
+    # Decision variables: integers, non-negative
+    S = pl.LpVariable('SmallSuitcases', lowBound=0, cat='Integer')
+    L = pl.LpVariable('LargeSuitcases', lowBound=0, cat='Integer')
+
+    # Objective function: maximize total snacks
+    prob += 50 * S + 80 * L
+
+    # Constraints
+    prob += S - 2 * L >= 0        # Preference for small: S >= 2L
+    prob += S <= 70               # Small availability
+    prob += L <= 50               # Large availability
+    prob += L >= 15               # Minimum large
+    prob += S + L <= 70           # Total suitcase limit
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=0))
+
+    # Get the objective value
+    value = pl.value(50 * S + 80 * L)
+
+    # Required final print
+    print(f"FINAL_OBJ: {value}")
+
+if __name__ == "__main__":
+    main()

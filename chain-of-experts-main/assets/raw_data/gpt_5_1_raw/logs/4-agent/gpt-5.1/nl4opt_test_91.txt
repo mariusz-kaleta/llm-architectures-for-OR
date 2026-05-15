@@ -1,0 +1,291 @@
+[PLANNER]:
+1. **Key optimisation goal**  
+   - **Goal:** Minimize total fat intake from pre-prepared meals while meeting minimum protein and carbohydrate requirements and limiting the proportion of turkey dinners.
+
+2. **Suggested model type**  
+   - **Model:** Linear Programming (LP) with continuous decision variables (number of each meal can be non-negative real values).  
+   - If needed later, the model can be adapted to an Integer Linear Program (ILP) to force whole meals.
+
+3. **Main decision variables**  
+   Define decision variables as:
+   - **x₁:** Number of turkey dinners consumed.
+   - **x₂:** Number of tuna salad sandwiches consumed.
+
+   Units: counts of meals (non-negative, potentially fractional if allowed by context).
+
+4. **Objective function (conceptual)**  
+   - Each turkey dinner: 12 g fat  
+   - Each tuna sandwich: 8 g fat  
+   - **Objective:** Minimize total fat = 12·x₁ + 8·x₂.
+
+5. **Key constraints to consider**
+
+   a. **Protein requirement (minimum)**  
+   - Each turkey dinner: 20 g protein  
+   - Each tuna sandwich: 18 g protein  
+   - **Constraint:** Total protein ≥ 150 g  
+     - 20·x₁ + 18·x₂ ≥ 150
+
+   b. **Carbohydrate requirement (minimum)**  
+   - Each turkey dinner: 30 g carbs  
+   - Each tuna sandwich: 25 g carbs  
+   - **Constraint:** Total carbs ≥ 200 g  
+     - 30·x₁ + 25·x₂ ≥ 200
+
+   c. **Turkey dinner proportion cap (at most 40% of meals)**  
+   - Let total meals = x₁ + x₂ (must be > 0 if the diet is to exist).  
+   - Requirement: turkey dinners ≤ 40% of all meals  
+   - Proportion constraint (nonlinear form):  
+     - x₁ / (x₁ + x₂) ≤ 0.4  
+   - Convert to linear form for LP (assuming x₁ + x₂ > 0):  
+     - x₁ ≤ 0.4·(x₁ + x₂)  
+     - 0.6·x₁ ≤ 0.4·x₂  
+     - 3·x₁ ≤ 2·x₂  
+   - Use the linear inequality:  
+     - 3·x₁ − 2·x₂ ≤ 0
+
+   d. **Non-negativity**  
+   - x₁ ≥ 0  
+   - x₂ ≥ 0
+
+   e. **Optional integrality (if required)**  
+   - If the problem context demands whole meals only:  
+     - x₁, x₂ should be integers (non-negative).  
+   - Start with a continuous LP; if integrality is important, switch to ILP.
+
+6. **Modelling notes / structure for the Modeller**
+
+   - Represent this as a standard 2-variable LP:
+     - Objective: minimize (fat) subject to linear inequality constraints for protein, carbs, turkey ratio, and non-negativity.
+   - Check feasibility:
+     - Ensure there exists at least one (x₁, x₂) satisfying protein and carbs with 3·x₁ ≤ 2·x₂.
+   - Once solved:
+     - Report optimal x₁, x₂ and the resulting total protein, carbs, and fat.
+   - If an integer solution is desired and LP suggests fractional meals:
+     - Either:
+       - Round and test nearby integer points, or
+       - Reformulate as an ILP and re-solve.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model and how you could implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_1 \ge 0\): number of turkey dinners  
+- \(x_2 \ge 0\): number of tuna salad sandwiches  
+
+(You can later require \(x_1, x_2\) to be integers if whole meals are needed.)
+
+---
+
+## 2. Objective function
+
+Minimize total fat:
+
+\[
+\min \; Z = 12x_1 + 8x_2
+\]
+
+where:
+
+- 12 g fat per turkey dinner  
+- 8 g fat per tuna sandwich  
+
+---
+
+## 3. Constraints
+
+### a) Protein requirement
+
+At least 150 g of protein:
+
+\[
+20x_1 + 18x_2 \;\ge\; 150
+\]
+
+(where 20 g protein per turkey dinner, 18 g per tuna sandwich)
+
+---
+
+### b) Carbohydrate requirement
+
+At least 200 g of carbohydrates:
+
+\[
+30x_1 + 25x_2 \;\ge\; 200
+\]
+
+(where 30 g carbs per turkey dinner, 25 g per tuna sandwich)
+
+---
+
+### c) Limit turkey dinners to at most 40% of meals
+
+Proportion constraint:
+
+\[
+\frac{x_1}{x_1 + x_2} \;\le\; 0.4
+\quad\text{with } x_1 + x_2 > 0
+\]
+
+Convert to linear form:
+
+\[
+x_1 \;\le\; 0.4(x_1 + x_2)
+\]
+
+\[
+x_1 \;\le\; 0.4x_1 + 0.4x_2
+\]
+
+\[
+0.6x_1 \;\le\; 0.4x_2
+\]
+
+\[
+3x_1 \;\le\; 2x_2
+\]
+
+So the linear constraint is:
+
+\[
+3x_1 - 2x_2 \;\le\; 0
+\]
+
+---
+
+### d) Non-negativity
+
+\[
+x_1 \;\ge\; 0,\quad x_2 \;\ge\; 0
+\]
+
+If whole meals are required, add:
+
+\[
+x_1, x_2 \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full LP model
+
+\[
+\begin{aligned}
+\text{Minimize} \quad
+& Z = 12x_1 + 8x_2 \\[4pt]
+\text{subject to} \quad
+& 20x_1 + 18x_2 \;\ge\; 150 \quad &\text{(protein)} \\
+& 30x_1 + 25x_2 \;\ge\; 200 \quad &\text{(carbs)} \\
+& 3x_1 - 2x_2 \;\le\; 0 \quad &\text{(turkey ≤ 40%)} \\
+& x_1 \ge 0,\; x_2 \ge 0 \quad &\text{(non-negativity)}
+\end{aligned}
+\]
+
+Optional integrality:
+
+\[
+x_1, x_2 \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+This is a small linear program (LP), optionally mixed-integer (MILP). Good choices:
+
+- `PuLP` – simple modeling interface in pure Python, uses CBC or other LP/MIP solvers.
+- `OR-Tools` (Google) – strong for linear and integer programming.
+- `cvxpy` – general convex optimization modeling; can handle LP and MILP.
+- `scipy.optimize.linprog` – works well for continuous LP (no integrality).
+
+For *continuous* LP: `scipy.optimize.linprog`, `PuLP`, `cvxpy`.  
+For *integer* version: `PuLP` or `OR-Tools` (or `cvxpy` with an MILP-capable solver).
+
+---
+
+## 6. Example implementation with PuLP (continuous LP)
+
+```python
+import pulp as pl
+
+# Create problem: minimize
+prob = pl.LpProblem("Meal_Planning", pl.LpMinimize)
+
+# Decision variables (continuous, >= 0)
+x1 = pl.LpVariable('turkey_dinners', lowBound=0)
+x2 = pl.LpVariable('tuna_sandwiches', lowBound=0)
+
+# Objective: minimize fat
+prob += 12 * x1 + 8 * x2, "Total_Fat"
+
+# Constraints
+prob += 20 * x1 + 18 * x2 >= 150, "Protein_req"
+prob += 30 * x1 + 25 * x2 >= 200, "Carb_req"
+prob += 3 * x1 - 2 * x2 <= 0,     "Turkey_ratio"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Turkey dinners (x1):", x1.varValue)
+print("Tuna sandwiches (x2):", x2.varValue)
+print("Total fat:", pl.value(prob.objective))
+```
+
+---
+
+## 7. Integer version with PuLP
+
+Just change the variable types:
+
+```python
+x1 = pl.LpVariable('turkey_dinners', lowBound=0, cat='Integer')
+x2 = pl.LpVariable('tuna_sandwiches', lowBound=0, cat='Integer')
+```
+
+and keep the rest the same; the solver will now search for whole-meal solutions.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create problem: minimize total fat
+    prob = pl.LpProblem("Meal_Planning", pl.LpMinimize)
+
+    # Decision variables: non-negative integers (whole meals)
+    x1 = pl.LpVariable('turkey_dinners', lowBound=0, cat='Integer')
+    x2 = pl.LpVariable('tuna_sandwiches', lowBound=0, cat='Integer')
+
+    # Objective function: minimize fat
+    prob += 12 * x1 + 8 * x2, "Total_Fat"
+
+    # Constraints
+    # Protein requirement: at least 150 g
+    prob += 20 * x1 + 18 * x2 >= 150, "Protein_req"
+
+    # Carbohydrate requirement: at least 200 g
+    prob += 30 * x1 + 25 * x2 >= 200, "Carb_req"
+
+    # Turkey dinners at most 40% of total meals -> 3x1 - 2x2 <= 0
+    prob += 3 * x1 - 2 * x2 <= 0, "Turkey_ratio"
+
+    # Solve the problem with CBC (default PuLP solver)
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the required output
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

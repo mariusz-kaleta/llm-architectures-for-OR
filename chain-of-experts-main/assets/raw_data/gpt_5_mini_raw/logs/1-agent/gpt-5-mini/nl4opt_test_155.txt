@@ -1,0 +1,42 @@
+[MONOLITH]:
+import pulp
+
+# Data
+fat_apple = 2    # fat units per serving of apple
+folate_apple = 5 # folate units per serving of apple
+fat_carrot = 4   # fat units per serving of carrot
+folate_carrot = 3# folate units per serving of carrot
+
+max_folate = 100
+min_carrot = 2
+
+# Define LP
+prob = pulp.LpProblem("Maximize_Fat", pulp.LpMaximize)
+
+# Decision variables: servings (continuous)
+A = pulp.LpVariable("Apple_servings", lowBound=0, cat='Continuous')
+C = pulp.LpVariable("Carrot_servings", lowBound=0, cat='Continuous')
+
+# Objective: maximize fat
+prob += fat_apple * A + fat_carrot * C, "Total_Fat"
+
+# Constraints
+prob += folate_apple * A + folate_carrot * C <= max_folate, "Folate_limit"
+prob += A == 3 * C, "Preference_ratio"
+prob += C >= min_carrot, "Min_carrot"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Results
+apple_servings = pulp.value(A)
+carrot_servings = pulp.value(C)
+objective_value = pulp.value(prob.objective)
+
+print(f"Apple servings: {apple_servings}")
+print(f"Carrot servings: {carrot_servings}")
+print(f"Total fat (objective): {objective_value}")
+print(f"Total folate consumed: {folate_apple * apple_servings + folate_carrot * carrot_servings}")
+
+# Final required print
+print(f"FINAL_OBJ: {objective_value}")

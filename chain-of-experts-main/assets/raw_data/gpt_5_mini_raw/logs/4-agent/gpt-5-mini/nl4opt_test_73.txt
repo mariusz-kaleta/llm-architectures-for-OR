@@ -1,0 +1,118 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Maximise Mr. Roberts' annual return (profit) from the two investments (telecom and healthcare).
+
+2) Suggested model type
+- Model: Linear Programming (single-period, continuous decision variables).
+
+3) Main decision variables (describe in words)
+- Amount to invest in telecom (in dollars).
+- Amount to invest in healthcare (in dollars).
+
+4) Key constraints to consider (describe in words)
+- Budget constraint: the sum of the two investments cannot exceed $100,000 (you may treat it as ≤100,000; check whether the optimum uses the full budget).
+- Relative-allocation constraint: the telecom investment must be at least three times the healthcare investment (telecom ≥ 3 × healthcare).
+- Upper bound on telecom: the telecom investment cannot exceed $70,000.
+- Non-negativity: both investment amounts must be ≥ $0.
+
+5) Objective specification (in words)
+- Maximise total return computed as (3% of telecom) + (1% of healthcare).
+
+6) Solution strategy for the Modeller
+- This is a small LP with two variables; solve by inspecting feasible extreme points or using any LP solver.
+- Enumerate and evaluate corner cases where constraints bind. Relevant boundary combinations to check include:
+  - Telecom at its upper bound (telecom = $70,000) and the telecom/healthcare ratio binding (telecom = 3 × healthcare) — gives a candidate healthcare level and total invested.
+  - Telecom at its upper bound with healthcare = $0.
+  - The budget binding together with the ratio binding (total = $100,000 and telecom = 3 × healthcare) — check feasibility w.r.t. telecom ≤ $70,000.
+  - Other obvious corners (healthcare = 0, telecom = 0) for completeness.
+- Because telecom has a higher return per dollar than healthcare, expect the optimum to push telecom as high as allowed, then allocate as much to healthcare as permitted by the ratio and the budget. Verify by computing objective value at each candidate corner and selecting the largest.
+
+7) Deliverables expected from the Modeller
+- Numerical values for the two investments (dollars).
+- Proof/verification: list which constraints are binding at the optimum and the objective value (annual return in dollars).
+- Short explanation why that corner is optimal (comparison of objective values at candidate corners).
+
+Optional helpful note for quick hand calculation
+- If telecom is set to its upper bound, compute healthcare as the minimum allowed by the ratio and the remaining budget. Compare objective values at these candidate points to determine the maximum.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- T = dollars invested in telecom (continuous, T ≥ 0)
+- H = dollars invested in healthcare (continuous, H ≥ 0)
+
+Objective
+- Maximise annual return: maximize R = 0.03 T + 0.01 H
+
+Constraints
+1. Budget: T + H ≤ 100000
+2. Relative allocation: T ≥ 3 H
+3. Telecom upper bound: T ≤ 70000
+4. Non-negativity: T ≥ 0, H ≥ 0
+
+Solution (analysis)
+- Telecom gives higher return per dollar (3% > 1%), so we want T as large as allowed (T = 70000) and then set H as large as allowed by the T ≥ 3H constraint and the budget.
+- With T = 70000, the ratio constraint implies H ≤ T/3 = 70000/3 ≈ 23333.333. The budget allows H ≤ 30000, so the tighter is H ≤ 70000/3.
+- Set H = 70000/3 ≈ 23333.333. This gives T + H = 70000 + 70000/3 = 70000*(4/3) = 93333.333 ≤ 100000, so the budget constraint is not binding.
+
+Optimal solution
+- T* = $70,000
+- H* = 70,000 / 3 ≈ $23,333.33
+- Annual return R* = 0.03·70000 + 0.01·(70000/3) = 2100 + 700/3 = 7000/3 ≈ $2,333.33
+
+Which constraints bind
+- Telecom upper bound: T = 70000 (binding)
+- Relative allocation: T = 3H (binding)
+- Budget: not binding (T + H = 93,333.33 < 100,000)
+
+Why this is optimal (brief)
+- Telecom has strictly higher marginal return, so increase T up to its upper bound. Any remaining feasible increase in H raises the objective (positive coefficient 0.01), so set H to the maximum allowed by T ≥ 3H. Other candidate corners (e.g., T=70000,H=0 or trying to use the full budget under the ratio constraint would require T = 75,000 which violates T ≤ 70,000) give strictly lower return.
+
+Solving programmatically
+Recommended Python libraries:
+- pulp (simple LP modeling; uses CBC by default)
+- scipy.optimize.linprog
+- ortools.linear_solver (Google OR-Tools)
+- cvxpy (convex optimization modeling)
+
+Minimal example using pulp
+from pulp import LpProblem, LpMaximize, LpVariable, lpSum, value
+
+prob = LpProblem("Invest", LpMaximize)
+T = LpVariable("T", lowBound=0)
+H = LpVariable("H", lowBound=0)
+prob += 0.03*T + 0.01*H
+prob += T + H <= 100000
+prob += T >= 3*H
+prob += T <= 70000
+prob.solve()
+print(value(T), value(H), value(prob.objective))
+
+This will return T = 70000, H ≈ 23333.333, objective ≈ 2333.333.
+
+If you want integer-dollar investments, you can add integer constraints (but the problem as stated is continuous).
+
+---
+
+[CODER]:
+# Investment optimization solution (direct calculation)
+# Decision: invest T in telecom, H in healthcare
+# Based on analysis: T = 70000 (telecom upper bound), H = T / 3 (relative allocation binds)
+
+T = 70000.0
+H = T / 3.0
+
+# Compute objective: R = 0.03*T + 0.01*H
+R = 0.03 * T + 0.01 * H
+
+# Sanity checks (with small tolerance)
+tol = 1e-8
+assert T + H <= 100000 + tol  # budget
+assert T >= 3 * H - tol       # relative allocation
+assert T <= 70000 + tol       # telecom upper bound
+assert T >= -tol and H >= -tol # non-negativity
+
+print(f"FINAL_OBJ: {R}")

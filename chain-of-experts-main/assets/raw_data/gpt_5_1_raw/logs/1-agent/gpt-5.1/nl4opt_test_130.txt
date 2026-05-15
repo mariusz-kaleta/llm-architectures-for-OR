@@ -1,0 +1,41 @@
+[MONOLITH]:
+import pulp
+
+# Initialize the problem
+prob = pulp.LpProblem("Factory_Machines_Optimization", pulp.LpMinimize)
+
+# Decision variables: number of machines A and B (can be fractional as not specified integer)
+A = pulp.LpVariable('A', lowBound=5)   # At least 5 machines of type A
+B = pulp.LpVariable('B', lowBound=0)
+
+# Objective: minimize total number of machines
+prob += A + B, "Total_Machines"
+
+# Constraints:
+
+# 1. Production: at least 1000 items per day
+# Each A makes 30 items, each B makes 50 items
+prob += 30 * A + 50 * B >= 1000, "Production_Constraint"
+
+# 2. Electricity: total consumption at most 3000 kWh
+# A consumes 100 kWh, B consumes 120 kWh
+prob += 100 * A + 120 * B <= 3000, "Electricity_Constraint"
+
+# 3. At most 30% of the machines are type B: B <= 0.3 * (A + B)
+prob += B <= 0.3 * (A + B), "B_Percentage_Constraint"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+A_val = pulp.value(A)
+B_val = pulp.value(B)
+obj_val = pulp.value(prob.objective)
+
+# Print solution details
+print(f"Optimal number of machine A: {A_val}")
+print(f"Optimal number of machine B: {B_val}")
+print(f"Minimum total number of machines: {obj_val}")
+
+# Final objective value in required format
+print(f"FINAL_OBJ: {obj_val}")

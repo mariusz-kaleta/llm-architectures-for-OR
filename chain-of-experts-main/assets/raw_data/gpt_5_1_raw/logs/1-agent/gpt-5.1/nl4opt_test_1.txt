@@ -1,0 +1,41 @@
+[MONOLITH]:
+import pulp
+
+# Create the problem: minimize filler usage
+prob = pulp.LpProblem("Pill_Production", pulp.LpMinimize)
+
+# Decision variables: number of large (L) and small (S) pills
+L = pulp.LpVariable('L', lowBound=0, cat='Integer')
+S = pulp.LpVariable('S', lowBound=0, cat='Integer')
+
+# Objective: minimize total filler
+# Large pill uses 2 units filler, small pill uses 1 unit filler
+prob += 2 * L + S
+
+# Constraints:
+
+# Medicinal ingredient constraint: 3L + 2S <= 1000
+prob += 3 * L + 2 * S <= 1000, "Medicinal_Constraint"
+
+# At least 100 large pills
+prob += L >= 100, "Minimum_Large"
+
+# At least 60% of total pills must be small: S >= 0.6*(L + S)
+# This is equivalent to: 0.4S >= 0.6L  ->  2S >= 3L
+prob += 2 * S >= 3 * L, "Popularity_Constraint"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract solution
+L_opt = int(pulp.value(L))
+S_opt = int(pulp.value(S))
+obj_value = pulp.value(prob.objective)
+
+# Print solution details
+print(f"Large pills (L): {L_opt}")
+print(f"Small pills (S): {S_opt}")
+print(f"Total filler used: {obj_value}")
+
+# Required final objective print
+print(f"FINAL_OBJ: {obj_value}")

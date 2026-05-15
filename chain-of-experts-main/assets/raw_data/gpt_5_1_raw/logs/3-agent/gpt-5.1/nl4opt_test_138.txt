@@ -1,0 +1,126 @@
+[MODELER]:
+Model this as a linear optimization problem.
+
+### Decision variables
+Let  
+- \(x\) = number of smoothies  
+- \(y\) = number of protein bars  
+
+Both are assumed to be nonnegative:  
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+### Objective (maximize protein intake)
+- Each smoothie: 2 units of protein  
+- Each protein bar: 7 units of protein  
+
+Maximize total protein:
+\[
+\max\; Z = 2x + 7y
+\]
+
+### Constraints
+
+1. **Calorie constraint (at most 2000 calories)**  
+   - Smoothie: 300 calories  
+   - Protein bar: 250 calories  
+
+   Total calories:
+   \[
+   300x + 250y \le 2000
+   \]
+
+2. **“2 times more protein bars than smoothies”**  
+   This sentence is naturally interpreted in optimization problems as:
+   \[
+   y = 2x
+   \]
+
+   (If it meant “two more” rather than “twice as many,” it would be \(y = x + 2\); here we use the “twice as many” interpretation.)
+
+Substitute \(y = 2x\) into the calorie constraint:
+
+\[
+300x + 250(2x) \le 2000
+\]
+\[
+300x + 500x \le 2000
+\]
+\[
+800x \le 2000 \Rightarrow x \le 2.5
+\]
+
+Thus the feasible region (given this ratio must hold exactly) is:
+\[
+0 \le x \le 2.5,\quad y = 2x
+\]
+
+Protein in terms of \(x\):
+\[
+Z = 2x + 7(2x) = 2x + 14x = 16x
+\]
+
+To maximize \(Z\), choose the largest feasible \(x\): \(x = 2.5\), then:
+\[
+y = 2x = 5
+\]
+
+So:
+- Smoothies: \(x = 2.5\)  
+- Protein bars: \(y = 5\)  
+- Total calories: \(300(2.5) + 250(5) = 750 + 1250 = 2000\)  
+- Total protein: \(2(2.5) + 7(5) = 5 + 35 = 40\) units  
+
+If integer numbers of items are required, you would then consider nearby integer points satisfying the ratio approximately and staying within calories, but as stated, the continuous solution above is the optimum under the exact ratio.
+
+### Suitable Python libraries
+
+To solve this programmatically, any linear programming library works well:
+
+- `PuLP` (pure Python, easy for LP):  
+  - Define `LpVariable('x', lowBound=0)`, `LpVariable('y', lowBound=0)`  
+  - Add constraints `300*x + 250*y <= 2000`, `y == 2*x`  
+  - Objective `2*x + 7*y` with `LpMaximize`.
+
+- `scipy.optimize.linprog` (SciPy):  
+  - Objective coefficients: `c = [-2, -7]` (negated for maximization)  
+  - Inequality matrix for calories; equality for the ratio.
+
+- `ortools.linear_solver` (Google OR-Tools):  
+  - Similar formulation as above with `solver.Add()` for constraints and `solver.Maximize()` for the objective.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the linear programming problem: maximize protein
+    prob = pulp.LpProblem("Maximize_Protein", pulp.LpMaximize)
+
+    # Decision variables: number of smoothies (x) and protein bars (y)
+    x = pulp.LpVariable('x', lowBound=0, cat='Continuous')
+    y = pulp.LpVariable('y', lowBound=0, cat='Continuous')
+
+    # Objective function: Maximize 2x + 7y
+    prob += 2 * x + 7 * y, "Total_Protein"
+
+    # Constraints
+    # Calorie constraint: 300x + 250y <= 2000
+    prob += 300 * x + 250 * y <= 2000, "Calorie_Constraint"
+
+    # Ratio constraint: y = 2x
+    prob += y == 2 * x, "Ratio_Constraint"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract the optimal objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print the final objective value in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

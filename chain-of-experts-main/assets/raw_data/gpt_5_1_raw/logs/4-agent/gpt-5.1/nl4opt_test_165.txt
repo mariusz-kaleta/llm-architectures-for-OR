@@ -1,0 +1,181 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximize total profit from selling regular and deluxe tacos.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with two decision variables.
+
+3. Main decision variables  
+   - x1 = number of regular tacos to make (and sell)  
+   - x2 = number of deluxe tacos to make (and sell)  
+   - Both x1, x2 ≥ 0 and (depending on interpretation) can be modeled as continuous for LP or integers for an IP; but continuous LP is standard for this kind of textbook problem.
+
+4. Objective function (conceptual)  
+   - Maximize: 2.50·x1 + 3.55·x2  
+   This reflects profit per regular taco (2.50) and per deluxe taco (3.55).
+
+5. Key constraints to consider  
+
+   a) Demand/upper bounds by type  
+   - Regular tacos: at most 50 can be sold  
+     - x1 ≤ 50  
+   - Deluxe tacos: at most 40 can be sold  
+     - x2 ≤ 40  
+
+   b) Total supply/production capacity  
+   - Total tacos (regular + deluxe) cannot exceed 70  
+     - x1 + x2 ≤ 70  
+
+   c) Non-negativity  
+   - x1 ≥ 0  
+   - x2 ≥ 0  
+
+   d) (Optional) Integrality  
+   - If required to be realistic: x1, x2 are integers (number of tacos).  
+   - For standard LP treatment, they may be treated as continuous.
+
+6. Strategy for solving / modelling notes  
+
+   - Graphical LP solution is feasible (2 variables):
+     - Plot the feasible region defined by x1 ≤ 50, x2 ≤ 40, x1 + x2 ≤ 70, x1 ≥ 0, x2 ≥ 0.
+     - Evaluate the objective function at all corner (extreme) points of the feasible region.
+   - Candidate corner points (to be checked):  
+     - (0, 0)  
+     - (50, 0)  
+     - (0, 40)  
+     - (50, 20) from intersection of x1 = 50 and x1 + x2 = 70  
+     - (30, 40) from intersection of x2 = 40 and x1 + x2 = 70  
+   - Select the corner point with the maximum profit value.
+
+7. Interpretation for final answer  
+
+   - Once the best (x1, x2) is found:
+     - Report the number of regular tacos (x1) and deluxe tacos (x2) to produce.  
+     - Confirm that all constraints (demand and capacity) are satisfied.  
+     - Optionally compute and state the corresponding maximum profit.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model of the problem, followed by notes on how to solve it with Python.
+
+---
+
+### 1. Decision variables
+
+- \(x_1 \ge 0\): number of regular tacos to make (and sell)  
+- \(x_2 \ge 0\): number of deluxe tacos to make (and sell)
+
+(If you want integer counts of tacos, you can additionally require \(x_1, x_2 \in \mathbb{Z}\), but the core model is linear and works as an LP.)
+
+---
+
+### 2. Objective function
+
+Each regular taco earns \$2.50 profit; each deluxe taco earns \$3.55 profit.
+
+Maximize total profit:
+\[
+\max\; Z = 2.50\,x_1 + 3.55\,x_2
+\]
+
+---
+
+### 3. Constraints
+
+1. **Demand constraints (upper bounds by type)**  
+   At most 50 regular tacos can be sold:
+   \[
+   x_1 \le 50
+   \]
+   At most 40 deluxe tacos can be sold:
+   \[
+   x_2 \le 40
+   \]
+
+2. **Total supply / production capacity**  
+   Total tacos of all types cannot exceed 70:
+   \[
+   x_1 + x_2 \le 70
+   \]
+
+3. **Non-negativity**
+   \[
+   x_1 \ge 0,\quad x_2 \ge 0
+   \]
+
+4. **(Optional) Integrality**
+   \[
+   x_1, x_2 \in \mathbb{Z}
+   \]
+   if you require whole tacos. For most textbook LP treatments, this is omitted and \(x_1, x_2\) are allowed to be continuous.
+
+---
+
+### 4. Full model (compact form)
+
+\[
+\begin{aligned}
+\max_{x_1,x_2} \quad & 2.50\,x_1 + 3.55\,x_2 \\
+\text{s.t.}\quad
+& x_1 \le 50 \\
+& x_2 \le 40 \\
+& x_1 + x_2 \le 70 \\
+& x_1 \ge 0,\; x_2 \ge 0 \\
+& (\text{optionally } x_1, x_2 \in \mathbb{Z})
+\end{aligned}
+\]
+
+---
+
+### 5. Suitable Python libraries
+
+To implement and solve this model in Python, any standard LP/MIP library will work:
+
+- **PuLP**  
+  - Easy, pure-Python modeling interface.  
+  - Good for teaching and small/medium-sized problems.
+  - Example usage: `pulp.LpProblem`, `LpVariable`, `LpMaximize`.
+
+- **OR-Tools (Google OR-Tools)**  
+  - Very powerful, supports LP and MIP via `pywraplp`.  
+  - Good if you might extend to larger or more complex models.
+
+- **SciPy (`scipy.optimize.linprog`)**  
+  - Good for continuous LPs (no integrality).  
+  - Less convenient for explicit integer constraints.
+
+For a straightforward educational problem like this, **PuLP** or **OR-Tools** is typically the best choice.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the LP problem: maximize profit
+    prob = pulp.LpProblem("Taco_Production", pulp.LpMaximize)
+
+    # Decision variables: x1 = regular tacos, x2 = deluxe tacos
+    x1 = pulp.LpVariable('x1', lowBound=0, cat='Continuous')
+    x2 = pulp.LpVariable('x2', lowBound=0, cat='Continuous')
+
+    # Objective function: maximize 2.50 x1 + 3.55 x2
+    prob += 2.50 * x1 + 3.55 * x2
+
+    # Constraints
+    prob += x1 <= 50          # At most 50 regular tacos
+    prob += x2 <= 40          # At most 40 deluxe tacos
+    prob += x1 + x2 <= 70     # Total tacos at most 70
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print the result in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

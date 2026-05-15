@@ -1,0 +1,110 @@
+[MODELER]:
+Model (mixed-integer linear program)
+
+Decision variables
+- A ∈ Z, A ≥ 0 : number of doses of medicine A
+- B ∈ Z, B ≥ 0 : number of doses of medicine B
+
+Objective
+- Maximize number of people treated: maximize Z = 12A + 8B
+
+Constraints
+- Imported material: 30A + 40B ≤ 300
+- mRNA: 50A + 30B ≤ 400
+- Upper bound on A: A ≤ 5
+- B must be larger than A (strict): B ≥ A + 1
+- Integrality: A, B are integers
+
+Mathematical formulation
+Maximize Z = 12A + 8B
+subject to
+3A + 4B ≤ 30
+5A + 3B ≤ 40
+0 ≤ A ≤ 5, A ∈ Z
+B ≥ A + 1, B ∈ Z
+
+Solution (by enumeration or MILP solver)
+Feasible integer solutions (A = 0..5) give the optimum at
+A = 3, B = 5 → Z = 12·3 + 8·5 = 76 people treated.
+
+Check: imported = 30·3 + 40·5 = 290 ≤ 300; mRNA = 50·3 + 30·5 = 300 ≤ 400; B > A holds.
+
+Recommended Python tools
+- pulp (simple MILP modeling with CBC solver)
+- ortools CP-SAT (very good for integer/CP problems)
+- pyomo (more advanced modeling; can use many solvers)
+- commercial solvers: Gurobi, CPLEX (if available)
+
+Example (pulp) snippet
+from pulp import LpProblem, LpMaximize, LpVariable, LpInteger, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("medicines", LpMaximize)
+A = LpVariable("A", lowBound=0, upBound=5, cat=LpInteger)
+B = LpVariable("B", lowBound=0, cat=LpInteger)
+
+prob += 12*A + 8*B                     # objective
+prob += 30*A + 40*B <= 300             # imported material
+prob += 50*A + 30*B <= 400             # mRNA
+prob += B >= A + 1                     # B must be larger than A
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print("A =", int(A.value()), "B =", int(B.value()), "People =", int(12*A.value() + 8*B.value()))
+
+This will return A = 3, B = 5 (optimal).
+
+If you want, I can provide an OR-Tools CP-SAT implementation or run a brief sensitivity check (e.g., what changes if the strict inequality is relaxed).
+
+---
+
+[CODER]:
+#!/usr/bin/env python3
+# Self-contained solver by enumeration for the given MILP.
+# Decision variables:
+#   A ∈ Z, 0 ≤ A ≤ 5
+#   B ∈ Z, B ≥ A + 1
+# Objective:
+#   maximize 12*A + 8*B
+# Constraints:
+#   30*A + 40*B ≤ 300
+#   50*A + 30*B ≤ 400
+
+def solve():
+    best_obj = None
+    best_A = None
+    best_B = None
+
+    for A in range(0, 6):  # A = 0..5
+        # compute upper bounds for B from constraints (floored)
+        # 30A + 40B <= 300  -> B <= (300 - 30A) // 40
+        # 50A + 30B <= 400  -> B <= (400 - 50A) // 30
+        ub1 = (300 - 30 * A) // 40
+        ub2 = (400 - 50 * A) // 30
+        B_max = min(ub1, ub2)
+        # B must be at least A+1
+        B_min = A + 1
+        if B_max < B_min:
+            continue
+        for B in range(B_min, B_max + 1):
+            # verify constraints just in case
+            if 30 * A + 40 * B > 300:
+                continue
+            if 50 * A + 30 * B > 400:
+                continue
+            obj = 12 * A + 8 * B
+            if (best_obj is None) or (obj > best_obj):
+                best_obj = obj
+                best_A = A
+                best_B = B
+
+    # In case no feasible solution found (shouldn't happen here), set to 0
+    if best_obj is None:
+        best_obj = 0
+        best_A = 0
+        best_B = 0
+
+    return best_obj, best_A, best_B
+
+if __name__ == "__main__":
+    best_obj, best_A, best_B = solve()
+    # Final required output line (must be the last printed line)
+    print(f"FINAL_OBJ: {int(best_obj)}")

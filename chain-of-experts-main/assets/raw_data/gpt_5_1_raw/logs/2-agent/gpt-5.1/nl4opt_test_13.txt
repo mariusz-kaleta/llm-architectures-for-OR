@@ -1,0 +1,146 @@
+[MODELER]:
+Here is a mathematical optimization model of the problem.
+
+## Decision variables
+
+Let  
+- \(x_1 \ge 0\): minutes of Beam 1  
+- \(x_2 \ge 0\): minutes of Beam 2  
+
+These are the quantities we want to determine.
+
+## Data (from the problem)
+
+Per minute doses:
+
+- To pancreas (benign):
+  - Beam 1: 0.3 units/min
+  - Beam 2: 0.2 units/min
+
+- To skin (benign):
+  - Beam 1: 0.2 units/min
+  - Beam 2: 0.1 units/min
+
+- To tumor:
+  - Beam 1: 0.6 units/min
+  - Beam 2: 0.4 units/min
+
+Dose limits:
+
+- Skin: at most 4 units  
+- Tumor: at least 3 units  
+
+## Objective function
+
+We want to **minimize the total radiation to the pancreas**.
+
+Total pancreas dose:
+\[
+\text{Pancreas dose} = 0.3x_1 + 0.2x_2
+\]
+
+Objective:
+\[
+\min\; Z = 0.3x_1 + 0.2x_2
+\]
+
+## Constraints
+
+### 1. Skin dose constraint (at most 4 units)
+
+Total skin dose:
+\[
+0.2x_1 + 0.1x_2 \le 4
+\]
+
+### 2. Tumor dose constraint (at least 3 units)
+
+Total tumor dose:
+\[
+0.6x_1 + 0.4x_2 \ge 3
+\]
+
+### 3. Nonnegativity
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+## Complete linear program
+
+\[
+\begin{aligned}
+\min\quad & 0.3x_1 + 0.2x_2 \\
+\text{s.t.}\quad 
+& 0.2x_1 + 0.1x_2 \le 4 \quad \text{(skin limit)} \\
+& 0.6x_1 + 0.4x_2 \ge 3 \quad \text{(tumor minimum)} \\
+& x_1 \ge 0, \; x_2 \ge 0
+\end{aligned}
+\]
+
+This is a **linear programming (LP)** problem.
+
+## Suitable Python libraries
+
+You can model and solve this LP using, for example:
+
+- **PuLP** (`pulp`): simple, pure-Python LP modeling library
+- **OR-Tools** (`ortools.linear_solver`): Google's optimization suite with LP/MIP solvers
+- **SciPy** (`scipy.optimize.linprog`): generic LP solver (good for smaller problems)
+
+### Example with PuLP (structure)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Radiation_Treatment", pl.LpMinimize)
+
+# Variables
+x1 = pl.LpVariable("x1", lowBound=0)  # minutes of Beam 1
+x2 = pl.LpVariable("x2", lowBound=0)  # minutes of Beam 2
+
+# Objective
+prob += 0.3 * x1 + 0.2 * x2
+
+# Constraints
+prob += 0.2 * x1 + 0.1 * x2 <= 4      # skin
+prob += 0.6 * x1 + 0.4 * x2 >= 3      # tumor
+
+# Solve
+prob.solve()
+
+print("Minutes of Beam 1:", x1.value())
+print("Minutes of Beam 2:", x2.value())
+print("Minimum pancreas dose:", pl.value(prob.objective))
+```
+
+This code directly corresponds to the mathematical model above.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Radiation_Treatment", pl.LpMinimize)
+
+# Decision variables
+x1 = pl.LpVariable("x1", lowBound=0)  # minutes of Beam 1
+x2 = pl.LpVariable("x2", lowBound=0)  # minutes of Beam 2
+
+# Objective function: minimize pancreas dose
+prob += 0.3 * x1 + 0.2 * x2
+
+# Constraints
+prob += 0.2 * x1 + 0.1 * x2 <= 4      # skin dose constraint
+prob += 0.6 * x1 + 0.4 * x2 >= 3      # tumor dose constraint
+
+# Solve the problem
+prob.solve()
+
+# Extract objective value
+final_obj = pl.value(prob.objective)
+
+# Print the final objective in required format
+print(f"FINAL_OBJ: {final_obj}")

@@ -1,0 +1,41 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization (from problem description)
+prod_counter = 80    # cones per day from counter-top machine
+prod_fridge  = 150   # cones per day from fridge-sized machine
+
+heat_counter = 50    # heat units from counter-top machine
+heat_fridge  = 70    # heat units from fridge-sized machine
+
+max_heat = 500       # max heat units per day
+min_production = 1000  # required cones per day
+
+# Define the integer linear program
+prob = pulp.LpProblem("Minimize_number_of_machines", pulp.LpMinimize)
+
+# Decision variables: number of each machine (nonnegative integers)
+x = pulp.LpVariable("num_counter_top", lowBound=0, cat='Integer')  # counter-top machines
+y = pulp.LpVariable("num_fridge", lowBound=0, cat='Integer')       # fridge-sized machines
+
+# Objective: minimize total number of machines
+prob += x + y, "Total_machines"
+
+# Constraints
+prob += prod_counter * x + prod_fridge * y >= min_production, "Production_requirement"
+prob += heat_counter * x + heat_fridge * y <= max_heat, "Heat_limit"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Retrieve solution values
+x_val = int(pulp.value(x))
+y_val = int(pulp.value(y))
+obj_val = int(pulp.value(prob.objective))
+
+# Print results (counts first), final line MUST be the FINAL_OBJ line
+print(f"Counter-top machines (x): {x_val}")
+print(f"Fridge-sized machines (y): {y_val}")
+print(f"Total machines: {obj_val}")
+print(f"FINAL_OBJ: {obj_val}")

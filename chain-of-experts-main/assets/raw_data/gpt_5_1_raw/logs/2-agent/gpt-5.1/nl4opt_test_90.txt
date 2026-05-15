@@ -1,0 +1,144 @@
+[MODELER]:
+Here is a clean optimization model for this problem.
+
+### 1. Decision variables
+
+Let  
+- \(x_1 \ge 0\): number of regular models produced per day  
+- \(x_2 \ge 0\): number of premium models produced per day  
+
+Because they are cars, we implicitly want integer values, but the linear relaxation will already give integer solutions in this small problem.
+
+### 2. Objective function
+
+Maximize daily profit:
+
+\[
+\max \; Z = 5000 x_1 + 8500 x_2
+\]
+
+### 3. Constraints
+
+1. Demand limits:
+   - At most 8 regular models:
+     \[
+     x_1 \le 8
+     \]
+   - At most 6 premium models:
+     \[
+     x_2 \le 6
+     \]
+
+2. Total production capacity (at most 12 cars of either type combined):
+   \[
+   x_1 + x_2 \le 12
+   \]
+
+3. Non-negativity:
+   \[
+   x_1 \ge 0,\quad x_2 \ge 0
+   \]
+
+If you want integrality:
+\[
+x_1, x_2 \in \mathbb{Z}_{\ge 0}
+\]
+
+### 4. Optimal solution (by reasoning)
+
+Premium models give more profit per car (8500 vs 5000), so we prioritize premiums subject to constraints:
+
+- Maximum premium: \(x_2 \le 6\) → take \(x_2 = 6\) if possible.
+- Then we can still produce: \(12 - 6 = 6\) regular cars without violating total capacity.
+- That respects \(x_1 \le 8\), so \(x_1 = 6\) is feasible.
+
+Check profit:
+\[
+Z = 5000 \cdot 6 + 8500 \cdot 6
+  = 30000 + 51000
+  = 81000
+\]
+
+Try extreme alternatives:
+- All regular (subject to constraints): \(x_1 = 8, x_2 = 0 \Rightarrow Z = 8 \cdot 5000 = 40000\)
+- All premium (subject to constraints): \(x_1 = 0, x_2 = 6 \Rightarrow Z = 6 \cdot 8500 = 51000\)
+
+Both are less than 81,000, so the optimal plan is:
+
+- Regular models: \(x_1^\* = 6\)  
+- Premium models: \(x_2^\* = 6\)  
+- Maximum daily profit: \$81,000
+
+---
+
+### 5. How to solve with Python
+
+This is a linear programming (LP) problem. Suitable libraries:
+
+- `pulp` (Python-MIP wrapper for LP/MIP; very simple syntax)
+- `ortools.linear_solver` (Google OR-Tools; fast and robust)
+- `scipy.optimize.linprog` (for continuous LP; will also work here)
+
+Example using PuLP:
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Car_Production", pl.LpMaximize)
+
+# Decision variables (nonnegative, integer if desired)
+x1 = pl.LpVariable('x1', lowBound=0, cat='Integer')  # regular
+x2 = pl.LpVariable('x2', lowBound=0, cat='Integer')  # premium
+
+# Objective
+prob += 5000 * x1 + 8500 * x2
+
+# Constraints
+prob += x1 <= 8          # demand for regular
+prob += x2 <= 6          # demand for premium
+prob += x1 + x2 <= 12    # total capacity
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("x1 (regular):", x1.value())
+print("x2 (premium):", x2.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This will return \(x_1 = 6\), \(x_2 = 6\), and profit 81000.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Car_Production", pl.LpMaximize)
+
+    # Decision variables (nonnegative integers)
+    x1 = pl.LpVariable('x1', lowBound=0, cat='Integer')  # regular models
+    x2 = pl.LpVariable('x2', lowBound=0, cat='Integer')  # premium models
+
+    # Objective function: maximize profit
+    prob += 5000 * x1 + 8500 * x2
+
+    # Constraints
+    prob += x1 <= 8          # demand for regular
+    prob += x2 <= 6          # demand for premium
+    prob += x1 + x2 <= 12    # total capacity
+
+    # Solve the problem
+    prob.solve()
+
+    # Get the objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print only the final objective in the specified format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

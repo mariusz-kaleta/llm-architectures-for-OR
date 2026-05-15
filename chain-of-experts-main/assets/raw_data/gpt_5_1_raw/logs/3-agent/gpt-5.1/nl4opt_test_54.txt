@@ -1,0 +1,176 @@
+[MODELER]:
+This is a classic linear programming (LP) problem.
+
+### 1. Decision variables
+
+Let  
+- \(x\) = number of glasses of milk per day  
+- \(y\) = number of plates of vegetables per day  
+
+We assume \(x, y \ge 0\) and they can be fractional (e.g., half a glass), unless the problem explicitly requires integers.
+
+### 2. Objective function (minimize cost)
+
+Cost:
+- Milk: \$1 per glass → total cost from milk = \(1x\)
+- Vegetables: \$2 per plate → total cost from vegetables = \(2y\)
+
+Minimize total daily cost:
+\[
+\min z = x + 2y
+\]
+
+### 3. Constraints
+
+Nutrient requirements:
+
+- **Calcium**: at least 100 units  
+  - Milk: 40 units per glass → \(40x\)
+  - Vegetables: 15 units per plate → \(15y\)  
+  Constraint:
+  \[
+  40x + 15y \ge 100
+  \]
+
+- **Iron**: at least 50 units  
+  - Milk: 25 units per glass → \(25x\)
+  - Vegetables: 30 units per plate → \(30y\)  
+  Constraint:
+  \[
+  25x + 30y \ge 50
+  \]
+
+Nonnegativity:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+### 4. Solve analytically (for understanding)
+
+The optimum for a 2-variable LP typically occurs at a corner (intersection of constraints or axes).
+
+Use the iron constraint at equality (it will clearly be binding; vegetables are more expensive per iron unit):
+
+\[
+25x + 30y = 50 \;\Rightarrow\; y = \frac{50 - 25x}{30}
+\]
+
+Substitute into the calcium constraint and objective and compare corner points:
+
+1. **Only milk (y = 0)**  
+   - Iron: \(25x \ge 50 \Rightarrow x \ge 2\)  
+   - Calcium: \(40x \ge 100 \Rightarrow x \ge 2.5\)  
+   So \(x=2.5, y=0\) satisfies both.  
+   Cost: \(z = 2.5 + 2\cdot 0 = 2.5\)
+
+2. **Only vegetables (x = 0)**  
+   - Iron: \(30y \ge 50 \Rightarrow y \ge \frac{50}{30} \approx 1.667\)  
+   - Calcium: \(15y \ge 100 \Rightarrow y \ge \frac{100}{15} \approx 6.667\)  
+   So \(x=0, y=6.667\) approx. satisfies both.  
+   Cost: \(z \approx 0 + 2\cdot 6.667 \approx 13.33\)  (much more expensive)
+
+3. **Intersection of calcium and iron constraints**  
+   Solve:
+   \[
+   \begin{cases}
+   40x + 15y = 100 \\
+   25x + 30y = 50
+   \end{cases}
+   \]
+
+   From the second: \(x = 2 - 1.2y\). Substitute in the first:
+   \[
+   40(2 - 1.2y) + 15y = 100 \Rightarrow
+   80 - 48y + 15y = 100 \Rightarrow
+   -33y = 20 \Rightarrow
+   y = -\frac{20}{33} < 0
+   \]
+   This is infeasible (negative vegetables), so the intersection is outside the feasible region.
+
+Thus, the best feasible corner is \(x=2.5, y=0\) with minimum cost \$2.50.
+
+**Optimal solution:**
+- Glasses of milk: \(x^* = 2.5\)  
+- Plates of vegetables: \(y^* = 0\)  
+- Minimum daily cost: \$2.50
+
+If integer quantities were required, you would test nearby integer points:  
+- \((x, y) = (3, 0)\): calcium = 120, iron = 75, cost = \$3 — this would be the best integer solution.
+
+---
+
+### 5. Python modeling suggestion
+
+You can model and solve this with any LP solver. Popular choices:
+
+- `pulp` (simple, pure Python)
+- `scipy.optimize.linprog`
+- `ortools.linear_solver` from Google OR-Tools
+
+Example using `pulp`:
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Nutrition_Cost_Minimization", pl.LpMinimize)
+
+# Variables (continuous, >=0)
+x = pl.LpVariable('milk_glasses', lowBound=0)
+y = pl.LpVariable('veg_plates', lowBound=0)
+
+# Objective: minimize cost
+prob += x + 2*y
+
+# Constraints
+prob += 40*x + 15*y >= 100   # Calcium
+prob += 25*x + 30*y >= 50    # Iron
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Milk glasses =", x.value())
+print("Vegetable plates =", y.value())
+print("Minimum cost =", pl.value(prob.objective))
+```
+
+This will return approximately:
+- `Milk glasses = 2.5`
+- `Vegetable plates = 0.0`
+- `Minimum cost = 2.5`
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the LP problem: minimize cost
+    prob = pl.LpProblem("Nutrition_Cost_Minimization", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('milk_glasses', lowBound=0)     # number of glasses of milk
+    y = pl.LpVariable('veg_plates', lowBound=0)       # number of plates of vegetables
+
+    # Objective function: minimize cost = 1*x + 2*y
+    prob += x + 2 * y
+
+    # Constraints
+    # Calcium: 40x + 15y >= 100
+    prob += 40 * x + 15 * y >= 100
+
+    # Iron: 25x + 30y >= 50
+    prob += 25 * x + 30 * y >= 50
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract the optimal objective value
+    optimal_cost = pl.value(prob.objective)
+
+    # Print the final objective value in the required format
+    print(f"FINAL_OBJ: {optimal_cost}")
+
+if __name__ == "__main__":
+    main()

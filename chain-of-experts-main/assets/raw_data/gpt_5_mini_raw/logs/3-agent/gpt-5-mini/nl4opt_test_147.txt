@@ -1,0 +1,77 @@
+[MODELER]:
+Problem formulation (mixed-integer linear program)
+
+Decision variables
+- x = number of cars (integer, x >= 0)
+- y = number of buses (integer, 0 <= y <= 4)
+
+Parameters
+- car capacity = 4 persons, car pollution = 10 units
+- bus capacity = 20 persons, bus pollution = 30 units
+- required passengers >= 300
+- bus upper bound = 4
+
+Objective
+- Minimize total pollution: minimize P = 10 x + 30 y
+
+Constraints
+1. Transport requirement: 4 x + 20 y >= 300
+2. Bus limit: 0 <= y <= 4
+3. Integrality: x, y integer and x >= 0
+
+Solution reasoning (short)
+- Pollution per person: car = 10/4 = 2.5, bus = 30/20 = 1.5. Buses are more pollution-efficient, so use as many buses as allowed (y = 4).
+- With y = 4, capacity from buses = 80 persons, remaining need = 300 − 80 = 220, so cars needed x = ceil(220/4) = 55.
+- Total pollution = 10*55 + 30*4 = 550 + 120 = 670 units.
+
+Check integer alternatives (y = 0..4) gives higher pollution, so optimal integer solution is:
+- y = 4 buses and x = 55 cars, total pollution = 670 units.
+
+Suggested solver approaches / Python libraries
+- For small integer problems: simple enumeration over y = 0..4 and compute x = ceil((300−20*y)/4).
+- MILP libraries if preferred:
+  - PuLP (easy to formulate and solve small MILPs)
+  - OR-Tools CP-SAT (robust integer solver)
+  - cvxpy with an integer backend (less common for MILP)
+Example (sketch) using PuLP:
+- Define integer variables x, y
+- Add constraints 4*x + 20*y >= 300, 0 <= y <= 4
+- Minimize 10*x + 30*y
+- Solve → yields x=55, y=4
+
+Answer
+Use 55 cars and 4 buses; total pollution = 670 units.
+
+---
+
+[CODER]:
+import math
+
+# Problem parameters
+cap_car = 4
+pol_car = 10
+cap_bus = 20
+pol_bus = 30
+demand = 300
+y_max = 4
+
+best_obj = float('inf')
+best_x = None
+best_y = None
+
+for y in range(0, y_max + 1):
+    remaining = demand - cap_bus * y
+    if remaining <= 0:
+        x = 0
+    else:
+        x = math.ceil(remaining / cap_car)
+    if x < 0:
+        x = 0
+    obj = pol_car * x + pol_bus * y
+    if obj < best_obj:
+        best_obj = obj
+        best_x = x
+        best_y = y
+
+# At the very end, print the final objective value in the required format
+print(f"FINAL_OBJ: {best_obj}")

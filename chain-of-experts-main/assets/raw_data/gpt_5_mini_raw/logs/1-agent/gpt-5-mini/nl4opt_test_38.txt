@@ -1,0 +1,47 @@
+[MONOLITH]:
+import math
+
+# Data (from the problem)
+capacity_bus = 100      # chickens per bus trip
+time_bus = 2.0          # hours per bus trip
+capacity_car = 40       # chickens per car trip
+time_car = 1.5          # hours per car trip
+max_bus_trips = 10
+required_chickens = 1200
+min_car_fraction = 0.60  # at least 60% of trips must be by car
+
+best_time = None
+best_b = None
+best_c = None
+
+# Search over possible integer numbers of bus trips (0..max_bus_trips)
+for b in range(0, max_bus_trips + 1):
+    # Minimum cars required by the "at least 60% of trips by car" constraint:
+    # c >= 0.6*(b+c) -> 0.4*c >= 0.6*b -> c >= 1.5*b
+    c_min_ratio = math.ceil(1.5 * b)
+    # Minimum cars required by capacity constraint:
+    chickens_after_buses = required_chickens - capacity_bus * b
+    if chickens_after_buses <= 0:
+        c_min_capacity = 0
+    else:
+        c_min_capacity = math.ceil(chickens_after_buses / capacity_car)
+    # Overall minimum cars needed
+    c = max(c_min_ratio, c_min_capacity, 0)
+    # Compute total time for this combination
+    total_time = time_bus * b + time_car * c
+    # Feasibility check (should be redundant given construction)
+    if capacity_bus * b + capacity_car * c < required_chickens:
+        continue
+    if c < math.ceil(min_car_fraction * (b + c) - 1e-9):
+        continue
+    # Update best solution
+    if best_time is None or total_time < best_time - 1e-9:
+        best_time = total_time
+        best_b = b
+        best_c = c
+
+# Output results
+print(f"Optimal bus trips: {best_b}")
+print(f"Optimal car trips: {best_c}")
+print(f"Total time (hours): {best_time}")
+print(f"FINAL_OBJ: {best_time}")

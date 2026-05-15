@@ -1,0 +1,197 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximize the total number of flowers transported to stores.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with two integer decision variables (can be treated as continuous for solving, then checked for integrality since bounds are small).
+
+3. Main decision variables  
+   Define:
+   - x = number of small bouquets transported  
+   - y = number of large bouquets transported  
+
+   Objective (conceptual):
+   - Maximize total flowers = 5·x + 10·y
+
+4. Key constraints to consider  
+
+   Capacity / limit constraints:
+   - Small bouquet capacity: x cannot exceed 80.
+   - Large bouquet capacity: y cannot exceed 50.
+   - Total bouquet limit: total bouquets transported (x + y) cannot exceed 70.
+
+   Demand / business rules:
+   - Minimum large bouquets: y must be at least 20.
+   - Popularity requirement: the number of small bouquets must be at least twice the number of large bouquets → x ≥ 2·y.
+
+   Non-negativity and integrality:
+   - x ≥ 0, y ≥ 0.
+   - x and y must be integers (bouquets are indivisible).
+
+5. Modelling strategy / notes for the Modeller  
+   - Use a simple 2-variable LP formulation with the above objective and constraints.  
+   - Solve graphically or with an LP solver; perform a corner-point/feasibility analysis (since it’s a 2D problem) to identify the optimal combination.  
+   - Ensure integer solutions; because the feasible region is small and bounded, checking integrality around the optimal LP corner solution is straightforward.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem and how you would implement/solve it.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x \in \mathbb{Z}_{\ge 0}\): number of small bouquets transported  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of large bouquets transported  
+
+---
+
+## 2. Objective function
+
+Each small bouquet has 5 flowers, each large bouquet has 10 flowers.
+
+Maximize the total number of flowers transported:
+\[
+\max \; Z = 5x + 10y
+\]
+
+---
+
+## 3. Constraints
+
+### Capacity constraints
+- At most 80 small bouquets:
+  \[
+  x \le 80
+  \]
+- At most 50 large bouquets:
+  \[
+  y \le 50
+  \]
+- At most 70 bouquets in total:
+  \[
+  x + y \le 70
+  \]
+
+### Business / demand constraints
+- At least 20 large bouquets:
+  \[
+  y \ge 20
+  \]
+- Small bouquets at least twice the large bouquets:
+  \[
+  x \ge 2y
+  \]
+
+### Domain constraints
+- Non‑negativity and integrality:
+  \[
+  x, y \in \mathbb{Z}, \quad x \ge 0, \; y \ge 0
+  \]
+
+---
+
+## 4. Complete formal model
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 5x + 10y \\
+\text{subject to} \quad
+& x \le 80, \\
+& y \le 50, \\
+& x + y \le 70, \\
+& y \ge 20, \\
+& x \ge 2y, \\
+& x \in \mathbb{Z}_{\ge 0},\ y \in \mathbb{Z}_{\ge 0}.
+\end{aligned}
+\]
+
+This is a 2‑variable integer linear program (ILP). If you relax integrality and solve as an LP, you should then check that the optimal solution satisfies integer requirements (here, the feasible region is small and bounded, so that’s straightforward).
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard LP/ILP solver will handle this instantly:
+
+- **PuLP**  
+  - High‑level Python interface; can use CBC (built‑in), GLPK, Gurobi, CPLEX, etc.
+  - Very convenient for small educational models like this.
+- **OR‑Tools (Google)**  
+  - `ortools.linear_solver.pywraplp` for LP/MIP.
+- **Pyomo**  
+  - More general modeling framework, good for extensible models.
+- For pure continuous LP (if you ignore integrality):  
+  - `scipy.optimize.linprog` (but it does not handle integrality directly).
+
+---
+
+## 6. Example PuLP implementation (ILP)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("FloristBouquets", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable("x_small", lowBound=0, cat="Integer")
+y = pl.LpVariable("y_large", lowBound=0, cat="Integer")
+
+# Objective
+prob += 5 * x + 10 * y, "TotalFlowers"
+
+# Constraints
+prob += x <= 80, "SmallCapacity"
+prob += y <= 50, "LargeCapacity"
+prob += x + y <= 70, "TotalBouquets"
+prob += y >= 20, "MinLarge"
+prob += x >= 2 * y, "SmallAtLeastTwiceLarge"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[pl.value(prob.status)])
+print("x (small bouquets) =", pl.value(x))
+print("y (large bouquets) =", pl.value(y))
+print("Total flowers =", pl.value(5 * x + 10 * y))
+```
+
+This code directly encodes the mathematical model above and will return the optimal integer numbers of small and large bouquets.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("FloristBouquets", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable("x_small", lowBound=0, cat="Integer")
+    y = pl.LpVariable("y_large", lowBound=0, cat="Integer")
+
+    # Objective function: maximize total number of flowers
+    prob += 5 * x + 10 * y, "TotalFlowers"
+
+    # Constraints
+    prob += x <= 80, "SmallCapacity"
+    prob += y <= 50, "LargeCapacity"
+    prob += x + y <= 70, "TotalBouquets"
+    prob += y >= 20, "MinLarge"
+    prob += x >= 2 * y, "SmallAtLeastTwiceLarge"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    value = pl.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {value}")
+
+if __name__ == "__main__":
+    main()

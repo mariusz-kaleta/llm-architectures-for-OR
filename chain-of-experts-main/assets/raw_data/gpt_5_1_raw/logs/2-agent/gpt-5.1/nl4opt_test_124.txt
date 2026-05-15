@@ -1,0 +1,146 @@
+[MODELER]:
+Let’s turn this into a formal optimization model.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of high-intensity drills used  
+- \(y\) = number of low-intensity drills used  
+
+Both must be nonnegative integers:
+- \(x \ge 0,\; y \ge 0\)
+- \(x, y \in \mathbb{Z}\)
+
+## 2. Objective
+
+Minimize the total number of drills:
+\[
+\min \; Z = x + y
+\]
+
+## 3. Constraints
+
+### a) Gem-processing requirement
+
+Each high-intensity drill processes 50 gems/day, each low-intensity drill processes 30 gems/day. We must process at least 800 gems/day:
+\[
+50x + 30y \;\ge\; 800
+\]
+
+### b) Water availability
+
+Each high-intensity drill uses 50 units of water/day, each low-intensity drill uses 20 units/day. We have at most 700 units/day:
+\[
+50x + 20y \;\le\; 700
+\]
+
+### c) Noise constraint (at most 40% high-intensity)
+
+At most 40% of the drills can be high intensity:
+\[
+\frac{x}{x + y} \;\le\; 0.4, \quad x + y > 0
+\]
+
+Rewriting this in linear form (assuming \(x + y > 0\), which is implied if we must process 800 gems):
+
+\[
+x \le 0.4(x + y)  
+\Rightarrow x \le 0.4x + 0.4y  
+\Rightarrow 0.6x \le 0.4y  
+\Rightarrow 3x \le 2y
+\]
+
+So:
+\[
+3x \le 2y
+\]
+
+### d) Minimum number of low-intensity drills
+
+At least 10 low-intensity drills must be used:
+\[
+y \;\ge\; 10
+\]
+
+### e) Nonnegativity and integrality
+
+\[
+x \ge 0, \quad y \ge 0, \quad x, y \in \mathbb{Z}
+\]
+
+## 4. Full model summary
+
+\[
+\begin{aligned}
+\min\quad & x + y \\
+\text{s.t.}\quad
+& 50x + 30y \ge 800 \quad &\text{(gems)} \\
+& 50x + 20y \le 700 \quad &\text{(water)} \\
+& 3x \le 2y \quad &\text{(≤ 40% high-intensity)} \\
+& y \ge 10 \quad &\text{(min low-intensity)} \\
+& x, y \ge 0,\; x, y \in \mathbb{Z}
+\end{aligned}
+\]
+
+This is a 2-variable integer linear program (ILP).
+
+---
+
+## 5. Suitable Python libraries
+
+You can model and solve this ILP with any standard MILP/LP library. Some good choices:
+
+- **PuLP** (pure Python, easy syntax, works with CBC or other solvers):
+  - `pulp.LpProblem`, `pulp.LpVariable`, `LpMinimize`
+- **OR-Tools** (Google, very efficient CP-SAT / MIP solver):
+  - `ortools.linear_solver.pywraplp` or `ortools.sat.python.cp_model`
+- **Pyomo** (more general, algebraic modeling language in Python):
+  - Suitable if you plan larger or more complex models.
+- **SciPy**: not ideal here because:
+  - `scipy.optimize.linprog` handles linear programs but **not integer** constraints.
+  - For integrality, prefer PuLP or OR-Tools.
+
+For this specific small discrete optimization, **PuLP** or **OR-Tools CP-SAT** are the most straightforward choices.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def main():
+    # Create the problem
+    prob = pulp.LpProblem("Drill_Optimization", pulp.LpMinimize)
+
+    # Decision variables: nonnegative integers
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # high-intensity drills
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # low-intensity drills
+
+    # Objective: minimize total number of drills
+    prob += x + y
+
+    # Constraints
+    # Gems: 50x + 30y >= 800
+    prob += 50 * x + 30 * y >= 800
+
+    # Water: 50x + 20y <= 700
+    prob += 50 * x + 20 * y <= 700
+
+    # Noise: 3x <= 2y
+    prob += 3 * x <= 2 * y
+
+    # Minimum low-intensity drills: y >= 10
+    prob += y >= 10
+
+    # Solve
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    if pulp.LpStatus[prob.status] != 'Optimal':
+        final_obj = None
+    else:
+        final_obj = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

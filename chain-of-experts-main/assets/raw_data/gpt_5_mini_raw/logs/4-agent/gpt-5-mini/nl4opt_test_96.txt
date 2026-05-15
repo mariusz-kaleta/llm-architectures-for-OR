@@ -1,0 +1,227 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Minimise the man's total cholesterol intake.
+
+2) Suggested model type
+- Model: Linear Programming (LP). Because objective and all constraints are linear and there are only two product types, the optimum will occur at a corner of the feasible region; a graphical method or simplex is appropriate. Note: if the modeller requires food counts to be whole items, treat variables as integer and solve as an integer LP (or solve the LP relaxation and then check nearby integer points).
+
+3) Main decision variables
+- Number of burgers to eat (non‑negative).
+- Number of pizza slices to eat (non‑negative).
+
+(Indicate whether these variables are integer if whole pieces are required.)
+
+4) Key constraints to consider (described verbally)
+- Fat requirement: the combined fat from burgers and pizza must meet or exceed the required units of fat.
+- Calorie requirement: the combined calories from burgers and pizza must meet or exceed the required calories.
+- Pizza-to-burger ratio: the number of pizza slices eaten must be at least twice the number of burgers.
+- Non‑negativity: cannot eat negative amounts.
+- Integrality (optional): if you require whole burgers and slices, enforce integer variables.
+
+5) Recommended modelling and solution workflow for the Modeller
+- Step A — Formalise the LP in variables described above (write objective as total cholesterol and list the constraints in numeric form).
+- Step B — Solve the LP relaxation (continuous variables). Because the problem has two variables, use a graphical method or compute all corner intersections of the active constraints to find the minimum.
+- Step C — If integer solutions are required, inspect the LP optimum. If it is non‑integer, evaluate integer points near the LP optimum and any adjacent feasible corner integer points to find the integer optimum (or solve as an ILP).
+- Step D — Verify the chosen solution satisfies all constraints and report the minimum cholesterol and the corresponding counts of burgers and pizza slices.
+- Step E — Provide sensitivity notes: check whether small changes in the requirements (fat or calories) or in the pizza≥2×burger constraint alter the optimal mix.
+
+6) Practical notes for the Modeller
+- Because pizza has lower cholesterol per piece than burgers, expect the optimal solution to favour pizza subject to meeting fat and calorie requirements and the pizza≥2×burger constraint.
+- The optimum must lie on at least two active constraints (an intersection), so enumerate intersections among the fat constraint, the calorie constraint, the pizza≥2×burger boundary, and non‑negativity axes when searching for candidates.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- b = number of burgers eaten (b >= 0). If whole items required, b ∈ Z>=0.
+- p = number of pizza slices eaten (p >= 0). If whole items required, p ∈ Z>=0.
+
+Objective
+- Minimise total cholesterol: minimize Z = 12 b + 10 p.
+
+Constraints (numeric)
+1. Fat requirement: 10 b + 8 p >= 130.
+2. Calorie requirement: 300 b + 250 p >= 3000.
+3. Pizza-to-burger ratio: p >= 2 b.
+4. Non-negativity: b >= 0, p >= 0.
+(Optionally add integrality: b, p integer.)
+
+Summary (LP)
+minimize    Z = 12 b + 10 p
+subject to  10 b + 8 p >= 130
+            300 b + 250 p >= 3000
+            p - 2 b >= 0
+            b, p >= 0  (and integer if required)
+
+Solving the LP (two-variable analysis)
+- Because there are only two variables, the optimum occurs at the intersection of two active constraints (a corner).
+- Check the binding constraints. If p = 2 b (ratio binding) and fat binds: 10 b + 8(2 b) = 26 b = 130 ⇒ b = 130/26 = 5, p = 10.
+- Verify calories: 300·5 + 250·10 = 1500 + 2500 = 4000 ≥ 3000 (calorie constraint satisfied, with slack).
+- Objective value: Z = 12·5 + 10·10 = 60 + 100 = 160.
+
+Compare other corners quickly:
+- If b = 0, the fat/calo constraints require p ≥ 16.25 (fat) and p ≥ 12 (calories) ⇒ p = 16.25, Z = 162.5 (worse).
+- Intersection of fat and calorie constraints gives negative p (infeasible).
+- Thus the continuous LP optimum is (b, p) = (5, 10) with Z = 160.
+
+If integrality is required, (5,10) is integer and remains optimal.
+
+Interpretation / sensitivity notes
+- The optimal solution uses the ratio constraint p = 2 b and the fat constraint as the two active constraints.
+- The calorie constraint is not binding; small increases in required calories (up to 4000) will not change the optimal mix. If calorie requirement exceeds 4000, the solution will change.
+- Marginally, an increase of 1 unit of required fat increases b by 1/26 and p by 2/26, increasing cholesterol by 32/26 ≈ 1.2308 per additional fat unit.
+- Because burgers have slightly lower cholesterol per unit fat (12/10 = 1.2 vs pizza 10/8 = 1.25), the solution uses the minimum pizza allowed by the ratio constraint while meeting fat.
+
+Recommended solver libraries
+- Continuous LP: scipy.optimize.linprog, cvxpy, PuLP (CBC), OR-Tools linear solver.
+- Integer LP / MIP: PuLP (with CBC/GLPK), OR-Tools (CP-SAT or linear MIP), Gurobi / CPLEX (if available).
+- For a simple 2-variable problem you can also solve analytically (as shown).
+
+Optional quick PuLP example (continuous or integer)
+- Define b and p as LpVariables (cat='Continuous' or cat='Integer'), add constraints as above, set objective to 12*b + 10*p, and solve with the default solver.
+
+Final answer
+- Eat 5 burgers and 10 slices of pizza. This minimises total cholesterol to 160 units while satisfying all constraints.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import itertools
+import math
+
+# Problem data
+# Decision variables: b (burgers), p (pizza slices)
+# Objective: minimize Z = 12 b + 10 p
+c_b = 12.0
+c_p = 10.0
+
+# Constraints (left-hand side coefficients and RHS)
+# 1) 10 b + 8 p >= 130   (fat)
+# 2) 300 b + 250 p >= 3000 (calories)
+# 3) p - 2 b >= 0         (ratio p >= 2b)
+# plus b >= 0, p >= 0
+
+# We'll find all intersection points formed by pairs of constraint boundaries (equalities),
+# plus intersections with axes, then test feasibility and pick the minimum objective.
+
+tol = 1e-9
+
+def is_feasible(b, p):
+    if b is None or p is None:
+        return False
+    if b < -tol or p < -tol:
+        return False
+    if 10*b + 8*p + tol < 130:   # fat
+        return False
+    if 300*b + 250*p + tol < 3000:  # calories
+        return False
+    if p + tol < 2*b:           # ratio
+        return False
+    return True
+
+# Solve pairs of equalities. Represent equalities as functions returning (A, rhs)
+# eq1: 10 b + 8 p = 130
+# eq2: 300 b + 250 p = 3000
+# eq3: -2 b + 1 p = 0   (p = 2 b)
+eqs = [
+    ( (10.0, 8.0), 130.0 ),
+    ( (300.0, 250.0), 3000.0 ),
+    ( (-2.0, 1.0), 0.0 )
+]
+
+candidates = []
+
+# Solve all pairs of eqs (2x2 linear systems)
+for (i, eqA), (j, eqB) in itertools.combinations(enumerate(eqs), 2):
+    (a1, b1), r1 = eqA
+    (a2, b2), r2 = eqB
+    det = a1*b2 - a2*b1
+    if abs(det) < tol:
+        continue
+    # solve for (x,y) = (b,p)
+    b_sol = (r1*b2 - r2*b1) / det
+    p_sol = (a1*r2 - a2*r1) / det
+    candidates.append((b_sol, p_sol, f"eq{i+1}=,eq{j+1}="))
+
+# Intersections with axes (b=0 or p=0) together with one equality
+# b = 0
+b0 = 0.0
+for (coeffs, rhs) in eqs:
+    a, bcoef = coeffs
+    # a*b + bcoef*p = rhs => p = (rhs - a*b)/bcoef
+    if abs(bcoef) < tol:
+        continue
+    p_sol = (rhs - a * b0) / bcoef
+    candidates.append((b0, p_sol, "b=0 & eq"))
+# p = 0
+p0 = 0.0
+for (coeffs, rhs) in eqs:
+    a, bcoef = coeffs
+    if abs(a) < tol:
+        continue
+    b_sol = (rhs - bcoef * p0) / a
+    candidates.append((b_sol, p0, "p=0 & eq"))
+
+# Also consider corner b=0,p=0 (though likely infeasible)
+candidates.append((0.0, 0.0, "origin"))
+
+# Evaluate candidates for feasibility and objective
+best = None
+best_point = None
+for b_val, p_val, src in candidates:
+    # Clean up tiny numerical noise
+    if abs(b_val) < tol:
+        b_val = 0.0
+    if abs(p_val) < tol:
+        p_val = 0.0
+    if math.isinf(b_val) or math.isinf(p_val) or math.isnan(b_val) or math.isnan(p_val):
+        continue
+    if is_feasible(b_val, p_val):
+        obj = c_b * b_val + c_p * p_val
+        if (best is None) or (obj < best - tol):
+            best = obj
+            best_point = (b_val, p_val, src)
+
+# As a fallback (shouldn't be needed), we can also check some boundary extreme points:
+# For example, minimize objective along ratio p=2b and along b=0
+# Solve along p=2b: substitute into fat constraint and calories to find minimal b satisfying both.
+# But the pairwise intersections already capture that. Still include analytic solution for safety.
+if best is None:
+    # analytic: p = 2b, need 10b + 8(2b) >= 130 => 26b >= 130 => b >= 5
+    b_a = 5.0
+    p_a = 2.0 * b_a
+    if is_feasible(b_a, p_a):
+        best = c_b*b_a + c_p*p_a
+        best_point = (b_a, p_a, "analytic_ratio_fat")
+# Final safeguard: brute-force grid search over a reasonable range
+if best is None:
+    best = float('inf')
+    best_point = None
+    for b_try in [i*0.25 for i in range(0, 201)]:  # up to 50 burgers
+        # minimal p given constraints: p >= max( (130-10b)/8, (3000-300b)/250, 2b, 0 )
+        p_req1 = (130.0 - 10.0*b_try) / 8.0 if b_try*10.0 < 130.0 else 0.0
+        p_req2 = (3000.0 - 300.0*b_try) / 250.0 if b_try*300.0 < 3000.0 else 0.0
+        p_req = max(p_req1, p_req2, 2.0*b_try, 0.0)
+        p_try = max(0.0, p_req)
+        if is_feasible(b_try, p_try):
+            obj = c_b*b_try + c_p*p_try
+            if obj < best - tol:
+                best = obj
+                best_point = (b_try, p_try, "grid")
+
+# At this point best should hold the minimal objective for the continuous LP
+if best is None:
+    raise RuntimeError("No feasible solution found.")
+
+# Clean numerical result for printing
+value = best
+if abs(value - round(value)) < 1e-8:
+    value = int(round(value))
+
+# Print final objective in the exact required format as last line
+print(f"FINAL_OBJ: {value}")
+```

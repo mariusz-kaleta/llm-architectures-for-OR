@@ -1,0 +1,79 @@
+[MODELER]:
+Here is a clear mathematical model, a solution method, and the optimal answer.
+
+Decision variables
+- W ∈ Z, W ≥ 5 : number of wide pipes
+- N ∈ Z, N ≥ 0 : number of narrow pipes
+
+Objective
+- Minimize the total number of pipes: minimize Z = W + N
+
+Constraints
+1. Capacity constraint: 25W + 15N ≥ 900
+2. Logistics constraint: W ≤ N/3  (equivalently 3W ≤ N)
+3. Integrality and bounds: W, N integers with W ≥ 5, N ≥ 0
+
+Full integer linear program
+minimize W + N
+subject to
+- 25W + 15N ≥ 900
+- 3W − N ≤ 0
+- W ≥ 5, N ≥ 0
+- W, N integer
+
+Solution approach (simple exact enumeration)
+For any integer W ≥ 5, the smallest feasible N is
+N = max(3W, ceil((900 − 25W)/15)).
+So evaluate W = 5, 6, … and compute N and W+N; pick the W giving minimal total pipes.
+
+Quick analytic evaluation (key values)
+- For W ≤ 12, capacity forces N > 3W; for W ≥ 13, the logistics constraint (N ≥ 3W) is dominant.
+- Evaluating W = 5..15 gives the minimal total pipes = 52.
+Two equivalent optimal solutions:
+- W = 12 wide pipes and N = 40 narrow pipes (25·12 + 15·40 = 900), total = 52
+- W = 13 wide pipes and N = 39 narrow pipes (25·13 + 15·39 = 910), total = 52
+
+So the minimum possible number of pipes is 52 (with either 12 wide + 40 narrow, or 13 wide + 39 narrow).
+
+Recommended solvers / libraries
+- PuLP (pure Python solver interface, good for small MILPs)
+- OR-Tools CP-SAT (Google OR-Tools, robust for integer problems)
+- CBC / GLPK (solvers accessible via PuLP)
+(Scipy.optimize is not recommended for integer linear programs.)
+
+Example: simple Python enumeration (no external solver required)
+- For W from 5 to e.g. 36 (ceil(900/25)=36), compute N = max(3W, ceil((900-25W)/15)) and choose combination with minimum W+N. This is fast and exact for this small problem.
+
+If you want, I can provide the exact Python code (PuLP or a simple loop) to compute and verify the optimal solution.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data
+min_W = 5
+max_W = math.ceil(900 / 25)  # 36
+best_total = None
+best_solutions = []
+
+for W in range(min_W, max_W + 1):
+    # capacity requirement: 25W + 15N >= 900 -> N >= ceil((900 - 25W)/15)
+    cap_deficit = 900 - 25 * W
+    if cap_deficit > 0:
+        N_cap = (cap_deficit + 15 - 1) // 15
+    else:
+        N_cap = 0
+    # logistics requirement: N >= 3W
+    N_log = 3 * W
+    N = max(N_cap, N_log)
+    total = W + N
+    if (best_total is None) or (total < best_total):
+        best_total = total
+        best_solutions = [(W, N)]
+    elif total == best_total:
+        best_solutions.append((W, N))
+
+# Optionally, best_solutions contains all optimal (W,N) pairs
+# Print final objective value in required format
+print(f"FINAL_OBJ: {best_total}")

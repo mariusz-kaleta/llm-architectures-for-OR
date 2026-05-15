@@ -1,0 +1,253 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+   - Goal: **Minimise the total number of machines used per day** (number of A-machines + number of B-machines).
+
+2. **Suggested model type**
+
+   - Model: **Integer Linear Programming (ILP)**  
+   - Rationale: decision variables represent counts of machines, which must be non‑negative integers; all constraints and the objective are linear.
+
+3. **Main decision variables**
+
+   Define integer decision variables (per day):
+
+   - \(x_A\): number of machine A units used.
+   - \(x_B\): number of machine B units used.
+
+4. **Key constraints to consider**
+
+   1. **Production requirement (output capacity)**  
+      - Each A produces 30 items/day.  
+      - Each B produces 50 items/day.  
+      - Factory must produce **at least 1000 items per day**.  
+      - Constraint: total daily output from all A and B machines ≥ 1000.
+
+   2. **Energy (electricity) availability**  
+      - Each A consumes 100 kWh/day.  
+      - Each B consumes 120 kWh/day.  
+      - Total electricity available is **3000 kWh/day**.  
+      - Constraint: total daily electricity consumption of all A and B machines ≤ 3000.
+
+   3. **Mix of machine types (B machine limit as a proportion)**  
+      - “At most 30% of the machines must be of type B.”  
+      - Interpret as: number of B machines ≤ 30% of total machines.  
+      - Constraint linking \(x_B\) to \(x_A + x_B\):  
+        - \(x_B\) ≤ 0.3 × (total number of machines).  
+      - This translates into a linear relationship between \(x_A\) and \(x_B\).
+
+   4. **Minimum number of A machines**  
+      - “At least 5 machines of type A should be used.”  
+      - Constraint: \(x_A\) ≥ 5.
+
+   5. **Integrality and non-negativity**  
+      - Both variables must be non-negative integers:  
+        - \(x_A\) ≥ 0, integer.  
+        - \(x_B\) ≥ 0, integer.
+
+5. **Objective function structure**
+
+   - Minimise total machines used:  
+     - Objective: minimise \(x_A + x_B\).
+
+6. **Modelling notes / checks for the Modeller**
+
+   - Ensure the “at most 30% B” condition is implemented correctly as a **linear constraint** between \(x_A\) and \(x_B\) (by eliminating the fraction).  
+   - Confirm the production and electricity constraints are “≥” and “≤” respectively, consistent with “at least 1000 items” and “at most 3000 kWh”.  
+   - No requirement is stated that machines must run at full capacity or can be partially used; under usual interpretation, each “machine used” is one full-capacity unit — treat as integer counts.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model of the problem, followed by suggestions on how to implement and solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let, per day:
+
+- \(x_A \in \mathbb{Z}_{\ge 0}\): number of machine A units used  
+- \(x_B \in \mathbb{Z}_{\ge 0}\): number of machine B units used  
+
+These count whole machines; fractional values are not allowed.
+
+---
+
+## 2. Objective
+
+Minimise the total number of machines used:
+
+\[
+\min\; Z = x_A + x_B
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Production requirement
+
+Each A produces 30 items/day, each B produces 50 items/day.  
+Need at least 1000 items/day:
+
+\[
+30 x_A + 50 x_B \;\ge\; 1000
+\]
+
+---
+
+### 3.2 Electricity (energy) limit
+
+Each A uses 100 kWh/day, each B uses 120 kWh/day.  
+Total electricity available: 3000 kWh/day:
+
+\[
+100 x_A + 120 x_B \;\le\; 3000
+\]
+
+---
+
+### 3.3 Mix of machine types (B proportion ≤ 30%)
+
+“At most 30% of the machines must be of type B” means:
+
+\[
+x_B \;\le\; 0.3 (x_A + x_B)
+\]
+
+To keep this linear, multiply both sides by 10 to clear decimals:
+
+\[
+10 x_B \;\le\; 3 (x_A + x_B)
+\]
+
+\[
+10 x_B \;\le\; 3 x_A + 3 x_B
+\]
+
+\[
+7 x_B \;\le\; 3 x_A
+\]
+
+So, the equivalent linear constraint is:
+
+\[
+7 x_B \;\le\; 3 x_A
+\]
+
+---
+
+### 3.4 Minimum number of A machines
+
+“At least 5 machines of type A should be used”:
+
+\[
+x_A \;\ge\; 5
+\]
+
+---
+
+### 3.5 Integrality and non‑negativity
+
+\[
+x_A \in \mathbb{Z}_{\ge 0}, \quad x_B \in \mathbb{Z}_{\ge 0}
+\]
+
+(Plus the explicit lower bound \(x_A \ge 5\); \(x_B\) automatically has lower bound 0.)
+
+---
+
+## 4. Complete ILP model
+
+\[
+\begin{aligned}
+\min \quad & x_A + x_B \\
+\text{s.t.} \quad 
+& 30 x_A + 50 x_B \;\ge\; 1000 && \text{(production)}\\
+& 100 x_A + 120 x_B \;\le\; 3000 && \text{(electricity)}\\
+& 7 x_B \;\le\; 3 x_A && \text{(B machines ≤ 30% of total)}\\
+& x_A \;\ge\; 5 && \text{(minimum A machines)}\\
+& x_A, x_B \in \mathbb{Z}_{\ge 0} && \text{(integrality, non-negativity)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+This is a small Integer Linear Program; many standard libraries will solve it quickly:
+
+- **PuLP** (`pulp`): easy syntax, uses CBC or other MILP solvers.
+- **OR-Tools** (`ortools.linear_solver`): Google’s optimisation library with good performance.
+- **Pyomo**: more general modelling framework; good if you expect to extend the model.
+
+For this problem, **PuLP** or **OR-Tools** are ideal.
+
+---
+
+## 6. Example implementation sketch (PuLP)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("FactoryMachines", pl.LpMinimize)
+
+# Decision variables
+x_A = pl.LpVariable("x_A", lowBound=0, cat="Integer")
+x_B = pl.LpVariable("x_B", lowBound=0, cat="Integer")
+
+# Objective
+prob += x_A + x_B
+
+# Constraints
+prob += 30 * x_A + 50 * x_B >= 1000      # Production
+prob += 100 * x_A + 120 * x_B <= 3000    # Electricity
+prob += 7 * x_B <= 3 * x_A               # B machines ≤ 30% of total
+prob += x_A >= 5                         # Minimum A machines
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("x_A =", x_A.value())
+print("x_B =", x_B.value())
+print("Total machines =", x_A.value() + x_B.value())
+```
+
+You can adapt the same structure in OR-Tools or Pyomo if preferred.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("FactoryMachines", pl.LpMinimize)
+
+    # Decision variables
+    x_A = pl.LpVariable("x_A", lowBound=0, cat="Integer")
+    x_B = pl.LpVariable("x_B", lowBound=0, cat="Integer")
+
+    # Objective: minimize total number of machines
+    prob += x_A + x_B
+
+    # Constraints
+    prob += 30 * x_A + 50 * x_B >= 1000      # Production requirement
+    prob += 100 * x_A + 120 * x_B <= 3000    # Electricity limit
+    prob += 7 * x_B <= 3 * x_A               # Mix of machine types (B ≤ 30%)
+    prob += x_A >= 5                         # Minimum number of A machines
+
+    # Solve the MILP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

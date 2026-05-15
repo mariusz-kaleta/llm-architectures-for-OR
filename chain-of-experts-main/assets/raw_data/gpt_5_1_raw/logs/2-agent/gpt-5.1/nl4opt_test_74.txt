@@ -1,0 +1,212 @@
+[MODELER]:
+We can model this as a linear optimization (linear programming) problem.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of painkiller pills to produce  
+- \(y\) = number of sleeping pills to produce  
+
+Both must be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+## 2. Objective function
+
+Each pill uses digestive medicine:
+- Painkiller: 3 units per pill  
+- Sleeping pill: 5 units per pill  
+
+Total digestive medicine used:
+\[
+\text{Digestive} = 3x + 5y
+\]
+
+We want to **minimize** this:
+\[
+\min\; 3x + 5y
+\]
+
+## 3. Constraints
+
+### a) Morphine availability
+
+Total morphine available: 3000 mg.
+
+- Painkiller: 10 mg per pill  
+- Sleeping pill: 6 mg per pill  
+
+So:
+\[
+10x + 6y \le 3000
+\]
+
+### b) Minimum number of painkiller pills
+
+At least 50 painkiller pills:
+\[
+x \ge 50
+\]
+
+### c) At least 70% of pills are sleeping pills
+
+Total pills = \(x + y\). Sleeping pills must be at least 70% of total:
+\[
+y \ge 0.7(x + y)
+\]
+
+Rearrange:
+\[
+y \ge 0.7x + 0.7y
+\]
+\[
+y - 0.7y \ge 0.7x
+\]
+\[
+0.3y \ge 0.7x
+\]
+\[
+y \ge \frac{7}{3}x
+\]
+
+So:
+\[
+y \ge \frac{7}{3}x
+\]
+
+## 4. Final mathematical model
+
+\[
+\begin{align}
+\min\quad & 3x + 5y \\
+\text{s.t.}\quad 
+& 10x + 6y \le 3000 \\
+& x \ge 50 \\
+& y \ge \frac{7}{3}x \\
+& x, y \ge 0
+\end{align}
+\]
+
+### Solving analytically (for completeness)
+
+We want to minimize \(3x + 5y\) subject to the constraints.  
+Because \(y \ge \frac{7}{3}x\), the smallest feasible \(y\) for a given \(x\) is \(y = \frac{7}{3}x\).  
+Use that, and also use as much of the morphine as needed only if it helps; but the objective grows with both \(x\) and \(y\), so we expect to sit at the smallest feasible values of \(x\) and \(y\) allowed by constraints.
+
+First, enforce both:
+- \(x \ge 50\)
+- \(y \ge \frac{7}{3}x\)
+
+Using the smallest valid \(x\) (to minimize objective): \(x = 50\). Then
+\[
+y \ge \frac{7}{3}\cdot 50 = \frac{350}{3} \approx 116.67
+\]
+Since \(y\) is number of pills, usually it must be integer; the smallest integer \(y\) is \(117\).  
+
+Check morphine constraint:
+\[
+10x + 6y = 10\cdot 50 + 6\cdot 117 = 500 + 702 = 1202 \le 3000
+\]
+So this is feasible.
+
+Is it beneficial to increase \(x\) or \(y\)?  
+Along the boundary \(y = \frac{7}{3}x\):
+\[
+3x + 5y = 3x + 5\cdot \frac{7}{3}x = 3x + \frac{35}{3}x = \frac{44}{3}x
+\]
+This increases with \(x\), so we want the **smallest feasible** \(x\), i.e., \(x=50\).  
+Thus the optimal solution (with integrality) is:
+
+- Painkiller pills: \(x = 50\)  
+- Sleeping pills: \(y = 117\)
+
+Total digestive medicine:
+\[
+3\cdot 50 + 5\cdot 117 = 150 + 585 = 735\ \text{units}
+\]
+
+(If integrality is not required and real-valued pills were allowed, the optimum would be \(x = 50, y = 350/3 \approx 116.67\).)
+
+## 5. Suitable Python libraries
+
+This is a linear program with two variables, easy to solve with:
+
+- **PuLP** (`pulp`) – very straightforward for teaching / modeling LPs.
+- **SciPy** – `scipy.optimize.linprog` can solve the continuous version.
+- **OR-Tools** (`ortools.linear_solver`) – suitable if you want integer pills explicitly.
+
+### Example using PuLP (continuous variables, easy to adapt to integer)
+
+```python
+import pulp as pl
+
+# Define problem: minimize
+prob = pl.LpProblem("Pharmacy_Production", pl.LpMinimize)
+
+# Decision variables (use LpInteger if you want integer pills)
+x = pl.LpVariable('x', lowBound=50)     # painkiller pills, x >= 50
+y = pl.LpVariable('y', lowBound=0)      # sleeping pills
+
+# Objective: minimize digestive medicine
+prob += 3*x + 5*y
+
+# Morphine constraint
+prob += 10*x + 6*y <= 3000
+
+# Sleeping pills at least 70% of total
+prob += y >= (7.0/3.0) * x
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Painkiller pills (x):", pl.value(x))
+print("Sleeping pills (y):", pl.value(y))
+print("Total digestive medicine:", pl.value(3*x + 5*y))
+```
+
+To enforce integrality, change:
+```python
+x = pl.LpVariable('x', lowBound=50, cat='Integer')
+y = pl.LpVariable('y', lowBound=0,  cat='Integer')
+```
+
+This will give the optimal production plan:
+- 50 painkiller pills  
+- 117 sleeping pills  
+minimizing total digestive medicine usage.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the linear programming problem (minimization)
+    prob = pl.LpProblem("Pharmacy_Production", pl.LpMinimize)
+
+    # Decision variables: integer pills
+    x = pl.LpVariable('x', lowBound=50, cat='Integer')  # painkiller pills (x >= 50)
+    y = pl.LpVariable('y', lowBound=0, cat='Integer')   # sleeping pills (y >= 0)
+
+    # Objective: minimize total digestive medicine 3x + 5y
+    prob += 3 * x + 5 * y
+
+    # Constraint: Morphine availability, 10x + 6y <= 3000
+    prob += 10 * x + 6 * y <= 3000
+
+    # Constraint: At least 70% of pills are sleeping pills -> y >= (7/3)x
+    prob += y >= (7.0 / 3.0) * x
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(3 * x + 5 * y)
+
+    # Print final objective exactly as required
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,129 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x_z ∈ Z≥0 : number of ads on z-tube
+- x_s ∈ Z≥0 : number of ads on soorchle
+- x_w ∈ Z≥0 : number of ads on wassa
+
+Objective (maximize total viewers)
+Maximize Z = 400000 x_z + 5000 x_s + 3000 x_w
+
+Constraints
+1. Budget: 1000 x_z + 200 x_s + 100 x_w ≤ 10000
+   (can be scaled: 10 x_z + 2 x_s + x_w ≤ 100)
+
+2. Soorchle ad limit: x_s ≤ 15
+
+3. Wassa at most one-third of total ads:
+   x_w ≤ (1/3)(x_z + x_s + x_w)
+   Equivalent linear form: 2 x_w ≤ x_z + x_s
+
+4. At least 5% of ads on z-tube:
+   x_z ≥ 0.05(x_z + x_s + x_w)
+   Equivalent integer-friendly linear form: 19 x_z ≥ x_s + x_w
+   (derived from 95 x_z ≥ 5 x_s + 5 x_w → 19 x_z ≥ x_s + x_w)
+
+5. Integrality and nonnegativity: x_z, x_s, x_w ∈ Z≥0
+
+Notes: You may relax integrality for a continuous LP (variables ≥0 real) and then round, but because ad counts must be whole numbers an integer program (MILP) is appropriate.
+
+Solving this small MILP by reasoning
+- Viewers per dollar: z-tube = 400000/1000 = 400 viewers per $1, soorchle = 25, wassa = 30.
+- z-tube is by far the best ROI, so spend as much as budget allows on z-tube: with $10,000 you can buy 10 z-tube ads.
+- That solution x_z = 10, x_s = 0, x_w = 0 satisfies all constraints (x_s ≤ 15; 2 x_w ≤ x_z + x_s; 19 x_z ≥ x_s + x_w; budget exactly used).
+- Total audience = 10 × 400,000 = 4,000,000 viewers.
+
+Therefore optimal integer solution: x_z = 10, x_s = 0, x_w = 0 (total viewers = 4,000,000).
+
+Suggested Python tools to solve/verify
+- PuLP (open-source MILP interface; uses CBC solver by default)
+- OR-Tools (CP-SAT solver: very fast for integer problems)
+- Gurobi or CPLEX (commercial MILP solvers if available)
+(science.optimize is not suitable for integer MILPs)
+
+Example outline with PuLP
+- Define integer variables x_z, x_s, x_w.
+- Add constraints as above.
+- Set objective to maximize 400000*x_z + 5000*x_s + 3000*x_w.
+- Solve and read variable values.
+
+If you want, I can provide the full PuLP or OR-Tools implementation and run through the solver output.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import sys
+
+# Brute-force search for the integer optimal solution
+# Decision variables:
+# x_z: number of ads on z-tube (integer >=0)
+# x_s: number of ads on soorchle (integer >=0)
+# x_w: number of ads on wassa (integer >=0)
+
+# Parameters
+viewer_z = 400000
+viewer_s = 5000
+viewer_w = 3000
+
+cost_z = 1000
+cost_s = 200
+cost_w = 100
+
+budget = 10000
+max_soorchle = 15  # x_s ≤ 15
+
+best_obj = -1
+best_solution = None
+
+# Upper bound for x_z from budget: floor(budget / cost_z)
+max_xz = budget // cost_z  # 10
+
+for x_z in range(max_xz + 1):
+    # x_s limited by explicit cap and budget
+    max_xs_budget = (budget - cost_z * x_z) // cost_s
+    max_xs = min(max_soorchle, max_xs_budget)
+    if max_xs < 0:
+        continue
+    for x_s in range(max_xs + 1):
+        # Budget remaining for x_w
+        remaining_budget = budget - cost_z * x_z - cost_s * x_s
+        max_xw_budget = remaining_budget // cost_w
+        if max_xw_budget < 0:
+            continue
+        # Constraint: 2*x_w ≤ x_z + x_s  => x_w ≤ floor((x_z + x_s)/2)
+        max_xw_struct = (x_z + x_s) // 2
+        # Constraint: 19*x_z ≥ x_s + x_w  => x_w ≤ 19*x_z - x_s
+        max_xw_from_z_share = 19 * x_z - x_s
+        # combine upper bounds
+        ub_xw = min(max_xw_budget, max_xw_struct, max_xw_from_z_share)
+        if ub_xw < 0:
+            continue
+        for x_w in range(ub_xw + 1):
+            # All constraints already enforced by bounds, but double-check budget and constraints
+            if cost_z * x_z + cost_s * x_s + cost_w * x_w > budget:
+                continue
+            if x_s > max_soorchle:
+                continue
+            if 2 * x_w > x_z + x_s:
+                continue
+            if 19 * x_z < x_s + x_w:
+                continue
+            # Compute objective
+            obj = viewer_z * x_z + viewer_s * x_s + viewer_w * x_w
+            if obj > best_obj:
+                best_obj = obj
+                best_solution = (x_z, x_s, x_w)
+
+# Output results
+if best_solution is None:
+    print("No feasible solution found.")
+    final_value = 0
+else:
+    x_z_opt, x_s_opt, x_w_opt = best_solution
+    print(f"Optimal solution found: x_z={x_z_opt}, x_s={x_s_opt}, x_w={x_w_opt}")
+    print(f"Objective (total viewers) = {best_obj}")
+    final_value = best_obj
+
+# Final required line (must be the very last printed line in this exact format)
+print(f"FINAL_OBJ: {final_value}")

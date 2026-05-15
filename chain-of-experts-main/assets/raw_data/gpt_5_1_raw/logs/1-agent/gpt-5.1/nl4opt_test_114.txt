@@ -1,0 +1,37 @@
+[MONOLITH]:
+import pulp
+
+# Initialize the problem: maximize number of patients
+prob = pulp.LpProblem("Swab_Clinic_Optimization", pulp.LpMaximize)
+
+# Decision variables
+T = pulp.LpVariable('Throat_Swabs', lowBound=0, cat='Continuous')
+N = pulp.LpVariable('Nasal_Swabs', lowBound=0, cat='Continuous')
+
+# Objective: maximize total patients (each patient gets one swab)
+prob += T + N, "Total_Patients"
+
+# Constraints
+# Time constraint: 5 minutes per throat, 3 minutes per nasal, total ≤ 20000
+prob += 5*T + 3*N <= 20000, "Time_Limit"
+
+# At least 30 nasal swabs
+prob += N >= 30, "Min_Nasal"
+
+# At least 4 times as many throat swabs as nasal swabs
+prob += T >= 4*N, "Throat_to_Nasal_Ratio"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Get results
+T_opt = pulp.value(T)
+N_opt = pulp.value(N)
+objective_value = pulp.value(prob.objective)
+
+# Print results
+print(f"Optimal number of throat swabs: {T_opt}")
+print(f"Optimal number of nasal swabs: {N_opt}")
+print(f"Maximum number of patients: {objective_value}")
+
+print(f"FINAL_OBJ: {objective_value}")

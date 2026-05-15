@@ -1,0 +1,125 @@
+[PLANNER]:
+1) Key optimisation goal
+- Minimise total fuel consumed for the required transport.
+
+2) Suggested model type
+- Integer Linear Programming (ILP) / Mixed-Integer Linear Programming (MILP).
+- Because trips are discrete counts and the objective and constraints are linear, an ILP is appropriate. (Because the problem is small, an alternative is brute-force enumeration over the small integer range for plane trips.)
+
+3) Main decision variables
+- Number of ship trips (integer, >= 0).
+- Number of plane trips (integer, >= 0, with an upper bound).
+
+(Also state variable domains explicitly: non-negative integers; plane trips bounded by 10.)
+
+4) Key constraints to consider (described conceptually)
+- Capacity requirement: total container capacity provided by ship trips and plane trips must be at least the required 500 containers.
+- Plane trip limit: no more than 10 plane trips allowed.
+- Minimum-share-by-ship requirement: at least 50% of total trips must be ship trips (equivalently, the number of ship trips must be at least the number of plane trips).
+- Integrality and non-negativity: trips are whole numbers (integers) and cannot be negative.
+- Optional practical bounds: upper bound on ship trips can be inferred from capacity requirement and plane trip cap (for solver efficiency).
+
+Additional modelling notes and solver guidance
+- Objective is linear: total fuel = (fuel per ship) * ship_trips + (fuel per plane) * plane_trips (use 500 L per ship trip and 300 L per plane trip).
+- Capacity contributions are linear: ship contributes 40 containers per trip; plane 20 per trip.
+- Because ships are more fuel-efficient per container than planes, the optimal solution will favour ships subject to the plane-trip cap and the minimum-share constraint.
+- Solution approach options:
+  - Use a MILP solver (CBC/GLPK/Gurobi/CPLEX) with the two integer variables, stated objective and constraints.
+  - Or, because plane trips are limited to 0..10, enumerate plane_trip = 0..10, compute the minimum integer ship trips needed to meet capacity while respecting ship >= plane, evaluate fuel for each feasible candidate, and pick the minimum (simple and exact).
+- Report final recommendation as integer counts for ship trips and plane trips, with total fuel consumption and capacity provided.
+
+---
+
+[MODELER]:
+Below I transform the textual problem into a formal optimisation model, give the exact solution, and recommend solver approaches and libraries.
+
+1) Decision variables
+- s ∈ Z≥0 : number of ship trips.
+- p ∈ Z≥0 : number of plane trips.
+
+(Problem-specific upper bounds that simplify solving: p ≤ 10 (given). Also s ≤ 13 is a safe upper bound because 13 ship trips alone carry 13·40 = 520 containers ≥ 500.)
+
+2) Objective
+Minimise total fuel consumed:
+minimise F = 500·s + 300·p
+(500 L per ship trip, 300 L per plane trip; linear objective.)
+
+3) Constraints
+- Capacity: 40·s + 20·p ≥ 500 (must carry at least 500 containers).
+- Plane-trip cap: p ≤ 10.
+- Minimum 50% share by ship: s ≥ 0.5·(s + p) ⇔ s − p ≥ 0 (equivalently s ≥ p).
+- Integrality and non-negativity: s, p ∈ Z≥0.
+
+Full model (compact):
+minimise 500s + 300p
+subject to
+40s + 20p ≥ 500
+p ≤ 10
+s − p ≥ 0
+s, p ∈ Z≥0
+
+(Optional bound) s ≤ 13.
+
+4) Exact (enumeration) solution reasoning
+Because the variable ranges are tiny (p ∈ {0,…,10} and s small), an exact search is straightforward: for each p in 0..10 compute the minimal feasible s = max( ceil((500 − 20p)/40), p ) and evaluate F.
+
+Doing that yields the best feasible pair:
+- s = 12 ship trips
+- p = 1 plane trip
+
+Total capacity delivered = 12·40 + 1·20 = 480 + 20 = 500 containers (meets requirement exactly).
+Total fuel consumed = 12·500 + 1·300 = 6,000 + 300 = 6,300 liters.
+
+No other feasible (s,p) with p ≤ 10 and s ≥ p gives lower fuel.
+
+5) Solver suggestions / implementation options
+- Exact ILP/MILP: pulp (CBC), OR-Tools CP-SAT, mip (with CBC/Gurobi), or commercial solvers (Gurobi/CPLEX) if available. All can model the two integer variables and linear constraints directly.
+- Very simple enumeration: loop p = 0..10, compute s as above (use math.ceil), evaluate fuel and pick minimum. This is trivial, exact and fast.
+- Because only two small integer variables are present, enumeration is probably simplest and robust.
+
+6) Short sample approach (pseudo/Python outline)
+- Enumeration approach:
+  for p in 0..10:
+    s_required = ceil( max(0, (500 - 20*p) / 40) )
+    s = max(s_required, p)
+    if 40*s + 20*p >= 500:
+      compute fuel = 500*s + 300*p
+      keep (s,p) with lowest fuel
+- ILP (pulp): define integer variables s,p, add constraints above, set objective, call solver.
+
+Summary recommendation
+- Make 12 ship trips and 1 plane trip. This meets capacity exactly and minimises fuel at 6,300 L total. Use simple enumeration for a tiny model; use pulp or OR-Tools for a formal ILP implementation.
+
+---
+
+[CODER]:
+import math
+
+# Problem data
+capacity = 500
+ship_cap = 40
+plane_cap = 20
+ship_fuel = 500
+plane_fuel = 300
+p_max = 10
+
+best = None  # will store tuple (fuel, s, p)
+
+for p in range(0, p_max + 1):
+    remaining = capacity - plane_cap * p
+    s_required = 0 if remaining <= 0 else math.ceil(remaining / ship_cap)
+    s = max(s_required, p)  # enforce s >= p (50% share by ship)
+    # Optional safe upper bound for s
+    if s > 13:
+        s = min(s, 13)
+    if ship_cap * s + plane_cap * p >= capacity:
+        fuel = ship_fuel * s + plane_fuel * p
+        if best is None or fuel < best[0]:
+            best = (fuel, s, p)
+
+if best is None:
+    final_obj = float('inf')
+else:
+    final_obj = best[0]
+
+print(f"FINAL_OBJ: {int(final_obj)}")

@@ -1,0 +1,145 @@
+[MODELER]:
+Here is a clean mathematical model of the problem.
+
+---
+
+### 1. Decision variables
+
+Let
+
+- \(x\) = number of counter-top machines to buy  
+- \(y\) = number of fridge-sized machines to buy  
+
+Both must be nonnegative integers:
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+### 2. Objective: minimize total number of machines
+
+We want to minimize the total number of machines bought:
+
+\[
+\min \; z = x + y
+\]
+
+---
+
+### 3. Constraints
+
+#### a) Production capacity (minimum cones)
+
+Each counter-top machine produces 80 cones/day, each fridge-sized machine produces 150 cones/day, and we must produce at least 1000 cones/day:
+
+\[
+80x + 150y \;\ge\; 1000
+\]
+
+#### b) Heat output (maximum)
+
+Each counter-top machine outputs 50 units of heat/day, each fridge-sized machine 70 units, and the store can output at most 500 units/day:
+
+\[
+50x + 70y \;\le\; 500
+\]
+
+#### c) Nonnegativity and integrality
+
+\[
+x \ge 0,\; y \ge 0,\; x, y \in \mathbb{Z}
+\]
+
+---
+
+### 4. Full model
+
+\[
+\begin{aligned}
+\min\quad & x + y \\
+\text{s.t.}\quad & 80x + 150y \ge 1000 \\
+& 50x + 70y \le 500 \\
+& x, y \ge 0,\; x, y \in \mathbb{Z}
+\end{aligned}
+\]
+
+This is a **mixed-integer linear program (MILP)** with all-integer variables.
+
+---
+
+### 5. Suitable Python libraries
+
+You can solve this with any MILP-capable library, for example:
+
+- **PuLP** (`pulp`) – simple, pure Python interface, works with CBC by default
+- **OR-Tools** (`ortools.linear_solver.pywraplp`) – very good for integer/linear optimization
+- **Pyomo** – more general modeling language, supports many solvers
+- **SciPy**: `scipy.optimize.linprog` can solve the *continuous* version, but not integrality; you’d need to round or implement your own integer search, so it’s not ideal here.
+
+For a quick solution, I’d recommend **PuLP** or **OR-Tools**.
+
+---
+
+### 6. Example with PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("IceCreamMachines", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('x', lowBound=0, cat='Integer')  # counter-top machines
+y = pl.LpVariable('y', lowBound=0, cat='Integer')  # fridge-sized machines
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 80*x + 150*y >= 1000   # production
+prob += 50*x + 70*y <= 500     # heat
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Counter-top machines (x):", pl.value(x))
+print("Fridge-sized machines (y):", pl.value(y))
+print("Total machines:", pl.value(x + y))
+```
+
+This model fully captures the problem and can be solved directly with an MILP solver.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the MILP problem
+    prob = pl.LpProblem("IceCreamMachines", pl.LpMinimize)
+
+    # Decision variables: nonnegative integers
+    x = pl.LpVariable('x', lowBound=0, cat='Integer')  # counter-top machines
+    y = pl.LpVariable('y', lowBound=0, cat='Integer')  # fridge-sized machines
+
+    # Objective: minimize total number of machines
+    prob += x + y
+
+    # Constraints
+    prob += 80 * x + 150 * y >= 1000   # production capacity
+    prob += 50 * x + 70 * y <= 500    # heat output limit
+
+    # Solve the problem using CBC (default solver in PuLP)
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Retrieve the optimal objective value
+    final_obj = pl.value(x + y)
+
+    # Print the final objective value in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

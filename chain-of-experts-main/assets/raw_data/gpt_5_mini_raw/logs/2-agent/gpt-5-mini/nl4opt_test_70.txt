@@ -1,0 +1,114 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- n ∈ Z≥0 : number of trips by the new company.
+- o ∈ Z≥0 : number of trips by the old company.
+
+Objective
+Minimize total diesel consumption:
+minimize D = 30 n + 40 o.
+
+Constraints
+1. Delivery requirement (at least 1000 gifts):
+50 n + 70 o ≥ 1000.
+
+2. New company trip limit:
+0 ≤ n ≤ 15.
+
+3. Old-company-minimum-share (at least 40% of all trips are by the old company):
+o ≥ 0.4 (n + o)  → equivalently 0.6 o ≥ 0.4 n  → o ≥ (2/3) n.
+
+4. Integrality and nonnegativity:
+n, o ∈ Z≥0.
+
+Remarks
+- Per‑gift diesel: new = 30/50 = 0.6 L/gift, old ≈ 40/70 ≈ 0.5714 L/gift (old is more fuel-efficient per gift).
+- Because trips are integer and capacities are discrete, mixing can sometimes reduce total diesel by replacing one old trip with one new trip (which uses less diesel than an old trip) while still meeting capacity and share constraints.
+
+Solving (small integer search or MILP)
+Since n is bounded 0..15, you can solve by simple integer enumeration or by an integer solver.
+
+Example brute-force logic (Python-style pseudocode):
+for n in range(0,16):
+    min_o_by_capacity = ceil(max((1000-50*n)/70, (2/3)*n, 0))
+    compute D = 30*n + 40*min_o_by_capacity
+    keep best (n,o,D)
+
+Optimal solutions found
+Enumerating feasible integer (n,o) gives minimum total diesel D = 580 liters. There are two optimal trip plans that achieve that:
+
+- Option A: n = 2 new trips, o = 13 old trips
+  - Gifts: 2*50 + 13*70 = 1010 ≥ 1000
+  - Diesel: 2*30 + 13*40 = 60 + 520 = 580 L
+  - Old-share = 13/(2+13) ≈ 86.7% ≥ 40%
+
+- Option B: n = 6 new trips, o = 10 old trips
+  - Gifts: 6*50 + 10*70 = 1000
+  - Diesel: 6*30 + 10*40 = 180 + 400 = 580 L
+  - Old-share = 10/(6+10) = 62.5% ≥ 40%
+
+Either plan minimizes diesel (580 L). If you need a unique choice, you can apply a secondary criterion (e.g., minimize total number of trips, maximize old-company trips, or minimize cost if costs per trip differ).
+
+Recommended Python libraries
+- pulp (easy-to-use MILP with CBC solver) — for a small integer linear program.
+- OR-Tools CP-SAT — powerful integer solver; good if you want guaranteed optimality and more constraints.
+- plain Python brute-force search (very fast here because n ∈ {0..15}).
+
+If you want, I can provide a ready-to-run Python snippet using pulp or OR-Tools that builds and solves the MILP and prints the optimal solutions.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+#!/usr/bin/env python3
+import math
+
+# Problem data (initialized directly)
+diesel_new_per_trip = 30
+diesel_old_per_trip = 40
+gifts_new_per_trip = 50
+gifts_old_per_trip = 70
+required_gifts = 1000
+max_new_trips = 15
+
+best_D = None
+best_solutions = []
+
+for n in range(0, max_new_trips + 1):
+    # Minimum old trips required by capacity:
+    remaining_gifts = required_gifts - gifts_new_per_trip * n
+    if remaining_gifts <= 0:
+        cap_o = 0
+    else:
+        cap_o = (remaining_gifts + gifts_old_per_trip - 1) // gifts_old_per_trip  # ceil division
+
+    # Minimum old trips required by share: o >= ceil( (2/3) * n )
+    share_o = (2 * n + 2) // 3  # ceil(2n/3)
+
+    o_min = max(cap_o, share_o, 0)
+
+    # Compute objective
+    D = diesel_new_per_trip * n + diesel_old_per_trip * o_min
+
+    # Verify feasibility explicitly (safety check)
+    if gifts_new_per_trip * n + gifts_old_per_trip * o_min < required_gifts:
+        continue
+    if o_min < math.ceil((2/3) * n - 1e-12):
+        continue
+    if n < 0 or o_min < 0:
+        continue
+
+    if (best_D is None) or (D < best_D):
+        best_D = D
+        best_solutions = [(n, o_min, D)]
+    elif D == best_D:
+        best_solutions.append((n, o_min, D))
+
+# Print found optimal solutions (optional informational output)
+for sol in best_solutions:
+    n, o, D = sol
+    gifts = gifts_new_per_trip * n + gifts_old_per_trip * o
+    print(f"n={n}, o={o}, gifts={gifts}, diesel={D}")
+
+final_obj = best_D if best_D is not None else 0
+print(f"FINAL_OBJ: {final_obj}")

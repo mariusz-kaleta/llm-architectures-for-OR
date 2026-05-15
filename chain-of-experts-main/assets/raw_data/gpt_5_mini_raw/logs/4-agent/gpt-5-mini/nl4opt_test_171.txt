@@ -1,0 +1,149 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Maximise the total number of jars filled (number of glass jars + number of plastic jars).
+
+2) Suggested model type
+- Model: Integer Linear Programming (ILP) with two integer decision variables (or simple discrete enumeration, since the problem is small).
+
+3) Main decision variables
+- Number of glass jars (G) — integer, nonnegative.
+- Number of plastic jars (P) — integer, nonnegative.
+
+4) Key constraints to consider (describe in words)
+- Honey resource constraint: the combined honey used by all glass and plastic jars cannot exceed  available honey (20000 ml). (Use jar capacities: glass = 250 ml each, plastic = 300 ml each.)
+- Ratio constraint: there must be at least twice as many plastic jars as glass jars (plastic count must be >= 2 × glass count).
+- Minimum glass constraint: at least 20 glass jars must be filled.
+- Integrality and nonnegativity: both G and P must be whole numbers and nonnegative.
+- Practical search bounds: impose a reasonable upper bound for G and P from the honey limit (e.g., G no larger than the number obtained if all honey were put into glass jars; similarly for P), to limit the search space.
+
+Additional modelling notes for the Modeller
+- Because there are only two integer variables, either (a) use a small ILP solver (CBC/Gurobi/CP-SAT) or (b) enumerate integer G in the feasible range (starting at 20 upward) and for each G compute the maximum feasible P under the honey limit, respecting the ratio constraint, then pick the G,P pair that gives the largest G+P.
+- If multiple (G,P) solutions tie for maximum count, report all optimal solutions and optionally apply a secondary criterion (e.g., minimize leftover honey, or prefer more glass jars) to choose one.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- G ∈ Z, G ≥ 0 : number of glass jars.
+- P ∈ Z, P ≥ 0 : number of plastic jars.
+
+Parameters
+- capacity_glass = 250 (ml per glass jar)
+- capacity_plastic = 300 (ml per plastic jar)
+- H = 20000 (ml total honey)
+
+Objective
+- Maximise total jars T = G + P.
+
+Constraints
+1. Honey resource:
+   250·G + 300·P ≤ 20000
+2. Ratio constraint (at least twice as many plastic jars as glass jars):
+   P ≥ 2·G
+3. Minimum glass jars:
+   G ≥ 20
+4. Integrality and nonnegativity:
+   G, P ∈ Z, G ≥ 0, P ≥ 0
+
+Optional practical upper bounds (derived from honey limit):
+- G ≤ floor(H / 250) = 80
+- P ≤ floor(H / 300) = 66
+
+ILP formulation (compact)
+Maximise T = G + P
+subject to
+  250G + 300P ≤ 20000
+  P − 2G ≥ 0
+  G ≥ 20
+  G, P ∈ Z≥0
+
+Solving approach (recommended)
+- Because there are only two integer variables, two straightforward approaches are:
+  1) Small ILP solver (e.g., pulp with CBC, or OR-Tools CP-SAT).
+  2) Simple enumeration: loop G from 20 to floor(H/250) and for each G compute the maximum feasible P:
+       P_max(G) = floor((H − 250·G) / 300)
+     Accept G only if P_max(G) ≥ 2·G (otherwise infeasible), and compute T(G) = G + P_max(G). Pick G that maximises T(G). If multiple G tie, report all and apply secondary criterion (e.g., minimize leftover honey, or prefer more glass jars).
+
+Exact solution by enumeration (short analytic evaluation)
+- For feasibility we need (H − 250G)/300 ≥ 2G ⇒ 20000 − 250G ≥ 600G ⇒ 20000 ≥ 850G ⇒ G ≤ floor(20000/850) = 23.
+- So G ∈ {20,21,22,23}. For each:
+  G = 20 → P_max = floor((20000 − 250·20)/300) = 50 → T = 70, leftover = 0
+  G = 21 → P_max = 49 → T = 70, leftover = 50
+  G = 22 → P_max = 48 → T = 70, leftover = 100
+  G = 23 → P_max = 47 → T = 70, leftover = 150
+
+All four (G,P) pairs yield the same maximum total T = 70 jars. If you apply the secondary criterion "minimise leftover honey" you choose the solution with zero leftover:
+- Optimal (preferred) solution: G = 20 glass jars, P = 50 plastic jars (uses all 20000 ml, total 70 jars).
+
+Recommended libraries/tools
+- pulp (uses CBC by default) — easy ILP modelling in Python.
+- OR-Tools CP-SAT — robust integer solver, good for small or large combinatorial problems.
+- itertools / plain Python — for simple enumeration (very fast here since small search).
+- (Not recommended: scipy.optimize directly, since it does not handle integer variables natively.)
+
+Example outline of the enumeration algorithm (pseudo-Python)
+- For G in range(20, floor(H/250)+1):
+    Pmax = (H - 250*G) // 300
+    if Pmax >= 2*G:
+       record (G, Pmax, T = G+Pmax, leftover = H - 250*G - 300*Pmax)
+- Select records with maximum T; break ties with minimal leftover or other rule.
+
+Summary / final answer
+- Maximum total jars = 70.
+- Optimal solutions (tie): (G, P) ∈ {(20,50), (21,49), (22,48), (23,47)}.
+- If you prefer to use all honey (minimise leftover) the best choice is G = 20, P = 50.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the ILP described in the prompt.
+# Decision variables:
+#   G (glass jars, integer >= 0)
+#   P (plastic jars, integer >= 0)
+# Parameters and constraints are initialized below.
+# The script enumerates feasible G values and computes the best P for each,
+# then selects the solution(s) that maximize total jars T = G + P.
+# Final output prints the objective value in the required format.
+
+# Initialize parameters
+capacity_glass = 250   # ml per glass jar
+capacity_plastic = 300 # ml per plastic jar
+H = 20000              # total honey in ml
+
+# Bounds and requirements
+G_min = 20
+G_max = H // capacity_glass  # practical upper bound
+
+records = []  # to store feasible (G, P, total, leftover)
+
+for G in range(G_min, G_max + 1):
+    remaining_after_glass = H - capacity_glass * G
+    if remaining_after_glass < 0:
+        continue
+    P_max = remaining_after_glass // capacity_plastic
+    # Ratio constraint: P >= 2 * G
+    if P_max >= 2 * G:
+        P = P_max
+        total = G + P
+        leftover = H - capacity_glass * G - capacity_plastic * P
+        records.append((G, P, total, leftover))
+
+# If no feasible records found (shouldn't happen here), set objective to 0
+if not records:
+    value = 0
+else:
+    # Find maximum total jars
+    max_total = max(r[2] for r in records)
+    # Filter candidates achieving max total
+    candidates = [r for r in records if r[2] == max_total]
+    # Tie-breaker: minimize leftover honey, then prefer more glass jars
+    best = min(candidates, key=lambda r: (r[3], -r[0]))
+    # Prepare final objective value
+    value = max_total
+
+print(f"FINAL_OBJ: {value}")
+```

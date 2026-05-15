@@ -1,0 +1,199 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Minimise the total cost of food provided per worker while meeting the minimum nutrient requirements.
+
+2. Suggested model type
+- Model: Linear Programming (continuous LP). (If servings must be whole units, use an Integer LP / Mixed-Integer LP.)
+
+3. Main decision variables
+- Number of hamburgers served per worker (continuous non‑negative variable; unit = servings).
+- Number of chicken wraps served per worker (continuous non‑negative variable; unit = servings).
+
+4. Key constraints to consider
+- Calorie requirement: total calories supplied by hamburgers and wraps must be at least 2200.
+- Protein requirement: total protein supplied must be at least 50 grams.
+- Carbohydrate requirement: total carbs supplied must be at least 70 grams.
+- Non-negativity: number of hamburgers and wraps must be ≥ 0.
+- (Optional) Integrality: if fractional servings are not allowed, add integer constraints.
+- (Optional practical constraints) Upper bounds on servings if availability, palatability, or maximum portions are relevant; also consider additional nutritional or budget caps if present.
+
+5. Data to use (specify units so modeller can implement)
+- Hamburger: cost $6.50; 800 calories; 19 g protein; 20 g carbs.
+- Chicken wrap: cost $4.00; 450 calories; 12 g protein; 10 g carbs.
+- Requirements per worker: ≥ 2200 calories, ≥ 50 g protein, ≥ 70 g carbs.
+
+6. Solution / analysis guidance for the modeller
+- Solve the 2-variable LP (simplex or graphical method) to find the cost-minimising mix. Expect an optimal solution at a corner where two nutrient constraints bind.
+- Report optimal values (servings of each item), total cost per worker, and which constraints are binding.
+- Provide sensitivity analysis / shadow prices for each nutrient constraint and, if relevant, test integer feasibility if servings must be whole numbers.
+
+---
+
+[MODELER]:
+Below I convert the textual description into a precise optimization model, give the solved numeric result (continuous and integer-servings cases), report which constraints are binding and the dual (shadow) prices, and recommend libraries and a short implementation sketch.
+
+1) Decision variables
+- x = number of hamburgers served per worker (servings, x ≥ 0).
+- y = number of chicken wraps served per worker (servings, y ≥ 0).
+
+2) Data (units)
+- Hamburger: cost = $6.50, calories = 800 kcal, protein = 19 g, carbs = 20 g.
+- Chicken wrap: cost = $4.00, calories = 450 kcal, protein = 12 g, carbs = 10 g.
+- Minimum requirements per worker: calories ≥ 2200 kcal, protein ≥ 50 g, carbs ≥ 70 g.
+
+3) Mathematical model (continuous LP)
+Minimise
+  Z = 6.5 x + 4.0 y
+
+subject to
+  800 x + 450 y ≥ 2200    (calories)
+  19  x + 12  y ≥ 50      (protein)
+  20  x + 10  y ≥ 70      (carbohydrates)
+  x ≥ 0, y ≥ 0
+
+(If fractional servings are not allowed, add integer constraints x, y ∈ Z≥0 → a MILP.)
+
+4) Compact matrix form
+Minimise c^T [x y]^T with
+c = [6.5, 4.0]
+A = [[800, 450],
+     [ 19,  12],
+     [ 20,  10]]
+A [x y]^T ≥ b with b = [2200, 50, 70]^T and x,y ≥ 0.
+
+5) Continuous solution (LP)
+Solving the LP yields:
+- x* = 3.5 hamburgers per worker
+- y* = 0 wraps per worker
+- Minimum cost Z* = 6.5 * 3.5 + 4 * 0 = $22.75 per worker
+
+Which constraints bind at this solution:
+- Carbohydrates: 20*3.5 + 10*0 = 70 (binding)
+- Calories: 800*3.5 = 2800 > 2200 (slack)
+- Protein: 19*3.5 = 66.5 > 50 (slack)
+
+Dual / shadow prices (from the dual LP)
+- y_calories = 0, y_protein = 0, y_carbs = 0.325
+Interpretation: increasing the carbs requirement by 1 gram increases minimal cost by $0.325; the calorie and protein constraints have zero shadow price at the optimum.
+
+Reasoning brief: hamburgers are more cost-effective for calories and carbs; wraps are slightly better for protein-per-dollar but protein is satisfied automatically once carbs constraint is met by hamburgers. Thus pure hamburgers (just enough to meet the carbs requirement) is cheapest.
+
+6) Integer-servings (optional)
+If servings must be whole numbers:
+- The cheapest integer-feasible solution is x = 3 hamburgers and y = 1 wrap:
+  calories = 3*800 + 1*450 = 2400 ≥ 2200
+  protein  = 3*19  + 1*12  = 69 ≥ 50
+  carbs    = 3*20  + 1*10  = 70 ≥ 70
+  cost = 3*6.5 + 1*4 = $23.50
+- Compare to pure-integer hamburger-only: x = 4 (because ceil(3.5) = 4) gives cost $26.00, so x=3,y=1 is better for integer restriction.
+
+7) Suggested solvers / Python libraries
+- pulp (pure Python LP/MILP solver interface; uses CBC by default)
+- scipy.optimize.linprog (for continuous LPs)
+- OR-Tools (pywraplp) linear solver (good for LP and MIP)
+- cvxpy (high-level convex modelling; calls LP/MIP solvers)
+- Commercial: Gurobi, CPLEX (if available, faster for large MIPs)
+
+8) Example: short pulp sketch (continuous LP)
+- Model formulation in pulp: define LpProblem(min), LpVariables x,y (lowBound=0, cat='Continuous'), add constraints as written, objective 6.5*x + 4*y, solve. For integer servings use cat='Integer'.
+
+If you want, I can:
+- provide the exact code (pulp or scipy) to solve and print shadow prices,
+- run sensitivity analysis (how much the cost changes if requirements change),
+- or produce a small table comparing integer-feasible solutions. Which would you prefer next?
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the meal-cost LP and integer-feasible variant
+import numpy as np
+from scipy.optimize import linprog
+
+# Data
+# Decision variables: x = hamburgers per worker, y = chicken wraps per worker
+c = np.array([6.5, 4.0])  # costs
+A = np.array([
+    [800.0, 450.0],   # calories
+    [19.0,  12.0],    # protein
+    [20.0,  10.0]     # carbohydrates
+])
+b = np.array([2200.0, 50.0, 70.0])
+
+# Solve primal LP (continuous)
+# Constraints are >=, convert to <= by multiplying by -1: -A x <= -b
+A_ub = -A
+b_ub = -b
+bounds = [(0, None), (0, None)]
+
+primal_res = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method="highs")
+
+if not primal_res.success:
+    raise RuntimeError("Primal LP solve failed: " + str(primal_res.message))
+
+x_primal = primal_res.x
+z_primal = primal_res.fun
+
+# Identify which primal constraints are binding
+residuals = A.dot(x_primal) - b  # should be >= 0; binding when near zero
+tol = 1e-7
+binding = [abs(r) <= tol for r in residuals]
+constraint_names = ["Calories (>=2200)", "Protein (>=50)", "Carbohydrates (>=70)"]
+
+# Solve dual LP to get shadow prices:
+# Dual (max): maximize b^T u s.t. A^T u <= c, u >= 0
+# Convert to minimization for linprog: minimize -b^T u s.t. A^T u <= c, u >= 0
+c_dual = -b
+A_ub_dual = A.T.copy()  # A^T u <= c
+b_ub_dual = c.copy()
+bounds_dual = [(0, None), (0, None), (0, None)]
+
+dual_res = linprog(c_dual, A_ub=A_ub_dual, b_ub=b_ub_dual, bounds=bounds_dual, method="highs")
+if not dual_res.success:
+    raise RuntimeError("Dual LP solve failed: " + str(dual_res.message))
+
+u_dual = dual_res.x
+dual_obj = -dual_res.fun  # maximize b^T u
+
+# Integer-feasible search (small grid search) to find best integer solution
+# We pick reasonable upper bounds for enumeration
+# Upper bound for hamburgers if only hamburgers meet calories: ceil(2200/800)=3 -> allow up to 10 to be safe
+max_search = 20
+best_int_cost = float("inf")
+best_int_xy = None
+for xi in range(0, max_search + 1):
+    for yi in range(0, max_search + 1):
+        vals = A.dot(np.array([xi, yi]))
+        if np.all(vals + 1e-9 >= b):  # feasible
+            cost = c.dot(np.array([xi, yi]))
+            if cost < best_int_cost - 1e-12:
+                best_int_cost = cost
+                best_int_xy = (xi, yi)
+
+# Display results (not the final required print line)
+print("Continuous LP solution (primal):")
+print(f" x = {x_primal[0]:.6f} hamburgers, y = {x_primal[1]:.6f} wraps")
+print(f" Minimum cost Z* = {z_primal:.6f}")
+print("\nWhich primal constraints bind?")
+for name, is_bind, val, rhs in zip(constraint_names, binding, A.dot(x_primal), b):
+    status = "Binding" if is_bind else "Slack"
+    print(f" - {name}: LHS = {val:.6f}, RHS = {rhs:.6f} -> {status}")
+
+print("\nDual (shadow) prices (u for [calories, protein, carbs]):")
+for i, ui in enumerate(u_dual):
+    print(f" u_{i+1} = {ui:.6f}")
+print(f" Dual objective (max b^T u) = {dual_obj:.6f}")
+
+print("\nInteger-feasible best solution (enumeration):")
+if best_int_xy is not None:
+    xi, yi = best_int_xy
+    print(f" x = {xi} hamburgers, y = {yi} wraps, cost = {best_int_cost:.6f}")
+    print(f"  Nutrients: calories = {A[0].dot([xi, yi])}, protein = {A[1].dot([xi, yi])}, carbs = {A[2].dot([xi, yi])}")
+else:
+    print(" No integer feasible solution found in the search range.")
+
+# Final required print line (must be the very last output)
+# We print the continuous LP optimal objective value here.
+print(f"FINAL_OBJ: {z_primal}")
+```

@@ -1,0 +1,88 @@
+[MODELER]:
+Model
+
+- Variables:
+  - x = number of full-time staff teachers (integer, x ≥ 0)
+  - y = number of substitute teachers (integer, y ≥ 0)
+
+- Objective:
+  - Minimize total number of teachers: minimize Z = x + y
+
+- Constraints:
+  - Hours requirement: 6x + 3y ≥ 1000
+  - Budget limit: 300x + 100y ≤ 40000
+
+(Optionally divide constraints by common factors: 2x + y ≥ 334 (since 1000/3 ≈ 333.333, integer requirement makes 2x+y ≥ 334), and 3x + y ≤ 400.)
+
+Analytic solution
+
+From the two linear constraints:
+- 2x + y ≥ 334  =>  y ≥ 334 − 2x
+- 3x + y ≤ 400  =>  y ≤ 400 − 3x
+
+Feasible integer x must satisfy 334 − 2x ≤ 400 − 3x ⇒ x ≤ 66. For all feasible x (0 ≤ x ≤ 66) we have y ≥ 334 − 2x (this lower bound is positive for allowed x), and to minimize x + y we should pick the smallest feasible y, i.e. y = 334 − 2x.
+
+Objective becomes Z = x + (334 − 2x) = 334 − x, which is minimized by maximizing x. The largest feasible x is 66, so:
+
+- x = 66 staff teachers
+- y = 334 − 2(66) = 202 substitute teachers
+
+Check:
+- Hours: 6(66) + 3(202) = 396 + 606 = 1002 ≥ 1000
+- Budget: 300(66) + 100(202) = 19800 + 20200 = 40000 ≤ 40000
+
+Total teachers = 66 + 202 = 268 (this is minimal).
+
+Recommended solvers / libraries
+- PuLP (pure-Python MILP modeling; solver CBC included)
+- OR-Tools CP-SAT (Google OR-Tools; high-performance integer solver)
+- Gurobi or CPLEX (commercial solvers, if available)
+
+Example (PuLP) — minimal example to reproduce:
+
+from pulp import LpProblem, LpMinimize, LpVariable, LpInteger, lpSum, PULP_CBC_CMD
+prob = LpProblem("min_teachers", LpMinimize)
+x = LpVariable("x", lowBound=0, cat=LpInteger)  # staff
+y = LpVariable("y", lowBound=0, cat=LpInteger)  # subs
+prob += x + y
+prob += 6*x + 3*y >= 1000
+prob += 300*x + 100*y <= 40000
+prob.solve(PULP_CBC_CMD(msg=0))
+print(int(x.value()), int(y.value()), int(x.value()+y.value()))
+
+This will output: 66 202 268
+
+Answer: hire 66 staff teachers and 202 substitute teachers (total 268 teachers).
+
+---
+
+[CODER]:
+import math
+
+# Brute-force search for integer solution
+best_sum = None
+best_x = None
+best_y = None
+
+# Upper bound for x from budget: 300x <= 40000 -> x <= 40000/300 = 133.33 -> 133
+for x in range(0, 134):
+    # Hours constraint: 6x + 3y >= 1000 -> y >= (1000 - 6x)/3
+    y_min = math.ceil((1000 - 6*x) / 3)
+    if y_min < 0:
+        y_min = 0
+    # Budget constraint: 300x + 100y <= 40000 -> y <= (40000 - 300x)/100
+    y_max = (40000 - 300*x) // 100  # floor division
+    if y_max < 0:
+        continue
+    if y_min > y_max:
+        continue
+    # For fixed x, pick smallest feasible y to minimize x+y
+    y = y_min
+    total = x + y
+    if (best_sum is None) or (total < best_sum):
+        best_sum = total
+        best_x = x
+        best_y = y
+
+# Final objective value
+print(f"FINAL_OBJ: {best_sum}")

@@ -1,0 +1,143 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of servings of vegetables (>= 0)
+  - y = number of servings of fruit (>= 0)
+
+- Objective
+  - Minimize total cost: minimize C = 3x + 5y
+
+- Constraints
+  - Vitamins: 2x + 4y >= 20
+  - Minerals: 3x + 1y >= 30
+  - Nonnegativity: x >= 0, y >= 0
+  - (If servings must be whole servings, add integer constraints x, y integer.)
+
+Solution (continuous and integer cases)
+- Solve the linear program. The two constraints intersect at (x,y) = (10, 0). This point meets both requirements (2·10 + 4·0 = 20 vitamins, 3·10 + 1·0 = 30 minerals) and gives cost C = 3·10 + 5·0 = $30.
+- Moving away from this point increases cost, so the minimum-cost solution is:
+  - Vegetables x = 10 servings
+  - Fruit y = 0 servings
+  - Minimum cost = $30
+
+Recommended solvers / libraries
+- pulp (Python) — easy modeling, supports continuous and integer LPs
+- scipy.optimize.linprog — for continuous LPs
+- OR-Tools linear solver — scalable and supports integer programs
+
+Example Python code (pulp, continuous variables)
+
+from pulp import LpProblem, LpMinimize, LpVariable, value
+
+prob = LpProblem("Diet", LpMinimize)
+x = LpVariable('veg', lowBound=0)    # vegetables
+y = LpVariable('fruit', lowBound=0)  # fruits
+
+prob += 3*x + 5*y                     # objective
+prob += 2*x + 4*y >= 20               # vitamins
+prob += 3*x + 1*y >= 30               # minerals
+
+prob.solve()
+print("veg =", value(x), "fruit =", value(y), "cost =", value(prob.objective))
+
+Example with scipy.optimize.linprog
+
+from scipy.optimize import linprog
+
+c = [3, 5]
+# linprog expects A_ub x <= b_ub, so multiply >= constraints by -1
+A_ub = [[-2, -4],
+        [-3, -1]]
+b_ub = [-20, -30]
+bounds = [(0, None), (0, None)]
+
+res = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds)
+print("veg =", res.x[0], "fruit =", res.x[1], "cost =", res.fun)
+
+Notes
+- If you require integer servings, set x and y to integer in pulp (cat='Integer'). For this particular instance the continuous optimum is integral (10,0), so the integer solution is the same.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import itertools
+
+# Problem data (initialized directly)
+# Decision variables: x >= 0, y >= 0
+# Objective: minimize C = 3x + 5y
+# Constraints:
+#   2x + 4y >= 20
+#   3x + 1y >= 30
+
+# Represent boundary lines as (a, b, c) meaning a*x + b*y = c
+lines = [
+    (2.0, 4.0, 20.0),  # 2x + 4y = 20
+    (3.0, 1.0, 30.0),  # 3x +  y = 30
+    (1.0, 0.0, 0.0),   # x = 0
+    (0.0, 1.0, 0.0),   # y = 0
+]
+
+def intersect(line1, line2, eps=1e-12):
+    a1, b1, c1 = line1
+    a2, b2, c2 = line2
+    det = a1 * b2 - a2 * b1
+    if abs(det) < eps:
+        return None  # parallel or coincident
+    x = (c1 * b2 - c2 * b1) / det
+    y = (a1 * c2 - a2 * c1) / det
+    return (x, y)
+
+def is_feasible(point, tol=1e-9):
+    x, y = point
+    # nonnegativity
+    if x < -tol or y < -tol:
+        return False
+    # constraints (>=)
+    if 2*x + 4*y < 20 - tol:
+        return False
+    if 3*x + 1*y < 30 - tol:
+        return False
+    return True
+
+# Collect candidate vertices: intersections of boundary lines
+candidates = []
+for l1, l2 in itertools.combinations(lines, 2):
+    p = intersect(l1, l2)
+    if p is not None:
+        # Clean near-zero negatives to zero
+        x = 0.0 if abs(p[0]) < 1e-12 else p[0]
+        y = 0.0 if abs(p[1]) < 1e-12 else p[1]
+        candidates.append((x, y))
+
+# Also consider far-away points on axes where a single variable satisfies all constraints
+# For completeness, include the minimal axis points that satisfy both constraints:
+# If y = 0, find minimal x satisfying both: x_min_y0 = max(20/2, 30/3) = 10
+candidates.append((10.0, 0.0))
+# If x = 0, find minimal y satisfying both: y_min_x0 = max(20/4, 30/1) = 30
+candidates.append((0.0, 30.0))
+
+# Filter feasible points and compute objective
+feasible_points = []
+for p in candidates:
+    if is_feasible(p):
+        x, y = p
+        cost = 3*x + 5*y
+        feasible_points.append((cost, x, y))
+
+if not feasible_points:
+    # No feasible solution
+    minimal_cost = float('inf')
+else:
+    minimal_cost, best_x, best_y = min(feasible_points, key=lambda t: t[0])
+    # Normalize tiny negatives to zero
+    if abs(best_x) < 1e-12:
+        best_x = 0.0
+    if abs(best_y) < 1e-12:
+        best_y = 0.0
+    # Round cost to avoid floating artifacts when it's an integer
+    if abs(round(minimal_cost) - minimal_cost) < 1e-9:
+        minimal_cost = round(minimal_cost)
+
+# Final required print (must be the last output line)
+print(f"FINAL_OBJ: {minimal_cost}")

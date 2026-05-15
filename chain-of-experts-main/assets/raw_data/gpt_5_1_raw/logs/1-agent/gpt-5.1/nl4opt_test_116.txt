@@ -1,0 +1,37 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Hydrogen_Transport_MinTrips", pulp.LpMinimize)
+
+# Decision variables: number of trips by each method (integers, non-negative)
+x = pulp.LpVariable('HighPressureTrips', lowBound=0, cat='Integer')
+y = pulp.LpVariable('LiquefiedTrips', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of trips
+prob += x + y
+
+# Constraints
+# Capacity: at least 1000 cubic meters
+prob += 50 * x + 30 * y >= 1000, "CapacityRequirement"
+
+# Budget: total cost within 3750
+prob += 500 * x + 200 * y <= 3750, "BudgetConstraint"
+
+# Number of high-pressure trips less than liquefied trips
+prob += x <= y - 1, "TripRelation"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+x_val = pulp.value(x)
+y_val = pulp.value(y)
+obj_val = pulp.value(prob.objective)
+
+# Print decision variables and objective
+print(f"High pressure tube trailer trips: {x_val}")
+print(f"Liquefied hydrogen tanker trips: {y_val}")
+print(f"Total number of trips: {obj_val}")
+
+print(f"FINAL_OBJ: {obj_val}")

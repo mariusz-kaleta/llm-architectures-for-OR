@@ -1,0 +1,187 @@
+[MODELER]:
+Let’s model this as a linear programming (LP) problem.
+
+## Decision variables
+Let  
+- \(x\) = number of bottles of **black milk tea** to produce  
+- \(y\) = number of bottles of **matcha milk tea** to produce  
+
+We assume \(x, y \ge 0\) and they can be real numbers (if needed, we can later restrict them to integers).
+
+## Objective function (maximize profit)
+
+Profit per bottle:
+- Black milk tea: \$7.5 per bottle  
+- Matcha milk tea: \$5 per bottle  
+
+Total profit:
+\[
+\max Z = 7.5x + 5y
+\]
+
+## Constraints
+
+### Milk constraint  
+- Each black milk tea uses 600 g milk  
+- Each matcha milk tea uses 525 g milk  
+- At most 30000 g of milk available  
+
+\[
+600x + 525y \le 30000
+\]
+
+### Honey constraint  
+- Each black milk tea uses 10 g honey  
+- Each matcha milk tea uses 5 g honey  
+- At most 500 g of honey available  
+
+\[
+10x + 5y \le 500
+\]
+
+### Non-negativity
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+This fully defines a linear programming model.
+
+---
+
+## Solving the model analytically
+
+Honey constraint simplifies:
+\[
+10x + 5y \le 500 \quad \Rightarrow \quad 2x + y \le 100
+\]
+
+Milk constraint:
+\[
+600x + 525y \le 30000
+\]
+
+Check the intersection of the two constraints (likely to be optimal):
+
+\[
+\begin{cases}
+2x + y = 100 \\
+600x + 525y = 30000
+\end{cases}
+\]
+
+From the first: \(y = 100 - 2x\)
+
+Substitute into the second:
+\[
+600x + 525(100 - 2x) = 30000
+\]
+\[
+600x + 52500 - 1050x = 30000
+\]
+\[
+-450x + 52500 = 30000
+\]
+\[
+-450x = -22500
+\]
+\[
+x = 50
+\]
+
+Then:
+\[
+y = 100 - 2(50) = 0
+\]
+
+So the intersection point is \((x, y) = (50, 0)\).
+
+Check feasibility with resources:
+- Milk used: \(600 \cdot 50 + 525 \cdot 0 = 30000\) g (exactly full)
+- Honey used: \(10 \cdot 50 + 5 \cdot 0 = 500\) g (exactly full)
+
+Profit at key corner points:
+
+1. \((0,0)\): \(Z = 0\)  
+2. Milk-only boundary with \(y=0\): \(600x \le 30000 \Rightarrow x \le 50\), so \((50,0)\):  
+   \(Z = 7.5 \cdot 50 = 375\)  
+3. Honey-only boundary with \(x=0\):  
+   \(5y \le 500 \Rightarrow y \le 100\), so \((0,100)\):  
+   - Check milk: \(525 \cdot 100 = 52500 > 30000\) → infeasible  
+4. The intersection \((50,0)\) already checked.
+
+Thus the optimal solution is:
+- \(x^* = 50\) bottles of black milk tea  
+- \(y^* = 0\) bottles of matcha milk tea  
+- Maximum profit: \(\$375\)
+
+---
+
+## Suitable Python libraries
+
+To solve this programmatically, you can use any standard LP solver, for example:
+
+- **PuLP**: Simple, pure-Python LP modeling
+- **SciPy**: `scipy.optimize.linprog` for linear programming
+- **OR-Tools (Google)**: `ortools.linear_solver` for LP/MIP
+
+### Example using PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Milk_Tea_Optimization", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('black_tea', lowBound=0)
+y = pl.LpVariable('matcha_tea', lowBound=0)
+
+# Objective
+prob += 7.5 * x + 5 * y
+
+# Constraints
+prob += 600 * x + 525 * y <= 30000   # milk
+prob += 10 * x + 5 * y <= 500        # honey
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Black milk tea bottles:", x.value())
+print("Matcha milk tea bottles:", y.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This will return \(x = 50\), \(y = 0\), and profit = 375.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Milk_Tea_Optimization", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('black_tea', lowBound=0)   # number of black milk tea bottles
+    y = pl.LpVariable('matcha_tea', lowBound=0)  # number of matcha milk tea bottles
+
+    # Objective function: maximize profit
+    prob += 7.5 * x + 5 * y
+
+    # Constraints
+    prob += 600 * x + 525 * y <= 30000   # Milk constraint (grams)
+    prob += 10 * x + 5 * y <= 500        # Honey constraint (grams)
+
+    # Solve the problem
+    prob.solve()
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

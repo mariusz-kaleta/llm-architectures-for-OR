@@ -1,0 +1,116 @@
+[MODELER]:
+Model the problem as a linear (and integer) optimisation.
+
+Decision variables
+- x = number of washing machines repaired (integer ≥ 0)
+- y = number of freezers repaired (integer ≥ 0)
+
+Parameters (minutes and dollars)
+- Washing: inspection = 30 min, fixing = 90 min → total per washing = 30 + 90 = 120 min
+- Freezer: inspection = 20 min, fixing = 125 min → total per freezer = 20 + 125 = 145 min
+- Available inspection time = 5000 min
+- Available total schedule time = 20000 min (assumed to limit combined inspection+fixing time)
+- Profit per washing = $250
+- Profit per freezer = $375
+
+Objective
+Maximise total profit: maximize Z = 250 x + 375 y
+
+Constraints
+1) Inspection time: 30 x + 20 y ≤ 5000
+2) Total schedule time: 120 x + 145 y ≤ 20000
+3) Nonnegativity and integrality: x, y ∈ Z≥0 (if you require whole appliances)
+
+Remarks: If fractional appliances were allowed (continuous LP), you would solve the LP. But physically x,y must be integers so solve an integer program (IP).
+
+Solve (continuous LP)
+Feasible corner points:
+- (x,y) = (0, 0) → Z = 0
+- (x,y) = (166.666..., 0) → Z = 41666.67
+- (x,y) = (0, 137.931...,) → Z ≈ 51724.66
+
+Continuous LP optimum: y ≈ 137.931 freezers, x = 0, Z ≈ $51,724.66. (Not practical because of fractional appliance.)
+
+Solve (integer IP)
+Search among integer feasible solutions (or solve IP solver). The best integer solution is:
+- x = 1 washing machine
+- y = 137 freezers
+
+Total profit = 1·250 + 137·375 = $51,625
+Check constraints:
+- Inspection: 30·1 + 20·137 = 30 + 2740 = 2770 ≤ 5000 OK
+- Schedule: 120·1 + 145·137 = 120 + 19865 = 19985 ≤ 20000 OK
+
+Recommended solvers / Python libraries
+- For linear programming (continuous): scipy.optimize.linprog, PuLP (with CBC), CVXOPT
+- For integer programming (recommended here): PuLP (CBC, GLPK), OR-Tools CP-SAT, Gurobi/CPLEX if available (commercial)
+- For small problems like this: PuLP or OR-Tools are simple and effective.
+
+Example PuLP formulation (outline)
+- Define integer variables x = LpVariable('x', lowBound=0, cat='Integer') and y similarly.
+- Add constraints 30*x + 20*y <= 5000 and 120*x + 145*y <= 20000.
+- Maximize 250*x + 375*y.
+- Solve using default solver (CBC) and read x.value(), y.value().
+
+Answer
+To maximize earnings under the stated constraints, repair 1 washing machine and 137 freezers, for total earnings $51,625.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained script to solve the integer optimization for appliance repairs
+
+# Parameters (minutes and dollars)
+inspection_time_washing = 30   # minutes per washing inspection
+fixing_time_washing = 90      # minutes per washing fixing
+total_time_washing = inspection_time_washing + fixing_time_washing  # 120
+
+inspection_time_freezer = 20  # minutes per freezer inspection
+fixing_time_freezer = 125     # minutes per freezer fixing
+total_time_freezer = inspection_time_freezer + fixing_time_freezer  # 145
+
+available_inspection_time = 5000  # minutes
+available_total_time = 20000      # minutes
+
+profit_washing = 250
+profit_freezer = 375
+
+# Upper bounds for brute-force search (derived from individual constraints)
+max_x = available_inspection_time // inspection_time_washing  # <= 166
+max_x = min(max_x, available_total_time // total_time_washing)
+max_y = available_inspection_time // inspection_time_freezer  # <= 250
+max_y = min(max_y, available_total_time // total_time_freezer)  # <= 137
+
+best_profit = -1
+best_x = 0
+best_y = 0
+
+# Brute-force integer search
+for x in range(0, int(max_x) + 1):
+    # Given x, compute max possible y from each constraint to reduce loop range
+    # inspection constraint: 30x + 20y <= 5000  => y <= (5000 - 30x)/20
+    y_max_inspection = (available_inspection_time - inspection_time_washing * x) // inspection_time_freezer
+    # total time constraint: 120x + 145y <= 20000 => y <= (20000 - 120x)/145
+    y_max_total = (available_total_time - total_time_washing * x) // total_time_freezer
+    y_upper = int(min(y_max_inspection, y_max_total, max_y))
+    if y_upper < 0:
+        continue
+    for y in range(0, y_upper + 1):
+        # Check constraints (redundant given bounds but kept for safety)
+        if inspection_time_washing * x + inspection_time_freezer * y > available_inspection_time:
+            continue
+        if total_time_washing * x + total_time_freezer * y > available_total_time:
+            continue
+        profit = profit_washing * x + profit_freezer * y
+        if profit > best_profit:
+            best_profit = profit
+            best_x = x
+            best_y = y
+
+# Print solution summary
+print(f"Best integer solution: x (washings) = {best_x}, y (freezers) = {best_y}, Profit = ${best_profit}")
+
+# Final required output line (must be the last printed line and exact format)
+print(f"FINAL_OBJ: {best_profit}")
+```

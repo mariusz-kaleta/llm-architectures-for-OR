@@ -1,0 +1,258 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- **Goal:** Minimise the number of taxi rides needed, while:
+  - Transporting at least 500 employees.
+  - Respecting the limit on the share of company car rides.
+  - Respecting the minimum number of company car rides.
+
+---
+
+2. **Suggested model type**
+
+- **Model:** Integer Linear Programming (ILP), with:
+  - Two main integer decision variables (number of rides of each type).
+  - Linear constraints for capacity and policy limits.
+
+---
+
+3. **Main decision variables**
+
+Define two non‑negative integer variables:
+
+- \(T\): Number of taxi rides.
+- \(C\): Number of company car rides.
+
+(If helpful, you can also define an auxiliary variable for total rides \(R = T + C\), but it can be kept implicit via expressions in the constraints.)
+
+---
+
+4. **Key constraints and how to represent them**
+
+You should structure the model around the following constraint groups:
+
+1. **Capacity requirement (employee transport):**
+   - Each taxi ride carries 2 employees.
+   - Each company car ride carries 3 employees.
+   - Total employees transported must be **at least 500**.
+   - Constraint form:  
+     - Total carried by taxis + total carried by cars ≥ 500 employees.
+
+2. **Share (percentage) constraint on company car rides:**
+   - “At most 60% of the rides can be company car rides”:
+     - The proportion of rides that are company car rides is at most 0.6.
+     - Use the ratio: number of car rides / total rides ≤ 0.6.
+     - This involves \(C / (T + C) ≤ 0.6\).  
+     - Convert this to a linear inequality by cross-multiplying to eliminate the fraction (assuming total rides > 0): an inequality linking \(C\) and \(T\).
+   - Be careful to ensure the direction of the inequality is correct.
+
+3. **Minimum number of company car rides:**
+   - “At least 30 company car rides”:
+     - Direct lower bound on \(C\).
+
+4. **Non-negativity and integrality:**
+   - Both \(T\) and \(C\) must be:
+     - Non‑negative.
+     - Integer (because you can’t have fractional rides).
+
+---
+
+5. **Objective function structure**
+
+- Objective: **Minimise \(T\)** (the number of taxi rides), subject to all constraints above.
+  - No direct cost is associated with cars in the objective; the car usage is implicitly limited by the share and minimum constraints.
+  - This is a single-objective ILP with a simple linear objective.
+
+---
+
+6. **Modelling notes / checks for the Modeller**
+
+- Ensure the ratio constraint (company car rides ≤ 60% of all rides) is written in a linear form; that’s the main modelling subtlety.
+- After modelling:
+  - Check feasibility: make sure there exists some combination of \(T, C\) satisfying:
+    - Capacity ≥ 500.
+    - \(C\) ≥ 30.
+    - Company cars ≤ 60% of all rides.
+  - Once solved, verify:
+    - The solution uses an integer number of rides.
+    - The total number of employees transported meets or exceeds 500.
+    - The company car rides proportion is ≤ 60% and C ≥ 30.
+
+This structure is sufficient for the Modeller to implement and solve the optimisation problem.
+
+---
+
+[MODELER]:
+Here is a clean mathematical formulation of the problem as an Integer Linear Program (ILP), followed by suggestions for Python libraries.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(T \in \mathbb{Z}_{\ge 0}\): number of taxi rides  
+- \(C \in \mathbb{Z}_{\ge 0}\): number of company car rides  
+
+(Optionally, total rides \(R = T + C\) can be used as a derived quantity.)
+
+---
+
+## 2. Objective
+
+Minimise the number of taxi rides:
+
+\[
+\min T
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Capacity (employees transported)
+
+Each taxi ride carries 2 employees; each company car ride carries 3 employees. At least 500 employees must be transported:
+
+\[
+2T + 3C \;\ge\; 500
+\]
+
+---
+
+### 3.2 Share constraint on company car rides (≤ 60%)
+
+At most 60% of *all rides* can be company car rides:
+
+\[
+\frac{C}{T + C} \;\le\; 0.6
+\]
+
+Assume \(T + C > 0\) (trivially true because at least 500 employees must be moved). Cross‑multiply to linearise:
+
+\[
+C \;\le\; 0.6(T + C)
+\]
+
+\[
+C \;\le\; 0.6T + 0.6C
+\]
+
+\[
+C - 0.6C \;\le\; 0.6T
+\]
+
+\[
+0.4C \;\le\; 0.6T
+\]
+
+\[
+2C \;\le\; 3T
+\]
+
+So the linear form of the share constraint is:
+
+\[
+2C \;\le\; 3T
+\]
+
+---
+
+### 3.3 Minimum number of company car rides
+
+At least 30 company car rides:
+
+\[
+C \;\ge\; 30
+\]
+
+---
+
+### 3.4 Non‑negativity and integrality
+
+\[
+T \in \mathbb{Z}_{\ge 0},\quad C \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete model
+
+\[
+\begin{aligned}
+\min \quad & T \\
+\text{s.t.} \quad 
+& 2T + 3C \;\ge\; 500 & \text{(capacity)} \\
+& 2C \;\le\; 3T       & \text{(≤ 60% cars)} \\
+& C \;\ge\; 30        & \text{(min cars)} \\
+& T, C \in \mathbb{Z}_{\ge 0} & \text{(integrality)}
+\end{aligned}
+\]
+
+This is a small, standard ILP.
+
+---
+
+## 5. Suitable Python libraries
+
+For this kind of integer linear problem, good choices are:
+
+- **PuLP**  
+  - Simple modelling interface, uses open‑source solvers (CBC by default).  
+  - Good for teaching, small to medium problems.
+- **OR‑Tools (Google OR‑Tools, `ortools.linear_solver`)**  
+  - Industrial‑strength, very fast; supports CBC, GLOP, SCIP, etc.  
+  - Clean Python API for linear and integer programming.
+- **Pyomo**  
+  - More general algebraic modelling language; integrates with many solvers (CBC, GLPK, CPLEX, Gurobi, etc.).  
+  - Good if you plan to extend to more complex models.
+- **SciPy (`scipy.optimize`)**  
+  - Mainly for continuous optimisation; not ideal for pure integer problems like this unless you relax integrality, so it’s not the preferred tool here.
+
+For a problem exactly like this (small ILP, educational/operational use), **PuLP** or **OR‑Tools** are the most straightforward and practical choices.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: minimize number of taxi rides T
+    prob = pulp.LpProblem("Taxi_CompanyCar_Problem", pulp.LpMinimize)
+
+    # Decision variables
+    T = pulp.LpVariable('T', lowBound=0, cat='Integer')  # Taxi rides
+    C = pulp.LpVariable('C', lowBound=0, cat='Integer')  # Company car rides
+
+    # Objective: minimize T
+    prob += T
+
+    # Constraints
+
+    # Capacity: 2T + 3C >= 500
+    prob += 2 * T + 3 * C >= 500, "Capacity"
+
+    # Share constraint: 2C <= 3T
+    prob += 2 * C <= 3 * T, "ShareConstraint"
+
+    # Minimum company car rides: C >= 30
+    prob += C >= 30, "MinCompanyCars"
+
+    # Solve the problem using default solver (CBC)
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract values
+    T_val = pulp.value(T)
+    C_val = pulp.value(C)
+
+    # Objective value is T (number of taxi rides)
+    final_obj = T_val
+
+    # Optionally, ensure integrality in case of solver tolerances
+    if final_obj is not None:
+        final_obj = int(round(final_obj))
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

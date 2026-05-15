@@ -1,0 +1,90 @@
+[MODELER]:
+Model
+
+Decision variables
+- x = number of basketballs (integer, x ≥ 0)
+- y = number of footballs  (integer, y ≥ 0)
+
+Objective
+- Maximize total equipment: maximize Z = x + y
+
+Constraints
+- Material: 5x + 3y ≤ 1500
+- Time: x + 2y ≤ 750
+- Basketballs at least three times footballs: x ≥ 3y
+- Minimum footballs: y ≥ 50
+- Integrality: x, y ∈ Z
+
+Mathematical formulation
+Maximize Z = x + y
+subject to
+5x + 3y ≤ 1500
+x + 2y ≤ 750
+x − 3y ≥ 0
+y ≥ 50
+x, y ≥ 0 and integer
+
+Solution (analysis summary)
+- Solve the LP relaxation: the continuous optimum lies on x = 3y and the material constraint 5x + 3y = 1500, giving y = 1500/18 = 83.333..., x = 3y = 250.0 (continuous).
+- Enforcing integrality and other constraints, the best integer solution is:
+  x = 250 basketballs, y = 83 footballs,
+  giving Z = 250 + 83 = 333 items.
+- Check: materials 5·250 + 3·83 = 1499 ≤ 1500; time 250 + 2·83 = 416 ≤ 750; x ≥ 3y since 250 ≥ 249; y ≥ 50.
+
+Recommended Python solvers/libraries
+- pulp (uses CBC by default) — easy for small integer LPs
+- OR-Tools (CP-SAT or MIP) — fast and robust for integer problems
+- mip (Python-MIP) — convenient interface to CBC/Gurobi
+- If only continuous relaxation needed: scipy.optimize.linprog
+
+Example (PuLP) code snippet
+(install pulp first: pip install pulp)
+from pulp import LpProblem, LpMaximize, LpVariable, LpInteger, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("max_equipment", LpMaximize)
+x = LpVariable('basketballs', lowBound=0, cat=LpInteger)
+y = LpVariable('footballs',  lowBound=0, cat=LpInteger)
+
+prob += x + y  # objective
+prob += 5*x + 3*y <= 1500
+prob += x + 2*y <= 750
+prob += x - 3*y >= 0
+prob += y >= 50
+
+prob.solve(PULP_CBC_CMD(msg=0))
+print(int(x.value()), int(y.value()), int((x.value()+y.value())))
+
+This will return: 250 basketballs and 83 footballs (total 333).
+
+Answer
+Make 250 basketballs and 83 footballs to maximize total production = 333 pieces.
+
+---
+
+[CODER]:
+import math
+
+# Solve the integer optimization by enumeration (small search space)
+best_obj = -1
+best_x = None
+best_y = None
+
+# y must be at least 50 and from constraints analysis y <= 83
+for y in range(50, 84):
+    # max x from material: 5x + 3y <= 1500  => x <= (1500 - 3y)/5
+    x_max_material = (1500 - 3 * y) // 5
+    # max x from time: x + 2y <= 750 => x <= 750 - 2y
+    x_max_time = 750 - 2 * y
+    x_max = min(x_max_material, x_max_time)
+    # x must be at least 3y
+    x_min = 3 * y
+    if x_max >= x_min and x_max >= 0:
+        x = int(x_max)
+        obj = x + y
+        if obj > best_obj:
+            best_obj = obj
+            best_x = x
+            best_y = y
+
+# Final objective value
+print(f"FINAL_OBJ: {best_obj}")

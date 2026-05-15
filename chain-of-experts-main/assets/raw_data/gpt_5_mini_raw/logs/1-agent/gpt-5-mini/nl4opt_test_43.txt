@@ -1,0 +1,38 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization (from problem statement)
+dual_rate = 50        # letters per minute for dual model
+single_rate = 30      # letters per minute for single model
+glue_dual = 20        # glue units per minute for dual model
+glue_single = 15      # glue units per minute for single model
+min_letters = 300     # required letters per minute
+max_glue = 135        # maximum glue units per minute
+
+# Define the problem
+prob = pulp.LpProblem("Stamping_Machines_Minimize_Count", pulp.LpMinimize)
+
+# Decision variables: number of dual (D) and single (S) machines (integer, >=0)
+D = pulp.LpVariable('Dual', lowBound=0, cat='Integer')
+S = pulp.LpVariable('Single', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of machines
+prob += D + S
+
+# Constraints
+prob += dual_rate * D + single_rate * S >= min_letters        # capacity constraint
+prob += glue_dual * D + glue_single * S <= max_glue           # glue constraint
+prob += S >= D + 1                                             # single machines must be more than dual
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve results
+dual_count = int(pulp.value(D))
+single_count = int(pulp.value(S))
+final_obj = int(pulp.value(prob.objective)) if pulp.value(prob.objective) is not None else None
+
+# Print solution (machine counts) and final objective (LAST line must be FINAL_OBJ)
+print(f"Dual machines: {dual_count}")
+print(f"Single machines: {single_count}")
+print(f"FINAL_OBJ: {final_obj}")

@@ -1,0 +1,59 @@
+[MONOLITH]:
+```python
+import pulp
+
+# Data initialization based on the problem statement
+vol_per_tube = 50      # cubic meters per high-pressure tube trailer trip
+cost_per_tube = 500    # cost per high-pressure tube trailer trip
+
+vol_per_tanker = 30    # cubic meters per liquefied hydrogen tanker trip
+cost_per_tanker = 200  # cost per liquefied hydrogen tanker trip
+
+required_volume = 1000
+budget = 3750
+
+# Create the optimization problem: minimize total number of trips
+prob = pulp.LpProblem("Minimize_Trips", pulp.LpMinimize)
+
+# Decision variables: integer number of trips for each transport method
+x_tube = pulp.LpVariable("x_tube", lowBound=0, cat="Integer")    # high-pressure tube trailers
+x_tanker = pulp.LpVariable("x_tanker", lowBound=0, cat="Integer")# liquefied hydrogen tankers
+
+# Objective: minimize total trips
+prob += x_tube + x_tanker, "Total_Trips"
+
+# Constraints
+prob += vol_per_tube * x_tube + vol_per_tanker * x_tanker >= required_volume, "VolumeRequirement"
+prob += cost_per_tube * x_tube + cost_per_tanker * x_tanker <= budget, "BudgetLimit"
+# x_tube < x_tanker  -> x_tube <= x_tanker - 1  -> x_tube - x_tanker <= -1
+prob += x_tube - x_tanker <= -1, "StrictLessConstraint"
+
+# Solve the MILP
+solver = pulp.PULP_CBC_CMD(msg=False)
+result_status = prob.solve(solver)
+
+status_str = pulp.LpStatus.get(prob.status, "Unknown")
+print(f"Solver status: {status_str}")
+
+if status_str == "Optimal":
+    val_x_tube = int(round(pulp.value(x_tube)))
+    val_x_tanker = int(round(pulp.value(x_tanker)))
+    total_trips = int(round(pulp.value(prob.objective)))
+    total_volume = vol_per_tube * val_x_tube + vol_per_tanker * val_x_tanker
+    total_cost = cost_per_tube * val_x_tube + cost_per_tanker * val_x_tanker
+
+    print(f"High-pressure tube trailers (x_tube): {val_x_tube}")
+    print(f"Liquefied hydrogen tankers (x_tanker): {val_x_tanker}")
+    print(f"Total volume transported: {total_volume} cubic meters")
+    print(f"Total cost: ${total_cost}")
+    print(f"Total trips (objective): {total_trips}")
+
+    # Final required print (must be the last line)
+    print(f"FINAL_OBJ: {total_trips}")
+
+else:
+    # No feasible or optimal solution found
+    print("No feasible solution satisfies all constraints (required volume, budget, and x_tube < x_tanker).")
+    # Final required print indicating infeasibility
+    print(f"FINAL_OBJ: Infeasible")
+```

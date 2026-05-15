@@ -1,0 +1,81 @@
+[MODELER]:
+Model summary
+
+Decision variables
+- B ≥ 0 — number of burgers (can be integer if required)
+- P ≥ 0 — number of pizza slices (can be integer if required)
+
+Objective
+- Minimize total cholesterol:   minimize Z = 12 B + 10 P
+
+Constraints
+1. Fat requirement:         10 B + 8 P ≥ 130
+2. Calorie requirement:     300 B + 250 P ≥ 3000
+3. Pizza at least twice burgers:   P ≥ 2 B
+4. Nonnegativity: B ≥ 0, P ≥ 0
+(If you require integer counts, add B, P ∈ Z≥0.)
+
+Analytic solution (brief)
+Substitute the binding relation P = 2 B (because any feasible solution with P > 2B can only increase cholesterol for fixed B, and P cannot be less than 2B). With P = 2B the fat constraint gives
+10B + 8(2B) = 26B ≥ 130 ⇒ B ≥ 130/26 = 5.
+Calories constraint with P = 2B gives B ≥ 3.75, so the fat constraint (B ≥ 5) dominates. The minimal feasible B is 5, and thus P = 10. Total cholesterol = 12·5 + 10·10 = 60 + 100 = 160 units.
+
+Therefore the man should eat 5 burgers and 10 slices of pizza (objective value 160). This solution is integer and satisfies all constraints.
+
+Suggested solvers / Python libraries
+- pulp (Python LP modeling with CBC solver) — easy to express LP/MIP.
+- scipy.optimize.linprog — for continuous LPs.
+- OR-Tools (linear solver or MIP) — performant and feature rich.
+- CVXOPT / Pyomo — for more advanced modeling.
+
+Example (pulp) code
+(from this model — works for continuous or integer variables by choosing LpContinuous or LpInteger)
+```
+import pulp
+
+# define problem
+prob = pulp.LpProblem("MinCholesterol", pulp.LpMinimize)
+
+# variables (integers if desired)
+B = pulp.LpVariable('B', lowBound=0, cat='Integer')   # use cat='Continuous' if reals allowed
+P = pulp.LpVariable('P', lowBound=0, cat='Integer')
+
+# objective
+prob += 12*B + 10*P
+
+# constraints
+prob += 10*B + 8*P >= 130
+prob += 300*B + 250*P >= 3000
+prob += P >= 2*B
+
+# solve
+prob.solve()
+print("Status:", pulp.LpStatus[prob.status])
+print("Burgers =", pulp.value(B))
+print("Pizza slices =", pulp.value(P))
+print("Total cholesterol =", pulp.value(prob.objective))
+```
+
+This will return B = 5, P = 10, total cholesterol = 160.
+
+---
+
+[CODER]:
+# Self-contained solution for the minimization model
+# Decision variables (integer): B (burgers), P (pizza slices)
+# Objective: minimize Z = 12 B + 10 P
+# Constraints:
+#   10 B + 8 P >= 130
+#   300 B + 250 P >= 3000
+#   P >= 2 B
+# Analytic solution yields B = 5, P = 10, Z = 160
+
+# Initialize decision variables (from analytic solution)
+B = 5
+P = 10
+
+# Compute objective
+value = 12 * B + 10 * P
+
+# Final required print line
+print(f"FINAL_OBJ: {value}")

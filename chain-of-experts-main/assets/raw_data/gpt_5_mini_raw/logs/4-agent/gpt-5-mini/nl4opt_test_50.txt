@@ -1,0 +1,143 @@
+[PLANNER]:
+1) Key optimisation goal
+- Maximise total profit from producing two snack mixes.
+
+2) Suggested model type
+- Linear Programming (continuous LP).
+
+3) Main decision variables
+- Amount (kg) of Mix 1 produced (the mix that is 20% cat paw, 80% gold shark).
+- Amount (kg) of Mix 2 produced (the mix that is 35% cat paw, 65% gold shark).
+
+4) Objective (what to maximise)
+- Total profit = (profit per kg of Mix 1) × (kg of Mix 1) + (profit per kg of Mix 2) × (kg of Mix 2).
+  - Profit per kg: Mix 1 = $12; Mix 2 = $15.
+
+5) Key constraints to include (described verbally)
+- Cat paw availability: the total kg of cat paw used by both mixes cannot exceed 20 kg. (Usage = 20% of Mix 1 + 35% of Mix 2.)
+- Gold shark availability: the total kg of gold shark used by both mixes cannot exceed 50 kg. (Usage = 80% of Mix 1 + 65% of Mix 2.)
+- Nonnegativity: production amounts for both mixes must be zero or positive.
+- No integrality constraint needed (continuous kilograms allowed).
+
+6) Solution approach / modelling notes for the Modeller
+- Formulate the LP using the variables above and the verbal constraints given; implement in an LP solver (or solve graphically since there are two variables).
+- Check corner (extreme) points where constraints bind (including axes) to find the maximum.
+- Verify feasibility and that resource constraints are not violated.
+- Perform a quick sensitivity check: identify which resources are binding and the marginal value (shadow price) of additional kg of each snack.
+- Report optimal production amounts, total profit, and whether any resource is fully used.
+
+7) Quick expected outcome to verify against solver
+- Both resource constraints bind at the optimum. The solution to check is: produce 30 kg of Mix 1 and 40 kg of Mix 2 (this uses all 20 kg cat paw and all 50 kg gold shark), yielding total profit = $960.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- x1 = kg of Mix 1 produced (mix = 20% cat paw, 80% gold shark), x1 ≥ 0.
+- x2 = kg of Mix 2 produced (mix = 35% cat paw, 65% gold shark), x2 ≥ 0.
+
+Objective
+- Maximise total profit:
+  Max Z = 12 x1 + 15 x2.
+
+Constraints
+- Cat paw availability (20 kg):
+  0.20 x1 + 0.35 x2 ≤ 20.
+- Gold shark availability (50 kg):
+  0.80 x1 + 0.65 x2 ≤ 50.
+- Nonnegativity:
+  x1 ≥ 0, x2 ≥ 0.
+
+Remarks about model type
+- This is a continuous linear program (LP) with two variables and two resource constraints.
+
+Analytical solution (corner-point method)
+- Check corners (axes and intersection of the two binding constraints).
+- Intersection of both resource constraints (solve simultaneously):
+    0.20 x1 + 0.35 x2 = 20
+    0.80 x1 + 0.65 x2 = 50
+  Solving gives x1 = 30, x2 = 40.
+- Profit at that point: Z = 12(30) + 15(40) = 360 + 600 = $960.
+- Axis extremes give smaller profits (x1 = 62.5, x2 = 0 ⇒ Z = 750; x1 = 0, x2 = 57.1429 ⇒ Z ≈ 857.14).
+- Therefore optimal solution: x1* = 30 kg, x2* = 40 kg, max profit = $960.
+
+Resource usage and duals (sensitivity)
+- Both resource constraints are binding at optimum (all 20 kg cat paw and all 50 kg gold shark used).
+- Dual (shadow) prices: solving the dual equalities yields u_cat = 28 ($/kg of cat paw), u_gold = 8 ($/kg of gold shark). Interpretation: a marginal 1 kg increase in cat paw increases optimal profit by ≈ $28 (locally), and a marginal 1 kg increase in gold shark increases profit by ≈ $8 (valid within the current basis range).
+
+Suggested solvers / Python libraries
+- pulp (PuLP) — simple LP modelling and CBC solver: good for this small LP.
+- scipy.optimize.linprog — lightweight solver, good for small LPs.
+- OR-Tools linear solver (ortools.linear_solver) — fast and robust.
+- cvxpy — for more advanced modelling and sensitivity analysis.
+
+Example (outline) with PuLP
+- Define variables x1, x2 ≥ 0.
+- Add constraints 0.2*x1 + 0.35*x2 <= 20 and 0.8*x1 + 0.65*x2 <= 50.
+- Maximise 12*x1 + 15*x2.
+- Solve and read x1, x2, objective value and duals (PuLP can return constraint pi/dual values if using an LP solver that exposes them).
+
+Conclusion (answers to original question)
+- Produce 30 kg of Mix 1 and 40 kg of Mix 2.
+- Maximum profit = $960.
+- Both supplies (cat paw and gold shark) are fully used; marginal values are $28/kg (cat paw) and $8/kg (gold shark).
+
+---
+
+[CODER]:
+import numpy as np
+
+# Data
+# Decision vars: x1 (Mix 1), x2 (Mix 2)
+# Objective coefficients (profit per kg)
+c = np.array([12.0, 15.0])
+
+# Constraint matrix (rows: constraints, columns: x1, x2)
+# 0.20 x1 + 0.35 x2 <= 20  (cat paw)
+# 0.80 x1 + 0.65 x2 <= 50  (gold shark)
+A = np.array([[0.20, 0.35],
+              [0.80, 0.65]])
+b = np.array([20.0, 50.0])
+
+# Solve intersection of both binding constraints (A x = b)
+x_solution = np.linalg.solve(A, b)
+x1_opt, x2_opt = x_solution
+
+# Compute objective at that point
+obj_opt = float(c.dot(x_solution))
+
+# Compute axis extremes (for verification)
+# x2 = 0 -> find max feasible x1
+x1_max_from_cat = b[0] / A[0,0]     # 20 / 0.2 = 100
+x1_max_from_gold = b[1] / A[1,0]    # 50 / 0.8 = 62.5
+x1_axis = min(x1_max_from_cat, x1_max_from_gold)
+obj_x1_axis = c[0] * x1_axis
+
+# x1 = 0 -> find max feasible x2
+x2_max_from_cat = b[0] / A[0,1]     # 20 / 0.35
+x2_max_from_gold = b[1] / A[1,1]    # 50 / 0.65
+x2_axis = min(x2_max_from_cat, x2_max_from_gold)
+obj_x2_axis = c[1] * x2_axis
+
+# Compute duals (shadow prices) by solving A^T * y = c
+y = np.linalg.solve(A.T, c)
+y_cat, y_gold = y  # shadow prices for cat paw and gold shark
+
+# Print results (informational)
+print(f"Optimal x1 = {x1_opt:.6f} kg")
+print(f"Optimal x2 = {x2_opt:.6f} kg")
+print(f"Objective (profit) = {obj_opt:.6f}")
+print(f"Axis extreme x1 (x2=0): x1 = {x1_axis:.6f}, profit = {obj_x1_axis:.6f}")
+print(f"Axis extreme x2 (x1=0): x2 = {x2_axis:.6f}, profit = {obj_x2_axis:.6f}")
+print(f"Shadow price (cat paw) = {y_cat:.6f} $/kg")
+print(f"Shadow price (gold shark) = {y_gold:.6f} $/kg")
+
+# Prepare final objective value for printing exactly as required.
+final_obj = obj_opt
+# If very close to integer, convert to int for neatness
+if abs(final_obj - round(final_obj)) < 1e-9:
+    final_obj = int(round(final_obj))
+
+print(f"FINAL_OBJ: {final_obj}")

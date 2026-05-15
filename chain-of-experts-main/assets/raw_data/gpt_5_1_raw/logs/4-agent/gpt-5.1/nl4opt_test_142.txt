@@ -1,0 +1,245 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximize total profit from producing large and small art pieces, given limited paint, glitter, and glue resources and minimum production requirements.
+
+2. Suggested model type  
+Model: Linear Programming (LP).  
+Reason: Objective and constraints are linear; decision variables are continuous/nonnegative counts of products (can later be restricted to integers if required, but typical textbook versions treat them as continuous).
+
+3. Main decision variables  
+Define two primary decision variables:
+- Number of large art pieces to produce.
+- Number of small art pieces to produce.
+
+(If needed later, you can add: total resource usage by product type, but these will be linear expressions in the two main variables rather than separate decision variables.)
+
+4. Key constraints to consider  
+
+a) Resource capacity constraints  
+Each product consumes given amounts of paint, glitter, and glue; total usage cannot exceed available stock.
+
+- Paint constraint:  
+  Total paint used by large and small pieces ≤ 100 units.
+
+- Glitter constraint:  
+  Total glitter used by large and small pieces ≤ 50 units.
+
+- Glue constraint:  
+  Total glue used by large and small pieces ≤ 70 units.
+
+b) Minimum production constraints  
+The store must produce at least a minimum number of each product type.
+
+- Large pieces: quantity ≥ 5.
+- Small pieces: quantity ≥ 5.
+
+c) Non-negativity (and integrality, if required)  
+- Both decision variables must be ≥ 0.  
+- If modeling requires whole pieces only, specify that both decision variables must be integers; otherwise, treat as continuous.
+
+5. Objective function structure  
+
+Total profit is the sum of:
+- Profit per large piece × number of large pieces.
+- Profit per small piece × number of small pieces.
+
+Given profits:
+- Large piece: $30 each.
+- Small piece: $15 each.
+
+So the objective is a linear combination of the two decision variables with these coefficients.
+
+6. Modelling strategy notes  
+
+- Set up a standard 2-variable LP with 3 resource constraints + 2 minimum-production constraints + non-negativity.
+- Because there are only two variables, the modeller can:
+  - Solve analytically by plotting feasible region and checking corner points, or
+  - Use a standard LP solver.
+- After solving, verify that the optimal solution respects all resource capacities and minimum production constraints.
+
+---
+
+[MODELER]:
+Here is a clear mathematical model of the problem and how you would implement it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_L \ge 0\): number of large art pieces to produce  
+- \(x_S \ge 0\): number of small art pieces to produce  
+
+If you require whole pieces only:
+
+- \(x_L, x_S \in \mathbb{Z}_{\ge 0}\) (integer nonnegative)
+
+---
+
+## 2. Objective function
+
+Profit per unit:
+
+- Large: \$30  
+- Small: \$15  
+
+Maximize total profit:
+
+\[
+\max Z = 30 x_L + 15 x_S
+\]
+
+---
+
+## 3. Constraints
+
+### a) Resource capacity constraints
+
+Paint (100 units available):
+
+\[
+4 x_L + 2 x_S \le 100
+\]
+
+Glitter (50 units available):
+
+\[
+3 x_L + 1 x_S \le 50
+\]
+
+Glue (70 units available):
+
+\[
+5 x_L + 2 x_S \le 70
+\]
+
+### b) Minimum production constraints
+
+Must produce at least 5 of each:
+
+\[
+x_L \ge 5
+\]
+\[
+x_S \ge 5
+\]
+
+(These implicitly also satisfy non-negativity, so a separate \(x_L, x_S \ge 0\) is not strictly necessary.)
+
+---
+
+## 4. Model type
+
+This is a **Linear Programming (LP)** model:
+
+- Objective: linear in \(x_L, x_S\)  
+- Constraints: all linear inequalities  
+- Variables: continuous (or integer if needed)
+
+If you enforce integrality, it becomes a **Mixed Integer Linear Program (MILP)** with two integer variables.
+
+---
+
+## 5. Compact model summary
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 30 x_L + 15 x_S \\
+\text{subject to} \quad
+& 4 x_L + 2 x_S \le 100 \quad &&\text{(paint)} \\
+& 3 x_L + 1 x_S \le 50 \quad &&\text{(glitter)} \\
+& 5 x_L + 2 x_S \le 70 \quad &&\text{(glue)} \\
+& x_L \ge 5 \quad &&\text{(min large)} \\
+& x_S \ge 5 \quad &&\text{(min small)} \\
+& x_L, x_S \ge 0 \quad &&\text{(non-negativity)} \\
+& \text{(optionally } x_L, x_S \in \mathbb{Z} \text{)}
+\end{aligned}
+\]
+
+---
+
+## 6. Suitable Python libraries
+
+For solving this LP/MILP in Python, any of the following are appropriate:
+
+- **PuLP**  
+  - Simple modeling interface; works well for textbook-sized LPs.  
+  - Can use built-in CBC solver.  
+  - Good for quick “define variables, constraints, solve” workflows.
+
+- **OR-Tools (Google)** – `ortools.linear_solver`  
+  - Industrial-strength, supports LP and MILP.  
+  - Good performance, clear API.
+
+- **Pyomo**  
+  - More general algebraic modeling language in Python.  
+  - Good for larger or more complex models; works with many solvers.
+
+For this small 2-variable model, **PuLP** or **OR-Tools** is very convenient.
+
+---
+
+## 7. Example PuLP formulation
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Art_Store_Production", pl.LpMaximize)
+
+# Decision variables (continuous; change to LpInteger if you want integers)
+x_L = pl.LpVariable('x_L', lowBound=5)  # large pieces >= 5
+x_S = pl.LpVariable('x_S', lowBound=5)  # small pieces >= 5
+
+# Objective function
+prob += 30 * x_L + 15 * x_S, "Total_Profit"
+
+# Constraints
+prob += 4 * x_L + 2 * x_S <= 100, "Paint"
+prob += 3 * x_L + 1 * x_S <= 50,  "Glitter"
+prob += 5 * x_L + 2 * x_S <= 70,  "Glue"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal large pieces (x_L):", x_L.value())
+print("Optimal small pieces (x_S):", x_S.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This code directly implements the mathematical model above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create problem
+    prob = pl.LpProblem("Art_Store_Production", pl.LpMaximize)
+
+    # Decision variables: continuous, with minimum production of 5 units each
+    x_L = pl.LpVariable('x_L', lowBound=5)
+    x_S = pl.LpVariable('x_S', lowBound=5)
+
+    # Objective function: maximize profit
+    prob += 30 * x_L + 15 * x_S, "Total_Profit"
+
+    # Resource capacity constraints
+    prob += 4 * x_L + 2 * x_S <= 100, "Paint"
+    prob += 3 * x_L + 1 * x_S <= 50,  "Glitter"
+    prob += 5 * x_L + 2 * x_S <= 70,  "Glue"
+
+    # Solve using CBC solver
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,94 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x ∈ Z≥0 : number of small wagons (each holds 20 units)
+  - y ∈ Z≥0 : number of large wagons (each holds 50 units)
+
+- Objective
+  - Minimize total wagons: minimize Z = x + y
+
+- Constraints
+  1. Capacity: 20 x + 50 y ≥ 2000
+  2. Small wagons at least twice large: x ≥ 2 y
+  3. At least 10 large wagons: y ≥ 10
+  4. Integrality / nonnegativity: x, y integer, x ≥ 0, y ≥ 0
+
+Analytic simplification and solution
+
+From capacity: x ≥ 100 − 2.5 y. Combined with x ≥ 2 y, for a given integer y ≥ 10 the minimal feasible x is
+x = max(2 y, ceil(100 − 2.5 y)).
+So the objective for given y is Z(y) = y + max(2 y, ceil(100 − 2.5 y)).
+
+Compare 2 y and 100 − 2.5 y:
+- 2 y ≥ 100 − 2.5 y iff y ≥ 100/4.5 ≈ 22.222...
+Thus:
+- For y ≥ 23, x = 2 y and Z = 3 y, which is minimized at smallest such y, y = 23 → Z = 69.
+- For 10 ≤ y ≤ 22, x = ceil(100 − 2.5 y) and Z = ceil(100 − 1.5 y), which is decreasing in y, so optimal at y = 22:
+  - y = 22 ⇒ x = ceil(100 − 55) = 45 ⇒ Z = 45 + 22 = 67.
+
+Therefore the optimal solution is:
+- x = 45 small wagons
+- y = 22 large wagons
+- Minimum total wagons = 67
+
+Suggested solvers / Python libraries
+- For integer linear programming:
+  - pulp (easy-to-use high-level interface)
+  - OR-Tools CP-SAT (fast for integer/CP problems)
+  - gurobi / cplex (commercial, if available)
+- For small problems a brute-force loop or simple integer enumeration is sufficient (no heavy solver needed).
+- scipy.optimize is not appropriate because it does not handle integer variables directly.
+
+Example approaches (sketch)
+- Using pulp: declare IntVar x, y; add constraints; minimize x+y; solve.
+- Using brute force: loop y from 10 up to a reasonable upper bound (e.g., 2000/50 = 40), compute minimal x per y, track best solution.
+
+If you want, I can provide a short Python script (pulp or a brute-force loop) that implements this and prints the solution.
+
+---
+
+[CODER]:
+import math
+
+# Data
+capacity_required = 2000
+small_capacity = 20
+large_capacity = 50
+
+# Search bounds
+y_min = 10
+y_max = 200  # generous upper bound
+
+best_z = None
+best_x = None
+best_y = None
+
+for y in range(y_min, y_max + 1):
+    # Minimum x to satisfy capacity: ceil((capacity_required - large_capacity*y) / small_capacity)
+    remaining = capacity_required - large_capacity * y
+    if remaining <= 0:
+        x_capacity = 0
+    else:
+        x_capacity = (remaining + small_capacity - 1) // small_capacity  # integer ceil
+
+    # Constraint x >= 2y
+    x = max(2 * y, x_capacity)
+
+    # Verify feasibility (should be by construction)
+    if x < 0:
+        continue
+    if small_capacity * x + large_capacity * y < capacity_required:
+        continue
+    if x < 2 * y:
+        continue
+
+    z = x + y
+    if best_z is None or z < best_z:
+        best_z = z
+        best_x = x
+        best_y = y
+
+# Final objective value
+final_obj = best_z if best_z is not None else 0
+print(f"FINAL_OBJ: {final_obj}")

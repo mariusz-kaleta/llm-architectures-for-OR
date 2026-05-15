@@ -1,0 +1,183 @@
+[MODELER]:
+Formulate this as an integer linear optimization problem.
+
+### Decision variables
+Let  
+- \(x\) = number of golf carts (4 guests each)  
+- \(y\) = number of pull carts (1 guest each)  
+
+Both must be nonnegative integers:
+- \(x \ge 0,\; y \ge 0,\; x, y \in \mathbb{Z}\).
+
+### Objective
+Minimize the total number of carts:
+\[
+\min\; x + y
+\]
+
+### Constraints
+
+1. **Capacity constraint (must serve at least 80 guests):**
+   \[
+   4x + y \ge 80
+   \]
+
+2. **Golf cart proportion constraint (at most 60% of carts are golf carts):**
+
+   “At most 60% of carts can be golf carts” means:
+   \[
+   \frac{x}{x + y} \le 0.6
+   \]
+   For \(x + y > 0\), multiply both sides by \(x + y\):
+   \[
+   x \le 0.6(x + y)
+   \]
+   \[
+   x \le 0.6x + 0.6y
+   \]
+   \[
+   0.4x \le 0.6y
+   \]
+   \[
+   2x \le 3y
+   \]
+   So:
+   \[
+   2x \le 3y
+   \]
+
+3. **Integrality:**
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+### Solve analytically (to find the actual numbers)
+
+We want to minimize \(x + y\) subject to:
+- \(4x + y \ge 80\)
+- \(2x \le 3y\)
+- \(x, y \in \mathbb{Z}_{\ge 0}\)
+
+First, minimize the total carts for capacity alone:  
+Total guests per cart is higher for golf carts, so ignore the 60% rule and try all golf carts:
+
+If all are golf carts: \(4x \ge 80 \Rightarrow x \ge 20\), total carts = 20.  
+But proportion constraint: \(x/(x+y) = 1\), which violates \( \le 0.6\). So we need pull carts.
+
+We can search over feasible integers near the minimum total carts.
+
+Use equality for capacity (since excess capacity usually increases carts):  
+\[
+4x + y = 80 \Rightarrow y = 80 - 4x
+\]
+
+Plug into \(2x \le 3y\):
+\[
+2x \le 3(80 - 4x) = 240 - 12x
+\]
+\[
+14x \le 240 \Rightarrow x \le \frac{240}{14} \approx 17.14
+\]
+So \(x \le 17\).  
+
+Also require \(y = 80 - 4x \ge 0 \Rightarrow x \le 20\). So \(x\) is at most 17 from the proportion constraint.
+
+Now compute total carts for integer \(x \le 17\) with \(y = 80 - 4x\):
+\[
+x + y = x + 80 - 4x = 80 - 3x
+\]
+This is decreasing in \(x\), so we want the largest feasible \(x\), i.e. \(x = 17\).
+
+Then:
+- \(y = 80 - 4 \cdot 17 = 80 - 68 = 12\)
+- Check proportion: \(2x \le 3y \Rightarrow 2\cdot 17 = 34 \le 36 = 3\cdot 12\) ✓
+- Total carts = \(17 + 12 = 29\)
+
+No smaller total is possible, because increasing total carts obviously doesn’t help.
+
+**Optimal solution:**
+- 17 golf carts
+- 12 pull carts
+- Total carts = 29
+- Capacity = \(4\cdot 17 + 12 = 80\) guests
+- Golf cart proportion = \(17 / 29 \approx 0.586 < 0.6\)
+
+---
+
+### Python modeling suggestion
+
+You can model and solve this with any integer programming library. For this small problem:
+
+- `pulp` (simple and pure-Python)
+- `ortools.linear_solver` (Google OR-Tools)
+- `scipy.optimize` is less convenient for integer constraints, so use MILP tools.
+
+Example with `pulp`:
+
+```python
+import pulp as pl
+
+# Define problem: minimize total carts
+prob = pl.LpProblem("GolfCarts", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable("golf_carts", lowBound=0, cat=pl.LpInteger)
+y = pl.LpVariable("pull_carts", lowBound=0, cat=pl.LpInteger)
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 4*x + y >= 80          # capacity
+prob += 2*x <= 3*y             # at most 60% are golf carts
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Golf carts:", x.value())
+print("Pull carts:", y.value())
+print("Total carts:", x.value() + y.value())
+```
+
+This will return:
+- Golf carts: 17  
+- Pull carts: 12  
+- Total carts: 29
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define problem: minimize total carts
+    prob = pl.LpProblem("GolfCarts", pl.LpMinimize)
+
+    # Decision variables (nonnegative integers)
+    x = pl.LpVariable("golf_carts", lowBound=0, cat=pl.LpInteger)
+    y = pl.LpVariable("pull_carts", lowBound=0, cat=pl.LpInteger)
+
+    # Objective: minimize total carts
+    prob += x + y
+
+    # Constraints
+    prob += 4 * x + y >= 80      # Capacity constraint
+    prob += 2 * x <= 3 * y       # Proportion constraint: at most 60% golf carts
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    x_val = int(pl.value(x))
+    y_val = int(pl.value(y))
+    total_carts = x_val + y_val
+
+    # Print intermediate results (optional)
+    print(f"Golf carts (x): {x_val}")
+    print(f"Pull carts (y): {y_val}")
+    print(f"Total carts (x + y): {total_carts}")
+
+    # Final objective value
+    print(f"FINAL_OBJ: {total_carts}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,187 @@
+[MODELER]:
+Below is a formal optimization model of the problem, followed by how you might implement and solve it in Python.
+
+---
+
+## 1. Problem modeling
+
+### Decision variables
+
+Let:
+
+- \( x \): number of trips using high-pressure tube trailers  
+- \( y \): number of trips using liquefied hydrogen tankers  
+
+Both must be nonnegative integers:
+
+\[
+x \ge 0,\; y \ge 0,\; x, y \in \mathbb{Z}
+\]
+
+---
+
+### Objective
+
+We want to **minimize the total number of trips**:
+
+\[
+\min \; z = x + y
+\]
+
+---
+
+### Constraints
+
+1. **Hydrogen volume requirement**  
+Each tube trailer trip carries 50 m³, each tanker trip carries 30 m³.  
+The company must transport **at least** 1000 m³:
+
+\[
+50x + 30y \;\ge\; 1000
+\]
+
+2. **Budget constraint**  
+Each tube trailer trip costs \$500, each tanker trip costs \$200.  
+Total cost cannot exceed \$3750:
+
+\[
+500x + 200y \;\le\; 3750
+\]
+
+3. **Trip method comparison constraint**  
+Number of tube trailer trips must be **less than** the number of tanker trips:
+
+\[
+x < y
+\]
+
+Since we are in an integer model, we can write this as:
+
+\[
+x \le y - 1
+\]
+
+4. **Integrality constraints**
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+### Full model (integer linear program)
+
+\[
+\begin{aligned}
+\min\ & x + y \\
+\text{s.t. } 
+& 50x + 30y \ge 1000 \\
+& 500x + 200y \le 3750 \\
+& x - y \le -1 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 2. Solving with Python
+
+This is a small **integer linear programming (ILP)** problem. Suitable Python libraries:
+
+- `PuLP` (user-friendly, pure Python interface to several solvers)
+- `ortools.linear_solver` (Google OR-Tools, powerful and fast)
+- `mip` (Python-MIP)
+- `pyscipopt` (for SCIP, if available)
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Create a minimization problem
+prob = pl.LpProblem("Hydrogen_Transport", pl.LpMinimize)
+
+# Decision variables: integers
+x = pl.LpVariable('x', lowBound=0, cat='Integer')  # tube trailers
+y = pl.LpVariable('y', lowBound=0, cat='Integer')  # tankers
+
+# Objective: minimize total number of trips
+prob += x + y, "TotalTrips"
+
+# Constraints
+prob += 50 * x + 30 * y >= 1000, "VolumeRequirement"
+prob += 500 * x + 200 * y <= 3750, "BudgetConstraint"
+prob += x - y <= -1, "MoreTankersThanTubes"  # x < y
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal x (tube trailer trips):", pl.value(x))
+print("Optimal y (tanker trips):", pl.value(y))
+print("Minimum total trips:", pl.value(x + y))
+```
+
+### Example with OR-Tools
+
+```python
+from ortools.linear_solver import pywraplp
+
+solver = pywraplp.Solver.CreateSolver('CBC')
+
+x = solver.IntVar(0, solver.infinity(), 'x')
+y = solver.IntVar(0, solver.infinity(), 'y')
+
+# Constraints
+solver.Add(50 * x + 30 * y >= 1000)
+solver.Add(500 * x + 200 * y <= 3750)
+solver.Add(x - y <= -1)
+
+# Objective
+solver.Minimize(x + y)
+
+status = solver.Solve()
+
+if status == pywraplp.Solver.OPTIMAL:
+    print("Optimal solution found")
+    print("x (tube trailer trips):", x.solution_value())
+    print("y (tanker trips):", y.solution_value())
+    print("Minimum total trips:", x.solution_value() + y.solution_value())
+else:
+    print("No optimal solution found. Status:", status)
+```
+
+This formulation directly matches your description and can be passed to any ILP solver.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create a minimization problem
+    prob = pl.LpProblem("Hydrogen_Transport", pl.LpMinimize)
+
+    # Decision variables: integers
+    x = pl.LpVariable('x', lowBound=0, cat='Integer')  # tube trailers
+    y = pl.LpVariable('y', lowBound=0, cat='Integer')  # tankers
+
+    # Objective: minimize total number of trips
+    prob += x + y, "TotalTrips"
+
+    # Constraints
+    prob += 50 * x + 30 * y >= 1000, "VolumeRequirement"
+    prob += 500 * x + 200 * y <= 3750, "BudgetConstraint"
+    prob += x - y <= -1, "MoreTankersThanTubes"  # x < y
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute final objective value
+    final_obj = pl.value(x + y)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

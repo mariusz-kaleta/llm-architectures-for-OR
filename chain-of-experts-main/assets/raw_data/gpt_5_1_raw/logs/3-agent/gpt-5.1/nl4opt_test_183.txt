@@ -1,0 +1,187 @@
+[MODELER]:
+Here is a clean optimization model of the problem.
+
+---
+
+## 1. Decision Variables
+
+Let
+
+- \( L \in \mathbb{Z}_{\ge 0} \): number of *large* cruise ship trips  
+- \( S \in \mathbb{Z}_{\ge 0} \): number of *small* cruise ship trips  
+
+(Trips are naturally integer-valued.)
+
+---
+
+## 2. Objective
+
+Minimize the total amount of pollution:
+
+- Each large trip produces 20 units of pollution.
+- Each small trip produces 15 units of pollution.
+
+\[
+\min \; Z = 20L + 15S
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1. Customer demand
+
+Each large trip carries 2000 customers, and each small trip carries 800 customers.  
+They must transport at least 20,000 customers:
+
+\[
+2000L + 800S \;\ge\; 20000
+\]
+
+You can simplify by dividing by 200 if you like:
+
+\[
+10L + 4S \;\ge\; 100
+\]
+
+---
+
+### 3.2. Maximum number of large trips
+
+At most 7 large cruise ship trips:
+
+\[
+L \;\le\; 7
+\]
+
+---
+
+### 3.3. Proportion of small trips
+
+At least 40% of the **total trips** must be small:
+
+\[
+S \;\ge\; 0.4(L + S)
+\]
+
+Rearrange:
+
+\[
+S \;\ge\; 0.4L + 0.4S
+\]
+
+\[
+0.6S \;\ge\; 0.4L
+\]
+
+\[
+3S \;\ge\; 2L
+\]
+
+This is the form convenient for a linear solver:
+
+\[
+3S - 2L \;\ge\; 0
+\]
+
+---
+
+### 3.4. Nonnegativity and integrality
+
+\[
+L, S \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Full Mathematical Model
+
+\[
+\begin{aligned}
+\min \quad & Z = 20L + 15S \\
+\text{s.t.} \quad
+& 2000L + 800S \ge 20000 \\
+& L \le 7 \\
+& 3S - 2L \ge 0 \\
+& L, S \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Solving in Python
+
+This is a small integer linear program (ILP). Suitable libraries:
+
+- `PuLP` (simple modeling, uses CBC by default)
+- `ortools.linear_solver` from Google OR-Tools
+- `pyomo` (more general modeling framework)
+
+A concise implementation using PuLP:
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Cruise_Trips", pl.LpMinimize)
+
+# Variables
+L = pl.LpVariable("L", lowBound=0, cat="Integer")  # large trips
+S = pl.LpVariable("S", lowBound=0, cat="Integer")  # small trips
+
+# Objective
+prob += 20*L + 15*S
+
+# Constraints
+prob += 2000*L + 800*S >= 20000      # customer demand
+prob += L <= 7                       # max large trips
+prob += 3*S - 2*L >= 0               # at least 40% small trips
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Large trips (L):", pl.value(L))
+print("Small trips (S):", pl.value(S))
+print("Min total pollution:", pl.value(20*L + 15*S))
+```
+
+You can use OR-Tools in a similar way with `pywraplp.Solver.CreateSolver("CBC")`.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Cruise_Trips_Min_Pollution", pl.LpMinimize)
+
+    # Decision variables: number of large (L) and small (S) trips
+    L = pl.LpVariable("L", lowBound=0, cat="Integer")
+    S = pl.LpVariable("S", lowBound=0, cat="Integer")
+
+    # Objective: Minimize pollution
+    prob += 20 * L + 15 * S
+
+    # Constraints
+    # Customer demand: 2000L + 800S >= 20000
+    prob += 2000 * L + 800 * S >= 20000
+
+    # Max large trips: L <= 7
+    prob += L <= 7
+
+    # At least 40% of trips are small: 3S - 2L >= 0
+    prob += 3 * S - 2 * L >= 0
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pl.value(20 * L + 15 * S)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,44 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Concert_Transport_Optimization", pulp.LpMinimize)
+
+# Decision variables: number of carts (x) and trolleys (y)
+x = pulp.LpVariable('carts', lowBound=0, cat='Continuous')
+y = pulp.LpVariable('trolleys', lowBound=12, cat='Continuous')  # at least 12 trolleys
+
+# Parameters
+rate_cart = 5   # kg/min per cart
+rate_trolley = 7  # kg/min per trolley
+workers_cart = 2
+workers_trolley = 4
+total_rate_required = 100
+max_trolley_fraction = 0.4
+
+# Objective: minimize total number of workers
+prob += workers_cart * x + workers_trolley * y
+
+# Constraints
+
+# Meet required transportation rate
+prob += rate_cart * x + rate_trolley * y >= total_rate_required, "RateRequirement"
+
+# At most 40% of the transportation rate can be using trolleys
+prob += rate_trolley * y <= max_trolley_fraction * (rate_cart * x + rate_trolley * y), "TrolleyFractionMax"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+# Extract results
+num_carts = pulp.value(x)
+num_trolleys = pulp.value(y)
+final_obj = pulp.value(prob.objective)
+
+# Print detailed results (optional for user inspection)
+print(f"Number of carts: {num_carts}")
+print(f"Number of trolleys: {num_trolleys}")
+print(f"Total workers: {final_obj}")
+
+# Required final objective print
+print(f"FINAL_OBJ: {final_obj}")

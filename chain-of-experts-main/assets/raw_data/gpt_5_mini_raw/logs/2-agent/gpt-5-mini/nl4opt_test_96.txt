@@ -1,0 +1,99 @@
+[MODELER]:
+Model summary
+- Decision variables:
+  - b = number of burgers (integer, b >= 0)
+  - p = number of pizza slices (integer, p >= 0)
+
+- Objective:
+  Minimize total cholesterol = 12 b + 10 p
+
+- Constraints:
+  1. Fat requirement: 10 b + 8 p >= 130
+  2. Calorie requirement: 300 b + 250 p >= 3000
+  3. Pizza at least twice burgers: p >= 2 b
+  4. Integrality and nonnegativity: b, p ∈ Z_{\ge0}
+
+This is a mixed integer linear program (in fact a small integer linear program).
+
+Analytic observation and solution
+- If you take the continuous relaxation, p must be the maximum of three linear expressions: 2b, (130-10b)/8, (3000-300b)/250. By inspection the fat constraint (130) dominates for small b until the pizza-ratio constraint 2b intersects it at b = 5, p = 10.
+- For b ≤ 5 the objective decreases with b; for b ≥ 5 it increases. Therefore the minimum occurs at b = 5, p = 10.
+
+Feasible check and objective value
+- Fat: 10·5 + 8·10 = 50 + 80 = 130 (meets requirement exactly)
+- Calories: 300·5 + 250·10 = 1500 + 2500 = 4000 ≥ 3000
+- Pizza count: 10 ≥ 2·5
+- Total cholesterol = 12·5 + 10·10 = 60 + 100 = 160 (units)
+
+Answer
+- Eat 5 burgers and 10 slices of pizza. This minimizes cholesterol intake (160 units) while satisfying all constraints.
+
+Suggested Python libraries to solve
+- For exact integer solution: PuLP (with CBC), OR-Tools CP-SAT (recommended for MIP), or Gurobi/Cplex if available.
+- For the continuous relaxation: scipy.optimize.linprog.
+
+Example (PuLP) code
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpInteger, PULP_CBC_CMD
+
+prob = LpProblem("Diet", LpMinimize)
+b = LpVariable('b', lowBound=0, cat=LpInteger)
+p = LpVariable('p', lowBound=0, cat=LpInteger)
+
+prob += 12*b + 10*p                      # objective
+prob += 10*b + 8*p >= 130                # fat
+prob += 300*b + 250*p >= 3000            # calories
+prob += p >= 2*b                         # ratio
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print(int(b.value()), int(p.value()), "cholesterol =", 12*int(b.value()) + 10*int(p.value()))
+
+(Expect output: 5 10 cholesterol = 160)
+
+If you want, I can give a short OR-Tools CP-SAT example or show the continuous LP relaxation.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+#!/usr/bin/env python3
+# Self-contained solver for the small integer linear program described.
+# Decision variables:
+#   b = number of burgers (integer, b >= 0)
+#   p = number of pizza slices (integer, p >= 0)
+# Objective:
+#   Minimize total cholesterol = 12*b + 10*p
+# Constraints:
+#   10*b + 8*p >= 130      (fat)
+#   300*b + 250*p >= 3000   (calories)
+#   p >= 2*b                (pizza at least twice burgers)
+
+def find_optimal_solution():
+    best_obj = None
+    best_b = None
+    best_p = None
+
+    # Set reasonable search bounds:
+    # b can't be huge because calories grow by 300 per burger; same for p.
+    # Use bounds up to 30 burgers and 60 pizza slices to be safe.
+    for b in range(0, 31):
+        for p in range(0, 61):
+            # integrality and nonnegativity already enforced by loop
+            if p < 2 * b:
+                continue
+            if 10 * b + 8 * p < 130:
+                continue
+            if 300 * b + 250 * p < 3000:
+                continue
+            obj = 12 * b + 10 * p
+            if (best_obj is None) or (obj < best_obj) or (obj == best_obj and (b < best_b or (b == best_b and p < best_p))):
+                best_obj = obj
+                best_b = b
+                best_p = p
+
+    return best_b, best_p, best_obj
+
+if __name__ == "__main__":
+    b_opt, p_opt, obj_opt = find_optimal_solution()
+    # Print the found solution (informational)
+    print(f"Optimal solution found: b = {b_opt}, p = {p_opt}, cholesterol = {obj_opt}")
+    # Final required line (must be the last line)
+    print(f"FINAL_OBJ: {obj_opt}")

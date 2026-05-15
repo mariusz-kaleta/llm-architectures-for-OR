@@ -1,0 +1,43 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+hours_needed = 500
+budget = 15000
+
+ft_hours = 8       # hours per full-time shift
+pt_hours = 4       # hours per part-time shift
+
+ft_cost = 300      # cost per full-time shift
+pt_cost = 100      # cost per part-time shift
+
+# Define the problem
+prob = pulp.LpProblem("Minimize_Number_of_Workers", pulp.LpMinimize)
+
+# Decision variables: number of full-time (F) and part-time (P) workers (shifts), integer and >= 0
+F = pulp.LpVariable("FullTime", lowBound=0, cat="Integer")
+P = pulp.LpVariable("PartTime", lowBound=0, cat="Integer")
+
+# Objective: minimize total number of workers
+prob += F + P, "TotalWorkers"
+
+# Constraints
+prob += ft_hours * F + pt_hours * P >= hours_needed, "HoursRequirement"
+prob += ft_cost * F + pt_cost * P <= budget, "BudgetLimit"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract solution
+F_val = int(pulp.value(F))
+P_val = int(pulp.value(P))
+final_obj_value = int(pulp.value(prob.objective))
+
+# Print solution details
+print(f"Full-time workers (shifts): {F_val}")
+print(f"Part-time workers (shifts): {P_val}")
+print(f"Total hours provided: {ft_hours * F_val + pt_hours * P_val}")
+print(f"Total cost: ${ft_cost * F_val + pt_cost * P_val}")
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {final_obj_value}")

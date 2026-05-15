@@ -1,0 +1,46 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+cost = {'Pi': 1200, 'Beta': 2000, 'Gamma': 4000}
+reach = {'Pi': 2000, 'Beta': 5000, 'Gamma': 9000}
+budget = 20000
+beta_limit = 8
+
+# Problem
+prob = pulp.LpProblem("Ad_Placement", pulp.LpMaximize)
+
+# Decision variables: number of commercials on each platform (integers)
+x_Pi = pulp.LpVariable('x_Pi', lowBound=0, cat='Integer')
+x_Beta = pulp.LpVariable('x_Beta', lowBound=0, cat='Integer')
+x_Gamma = pulp.LpVariable('x_Gamma', lowBound=0, cat='Integer')
+
+# Objective: maximize total audience reach
+prob += reach['Pi'] * x_Pi + reach['Beta'] * x_Beta + reach['Gamma'] * x_Gamma
+
+# Constraints
+prob += cost['Pi'] * x_Pi + cost['Beta'] * x_Beta + cost['Gamma'] * x_Gamma <= budget  # budget
+prob += x_Beta <= beta_limit  # Beta limit
+prob += 2 * x_Gamma <= x_Pi + x_Beta  # at most a third of all commercials on Gamma -> 2*G <= P + B
+prob += 4 * x_Pi >= x_Beta + x_Gamma  # at least 20% on Pi -> 4*P >= B + G
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract solution values (rounded to integers safely)
+val_Pi = int(round(pulp.value(x_Pi)))
+val_Beta = int(round(pulp.value(x_Beta)))
+val_Gamma = int(round(pulp.value(x_Gamma)))
+
+# Compute final objective value
+final_obj = int(round(pulp.value(prob.objective)))
+
+# Print solution details
+print(f"Number of commercials on Pi TV   : {val_Pi}")
+print(f"Number of commercials on Beta Vid : {val_Beta}")
+print(f"Number of commercials on Gamma Lv : {val_Gamma}")
+print(f"Total audience reach              : {final_obj}")
+
+# Final required output line
+print(f"FINAL_OBJ: {final_obj}")

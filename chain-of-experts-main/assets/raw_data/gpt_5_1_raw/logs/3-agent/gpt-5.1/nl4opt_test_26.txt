@@ -1,0 +1,158 @@
+[MODELER]:
+Here is a standard linear programming model of the problem.
+
+### Decision variables
+Let  
+- \(x\) = number of math workbooks to produce  
+- \(y\) = number of English workbooks to produce  
+
+Both must be nonnegative:
+\[
+x \ge 0, \quad y \ge 0
+\]
+
+### Objective (maximize profit)
+Profit per unit:
+- Math workbook: \$15  
+- English workbook: \$17  
+
+Maximize total profit:
+\[
+\max Z = 15x + 17y
+\]
+
+### Constraints
+
+1. **Demand minimums**
+   \[
+   x \ge 40 \quad \text{(at least 40 math)}
+   \]
+   \[
+   y \ge 60 \quad \text{(at least 60 English)}
+   \]
+
+2. **Production capacity maximums**
+   \[
+   x \le 140 \quad \text{(at most 140 math)}
+   \]
+   \[
+   y \le 170 \quad \text{(at most 170 English)}
+   \]
+
+3. **Contract requirement**
+   At least 200 workbooks total:
+   \[
+   x + y \ge 200
+   \]
+
+### Solving analytically
+
+Given that English workbooks have higher profit per unit (\$17 > \$15) and both types have independent upper bounds, we will make as many English workbooks as possible, then use math workbooks to meet any remaining requirements.
+
+Check if we can satisfy all constraints with maximum English:
+
+- Set \(y = 170\) (its maximum).
+- Then the contract requires \(x + y \ge 200 \Rightarrow x + 170 \ge 200 \Rightarrow x \ge 30\).
+- Also must satisfy \(x \ge 40\). So the binding lower bound for \(x\) is 40.
+- Check all constraints for \(x = 40, y = 170\):
+  - \(40 \ge 40\) ✓
+  - \(40 \le 140\) ✓
+  - \(170 \ge 60\) ✓
+  - \(170 \le 170\) ✓
+  - \(40 + 170 = 210 \ge 200\) ✓
+
+So \((x, y) = (40, 170)\) is feasible.
+
+Compute profit:
+\[
+Z = 15(40) + 17(170) = 600 + 2890 = 3490
+\]
+
+To see if we could do better, note that:
+- We are already at the maximum number of higher-profit English workbooks.
+- Increasing math workbooks would require decreasing English (due to the upper bound on y already being hit), which would lower profit because English is more profitable.
+
+Therefore, the optimal solution is:
+- **Math workbooks**: \(x^* = 40\)  
+- **English workbooks**: \(y^* = 170\)  
+- **Maximum profit**: \$3,490  
+
+### Python optimization libraries
+
+To solve or verify this programmatically, you could use any LP solver, for example:
+
+- `PuLP` (pure Python LP modeling, uses CBC by default)
+- `scipy.optimize.linprog`
+- `ortools.linear_solver` from Google OR-Tools
+
+A concise example with PuLP:
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Workbook_Production", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('math', lowBound=40, upBound=140)
+y = pl.LpVariable('english', lowBound=60, upBound=170)
+
+# Objective
+prob += 15 * x + 17 * y
+
+# Constraints
+prob += x + y >= 200
+
+# Solve
+prob.solve()
+print("Status:", pl.LpStatus[prob.status])
+print("Math workbooks:", x.value())
+print("English workbooks:", y.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This will return:
+- `Math workbooks: 40.0`
+- `English workbooks: 170.0`  
+- `Max profit: 3490.0`
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("Workbook_Production", pl.LpMaximize)
+
+    # Decision variables with bounds
+    x = pl.LpVariable('math', lowBound=0)
+    y = pl.LpVariable('english', lowBound=0)
+
+    # Objective function
+    prob += 15 * x + 17 * y
+
+    # Constraints
+    prob += x >= 40          # Demand minimum math
+    prob += y >= 60          # Demand minimum English
+    prob += x <= 140         # Capacity max math
+    prob += y <= 170         # Capacity max English
+    prob += x + y >= 200     # Contract requirement
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    x_val = x.value()
+    y_val = y.value()
+    obj_val = pl.value(prob.objective)
+
+    # Print details (optional, not required by instructions)
+    # print(f"Math workbooks (x): {x_val}")
+    # print(f"English workbooks (y): {y_val}")
+    # print(f"Maximum profit: {obj_val}")
+
+    print(f"FINAL_OBJ: {obj_val}")
+
+if __name__ == "__main__":
+    main()

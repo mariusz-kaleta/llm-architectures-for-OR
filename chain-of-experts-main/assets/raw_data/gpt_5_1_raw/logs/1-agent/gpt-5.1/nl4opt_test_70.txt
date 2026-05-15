@@ -1,0 +1,40 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("ToyStoreShipping", pulp.LpMinimize)
+
+# Decision variables: number of trips by new and old companies
+x = pulp.LpVariable('NewCompanyTrips', lowBound=0, cat='Continuous')
+y = pulp.LpVariable('OldCompanyTrips', lowBound=0, cat='Continuous')
+
+# Objective function: minimize diesel usage
+prob += 30 * x + 40 * y
+
+# Constraints
+
+# At least 1000 gifts delivered
+prob += 50 * x + 70 * y >= 1000, "GiftRequirement"
+
+# At most 15 trips by the new company
+prob += x <= 15, "NewCompanyTripLimit"
+
+# At least 40% of all trips by the old company: y >= 0.4*(x + y)
+# This simplifies to y >= (2/3)*x
+prob += y >= (2.0/3.0) * x, "OldCompanyShare"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Get results
+x_val = pulp.value(x)
+y_val = pulp.value(y)
+obj_val = pulp.value(prob.objective)
+
+# Print detailed solution
+print(f"New company trips (x): {x_val}")
+print(f"Old company trips (y): {y_val}")
+print(f"Total diesel used: {obj_val} liters")
+
+# Required final objective print
+print(f"FINAL_OBJ: {obj_val}")

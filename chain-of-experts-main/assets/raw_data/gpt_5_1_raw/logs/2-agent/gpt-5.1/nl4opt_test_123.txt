@@ -1,0 +1,196 @@
+[MODELER]:
+Here is a clean optimization model for the problem.
+
+---
+
+## 1. Decision variables
+
+Let  
+
+- \(x_c\) = number of children’s vaccines to produce (nonnegative integer)  
+- \(x_a\) = number of adult vaccines to produce (nonnegative integer)
+
+(If you want a continuous model, you can relax integrality and treat them as nonnegative reals.)
+
+---
+
+## 2. Objective
+
+Each children’s vaccine uses 50 mg of fever suppressant, and each adult vaccine uses 75 mg.
+
+Total fever suppressant used:
+\[
+F = 50 x_c + 75 x_a
+\]
+
+We want to **minimize total fever suppressant**:
+\[
+\min\; 50 x_c + 75 x_a
+\]
+
+---
+
+## 3. Constraints
+
+### a) mRNA availability
+
+Each children’s vaccine: 50 mg mRNA.  
+Each adult vaccine: 75 mg mRNA.  
+Total mRNA: 20,000 mg.
+
+\[
+50 x_c + 75 x_a \leq 20000
+\]
+
+### b) Adult vaccine proportion
+
+At least 70% of all vaccines must be adult vaccines:
+
+\[
+x_a \ge 0.7(x_c + x_a)
+\]
+
+Rearrange:
+
+\[
+x_a \ge 0.7 x_c + 0.7 x_a
+\]
+\[
+0.3 x_a \ge 0.7 x_c
+\]
+\[
+3 x_a \ge 7 x_c
+\]
+
+So:
+
+\[
+3x_a - 7x_c \ge 0
+\]
+
+### c) Minimum number of children’s vaccines
+
+At least 50 children’s vaccines:
+
+\[
+x_c \ge 50
+\]
+
+### d) Nonnegativity
+
+\[
+x_c \ge 0,\quad x_a \ge 0
+\]
+
+(And optionally \(x_c, x_a \in \mathbb{Z}\) if integer counts are enforced.)
+
+---
+
+## 4. Model summary
+
+**Decision variables**
+
+- \(x_c \ge 0\): number of children’s vaccines  
+- \(x_a \ge 0\): number of adult vaccines  
+
+**Objective**
+
+\[
+\min\; 50 x_c + 75 x_a
+\]
+
+**Subject to**
+
+\[
+\begin{aligned}
+50 x_c + 75 x_a &\leq 20000 &\text{(mRNA limit)}\\
+3 x_a - 7 x_c &\geq 0 &\text{(≥ 70% adult)}\\
+x_c &\geq 50 &\text{(≥ 50 children)}\\
+x_c, x_a &\geq 0 &\text{(nonnegativity)}
+\end{aligned}
+\]
+
+---
+
+## 5. Solving in Python
+
+This is a linear program. Suitable Python libraries include:
+
+- `PuLP` (very simple to use for LP/MIP)
+- `ortools.linear_solver` (Google OR-Tools)
+- `scipy.optimize.linprog` (for continuous LP; doesn’t directly handle integer constraints)
+
+### Example with PuLP (continuous version)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Vaccine_Production", pl.LpMinimize)
+
+# Variables (continuous, nonnegative)
+x_c = pl.LpVariable('x_c', lowBound=0)
+x_a = pl.LpVariable('x_a', lowBound=0)
+
+# Objective
+prob += 50 * x_c + 75 * x_a
+
+# Constraints
+prob += 50 * x_c + 75 * x_a <= 20000       # mRNA limit
+prob += 3 * x_a - 7 * x_c >= 0             # ≥70% adult
+prob += x_c >= 50                          # ≥50 children
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Children vaccines:", x_c.value())
+print("Adult vaccines:", x_a.value())
+print("Total suppressant used (mg):", 50*x_c.value() + 75*x_a.value())
+```
+
+If you require strictly integer counts, define variables as:
+
+```python
+x_c = pl.LpVariable('x_c', lowBound=0, cat='Integer')
+x_a = pl.LpVariable('x_a', lowBound=0, cat='Integer')
+```
+
+This fully specifies the model and appropriate solvers for implementation.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Create the optimization problem (minimization)
+    prob = pl.LpProblem("Vaccine_Production", pl.LpMinimize)
+
+    # Decision variables: nonnegative integers
+    x_c = pl.LpVariable('x_c', lowBound=0, cat='Integer')  # children's vaccines
+    x_a = pl.LpVariable('x_a', lowBound=0, cat='Integer')  # adult vaccines
+
+    # Objective: minimize total fever suppressant used
+    prob += 50 * x_c + 75 * x_a
+
+    # Constraints
+    # mRNA limit
+    prob += 50 * x_c + 75 * x_a <= 20000
+
+    # At least 70% of vaccines are adult: 3*x_a - 7*x_c >= 0
+    prob += 3 * x_a - 7 * x_c >= 0
+
+    # At least 50 children's vaccines
+    prob += x_c >= 50
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print required final objective format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

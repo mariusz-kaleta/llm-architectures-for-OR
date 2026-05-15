@@ -1,0 +1,57 @@
+[MONOLITH]:
+import pulp
+
+# Problem data (initialized directly)
+# Resources per dose
+imported_A = 30
+imported_B = 40
+mRNA_A = 50
+mRNA_B = 30
+
+# Resource availability
+imported_available = 300
+mRNA_available = 400
+
+# Other limits
+max_A = 5
+
+# Objective contribution (people treated)
+people_A = 12
+people_B = 8
+
+# Define problem
+prob = pulp.LpProblem("Maximize_People_Treated", pulp.LpMaximize)
+
+# Decision variables: integer doses
+x = pulp.LpVariable('A_doses', lowBound=0, cat='Integer')  # medicine A doses
+y = pulp.LpVariable('B_doses', lowBound=0, cat='Integer')  # medicine B doses
+
+# Objective: maximize number of people treated
+prob += people_A * x + people_B * y, "Total_People_Treated"
+
+# Constraints
+prob += imported_A * x + imported_B * y <= imported_available, "Imported_Material"
+prob += mRNA_A * x + mRNA_B * y <= mRNA_available, "mRNA"
+prob += x <= max_A, "Max_A"
+# B must be larger than A -> for integers use y >= x + 1
+prob += y >= x + 1, "B_larger_than_A"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract results
+A_val = int(pulp.value(x))
+B_val = int(pulp.value(y))
+obj_val = pulp.value(prob.objective)
+# Ensure obj is shown as integer if it's effectively integral
+if abs(round(obj_val) - obj_val) < 1e-8:
+    obj_val = int(round(obj_val))
+
+# Print solution details
+print(f"A_doses = {A_val}")
+print(f"B_doses = {B_val}")
+print(f"Total_people_treated = {obj_val}")
+
+# Final required line
+print(f"FINAL_OBJ: {obj_val}")

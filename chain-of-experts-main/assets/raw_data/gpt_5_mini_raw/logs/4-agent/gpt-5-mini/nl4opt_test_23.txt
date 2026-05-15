@@ -1,0 +1,121 @@
+[PLANNER]:
+1. Key optimisation goal:
+- Minimise total pollution produced by the fleet.
+
+2. Suggested model type:
+- Integer Linear Programming (ILP) / Mixed-Integer Linear Programming (MILP).  
+  (The problem is small enough that an exhaustive integer enumeration over feasible minibuses is also straightforward and recommended.)
+
+3. Main decision variables:
+- V = number of vans used (integer, >= 0).
+- M = number of minibuses used (integer, >= 0).
+
+4. Objective (described, not formalised):
+- Minimise total pollution, computed as pollution per van times number of vans plus pollution per minibus times number of minibuses (i.e., 7 units per van and 10 units per minibus).
+
+5. Key constraints to include and implementation notes:
+- Capacity constraint: total seats provided must be at least the number of kids needing transport. Expressed conceptually as: 6 seats per van times V plus 10 seats per minibus times M must cover at least 150 kids.
+- Upper bound on minibuses: M cannot exceed 10.
+- Van/minibus ordering constraint (strict inequality): the number of vans must exceed the number of minibuses. Implement the strict inequality by using V >= M + 1.
+- Integrality and non-negativity: V and M must be non-negative integers (vehicles cannot be fractional).
+- No explicit upper bound on vans is given; for practical computation set an implicit safe upper bound (e.g., enough vans to carry all kids alone, ceil(150/6) ) to bound the search/solver.
+
+6. Recommended solution approach (practical):
+- Simple enumeration over M = 0..10:
+  - For each M compute the minimum feasible V as the maximum of (i) the number of vans required to meet remaining capacity after M minibuses (rounding up to integer vans) and (ii) M+1 to satisfy the "vans > minibuses" constraint.
+  - Compute total pollution for each feasible (V,M).
+  - Choose the (V,M) pair with the smallest pollution. This is trivial to implement and guarantees an optimal integer solution.
+- Alternatively, formulate as an ILP and solve with any MILP solver, enforcing integer domains and V >= M+1.
+
+7. Output required from the Modeller:
+- The optimal integer values of V and M.
+- Total seats provided and confirmation it meets the 150-kids requirement.
+- Total pollution at the optimum.
+- If multiple optima exist, enumerate them and report equivalent minima.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- V ∈ Z, V ≥ 0 : number of vans.
+- M ∈ Z, 0 ≤ M ≤ 10 : number of minibuses.
+
+Objective
+- Minimise total pollution P:
+  P = 7 V + 10 M.
+
+Constraints
+1. Capacity: 6 V + 10 M ≥ 150 (at least 150 seats).
+2. Vans must exceed minibuses: V ≥ M + 1 (strict inequality implemented as integer linear).
+3. Integrality and bounds:
+   - M integer, 0 ≤ M ≤ 10.
+   - V integer, V ≥ 0. (For computation you may impose an upper bound V ≤ 25 since ceil(150/6) = 25 — enough vans alone to carry everyone.)
+
+Complete ILP
+Minimise 7V + 10M
+subject to
+  6V + 10M ≥ 150
+  V − M ≥ 1
+  0 ≤ M ≤ 10, M ∈ Z
+  0 ≤ V ≤ 25, V ∈ Z
+
+Practical/guaranteed-simple solution method
+- Enumerate M = 0..10.
+- For each M compute required vans:
+    V_req_capacity = ceil(max(0, 150 − 10M) / 6)
+    V = max(V_req_capacity, M + 1)
+  (discard if V > 25)
+- Compute P = 7V + 10M and pick the (V,M) with minimum P.
+
+Optimal solution (enumeration)
+- The enumeration yields a unique optimum at:
+  - V = 10 vans
+  - M = 9 minibuses
+- Seats provided: 6·10 + 10·9 = 60 + 90 = 150 (meets requirement exactly).
+- Total pollution: P = 7·10 + 10·9 = 70 + 90 = 160 units.
+- This is the minimum; no other (V,M) feasible with M ≤ 10 attains lower pollution.
+
+Suggested libraries / solvers
+- For simple enumeration: Python standard library (math.ceil, for loop) or itertools.
+- For ILP formulation and solving: PuLP, OR-Tools (python-mip or OR-Tools CP-SAT), or scipy.optimize (for continuous relaxations only). PuLP or OR-Tools CP-SAT are recommended for this MILP (both handle integer variables directly).
+
+Optional minimal Python sketch (enumeration)
+- Use math.ceil and a for loop over M = 0..10 to compute V and P, selecting the minimum (trivial and fast).
+
+If you want, I can provide the small Python snippet using PuLP or a plain enumeration script.
+
+---
+
+[CODER]:
+import math
+
+# Problem data
+CAPACITY_REQUIRED = 150
+MAX_M = 10
+MAX_V = 25
+
+best_solution = None  # tuple (P, V, M)
+
+for M in range(0, MAX_M + 1):
+    # seats provided by minibuses: 10*M
+    remaining = max(0, CAPACITY_REQUIRED - 10 * M)
+    V_req_capacity = math.ceil(remaining / 6) if remaining > 0 else 0
+    V = max(V_req_capacity, M + 1)  # vans must exceed minibuses by at least 1
+    if V > MAX_V:
+        continue
+    P = 7 * V + 10 * M
+    if (best_solution is None) or (P < best_solution[0]):
+        best_solution = (P, V, M)
+
+if best_solution is None:
+    raise ValueError("No feasible solution found within bounds.")
+
+best_P, best_V, best_M = best_solution
+
+# (Optional) print chosen decision variables and seats (not required)
+print(f"Chosen solution: V={best_V}, M={best_M}, Seats={6*best_V + 10*best_M}")
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {best_P}")

@@ -1,0 +1,221 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- **Goal:** Maximize the total amount of paste produced (sum of paste from small and large containers), subject to available water and powdered pill.
+
+2. **Suggested model type**
+
+- **Model:** Linear Programming (LP)
+  - Structure is linear in both the objective and the constraints.
+  - If the context requires whole containers only, this becomes an **Integer Linear Programming (ILP)** problem (non-negative integers).
+
+3. **Main decision variables**
+
+Define variables for the number of each container used:
+
+- \(x_s\): number of **small** containers used.
+- \(x_l\): number of **large** containers used.
+
+(If integer solutions are required, these must be integer and non-negative.)
+
+4. **Objective function (conceptual)**
+
+- Each small container produces 20 units of paste.
+- Each large container produces 30 units of paste.
+- **Objective:** Maximize total paste:
+  - Total paste = (paste from small containers) + (paste from large containers).
+  - Conceptually: maximize \(20 \cdot x_s + 30 \cdot x_l\).
+
+5. **Key constraints**
+
+Based on resource availability and container recipes:
+
+- **Water availability:**
+  - Small container uses 10 units of water.
+  - Large container uses 20 units of water.
+  - Total water used by all containers cannot exceed 500 units.
+  - Constraint: combined water usage of small and large containers ≤ 500.
+
+- **Powdered pill availability:**
+  - Small container uses 15 units of pill.
+  - Large container uses 20 units of pill.
+  - Total pill used by all containers cannot exceed 700 units.
+  - Constraint: combined pill usage of small and large containers ≤ 700.
+
+- **Non-negativity:**
+  - You cannot use a negative number of containers.
+  - Constraints: \(x_s \ge 0\), \(x_l \ge 0\).
+
+- **Integrality (if required by context):**
+  - Containers must be used in whole units (no fractional container).
+  - Constraints: \(x_s\) and \(x_l\) are integers.
+
+6. **Additional considerations for the Modeller**
+
+- Check whether fractional container usage is acceptable (if this is a purely mathematical optimization exercise, LP is fine; if modeling physical reality, enforce integer variables).
+- The problem is small and 2-dimensional, so:
+  - You can visualize the feasible region in the \(x_s\)–\(x_l\) plane.
+  - The optimal solution will lie at a corner point of that feasible region.
+- Sensitivity checks (optional):
+  - How the optimal mix changes if water or pill availability changes.
+  - Compare the “efficiency” of each container type in terms of paste per unit water and paste per unit pill.
+
+---
+
+[MODELER]:
+Here is a clean mathematical formulation of the problem and how you would model/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_s \ge 0\): number of **small** containers to use  
+- \(x_l \ge 0\): number of **large** containers to use  
+
+If containers must be whole units:
+
+- \(x_s, x_l \in \mathbb{Z}_{\ge 0}\)
+
+---
+
+## 2. Objective function
+
+Each small container produces 20 units of paste; each large container produces 30 units.
+
+Maximize total paste:
+\[
+\max \; Z = 20 x_s + 30 x_l
+\]
+
+---
+
+## 3. Constraints
+
+### Water constraint
+Each small container uses 10 units of water; each large uses 20. Total water ≤ 500:
+
+\[
+10 x_s + 20 x_l \le 500
+\]
+
+### Powdered pill constraint
+Each small container uses 15 units of pill; each large uses 20. Total pill ≤ 700:
+
+\[
+15 x_s + 20 x_l \le 700
+\]
+
+### Non-negativity and integrality
+\[
+x_s \ge 0,\quad x_l \ge 0
+\]
+and, if required:
+\[
+x_s, x_l \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full mathematical model
+
+**Maximize**
+\[
+Z = 20 x_s + 30 x_l
+\]
+
+**Subject to**
+\[
+\begin{aligned}
+10 x_s + 20 x_l &\le 500 &\text{(water)}\\
+15 x_s + 20 x_l &\le 700 &\text{(pill)}\\
+x_s, x_l &\ge 0 &\text{(non-negativity)}\\
+x_s, x_l &\in \mathbb{Z} &\text{(integrality, if enforced)}
+\end{aligned}
+\]
+
+If fractional containers are allowed, you drop the integrality requirement and have a standard Linear Program (LP).
+
+---
+
+## 5. Suitable Python libraries
+
+This is a tiny LP/ILP and can be solved with any standard optimisation library:
+
+- **PuLP**  
+  - Very straightforward modeling of LP/ILP in Python; uses CBC solver by default.  
+  - Good choice for teaching or quick prototypes.
+
+- **OR-Tools (Google)**  
+  - Use `ortools.linear_solver` for LP or MIP.  
+  - Very performant and actively maintained.
+
+- **SciPy (`scipy.optimize.linprog`)**  
+  - Suitable if you **do not** need integer variables (pure LP only).  
+
+For this problem, if whole containers are required, **PuLP** or **OR-Tools** is recommended.
+
+---
+
+## 6. Example PuLP model (integer version)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Paste_Maximization", pl.LpMaximize)
+
+# Decision variables (integer, non-negative)
+x_s = pl.LpVariable('x_s', lowBound=0, cat=pl.LpInteger)  # small containers
+x_l = pl.LpVariable('x_l', lowBound=0, cat=pl.LpInteger)  # large containers
+
+# Objective: maximize total paste
+prob += 20 * x_s + 30 * x_l
+
+# Constraints
+prob += 10 * x_s + 20 * x_l <= 500   # water
+prob += 15 * x_s + 20 * x_l <= 700   # pill
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Small containers:", x_s.value())
+print("Large containers:", x_l.value())
+print("Max paste:", pl.value(prob.objective))
+```
+
+This code directly implements the mathematical model above and returns the optimal numbers of small and large containers and the maximum paste produced.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Paste_Maximization", pl.LpMaximize)
+
+    # Decision variables (integer, non-negative)
+    x_s = pl.LpVariable('x_s', lowBound=0, cat=pl.LpInteger)  # small containers
+    x_l = pl.LpVariable('x_l', lowBound=0, cat=pl.LpInteger)  # large containers
+
+    # Objective: maximize total paste
+    prob += 20 * x_s + 30 * x_l
+
+    # Constraints
+    prob += 10 * x_s + 20 * x_l <= 500   # water
+    prob += 15 * x_s + 20 * x_l <= 700   # pill
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    final_obj = pl.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

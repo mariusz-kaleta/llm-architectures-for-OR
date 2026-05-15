@@ -1,0 +1,50 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+problem = pulp.LpProblem("Advertising_Optimization", pulp.LpMaximize)
+
+# Decision variables: number of ads on each platform (integer, non-negative)
+z = pulp.LpVariable('z_tube_ads', lowBound=0, cat='Integer')
+s = pulp.LpVariable('soorchle_ads', lowBound=0, cat='Integer')
+w = pulp.LpVariable('wassa_ads', lowBound=0, cat='Integer')
+
+# Objective: maximize total viewers
+# z-tube: 400,000 viewers per ad
+# soorchle: 5,000 viewers per ad
+# wassa: 3,000 viewers per ad
+problem += 400000 * z + 5000 * s + 3000 * w
+
+# Constraints
+
+# Budget constraint: total cost <= 10000
+# z-tube: $1000 per ad
+# soorchle: $200 per ad
+# wassa: $100 per ad
+problem += 1000 * z + 200 * s + 100 * w <= 10000
+
+# Soorchle limit: at most 15 ads
+problem += s <= 15
+
+# Wassa balance: at most one-third of total ads on wassa
+# w <= (1/3)*(z + s + w)  ->  3w <= z + s + w  -> 2w <= z + s
+problem += 2 * w <= z + s
+
+# z-tube minimum: at least 5% of total ads on z-tube
+# z >= 0.05*(z + s + w) -> 0.95z >= 0.05s + 0.05w -> 95z >= 5s + 5w
+problem += 95 * z >= 5 * s + 5 * w
+
+# Solve the problem
+problem.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve solution
+z_val = pulp.value(z)
+s_val = pulp.value(s)
+w_val = pulp.value(w)
+obj_val = pulp.value(problem.objective)
+
+# Print results
+print(f"z_tube_ads: {z_val}")
+print(f"soorchle_ads: {s_val}")
+print(f"wassa_ads: {w_val}")
+print(f"FINAL_OBJ: {obj_val}")

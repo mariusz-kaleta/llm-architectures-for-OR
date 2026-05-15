@@ -1,0 +1,101 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x = number of runner deliveries (nonnegative integer, each runner trip carries 3 bags and takes 4 hours)
+- y = number of canoer deliveries (nonnegative integer, each canoe trip carries 10 bags and takes 2 hours)
+
+Objective
+- Maximise total bags delivered: maximize Z = 3x + 10y
+
+Constraints
+1. Time budget: 4x + 2y ≤ 200 (total available hours ≤ 200)
+2. Canoe share limit: at most 33% of deliveries by canoe.
+   - If "33%" is interpreted as exactly 1/3, that becomes y ≤ (1/3)(x + y) ⇒ (2/3) y ≤ (1/3) x ⇒ y ≤ 0.5 x.
+   - If interpreted as decimal 0.33, use y ≤ 0.33(x + y) ⇒ 0.67 y ≤ 0.33 x ⇒ y ≤ (0.33/0.67) x ≈ 0.492537 x.
+   (Use the form appropriate to your interpretation.)
+3. Minimum runners: x ≥ 4
+4. Integrality and nonnegativity: x, y ∈ Z, x ≥ 0, y ≥ 0
+
+Solve the integer linear program:
+maximize 3x + 10y
+subject to
+4x + 2y ≤ 200
+y ≤ 0.5 x   (or y ≤ 0.492537 x if using 0.33)
+x ≥ 4
+x, y integers ≥ 0
+
+Analytic solution (using y ≤ 0.5 x, i.e. 33% = 1/3)
+From 4x + 2y ≤ 200 ⇒ 2x + y ≤ 100 ⇒ y ≤ 100 − 2x.
+Also y ≤ 0.5 x. For x ≤ 40 the tighter bound is y ≤ 0.5x; for x ≥ 40 the tighter bound is y ≤ 100 − 2x. Evaluating the objective shows the optimum occurs at the breakpoint x = 40, y = 20:
+- Time: 4·40 + 2·20 = 200 (uses full time)
+- Canoe share: 20/(40+20) = 1/3 (meets 33% exactly)
+- Runners: x = 40 ≥ 4
+- Total mail: 3·40 + 10·20 = 120 + 200 = 320 bags
+
+(If you use 0.33 instead of 1/3 the optimal integer solution remains x = 40, y = 20 in practice.)
+
+Recommended Python tools
+- pulp (simple Python front end for integer LPs)
+- OR-Tools CP-SAT or MIP solver (robust, fast for integer problems)
+- CVXPY with a MIP-capable solver backend (if you prefer that interface)
+
+Minimal example using pulp
+- Define LpProblem, LpVariable x,y as integers, add constraints above, solve, read x.value(), y.value().
+
+If you want, I can provide a short ready-to-run pulp or OR-Tools script solving this model.
+
+---
+
+[CODER]:
+#!/usr/bin/env python3
+# Self-contained script to solve the integer program described.
+# Decision variables:
+#   x = number of runner deliveries (integer, >=4)
+#   y = number of canoe deliveries (integer, >=0)
+# Objective: maximize 3x + 10y
+# Constraints:
+#   4x + 2y <= 200
+#   y <= 0.5 * x    (interpretation: 33% = 1/3)
+#   x >= 4, integers
+
+def solve_enum():
+    best_obj = None
+    best_solution = None
+
+    # bounds for search
+    x_min = 4
+    x_max = 200 // 4  # since 4x <= 200 -> x <= 50
+
+    for x in range(x_min, x_max + 1):
+        # from time constraint: 2x + y <= 100 -> y <= 100 - 2x
+        y_time_max = 100 - 2 * x
+        if y_time_max < 0:
+            continue
+        # from canoe share constraint: y <= 0.5 * x
+        y_share_max = int(0.5 * x)  # floor
+        y_max = min(y_time_max, y_share_max)
+        if y_max < 0:
+            continue
+        for y in range(0, y_max + 1):
+            # verify constraints (safety)
+            if 4 * x + 2 * y > 200:
+                continue
+            if y > 0.5 * x + 1e-9:
+                continue
+            obj = 3 * x + 10 * y
+            if (best_obj is None) or (obj > best_obj):
+                best_obj = obj
+                best_solution = (x, y)
+
+    return best_obj, best_solution
+
+if __name__ == "__main__":
+    best_obj, best_solution = solve_enum()
+    # best_obj should be integer; ensure integer type for printing
+    if best_obj is None:
+        best_obj = 0
+    else:
+        best_obj = int(best_obj)
+    # Final required output line
+    print(f"FINAL_OBJ: {best_obj}")

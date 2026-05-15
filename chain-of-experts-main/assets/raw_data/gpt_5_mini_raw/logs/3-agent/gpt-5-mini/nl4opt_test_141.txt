@@ -1,0 +1,104 @@
+[MODELER]:
+Formal model
+
+Variables
+- m = number of mangos sold (units, m ≥ 0). Optionally integer.
+- g = number of guavas sold (units, g ≥ 0). Optionally integer.
+
+Objective
+- Maximize total profit P = 3m + 4g (dollars).
+
+Constraints
+1. Budget on purchases: 5m + 3g ≤ 20000.
+2. Mango sales range: 100 ≤ m ≤ 150.
+3. Guavas at most one third of mangos: g ≤ m/3.
+4. Nonnegativity: m ≥ 0, g ≥ 0.
+(If you require integer solutions: m,g ∈ Z.)
+
+Linear program
+maximize   P = 3m + 4g
+subject to 5m + 3g ≤ 20000
+           100 ≤ m ≤ 150
+           g ≤ m/3
+           m, g ≥ 0
+(optional) m, g integer
+
+Solution reasoning (analytic)
+- For fixed m, profit increases with g, so at optimum g will be at its upper bound g = min(m/3, (20000−5m)/3).
+- For m in [100,150], check which of m/3 and (20000−5m)/3 is smaller:
+  (20000−5m) − m = 20000 − 6m > 0 for m ≤ 3333.33, so (20000−5m) > m for all m in [100,150]. Hence g ≤ m/3 is the active bound.
+- Therefore g = m/3 and P(m) = 3m + 4(m/3) = (13/3)m, which is increasing in m.
+- Maximize m at its upper bound m = 150, then g = 150/3 = 50.
+- Total profit P = 3·150 + 4·50 = 450 + 200 = $650.
+
+Optimal solution
+- Sell 150 mangos and 50 guavas, giving maximum profit $650.
+
+Suggested Python solvers / libraries
+- pulp (with CBC solver) — simple LP/MIP modeling.
+- OR-Tools (linear solver) — fast and scalable.
+- scipy.optimize.linprog — standard LP solver (continuous variables).
+- cvxpy — for higher-level convex modeling (continuous).
+Example using pulp (continuous or integer):
+from pulp import LpProblem, LpMaximize, LpVariable, lpSum, LpStatus, value
+
+prob = LpProblem("FoodTruck", LpMaximize)
+m = LpVariable("m", lowBound=100, upBound=150, cat='Integer')  # or cat='Continuous'
+g = LpVariable("g", lowBound=0, cat='Integer')                 # or cat='Continuous'
+prob += 3*m + 4*g
+prob += 5*m + 3*g <= 20000
+prob += g <= m/3
+prob.solve()
+print("Status:", LpStatus[prob.status])
+print("m =", value(m), "g =", value(g), "Profit =", value(prob.objective))
+
+This will return m = 150, g = 50, Profit = 650.
+
+---
+
+[CODER]:
+# Complete, self-contained Python script to solve the given LP (searching integer solutions)
+# Variables: m (mangos), g (guavas)
+# Maximize P = 3m + 4g
+# Constraints:
+#   5m + 3g <= 20000
+#   100 <= m <= 150
+#   g <= m/3
+#   m,g >= 0
+# Here we search integer solutions (m,g integers) within given bounds.
+
+best_profit = None
+best_m = None
+best_g = None
+
+for m in range(100, 151):  # m integer from 100 to 150 inclusive
+    # g must be <= floor(m/3) due to g <= m/3 (integer g)
+    max_g_by_ratio = m // 3
+    # g must also satisfy budget: 5m + 3g <= 20000 -> g <= (20000 - 5m) / 3
+    # compute integer upper bound from budget
+    remaining_budget = 20000 - 5 * m
+    if remaining_budget < 0:
+        # no feasible g for this m
+        continue
+    max_g_by_budget = remaining_budget // 3
+    # overall integer upper bound for g
+    max_g = min(max_g_by_ratio, max_g_by_budget)
+    if max_g < 0:
+        continue
+    # profit increases with g, so choose the largest feasible g
+    g = max_g
+    profit = 3 * m + 4 * g
+    if (best_profit is None) or (profit > best_profit):
+        best_profit = profit
+        best_m = m
+        best_g = g
+
+# If no integer solution found (should not happen), fall back to analytic continuous solution
+if best_profit is None:
+    # analytic: use m=150, g=150/3=50
+    best_m = 150
+    best_g = 50
+    best_profit = 3 * best_m + 4 * best_g
+
+value = best_profit
+print(f"FINAL_OBJ: {value}")

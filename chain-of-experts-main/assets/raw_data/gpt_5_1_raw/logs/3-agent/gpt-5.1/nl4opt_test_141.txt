@@ -1,0 +1,193 @@
+[MODELER]:
+Here is a clean mathematical formulation of the problem and how you could solve it using Python optimization libraries.
+
+---
+
+## 1. Define Decision Variables
+
+Let  
+- \( x \) = number of mangos to buy/sell (per month)  
+- \( y \) = number of guavas to buy/sell (per month)
+
+We assume everything bought is sold (no waste/leftover), which is consistent with the problem statement.
+
+Both variables are nonnegative integers:
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 2. Objective Function (Maximize Profit)
+
+- Cost to buy:
+  - Mango: \$5 each
+  - Guava: \$3 each
+- Profit per unit sold (after spices, etc.):
+  - Mango: \$3
+  - Guava: \$4
+
+These are already stated as *profit per unit sold*, so we can directly use them in the objective:
+
+\[
+\text{Maximize } Z = 3x + 4y
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Budget (Purchase Cost) Constraint
+
+Total money spent on purchasing fruit:
+\[
+5x + 3y \le 20000
+\]
+
+### 3.2 Mango Demand Bounds
+
+The owner estimates mango sales between 100 and 150 per month:
+
+\[
+100 \le x \le 150
+\]
+
+### 3.3 Guava Limited Relative to Mango
+
+The number of guavas sold is at most a third of the mangos sold:
+
+\[
+y \le \frac{1}{3} x
+\]
+
+Since \(x, y\) are integers, this will be handled accordingly by the solver.
+
+---
+
+## 4. Complete Mathematical Model
+
+\[
+\begin{aligned}
+\text{Maximize}\quad & Z = 3x + 4y \\
+\text{subject to}\quad
+& 5x + 3y \le 20000 \\
+& 100 \le x \le 150 \\
+& y \le \frac{1}{3}x \\
+& x, y \ge 0,\; x, y \in \mathbb{Z}
+\end{aligned}
+\]
+
+---
+
+## 5. Analytical Solution
+
+Given the small bounds on \(x\), we can reason directly:
+
+- From \(x \le 150\) and \(y \le \frac{1}{3} x\), the maximum \(y\) occurs at the largest \(x\) within its allowed range, i.e. \(x = 150\).
+- Then \(y \le \frac{1}{3} \cdot 150 = 50\).
+- The budget constraint at \(x = 150, y = 50\):
+  \[
+  5(150) + 3(50) = 750 + 150 = 900 \le 20000
+  \]
+  so budget is nonbinding; we’re far below \$20,000.
+
+Profit at the upper bounds:
+\[
+Z = 3(150) + 4(50) = 450 + 200 = 650
+\]
+
+Because:
+- Profit coefficients are positive (3 and 4),
+- Constraints are only upper bounds (plus a lower bound on \(x\)),
+- And the binding constraint on \(y\) is \(y \le \frac{1}{3}x\),
+
+we maximize profit by taking \(x\) as large as possible and then \(y\) as large as allowed by the ratio:
+
+**Optimal solution:**
+- Mangos: \(x^* = 150\)
+- Guavas: \(y^* = 50\)
+- Maximum monthly profit: \(Z^* = \$650\)
+
+---
+
+## 6. Suitable Python Libraries and Example Formulation
+
+This is a small integer linear program (ILP). Appropriate libraries:
+
+- `PuLP` (easy LP/MIP modeling in pure Python)
+- `OR-Tools` linear solver (`pywraplp`) from Google
+- `scipy.optimize.linprog` (for continuous LP; here you’d relax integrality or round, though integrality is trivial in this problem)
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Create the problem
+prob = pl.LpProblem("Fruit_Profit_Maximization", pl.LpMaximize)
+
+# Decision variables (integer)
+x = pl.LpVariable('mangos', lowBound=0, cat='Integer')
+y = pl.LpVariable('guavas', lowBound=0, cat='Integer')
+
+# Objective function: Maximize 3x + 4y
+prob += 3 * x + 4 * y, "Total_Profit"
+
+# Constraints
+prob += 5 * x + 3 * y <= 20000, "Budget"
+prob += x >= 100, "Min_Mangos"
+prob += x <= 150, "Max_Mangos"
+prob += y <= (1.0/3.0) * x, "Guava_to_Mango_Ratio"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal mangos:", pl.value(x))
+print("Optimal guavas:", pl.value(y))
+print("Maximum profit:", pl.value(prob.objective))
+```
+
+This will return:
+- `Optimal mangos: 150`
+- `Optimal guavas: 50`
+- `Maximum profit: 650.0`
+
+---
+
+**Answer in words:**  
+He should sell 150 mangos and 50 guavas per month to maximize profit, achieving a profit of \$650.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Fruit_Profit_Maximization", pl.LpMaximize)
+
+    # Decision variables (integer)
+    x = pl.LpVariable('mangos', lowBound=0, cat='Integer')
+    y = pl.LpVariable('guavas', lowBound=0, cat='Integer')
+
+    # Objective function: Maximize 3x + 4y
+    prob += 3 * x + 4 * y, "Total_Profit"
+
+    # Constraints
+    prob += 5 * x + 3 * y <= 20000, "Budget"
+    prob += x >= 100, "Min_Mangos"
+    prob += x <= 150, "Max_Mangos"
+    prob += y <= (1.0 / 3.0) * x, "Guava_to_Mango_Ratio"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print only the required final objective line
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

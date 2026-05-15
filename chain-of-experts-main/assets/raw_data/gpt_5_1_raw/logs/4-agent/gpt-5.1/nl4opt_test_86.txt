@@ -1,0 +1,214 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- **Goal:** Minimise the **total number of stores open** (retail + outlet) while:
+  - Serving at least 1200 customers per day
+  - Using no more than 50 employees
+
+---
+
+2. **Suggested model type**
+
+- **Model:** Integer Linear Programming (ILP)
+  - Stores are countable units → decision variables must be non‑negative integers.
+
+---
+
+3. **Main decision variables**
+
+Define two decision variables:
+
+- \( R \): Number of **retail stores** to open
+- \( O \): Number of **factory outlet stores** to open
+
+Both must be:
+- Integer
+- Greater than or equal to 0
+
+---
+
+4. **Key constraints**
+
+Translate the business conditions:
+
+1. **Customer demand constraint**
+   - Each retail store brings in 200 customers/day.
+   - Each outlet store brings in 80 customers/day.
+   - Company requires at least 1200 customers/day.
+   - Constraint: total customers from all stores must be ≥ 1200.
+
+2. **Employee availability constraint**
+   - Each retail store uses 6 employees.
+   - Each outlet store uses 4 employees.
+   - At most 50 employees available.
+   - Constraint: total employees used by all stores must be ≤ 50.
+
+3. **Non‑negativity & integrality**
+   - \( R \ge 0, O \ge 0 \)
+   - \( R, O \) must be integers (no fractional stores).
+
+---
+
+5. **Objective function structure**
+
+- **Objective:** Minimise \( R + O \)  
+  (the total number of stores the company needs to open)
+
+---
+
+6. **Modelling notes / strategy**
+
+- The main trade‑off is:
+  - Retail stores: more customers per store, but higher employee use.
+  - Outlets: fewer customers per store, but lower employee use.
+- The model should find the integer combination of \( R \) and \( O \) that:
+  - Meets customer demand
+  - Respects employee cap
+  - Minimises \( R + O \)
+
+No additional constraints (like maximum number of outlets or minimum share of retail stores) are implied by the problem statement, so keep the model minimal with just the constraints above.
+
+---
+
+[MODELER]:
+Here is a clean mathematical formulation and how you’d implement/solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(R \in \mathbb{Z}_{\ge 0}\): number of **retail stores** to open  
+- \(O \in \mathbb{Z}_{\ge 0}\): number of **factory outlet stores** to open  
+
+Both are integer and non‑negative (no fractional stores).
+
+---
+
+## 2. Objective
+
+Minimise the total number of stores:
+
+\[
+\min \; Z = R + O
+\]
+
+---
+
+## 3. Constraints
+
+### a) Customer demand
+
+Each retail store brings 200 customers/day; each outlet, 80 customers/day.  
+We need at least 1200 customers/day:
+
+\[
+200R + 80O \;\ge\; 1200
+\]
+
+### b) Employee availability
+
+Each retail store uses 6 employees; each outlet, 4 employees.  
+We have at most 50 employees:
+
+\[
+6R + 4O \;\le\; 50
+\]
+
+### c) Non‑negativity and integrality
+
+\[
+R \ge 0,\quad O \ge 0,\quad R, O \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete ILP model
+
+\[
+\begin{aligned}
+\text{Minimise} \quad & Z = R + O \\
+\text{subject to} \quad
+& 200R + 80O \ge 1200 \\
+& 6R + 4O \le 50 \\
+& R, O \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+Any Mixed-Integer Linear Programming (MILP) capable solver/library works:
+
+- **PuLP** (`pulp`): simple, pure Python wrapper to various solvers (CBC by default).  
+- **OR‑Tools** (`ortools.linear_solver`): efficient, Google’s open-source library for MILP.  
+- **Pyomo**: more general algebraic modeling language in Python.  
+- **SciPy** alone is *not* suitable here because we need integer variables.
+
+For small models like this, PuLP or OR‑Tools are ideal.
+
+---
+
+## 6. Example implementation (PuLP)
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Store_Selection", pl.LpMinimize)
+
+# Decision variables
+R = pl.LpVariable('Retail', lowBound=0, cat='Integer')
+O = pl.LpVariable('Outlet', lowBound=0, cat='Integer')
+
+# Objective
+prob += R + O, "Total_Stores"
+
+# Constraints
+prob += 200*R + 80*O >= 1200, "Customer_Demand"
+prob += 6*R + 4*O <= 50,     "Employee_Limit"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Retail stores (R):", pl.value(R))
+print("Outlet stores (O):", pl.value(O))
+print("Minimum total stores:", pl.value(R + O))
+```
+
+This will return the optimal distribution \( (R^*, O^*) \) that minimises the number of stores while satisfying the customer and employee constraints.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("Store_Selection", pl.LpMinimize)
+
+    # Decision variables
+    R = pl.LpVariable('Retail', lowBound=0, cat='Integer')
+    O = pl.LpVariable('Outlet', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of stores
+    prob += R + O, "Total_Stores"
+
+    # Constraints
+    prob += 200 * R + 80 * O >= 1200, "Customer_Demand"
+    prob += 6 * R + 4 * O <= 50, "Employee_Limit"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pl.value(R + O)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,45 @@
+[MONOLITH]:
+import pulp
+
+# Create the problem
+prob = pulp.LpProblem("Forest_Paper_Production", pulp.LpMaximize)
+
+# Decision variables: number of reams of graph paper (G) and music paper (M)
+G = pulp.LpVariable('Graph_Reams', lowBound=0, cat='Continuous')
+M = pulp.LpVariable('Music_Reams', lowBound=0, cat='Continuous')
+
+# Parameters from the problem
+printing_time_graph = 3.0      # minutes per ream
+scanning_time_graph = 5.5      # minutes per ream
+printing_time_music = 1.5      # minutes per ream
+scanning_time_music = 3.0      # minutes per ream
+printing_capacity = 350.0      # minutes per day
+scanning_capacity = 350.0      # minutes per day
+profit_graph = 4.0             # dollars per ream
+profit_music = 2.5             # dollars per ream
+
+# Objective function: maximize profit
+prob += profit_graph * G + profit_music * M
+
+# Constraints
+# Printing machine time constraint
+prob += printing_time_graph * G + printing_time_music * M <= printing_capacity, "Printing_Capacity"
+
+# Scanning machine time constraint
+prob += scanning_time_graph * G + scanning_time_music * M <= scanning_capacity, "Scanning_Capacity"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve the optimal values
+opt_G = pulp.value(G)
+opt_M = pulp.value(M)
+opt_profit = pulp.value(prob.objective)
+
+# Print solution details
+print(f"Optimal number of graph paper reams: {opt_G}")
+print(f"Optimal number of music paper reams: {opt_M}")
+print(f"Maximum profit: {opt_profit}")
+
+# Final required print
+print(f"FINAL_OBJ: {opt_profit}")

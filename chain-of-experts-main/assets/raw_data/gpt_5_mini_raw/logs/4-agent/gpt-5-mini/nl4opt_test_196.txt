@@ -1,0 +1,227 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Maximise total exposure (total viewers reached) subject to the $250,000 advertising budget and the given ad-count bounds.
+
+2. Suggested model type
+- Model: Integer Linear Program (ILP).  
+  Rationale: counts of ads are discrete integers and the objective and constraints are linear.
+
+3. Main decision variables
+- R = number of radio ads (integer).
+- S = number of social-media ads (integer).
+
+4. Key objective components (for modeller)
+- Exposure per radio ad = 60,500 viewers.
+- Exposure per social-media ad = 50,000 viewers.
+- Total exposure to maximise = 60,500*R + 50,000*S.
+
+5. Key constraints to include
+- Budget constraint: 5,000*R + 9,150*S ≤ 250,000.
+- Radio-ad bounds: 15 ≤ R ≤ 40 (R integer).
+- Social-media lower bound: S ≥ 35 (S integer).
+- Nonnegativity and integrality: R,S ∈ Z, R,S ≥ 0.
+
+6. Feasibility check and immediate issue
+- Compute minimum-cost implied by the lower bounds: 15 radio ads cost 15*5,000 = 75,000; 35 social ads cost 35*9,150 = 320,250; total = 395,250 > 250,000.  
+- Conclusion: the current combination of minimum counts is infeasible under the $250,000 budget. The modeller must report infeasibility to stakeholders before solving.
+
+7. Recommended remedies / modelling options to handle infeasibility
+- Option A (preferred): Ask stakeholders to relax the S ≥ 35 requirement (reduce the minimum number of social-media ads) or increase the budget. Then solve the ILP as specified.
+- Option B: Convert the S ≥ 35 constraint into a soft constraint by introducing a penalty term in the objective (i.e., allow S < 35 but impose a large penalty for each unit below 35). Model becomes a penalised ILP.
+- Option C: Treat the lower bound on S as a target (not hard) and run a multi-objective or lexicographic optimisation (first maximise exposure, then minimise shortfall from S=35).
+- Option D: If stakeholder insists on strict bounds, report no feasible solution and present the minimal budget required to meet the lower bounds (use: required_budget = 5,000*15 + 9,150*35 = $395,250).
+
+8. Implementation notes for the modeller
+- If bounds are relaxed, solve the ILP with R integer within [15,40] and S integer ≥ 0, cost constraint ≤ 250,000.
+- If using an LP relaxation first, be aware fractional ads are not meaningful; use ILP solver (CBC, GLPK, Gurobi, CPLEX).
+- After obtaining a solution, perform sensitivity analysis: check which constraints bind (budget or upper/lower bounds), and report marginal value of relaxing budget or changing ad costs.
+- Present final recommended ad counts (R,S), total cost used, and total exposure, and explicitly state whether any original bounds were relaxed.
+
+9. Deliverables expected from modeller
+- Feasibility report (including the infeasibility check above).
+- If feasible after any agreed relaxations: optimal integer solution (R,S), total exposure, total cost, and shadow/sensitivity information.
+- If infeasible and bounds remain strict: minimal additional budget required to satisfy lower bounds and suggested alternative feasible allocations under current budget.
+
+---
+
+[MODELER]:
+Below I convert the textual brief into a precise optimisation model, check feasibility of the stated bounds, show the immediate logical remedy and (if the S ≥ 35 lower bound is relaxed) give the optimal integer solution and solver recommendations.
+
+1) Decision variables
+- R ∈ Z, number of radio ads.
+- S ∈ Z, number of social-media ads.
+
+2) Parameters
+- Budget B = 250000 (dollars).
+- Cost per radio c_R = 5000.
+- Cost per social c_S = 9150.
+- Exposure per radio e_R = 60500 (viewers).
+- Exposure per social e_S = 50000 (viewers).
+- Radio bounds: 15 ≤ R ≤ 40 (integer).
+- Social lower bound: S ≥ 35 (integer) — this is the original stakeholder requirement.
+
+3) Objective (to maximise)
+Maximise total exposure:
+  maximize Z = 60500·R + 50000·S
+
+4) Constraints
+- Budget: 5000·R + 9150·S ≤ 250000
+- Radio bounds: 15 ≤ R ≤ 40, R ∈ Z
+- Social bound: S ≥ 35, S ∈ Z
+- Implicit nonnegativity: R, S ≥ 0
+
+5) Feasibility check (direct, exact)
+Compute the minimum possible cost given the stated lower bounds:
+- cost_min = 15·5000 + 35·9150 = 75,000 + 320,250 = 395,250.
+
+Since cost_min = $395,250 > budget B = $250,000, the original model (with R ∈ [15,40] and S ≥ 35) is infeasible. Report this to stakeholders.
+
+Minimum additional budget required to meet the stated lower bounds:
+- required_extra = 395,250 − 250,000 = $145,250.
+So to accept the hard bounds as given, the budget must be increased to at least $395,250.
+
+6) Practical remedies (options to resolve infeasibility)
+- Option A (preferred): Relax the S ≥ 35 requirement (ask stakeholders to reduce the minimum social ads) or increase the budget. Then solve the ILP as written.
+- Option B: Make S ≥ 35 a soft/target constraint by introducing a shortfall variable u ≥ 0 with S + u ≥ 35 and add a penalty α·u to the objective (penalty α chosen large enough to enforce preference but allow feasibility).
+- Option C: Multi-objective / lexicographic: primary objective max exposure subject to budget and R bounds; secondary objective minimise shortfall from S = 35.
+- Option D: If stakeholders insist on hard bounds, report infeasibility and request the additional budget computed above.
+
+7) If S lower bound is relaxed (S ≥ 0) — solve the ILP
+Intuition: compare exposure-per-dollar:
+- radio: 60500 / 5000 = 12.1 viewers per dollar
+- social: 50000 / 9150 ≈ 5.4645 viewers per dollar
+
+Radio gives much higher exposure per dollar, so the optimal policy is to spend as much as allowed on radio (R at its upper bound), then use remaining budget for social ads.
+
+Compute:
+- Set R = 40 (max). Cost_R = 40·5000 = 200,000. Remaining budget = 50,000.
+- Max integer S with remaining budget: S = floor(50,000 / 9150) = 5 (cost 45,750).
+- Total cost = 200,000 + 45,750 = 245,750 ≤ 250,000 (feasible).
+- Total exposure = 40·60,500 + 5·50,000 = 2,420,000 + 250,000 = 2,670,000 viewers.
+
+This is the optimal integer solution under R ∈ [15,40] and S ≥ 0. Exchanging radio ads for social ads always reduces exposure per dollar here, so no other integer combination can beat it.
+
+8) Alternate formal soft-penalty formulation (example)
+Introduce shortfall variable u ≥ 0 representing units by which S falls short of 35:
+- S + u ≥ 35, u ≥ 0, u ∈ Z (or real)
+Modify objective to:
+- maximize 60500·R + 50000·S − α·u
+Choose α large enough to make shortfall costly (α should represent the loss in utility of not meeting the minimum; tune with stakeholders). Budget and R bounds remain. This yields a single-objective ILP where infeasibility is avoided at the price of a penalised shortfall.
+
+9) Solver recommendations (Python)
+- pulp (with CBC) — easy, pure-Python modelling; suitable for small ILPs.
+- OR-Tools CP-SAT (ortools.sat.python) — excellent for integer problems, fast.
+- gurobipy or cplex (commercial) — faster and with advanced sensitivity features if licensed.
+- cvxpy (with GLPK_MI, CBC backends) — for a higher-level interface (supports integer variables).
+- scipy.optimize is not recommended for integer programming (continuous only).
+
+Implementation notes:
+- Solve ILP (not LP relaxation) because ads are integer and indivisible.
+- If using penalty approach, tune penalty α with stakeholders and check resulting solution sensitivity.
+- After solving, report: (R,S), total exposure, total cost, whether any original bounds were relaxed, and if feasible the binding constraints.
+- If stakeholders keep hard bounds, report infeasibility and the required extra budget $145,250.
+
+10) Deliverables you should provide to stakeholders
+- Feasibility report (showing the lower-bound infeasibility calculation).
+- If they relax S or increase budget: optimal integer solution (R,S), total exposure, total cost, and which constraints bind.
+- If they insist on hard bounds: statement of infeasibility and the minimal additional budget required ($145,250), plus suggested alternative allocations if they prefer to lower S rather than increase budget.
+
+If you want, I can:
+- produce a short Python example (pulp or OR-Tools) that implements the original ILP, demonstrates infeasibility, and then re-runs with S relaxed and returns the optimal solution R=40, S=5; or
+- set up the penalised ILP and show a sweep of penalty α values to demonstrate trade-offs. Which would you like next?
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to check feasibility of the original ad-allocation ILP,
+# demonstrate infeasibility of the hard lower bounds, and then solve the integer
+# problem after relaxing the S >= 35 requirement to S >= 0 by brute-force search.
+
+# All data initialised directly in code.
+
+# Parameters
+B = 250000           # Budget in dollars
+c_R = 5000           # Cost per radio ad
+c_S = 9150           # Cost per social-media ad
+e_R = 60500          # Exposure per radio ad (viewers)
+e_S = 50000          # Exposure per social-media ad (viewers)
+
+# Bounds
+R_min = 15
+R_max = 40
+S_min_original = 35  # original stakeholder requirement (makes model infeasible)
+S_min_relaxed = 0    # relaxed lower bound for solving
+
+# 1) Feasibility check for original model with S >= 35 and R in [15,40]
+cost_min_with_bounds = R_min * c_R + S_min_original * c_S
+
+print("Feasibility check of original model with hard bounds:")
+print(f"Minimum possible cost given lower bounds: ${cost_min_with_bounds:,}")
+if cost_min_with_bounds > B:
+    required_extra = cost_min_with_bounds - B
+    print("Result: INFEASIBLE under current budget.")
+    print(f"Minimum additional budget required to meet hard lower bounds: ${required_extra:,}")
+else:
+    print("Result: FEASIBLE under current budget.")
+
+# 2) Remedy chosen: Option A (preferred) - relax S lower bound to 0 and solve the ILP
+print("")
+print("Remedy chosen: Relax S >= 35 to S >= 0 and solve the integer problem (R in [15,40], S integer).")
+print("Solving by exhaustive integer search (small finite ranges).")
+
+best_solution = None
+best_exposure = -1
+best_cost = None
+
+# Enumerate feasible integer solutions with R in [R_min, R_max] and S >= S_min_relaxed
+# Also enforce budget constraint  c_R*R + c_S*S <= B
+# To keep S search bounded, we can limit S up to floor(B/c_S)
+S_upper_bound = B // c_S
+
+for R in range(R_min, R_max + 1):
+    cost_R = c_R * R
+    if cost_R > B:
+        # No feasible S for this R
+        continue
+    # maximum S affordable with remaining budget
+    max_S_affordable = (B - cost_R) // c_S
+    # iterate S from S_min_relaxed to max_S_affordable
+    for S in range(S_min_relaxed, max_S_affordable + 1):
+        total_cost = cost_R + c_S * S
+        if total_cost > B:
+            continue
+        total_exposure = e_R * R + e_S * S
+        if total_exposure > best_exposure:
+            best_exposure = total_exposure
+            best_solution = (R, S)
+            best_cost = total_cost
+        # tie-breaker: prefer higher R (since radio is more cost-effective)
+        elif total_exposure == best_exposure and best_solution is not None:
+            # if this solution has larger R than current best, prefer it
+            if R > best_solution[0]:
+                best_solution = (R, S)
+                best_cost = total_cost
+
+if best_solution is None:
+    print("No feasible solution found even after relaxing S lower bound. (This should not happen.)")
+    value = 0
+else:
+    R_opt, S_opt = best_solution
+    print("")
+    print("Optimal integer solution with S >= 0:")
+    print(f"R (radio ads) = {R_opt}")
+    print(f"S (social ads) = {S_opt}")
+    print(f"Total cost = ${best_cost:,} (budget = ${B:,})")
+    print(f"Total exposure = {best_exposure:,} viewers")
+    print("")
+    print("Notes:")
+    print("- The original hard lower bound S >= 35 was infeasible given the budget.")
+    print("- Radio provides higher exposure per dollar, so the solver fills radio up to its upper bound where beneficial.")
+    # set final objective value to best_exposure for the required final print
+    value = best_exposure
+
+# Final required single-line output (must be last line in this exact format)
+print(f"FINAL_OBJ: {value}")
+```

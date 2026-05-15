@@ -1,0 +1,91 @@
+[MODELER]:
+Modeling summary
+
+Decision variables
+- s ∈ Z≥0 : number of small bins
+- l ∈ Z≥0 : number of large bins
+
+Objective
+- Maximize total collected material: maximize Z = 25·s + 60·l
+
+Constraints
+1. Worker availability: 2·s + 5·l ≤ 100
+2. Ratio requirement: s = 3·l
+3. Minimum counts: s ≥ 10, l ≥ 4
+4. Integrality: s, l integers
+
+Simplification
+From s = 3l substitute into the other constraints:
+- Worker constraint: 2·(3l) + 5·l = 11·l ≤ 100 ⇒ l ≤ ⌊100/11⌋ = 9
+- Minimum: l ≥ 4 (s = 3l automatically gives s ≥ 12 when l ≥ 4, so s ≥ 10 is satisfied)
+
+Thus l ∈ {4,5,6,7,8,9}. Objective becomes Z = 25·(3l) + 60·l = 135·l, so maximize l. The maximum feasible integer l is 9.
+
+Solution
+- l = 9 large bins
+- s = 3·l = 27 small bins
+- Total capacity = 25·27 + 60·9 = 1215 units
+- Workers used = 2·27 + 5·9 = 99 (≤ 100)
+
+Suggested solver libraries
+- pulp (for MILP) — simple to model and solve this integer linear program
+- OR-Tools CP-SAT (for integer/constraint programming) — robust and fast for integer models
+- Python brute force / enumeration (tiny discrete search) is also trivial here
+
+Example (pulp) code snippet
+(You can run this in Python with pulp installed.)
+from pulp import LpProblem, LpMaximize, LpVariable, LpInteger, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("Bins", LpMaximize)
+s = LpVariable('s', lowBound=0, cat=LpInteger)
+l = LpVariable('l', lowBound=0, cat=LpInteger)
+
+prob += 25*s + 60*l
+prob += 2*s + 5*l <= 100
+prob += s == 3*l
+prob += s >= 10
+prob += l >= 4
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print(int(s.value()), int(l.value()), int((25*s.value()+60*l.value())))
+
+Answer: use 27 small bins and 9 large bins, collecting 1215 units.
+
+---
+
+[CODER]:
+# Self-contained solver for the described integer optimization problem (enumeration)
+# Decision variables:
+#   s >= 0 integer (small bins)
+#   l >= 0 integer (large bins)
+# Objective: maximize 25*s + 60*l
+# Constraints:
+#   2*s + 5*l <= 100
+#   s == 3*l
+#   s >= 10, l >= 4
+
+best_obj = None
+best_solution = None
+
+# l must be integer; search reasonable range 0..100
+for l in range(0, 101):
+    s = 3 * l  # must satisfy s == 3*l
+    # Check integrality and bounds (s is integer by construction)
+    if s < 10:
+        continue
+    if l < 4:
+        continue
+    if 2 * s + 5 * l > 100:
+        continue
+    obj = 25 * s + 60 * l
+    if (best_obj is None) or (obj > best_obj):
+        best_obj = obj
+        best_solution = (s, l)
+
+# best_obj should be found
+if best_obj is None:
+    final_value = 0
+else:
+    final_value = int(best_obj)
+
+print(f"FINAL_OBJ: {final_value}")

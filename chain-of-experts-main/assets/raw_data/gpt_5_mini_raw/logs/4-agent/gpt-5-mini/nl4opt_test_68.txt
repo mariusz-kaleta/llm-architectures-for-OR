@@ -1,0 +1,241 @@
+[PLANNER]:
+1) Key optimisation goal
+- Primary goal: Minimise total factory operating time (sum of hours run at Factory 1 and Factory 2), subject to meeting the minimum production requirements and the compound availability.
+- Note/alternative: If the user instead intends to minimise calendar makespan (the time until both factories finish, i.e. the maximum of the two run-times), model that as a separate (slightly different) optimisation; instructions below include how to handle that alternative.
+
+2) Suggested model type
+- Linear Programming (LP). (If you want to minimise the maximum run-time, use an LP with one extra auxiliary variable representing the makespan.)
+
+3) Main decision variables
+- h1 : Hours to run Factory 1 (continuous, ≥ 0).
+- h2 : Hours to run Factory 2 (continuous, ≥ 0).
+- Optional (for makespan objective): T : calendar time / makespan, with T ≥ h1 and T ≥ h2.
+
+4) Key constraints to implement (describe them in words)
+- Allergy production requirement: combined allergy pills produced by both factories must be at least the required minimum.
+  - (Use Factory 1 and Factory 2 allergy production rates per hour multiplied by their hours.)
+- Fever production requirement: combined fever-reducing pills produced by both factories must be at least the required minimum.
+  - (Use each factory’s fever production rates per hour multiplied by their hours.)
+- Rare compound availability: total compound consumed by both factories (compound usage per hour × hours) cannot exceed the available supply.
+- Non-negativity: hours for each factory must be non-negative (and allow fractional hours unless integer hours are required by the user).
+- (Optional practical constraints) If there are implicit operational upper bounds (e.g., a factory cannot run beyond a shift length), include those as upper-bound constraints.
+
+5) Objective specification options
+- Sum-minimisation (recommended interpretation): Minimise h1 + h2.
+- Makespan alternative: Minimise T subject to T ≥ h1 and T ≥ h2.
+
+6) Solver and modelling notes
+- This is a small-scale LP; use any standard LP solver (e.g., simplex or interior-point via commercial or open-source solvers).
+- Keep variables continuous unless integer-hour requirement is specified.
+- After solving, perform sensitivity checks: verify which constraints are binding (production vs compound), examine shadow prices to see which resource is limiting.
+- Check feasibility first (ensure compound and production requirements are jointly attainable); if infeasible, report shortfall(s).
+
+7) Data recap for modeller (to plug into constraints)
+- Factory 1 rates per hour: allergy = 20, fever = 15, compound usage = 20.
+- Factory 2 rates per hour: allergy = 10, fever = 30, compound usage = 30.
+- Available compound: 1000 units.
+- Minimum production requirements: allergy ≥ 700, fever ≥ 600.
+
+Deliverable expected from modeller
+- LP formulation (variable names, objective, and all constraints written formally).
+- Numerical optimal solution for h1 and h2 for the primary objective and, if requested, for the makespan variant.
+- Short diagnostics: which constraints are binding, and sensitivity of total time to compound availability and demand changes.
+
+---
+
+[MODELER]:
+Below I (1) give a formal LP formulation, (2) solve it (numeric solution) for the primary objective (minimise total factory hours), (3) report which constraints bind and simple sensitivity results, and (4) list solver/library suggestions and brief notes on the makespan alternative.
+
+1) Decision variables
+- h1 ≥ 0 : hours to run Factory 1.
+- h2 ≥ 0 : hours to run Factory 2.
+
+(If you want the makespan alternative:)
+- T ≥ 0 : calendar makespan (T ≥ h1 and T ≥ h2).
+
+2) Data (given)
+- Factory 1 per-hour outputs: allergy 20, fever 15, compound usage 20.
+- Factory 2 per-hour outputs: allergy 10, fever 30, compound usage 30.
+- Compound available: 1000 units.
+- Minimum production requirements: allergy ≥ 700, fever ≥ 600.
+
+3) LP formulation (primary objective)
+Minimise:
+- objective: z = h1 + h2
+
+Subject to:
+- Allergy requirement: 20 h1 + 10 h2 ≥ 700
+- Fever requirement: 15 h1 + 30 h2 ≥ 600
+- Compound availability: 20 h1 + 30 h2 ≤ 1000
+- Non-negativity: h1 ≥ 0, h2 ≥ 0
+
+4) Exact numerical solution (primary objective: minimize h1 + h2)
+
+Solve the LP (standard corner-point analysis or any LP solver). The intersection of the allergy and fever constraints is:
+- 20 h1 + 10 h2 = 700
+- 15 h1 + 30 h2 = 600
+
+Solving gives:
+- h1 = 100/3 = 33.333... hours
+- h2 = 10/3 = 3.333... hours
+
+Objective value:
+- Total time h1 + h2 = 16500/450 = 110/3 ≈ 36.6667 hours
+
+Check compound usage:
+- 20*h1 + 30*h2 = 20*(100/3) + 30*(10/3) = 766.666... ≤ 1000 (so compound constraint is not binding)
+
+5) Diagnostics / interpretation
+- Binding constraints at optimum: the allergy and fever production constraints are binding (active equalities). The compound constraint is slack:
+  slack on compound = 1000 − 766.666... = 233.333... units.
+- Intuition: Because Factory 1 is relatively efficient in compound usage per unit of production, the optimizer uses Factory 1 heavily to meet allergy and fever needs (h1 large) and only a small amount of Factory 2 (h2 small) to satisfy the fever requirement efficiently; this combination minimises the sum of hours.
+
+6) Sensitivity (marginal effects) — effect of changing demand on minimum total hours
+From linear algebra h = A^{-1} b where A = [[20,10],[15,30]] and b = [700;600]. The derivative of total time T = h1+h2 with respect to the RHS demand vector b = [b1; b2] (allergy, fever) equals s = 1^T A^{-1} = [1/30, 1/45]. Therefore:
+- d(T)/d(allergy requirement) = 1/30 ≈ 0.033333 hours per extra allergy pill (~2.0 minutes).
+- d(T)/d(fever requirement) = 1/45 ≈ 0.022222 hours per extra fever pill (~1.333 minutes).
+
+Compound becoming binding:
+- The compound usage at the allergy–fever intersection is linear in b: compound(b) = (1/450)*(150 b1 + 400 b2). For compound to reach 1000 we need 150 b1 + 400 b2 = 450000.
+  - If only allergy demand increases (b2 fixed at 600), compound becomes binding when b1 = 1400 (current 700 → needs to double) .
+  - If only fever demand increases (b1 fixed at 700), compound becomes binding when b2 = 862.5 (current 600 → about +262.5).
+
+7) Makespan alternative (if you meant to minimise calendar time)
+- Model: Minimise T subject to the same production and compound constraints plus h1 ≤ T, h2 ≤ T.
+- Solve the LP with variables (h1,h2,T). This produces a slightly different solution because objective is T not h1+h2. (I can compute the numeric makespan-optimal solution if you want; it is set up as a small LP and can be solved by the same tools.)
+
+8) Solver / library recommendations (Python)
+- pulp (simple and readable; uses CBC by default): easy for small LPs and retrieving solution.
+- scipy.optimize.linprog (good for simple LPs; interior-point or simplex).
+- OR-Tools (Google): fast and full-featured.
+- cvxpy (if you prefer a higher-level modelling interface).
+- If integer-hour constraints are required, use pulp with CBC, OR-Tools CP-SAT, or any MILP solver.
+
+Example (outline) with pulp:
+- define LpProblem(MINIMIZE)
+- define variables h1 = LpVariable('h1', lowBound=0), h2 = LpVariable('h2', lowBound=0)
+- add constraints above
+- set objective h1 + h2 and solve
+- read h1.varValue, h2.varValue
+
+If you want, I can:
+- return a short runnable Python script (pulp or scipy) that solves this instance and prints shadow prices / duals (if supported),
+- compute the makespan-optimal solution numerically,
+- or run a quick parametric sensitivity sweep (change compound or demands and report new optimal hours).
+
+---
+
+[CODER]:
+```python
+import numpy as np
+from scipy.optimize import linprog
+
+# Data
+# Per-hour outputs
+A_allergy = np.array([20.0, 10.0])  # coefficients for h1, h2
+A_fever   = np.array([15.0, 30.0])
+A_compound = np.array([20.0, 30.0])
+
+# RHS
+b_allergy = 700.0
+b_fever = 600.0
+compound_available = 1000.0
+
+# 1) Solve primary LP: minimize h1 + h2
+# Variables: x = [h1, h2]
+c = np.array([1.0, 1.0])
+
+# Constraints:
+# 20 h1 + 10 h2 >= 700  ->  -20 h1 -10 h2 <= -700
+# 15 h1 + 30 h2 >= 600  ->  -15 h1 -30 h2 <= -600
+# 20 h1 + 30 h2 <= 1000 ->   20 h1 +30 h2 <= 1000
+A_ub = np.vstack([
+    -A_allergy,
+    -A_fever,
+    A_compound
+])
+b_ub = np.array([-b_allergy, -b_fever, compound_available])
+
+bounds = [(0, None), (0, None)]
+
+res = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method="highs")
+
+if not res.success:
+    raise RuntimeError("LP solver failed: " + res.message)
+
+h1, h2 = res.x
+total_hours = float(h1 + h2)
+
+# Compute constraint left-hand-sides for diagnosis
+allergy_val = A_allergy.dot([h1, h2])
+fever_val = A_fever.dot([h1, h2])
+compound_val = A_compound.dot([h1, h2])
+
+tol = 1e-8
+allergy_binding = abs(allergy_val - b_allergy) <= tol
+fever_binding = abs(fever_val - b_fever) <= tol
+compound_binding = abs(compound_val - compound_available) <= tol
+compound_slack = compound_available - compound_val
+
+# Sensitivity: derivative of total time w.r.t RHS b = [b1,b2]
+A_mat = np.array([[20.0, 10.0],
+                  [15.0, 30.0]])
+invA = np.linalg.inv(A_mat)
+# s = 1^T * A^{-1}
+s = np.array([1.0, 1.0]).dot(invA)  # length-2 vector; s[0]=dT/db1, s[1]=dT/db2
+
+# Compound as linear function of b: coeffs such that compound = coeffs @ b
+# compound = [20 30] * h = [20 30] * A^{-1} * b  -> coeffs = [20 30] @ invA
+compound_coeffs = A_compound.dot(invA)  # coefficients for [b1, b2]
+# Solve thresholds where compound becomes binding if varying only one demand
+# With b = [b1, fixed_b2], need compound_coeffs[0]*b1 + compound_coeffs[1]*fixed_b2 = compound_available
+fixed_b2 = b_fever
+if abs(compound_coeffs[0]) > 1e-12:
+    b1_threshold = (compound_available - compound_coeffs[1]*fixed_b2) / compound_coeffs[0]
+else:
+    b1_threshold = np.nan
+fixed_b1 = b_allergy
+if abs(compound_coeffs[1]) > 1e-12:
+    b2_threshold = (compound_available - compound_coeffs[0]*fixed_b1) / compound_coeffs[1]
+else:
+    b2_threshold = np.nan
+
+# Makespan alternative: minimize T subject to same production constraints and h1 <= T, h2 <= T
+# Variables x = [h1, h2, T], objective minimize T
+c_m = np.array([0.0, 0.0, 1.0])
+# Constraints as A_ub_m x <= b_ub_m
+# -allergy >= -> -20 -10 0 <= -700
+# -fever  -> -15 -30 0 <= -600
+# compound -> 20 30 0 <= 1000
+# h1 - T <= 0 -> 1 0 -1 <= 0
+# h2 - T <= 0 -> 0 1 -1 <= 0
+A_ub_m = np.array([
+    [-A_allergy[0], -A_allergy[1], 0.0],
+    [-A_fever[0], -A_fever[1], 0.0],
+    [ A_compound[0],  A_compound[1], 0.0],
+    [1.0, 0.0, -1.0],
+    [0.0, 1.0, -1.0]
+])
+b_ub_m = np.array([-b_allergy, -b_fever, compound_available, 0.0, 0.0])
+bounds_m = [(0, None), (0, None), (0, None)]
+
+res_m = linprog(c_m, A_ub=A_ub_m, b_ub=b_ub_m, bounds=bounds_m, method="highs")
+if not res_m.success:
+    raise RuntimeError("Makespan LP solver failed: " + res_m.message)
+
+h1_m, h2_m, T_opt = res_m.x
+
+# Print diagnostic info (these prints are informational; final line below must match required format)
+print(f"Primary LP solution: h1 = {h1:.12f}, h2 = {h2:.12f}, total_hours = {total_hours:.12f}")
+print(f"Constraint LHS values: allergy = {allergy_val:.12f} (req {b_allergy}), fever = {fever_val:.12f} (req {b_fever}), compound = {compound_val:.12f} (avail {compound_available})")
+print(f"Binding status (within tol={tol}): allergy={allergy_binding}, fever={fever_binding}, compound={compound_binding}")
+print(f"Compound slack = {compound_slack:.12f}")
+print(f"Sensitivity dT/db (dT/d(allergy), dT/d(fever)) = ({s[0]:.12f}, {s[1]:.12f})  (hours per extra unit)")
+print(f"Compound coefficients w.r.t b = {compound_coeffs}  (compound = coeffs[0]*b1 + coeffs[1]*b2)")
+print(f"Compound becomes binding if b1 (with b2={fixed_b2}) >= {b1_threshold:.12f}")
+print(f"Compound becomes binding if b2 (with b1={fixed_b1}) >= {b2_threshold:.12f}")
+print(f"Makespan-optimal solution: h1 = {h1_m:.12f}, h2 = {h2_m:.12f}, T = {T_opt:.12f}")
+
+# Final required single-line print with exact format
+print(f"FINAL_OBJ: {total_hours}")
+```

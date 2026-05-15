@@ -1,0 +1,223 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total number of stamping machines purchased (sum of single + dual machines) while satisfying all performance and resource requirements.
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP), or more specifically a small 2-variable Integer Program:
+- Objective and constraints are linear.
+- Decision variables must be non‑negative integers (you can’t buy fractions of machines).
+
+3. Main decision variables  
+Define:
+- Number of dual model stamping machines.
+- Number of single model stamping machines.
+
+Both variables:
+- Must be integer.
+- Must be ≥ 0.
+
+4. Key constraints to consider  
+
+a) Capacity (letters stamped per minute)  
+- Each dual machine: 50 letters/min.  
+- Each single machine: 30 letters/min.  
+- Total stamping capacity must be at least 300 letters/min.  
+→ Linear inequality in terms of dual and single counts.
+
+b) Glue usage per minute  
+- Each dual machine: 20 units glue/min.  
+- Each single machine: 15 units glue/min.  
+- Total glue use must be at most 135 units/min.  
+→ Linear inequality in terms of dual and single counts.
+
+c) Quietness preference (single > dual)  
+- Number of single machines must exceed number of dual machines.  
+→ Strict inequality: single > dual.  
+For modelling in standard ILP form, represent as:
+- single ≥ dual + 1.
+
+d) Integrality and non-negativity  
+- Both machine counts must be integer (whole machines only).  
+- Both counts must be ≥ 0.
+
+5. Objective function structure  
+- Objective: Minimise (number of dual machines + number of single machines).
+
+6. Modelling strategy notes for the Modeller  
+- Formulate all constraints as linear inequalities with the two decision variables.  
+- Enforce integrality to reflect discrete machine purchases.  
+- The problem is small enough that, once formulated, you can also manually check feasible integer combinations near the boundary of the constraints to verify the optimal solution.
+
+---
+
+[MODELER]:
+Here is a clean mathematical/algorithmic model of the problem.
+
+---
+
+## 1. Decision variables
+
+Let:
+
+- \(x_d \in \mathbb{Z}_{\ge 0}\): number of dual model stamping machines to purchase  
+- \(x_s \in \mathbb{Z}_{\ge 0}\): number of single model stamping machines to purchase  
+
+Both must be non‑negative integers.
+
+---
+
+## 2. Objective
+
+Minimise the total number of stamping machines:
+
+\[
+\min \; Z = x_d + x_s
+\]
+
+---
+
+## 3. Constraints
+
+### a) Stamping capacity (at least 300 letters/minute)
+
+Each dual machine: 50 letters/min  
+Each single machine: 30 letters/min  
+
+Total capacity must be at least 300:
+
+\[
+50x_d + 30x_s \;\ge\; 300
+\]
+
+---
+
+### b) Glue usage (at most 135 units/minute)
+
+Each dual machine: 20 units glue/min  
+Each single machine: 15 units glue/min  
+
+Total glue usage must be at most 135:
+
+\[
+20x_d + 15x_s \;\le\; 135
+\]
+
+---
+
+### c) Quietness preference (more singles than duals)
+
+Number of single machines must be strictly more than number of dual machines:
+
+\[
+x_s > x_d
+\]
+
+In standard ILP form, use:
+
+\[
+x_s \ge x_d + 1
+\]
+
+---
+
+### d) Integrality and non‑negativity
+
+\[
+x_d \in \mathbb{Z}_{\ge 0}, \quad x_s \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete ILP model
+
+\[
+\begin{aligned}
+\min \quad & x_d + x_s \\
+\text{s.t.} \quad 
+& 50x_d + 30x_s \;\ge\; 300 \\
+& 20x_d + 15x_s \;\le\; 135 \\
+& x_s - x_d \;\ge\; 1 \\
+& x_d, x_s \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+Any MILP/ILP solver is appropriate (problem is very small):
+
+- `PuLP` (pure Python modeling, open source solvers like CBC included)
+- `ortools.linear_solver` (Google OR-Tools, CP-SAT or MIP solvers)
+- `Pyomo` (modeling framework, can use CBC, GLPK, Gurobi, CPLEX, etc.)
+- `scipy.optimize` is *not* ideal because it does not natively support integer variables; you’d need to add your own integer handling.
+
+---
+
+## 6. Example with PuLP (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+model = pl.LpProblem("Stamping_Machines", pl.LpMinimize)
+
+# Variables
+x_d = pl.LpVariable('dual', lowBound=0, cat='Integer')
+x_s = pl.LpVariable('single', lowBound=0, cat='Integer')
+
+# Objective
+model += x_d + x_s
+
+# Constraints
+model += 50*x_d + 30*x_s >= 300           # capacity
+model += 20*x_d + 15*x_s <= 135           # glue
+model += x_s - x_d >= 1                   # quietness (more singles than duals)
+
+# Solve
+model.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Dual:", pl.value(x_d))
+print("Single:", pl.value(x_s))
+print("Total machines:", pl.value(x_d + x_s))
+```
+
+This code directly implements the formal ILP model above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    model = pl.LpProblem("Stamping_Machines", pl.LpMinimize)
+
+    # Decision variables
+    x_d = pl.LpVariable('dual', lowBound=0, cat='Integer')
+    x_s = pl.LpVariable('single', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of machines
+    model += x_d + x_s
+
+    # Constraints
+    # Stamping capacity: at least 300 letters/min
+    model += 50 * x_d + 30 * x_s >= 300
+
+    # Glue usage: at most 135 units/min
+    model += 20 * x_d + 15 * x_s <= 135
+
+    # Quietness: more singles than duals
+    model += x_s - x_d >= 1
+
+    # Solve the model
+    model.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    value = pl.value(x_d + x_s)
+
+    # Required final print
+    print(f"FINAL_OBJ: {value}")
+
+if __name__ == "__main__":
+    main()

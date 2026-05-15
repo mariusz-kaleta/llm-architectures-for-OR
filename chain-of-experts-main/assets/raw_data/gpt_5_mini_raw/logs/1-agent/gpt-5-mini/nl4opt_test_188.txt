@@ -1,0 +1,47 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Furnace_Selection", pulp.LpMinimize)
+
+# Decision variables: number of new and old furnaces (integer)
+new = pulp.LpVariable("new_furnaces", lowBound=5, cat="Integer")  # at least 5 new furnaces
+old = pulp.LpVariable("old_furnaces", lowBound=0, cat="Integer")
+
+# Objective: minimize total number of furnaces
+prob += new + old, "Total_Furnaces"
+
+# Constraints
+# 1) Heating capacity: 10 new + 15 old >= 200 apartments
+prob += 10 * new + 15 * old >= 200, "Apartment_Coverage"
+
+# 2) Electricity: 200 new + 250 old <= 3500 kWh
+prob += 200 * new + 250 * old <= 3500, "Electricity_Limit"
+
+# 3) At most 35% of furnaces can be old:
+#    old <= 0.35 * (new + old)  ->  0.65*old <= 0.35*new  ->  65*old <= 35*new
+prob += 65 * old <= 35 * new, "Old_Fraction_Limit"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+result_status = prob.solve(solver)
+
+# Prepare output
+status = pulp.LpStatus.get(prob.status, "Undefined")
+
+if status == "Optimal":
+    new_val = int(pulp.value(new))
+    old_val = int(pulp.value(old))
+    total = int(pulp.value(prob.objective))
+    print(f"Status: {status}")
+    print(f"New furnaces: {new_val}")
+    print(f"Old furnaces: {old_val}")
+    value = total
+else:
+    # Problem is infeasible or not optimal
+    print(f"Status: {status}")
+    # Indicate infeasibility in the final output value
+    value = "infeasible"
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {value}")

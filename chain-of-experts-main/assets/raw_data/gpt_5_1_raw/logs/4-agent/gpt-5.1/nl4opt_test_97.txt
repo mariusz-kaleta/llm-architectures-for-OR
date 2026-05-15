@@ -1,0 +1,244 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Minimise total fuel (gas) consumption needed to transport at least 500 packages, subject to trip and composition constraints.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with integer decision variables (effectively an Integer Linear Program, but small enough that enumeration / checking integer feasibility is straightforward).  
+   - The structure is a simple 2-variable LP; integrality is natural because trips must be whole numbers.
+
+3. Main decision variables  
+   Define decision variables as:
+   - \(T\): Number of truck trips.
+   - \(C\): Number of car trips.
+
+   Both are nonnegative integers.
+
+4. Objective function (conceptual)  
+   - Minimise total gas used:
+     - Each truck trip uses 20 liters.
+     - Each car trip uses 15 liters.  
+   - Objective: Minimise 20·T + 15·C.
+
+5. Key constraints to consider  
+
+   a) Package capacity constraint  
+   - A truck transports 50 packages per trip.  
+   - A car transports 30 packages per trip.  
+   - At least 500 packages must be transported.  
+   - Constraint: 50·T + 30·C ≥ 500.
+
+   b) Maximum truck trips  
+   - At most 5 truck trips are allowed.  
+   - Constraint: T ≤ 5.
+
+   c) Minimum proportion of car trips  
+   - At least 30% of all trips must be by car.  
+   - Total trips = T + C.  
+   - Car trips fraction: C / (T + C) ≥ 0.30, assuming T + C > 0.  
+   - This can be rearranged to a linear inequality:  
+     C ≥ 0.30·(T + C) → 0.70·C ≥ 0.30·T → 7·C ≥ 3·T.  
+   - Implement the linearized version: 7C ≥ 3T.
+
+   d) Non-negativity and integrality  
+   - T ≥ 0, C ≥ 0.  
+   - T and C must be integers (whole trips).
+
+6. Modelling and solution strategy  
+
+   - Because there are only two integer variables and a small upper bound on trucks (T ≤ 5), this is very small-scale; one can:
+     - Solve the continuous LP relaxation first (ignore integrality), then
+     - Check nearby integer points, or
+     - Directly enumerate T = 0,1,2,3,4,5 and, for each T, determine the minimum feasible integer C that satisfies both:
+       - 50·T + 30·C ≥ 500
+       - 7·C ≥ 3·T
+     - Compute total gas 20·T + 15·C for each feasible pair and choose the minimum.
+
+   - When presenting to the end-user, you’ll report:
+     - The optimal number of truck trips (T*).
+     - The optimal number of car trips (C*).
+     - The resulting total gas consumption.
+
+---
+
+[MODELER]:
+Here is a clear mathematical model of the problem, plus how you would solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(T \in \mathbb{Z}_{\ge 0}\): number of truck trips  
+- \(C \in \mathbb{Z}_{\ge 0}\): number of car trips  
+
+Trips must be whole numbers, so \(T, C\) are integers.
+
+---
+
+## 2. Objective function
+
+Each trip consumes fuel:
+
+- Truck: 20 liters per trip  
+- Car: 15 liters per trip  
+
+Minimise total fuel consumption:
+
+\[
+\min \; Z = 20T + 15C
+\]
+
+---
+
+## 3. Constraints
+
+1. **Package capacity (demand) constraint**
+
+Each trip carries:
+
+- Truck: 50 packages per trip  
+- Car: 30 packages per trip  
+
+At least 500 packages must be transported:
+
+\[
+50T + 30C \;\ge\; 500
+\]
+
+2. **Maximum number of truck trips**
+
+At most 5 truck trips:
+
+\[
+T \;\le\; 5
+\]
+
+3. **Minimum proportion of car trips**
+
+At least 30% of all trips must be car trips:
+
+\[
+\frac{C}{T + C} \;\ge\; 0.30 \quad \text{(assuming } T + C > 0\text{)}
+\]
+
+This can be linearised:
+
+\[
+C \;\ge\; 0.30(T + C)
+\]
+\[
+C \;\ge\; 0.30T + 0.30C
+\]
+\[
+0.70C \;\ge\; 0.30T
+\]
+\[
+7C \;\ge\; 3T
+\]
+
+So we use the linear constraint:
+
+\[
+7C \;\ge\; 3T
+\]
+
+4. **Non-negativity and integrality**
+
+\[
+T \;\ge\; 0,\quad C \;\ge\; 0,\quad T, C \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete model (Integer Linear Program)
+
+\[
+\begin{align}
+\min_{T, C} \quad & 20T + 15C \\
+\text{s.t.} \quad
+& 50T + 30C \;\ge\; 500 \\
+& T \;\le\; 5 \\
+& 7C \;\ge\; 3T \\
+& T, C \in \mathbb{Z}_{\ge 0}
+\end{align}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+This is a tiny Integer Linear Program (2 integer variables, a few constraints). Suitable libraries:
+
+- **PuLP** (`pulp`): very simple syntax for LP/ILP, good for teaching and small models.
+- **OR-Tools** (`ortools.linear_solver`) from Google: powerful, supports MILP.
+- **Pyomo**: more general algebraic modeling language, good if you expect to scale up.
+- **SciPy** (`scipy.optimize.linprog`) can solve the *continuous* LP relaxation only; you’d need to handle integrality manually (e.g., enumeration) or switch to a MILP solver.
+
+For this size, PuLP or OR-Tools are ideal.
+
+---
+
+## 6. Example: model in PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Minimize_Fuel", pl.LpMinimize)
+
+# Decision variables (nonnegative integers)
+T = pl.LpVariable("T", lowBound=0, cat=pl.LpInteger)  # truck trips
+C = pl.LpVariable("C", lowBound=0, cat=pl.LpInteger)  # car trips
+
+# Objective: minimize total fuel
+prob += 20 * T + 15 * C
+
+# Constraints
+prob += 50 * T + 30 * C >= 500      # package demand
+prob += T <= 5                      # max truck trips
+prob += 7 * C >= 3 * T              # at least 30% car trips
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal truck trips T* =", pl.value(T))
+print("Optimal car trips   C* =", pl.value(C))
+print("Minimum total fuel     =", pl.value(prob.objective), "liters")
+```
+
+This code directly encodes the mathematical model and yields the optimal numbers of truck and car trips and the minimum fuel consumption.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Minimize_Fuel", pl.LpMinimize)
+
+    # Decision variables: nonnegative integers
+    T = pl.LpVariable("T", lowBound=0, cat=pl.LpInteger)  # truck trips
+    C = pl.LpVariable("C", lowBound=0, cat=pl.LpInteger)  # car trips
+
+    # Objective: minimize total fuel consumption
+    prob += 20 * T + 15 * C
+
+    # Constraints
+    prob += 50 * T + 30 * C >= 500      # package demand
+    prob += T <= 5                      # max truck trips
+    prob += 7 * C >= 3 * T              # at least 30% car trips
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

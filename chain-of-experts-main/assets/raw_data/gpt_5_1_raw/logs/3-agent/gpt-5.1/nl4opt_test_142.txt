@@ -1,0 +1,208 @@
+[MODELER]:
+Here is a clean mathematical model of the problem as a linear program.
+
+### Decision variables
+Let  
+- \(x\) = number of large art pieces produced  
+- \(y\) = number of small art pieces produced  
+
+Both are nonnegative and will be constrained to be at least 5.
+
+### Objective function
+Maximize total profit:
+
+\[
+\text{Maximize } Z = 30x + 15y
+\]
+
+### Constraints
+
+**Resource constraints**
+
+1. Paint (100 units available):  
+   \[
+   4x + 2y \le 100
+   \]
+
+2. Glitter (50 units available):  
+   \[
+   3x + y \le 50
+   \]
+
+3. Glue (70 units available):  
+   \[
+   5x + 2y \le 70
+   \]
+
+**Minimum production constraints**
+
+4. At least 5 large pieces:  
+   \[
+   x \ge 5
+   \]
+
+5. At least 5 small pieces:  
+   \[
+   y \ge 5
+   \]
+
+6. Nonnegativity (implicitly covered by 4 and 5):  
+   \[
+   x, y \ge 0
+   \]
+
+This is a linear programming (LP) problem with 2 variables and 5 linear constraints.
+
+---
+
+### Solving the LP (analytical solution)
+
+We can solve it by checking the corner points (feasible intersections of constraints). Because profit per unit of each resource is higher for large pieces, we expect mostly large pieces, with the minimum number of small pieces.
+
+Check \(y = 5\) (minimum small pieces), and use the resource constraints to bound \(x\):
+
+- Paint:  
+  \(4x + 2(5) \le 100 \Rightarrow 4x + 10 \le 100 \Rightarrow x \le 22.5\)
+- Glitter:  
+  \(3x + 5 \le 50 \Rightarrow 3x \le 45 \Rightarrow x \le 15\)
+- Glue:  
+  \(5x + 2(5) \le 70 \Rightarrow 5x + 10 \le 70 \Rightarrow x \le 12\)
+
+The tightest bound is \(x \le 12\), so the maximum feasible \(x\) with \(y=5\) is \(x=12\).
+
+Check feasibility and profit at \((x,y) = (12,5)\):
+
+- Paint: \(4(12) + 2(5) = 48 + 10 = 58 \le 100\)
+- Glitter: \(3(12) + 5 = 36 + 5 = 41 \le 50\)
+- Glue: \(5(12) + 2(5) = 60 + 10 = 70 \le 70\) (glue is binding)
+
+Profit:
+\[
+Z = 30(12) + 15(5) = 360 + 75 = 435
+\]
+
+We should also check the minimum point \((x,y) = (5,5)\) (the lowest feasible production):
+
+\[
+Z = 30(5) + 15(5) = 150 + 75 = 225
+\]
+
+Since any increase in \(y\) uses resources that could go into \(x\), and large pieces have higher profit per unit of each material, the optimal will push \(x\) as high as constraints allow and keep \(y\) at its minimum. Thus \((12,5)\) is the maximizing solution.
+
+**Optimal solution:**
+- Large pieces: \(x = 12\)  
+- Small pieces: \(y = 5\)  
+- Maximum profit: \(Z = \$435\)
+
+---
+
+### Suitable Python libraries to solve this
+
+You can model and solve this LP using any of these libraries:
+
+1. **PuLP** – very simple and readable for small LPs:
+   ```python
+   import pulp as pl
+
+   # Define problem
+   prob = pl.LpProblem("Art_Store_Profit_Max", pl.LpMaximize)
+
+   # Variables
+   x = pl.LpVariable('x', lowBound=5)  # large pieces
+   y = pl.LpVariable('y', lowBound=5)  # small pieces
+
+   # Objective
+   prob += 30 * x + 15 * y
+
+   # Constraints
+   prob += 4 * x + 2 * y <= 100   # paint
+   prob += 3 * x + y <= 50        # glitter
+   prob += 5 * x + 2 * y <= 70    # glue
+
+   # Solve
+   prob.solve()
+   print("Status:", pl.LpStatus[prob.status])
+   print("Large pieces (x):", x.value())
+   print("Small pieces (y):", y.value())
+   print("Max profit:", pl.value(prob.objective))
+   ```
+
+2. **SciPy** (`scipy.optimize.linprog`) – good for numeric LPs but a bit less expressive than PuLP:
+   ```python
+   import numpy as np
+   from scipy.optimize import linprog
+
+   # Maximize 30x + 15y  <=> minimize -30x -15y
+   c = np.array([-30, -15])
+
+   # Constraints A_ub @ [x,y] <= b_ub
+   A_ub = np.array([
+       [4, 2],   # paint
+       [3, 1],   # glitter
+       [5, 2],   # glue
+       [-1, 0],  # x >= 5 -> -x <= -5
+       [0, -1]   # y >= 5 -> -y <= -5
+   ])
+   b_ub = np.array([100, 50, 70, -5, -5])
+
+   res = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=(0, None))
+   print(res)
+   ```
+
+3. **OR-Tools Linear Solver** – powerful for larger or mixed-integer problems:
+   ```python
+   from ortools.linear_solver import pywraplp
+
+   solver = pywraplp.Solver.CreateSolver('GLOP')  # LP solver
+   x = solver.NumVar(5, solver.infinity(), 'x')
+   y = solver.NumVar(5, solver.infinity(), 'y')
+
+   # Constraints
+   solver.Add(4 * x + 2 * y <= 100)
+   solver.Add(3 * x + y <= 50)
+   solver.Add(5 * x + 2 * y <= 70)
+
+   # Objective
+   solver.Maximize(30 * x + 15 * y)
+
+   status = solver.Solve()
+   if status == pywraplp.Solver.OPTIMAL:
+       print("Large pieces:", x.solution_value())
+       print("Small pieces:", y.solution_value())
+       print("Max profit:", solver.Objective().Value())
+   ```
+
+For this kind of small linear optimization problem, **PuLP** is usually the most straightforward choice.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def solve_art_store_lp():
+    # Define the problem
+    prob = pl.LpProblem("Art_Store_Profit_Max", pl.LpMaximize)
+
+    # Decision variables with lower bounds of 5
+    x = pl.LpVariable('x', lowBound=5)  # large pieces
+    y = pl.LpVariable('y', lowBound=5)  # small pieces
+
+    # Objective function: Maximize 30x + 15y
+    prob += 30 * x + 15 * y
+
+    # Resource constraints
+    prob += 4 * x + 2 * y <= 100   # Paint
+    prob += 3 * x + y <= 50        # Glitter
+    prob += 5 * x + 2 * y <= 70    # Glue
+
+    # Solve the problem
+    prob.solve()
+
+    # Get the objective value
+    obj_value = pl.value(prob.objective)
+
+    return obj_value
+
+if __name__ == "__main__":
+    value = solve_art_store_lp()
+    print(f"FINAL_OBJ: {value}")

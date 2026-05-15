@@ -1,0 +1,211 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximise total daily profit from producing wired and wireless headphones.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with two decision variables and a small feasible region (can be solved graphically or with a standard LP solver).
+
+3. Main decision variables  
+Define daily production quantities as continuous, non‑negative variables:
+- Variable 1: Number of wired headphones produced per day.  
+- Variable 2: Number of wireless headphones produced per day.
+
+(If the modeller wants integral values only, these can be restricted to integers, but the economic interpretation usually allows continuous production quantities.)
+
+4. Objective function structure  
+- Profit per wired headphone = 50  
+- Profit per wireless headphone = 20  
+- Objective: Maximise (50 × wired headphones) + (20 × wireless headphones).
+
+5. Key constraints to consider  
+
+a) Individual production capacity constraints  
+- Wired team capacity: production of wired headphones per day cannot exceed 100.  
+- Wireless team capacity: production of wireless headphones per day cannot exceed 170.
+
+b) Shared testing machine capacity constraint  
+- The total number of headphones (wired + wireless) tested per day cannot exceed 150, since both types require the same testing machine.  
+- This is the main coupling constraint between the two production decisions.
+
+c) Non‑negativity constraints  
+- Both wired and wireless production quantities must be greater than or equal to zero.
+
+6. Suggested modelling / solution strategy  
+
+- Step 1: Formulate the LP using the variables defined, objective as in (4), and constraints in (5).  
+- Step 2: Because there are only two variables, the modeller can:
+  - Either use a graphical solution: plot the three binding constraints (wired capacity, wireless capacity, shared test capacity) and identify the feasible polygon.  
+  - Or set it up in a solver (e.g., Excel Solver, Python/PuLP, etc.) for a quick numerical solution.
+
+- Step 3: Identify candidate optimal points as the corner points of the feasible region:
+  - Intersection of wired capacity and testing capacity.  
+  - Intersection of wireless capacity and testing capacity.  
+  - Intersections with axes (all‑wired, all‑wireless, and zero production).  
+- Step 4: Compute profit at each feasible corner and choose the one with the highest profit.
+
+7. Edge considerations (for completeness)  
+
+- Verify that team-specific capacity constraints (100 and 170) are not more restrictive than the shared machine capacity for the optimal solution; in many such problems, the shared resource (machine) is binding at optimum.  
+- No additional constraints (like minimum demand, inventory, or labor limits) are given, so do not introduce extra restrictions beyond those listed.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model that matches the planning notes and the original problem.
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of wired headphones produced per day  
+- \(y\) = number of wireless headphones produced per day  
+
+Assume \(x, y \ge 0\) and (unless explicitly required) allow them to be continuous (LP). If integer counts are required, we can add integrality: \(x, y \in \mathbb{Z}_{\ge 0}\).
+
+## 2. Objective function
+
+Profit per unit:
+
+- Wired: \$50 per unit  
+- Wireless: \$20 per unit  
+
+Maximize total daily profit:
+
+\[
+\max \; Z = 50x + 20y
+\]
+
+## 3. Constraints
+
+1. Wired team capacity  
+   The wired team can make at most 100 wired headphones per day:
+   \[
+   x \le 100
+   \]
+
+2. Wireless team capacity  
+   The wireless team can make at most 170 wireless headphones per day:
+   \[
+   y \le 170
+   \]
+
+3. Shared testing machine capacity  
+   The testing machine can test at most 150 headphones (wired + wireless) per day:
+   \[
+   x + y \le 150
+   \]
+
+4. Non‑negativity:
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+
+If integer production is required, also:
+\[
+x, y \in \mathbb{Z}
+\]
+
+## 4. Complete LP model (standard form)
+
+Maximize:
+\[
+Z = 50x + 20y
+\]
+
+subject to:
+\[
+\begin{aligned}
+x &\le 100 \\
+y &\le 170 \\
+x + y &\le 150 \\
+x &\ge 0 \\
+y &\ge 0
+\end{aligned}
+\]
+
+(Optionally \(x, y \in \mathbb{Z}\) for an ILP.)
+
+## 5. Suitable Python libraries
+
+To formulate and solve this model in Python, good choices are:
+
+- **PuLP**  
+  - Easy LP/ILP modeling with a clean syntax.  
+  - Integrates with CBC (included), GLPK, Gurobi, CPLEX, etc.
+
+- **OR‑Tools (Google)**  
+  - `ortools.linear_solver` for LP/ILP.  
+  - Industrial strength, good performance, and free.
+
+- **SciPy** (`scipy.optimize.linprog`)  
+  - Good for continuous LPs.  
+  - Does not directly support integrality (you’d need another library or custom branching).
+
+For this small two‑variable LP, **PuLP** or **OR‑Tools** are ideal for clarity.
+
+## 6. Example in PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Headphone_Production", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('wired', lowBound=0)      # wired headphones
+y = pl.LpVariable('wireless', lowBound=0)   # wireless headphones
+# If integer solution is required, add cat=pl.LpInteger:
+# x = pl.LpVariable('wired', lowBound=0, cat=pl.LpInteger)
+# y = pl.LpVariable('wireless', lowBound=0, cat=pl.LpInteger)
+
+# Objective
+prob += 50 * x + 20 * y
+
+# Constraints
+prob += x <= 100, "Wired_capacity"
+prob += y <= 170, "Wireless_capacity"
+prob += x + y <= 150, "Testing_capacity"
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal wired:", x.value())
+print("Optimal wireless:", y.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This code directly implements the mathematical model above and will return the optimal daily quantities of wired and wireless headphones and the maximum profit.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("Headphone_Production", pl.LpMaximize)
+
+    # Decision variables (continuous, non-negative)
+    x = pl.LpVariable('wired', lowBound=0)      # wired headphones per day
+    y = pl.LpVariable('wireless', lowBound=0)   # wireless headphones per day
+
+    # Objective function: Maximize profit
+    prob += 50 * x + 20 * y
+
+    # Constraints
+    prob += x <= 100, "Wired_capacity"
+    prob += y <= 170, "Wireless_capacity"
+    prob += x + y <= 150, "Testing_capacity"
+
+    # Solve the LP
+    prob.solve()
+
+    # Extract final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

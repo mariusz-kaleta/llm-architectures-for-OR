@@ -1,0 +1,210 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimize the total daily cost of supplements while satisfying minimum iron and calcium requirements.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with two decision variables (can be treated as an integer LP if the modeller wants to enforce whole pills explicitly).
+
+3. Main decision variables  
+Define non-negative decision variables, e.g.:
+
+- x = number of pills of supplement A taken per day  
+- y = number of pills of supplement B taken per day  
+
+(If required, add integer/non-negativity conditions: x, y ≥ 0 and integer.)
+
+4. Key constraints to consider  
+
+Nutrient requirement constraints:
+- Iron requirement:  
+  Each pill of A provides 5 units of iron; each pill of B provides 4 units.  
+  Total iron from A and B must be at least 40 units.
+  → 5·x + 4·y ≥ 40
+
+- Calcium requirement:  
+  Each pill of A provides 10 units of calcium; each pill of B provides 15 units.  
+  Total calcium from A and B must be at least 50 units.
+  → 10·x + 15·y ≥ 50
+
+Non-negativity (and integrality) constraints:
+- x ≥ 0  
+- y ≥ 0  
+- Optionally: x, y must be integers (whole pills).
+
+Objective function (for modeller’s reference when implementing):
+- Minimize total cost = 2·x + 3·y
+
+5. Modelling strategy / solution approach guidance  
+
+- Plot or conceptually consider the feasible region defined by the two inequalities in the x–y plane (if solving graphically):  
+  • Iron line: 5x + 4y = 40  
+  • Calcium line: 10x + 15y = 50  
+
+- Identify the intersection point of these two lines, and also check where each inequality intersects the axes (e.g., all-A solution, all-B solution).  
+- Evaluate the objective function (total cost) at all candidate corner points of the feasible region.  
+- Choose the (x, y) combination with lowest cost while satisfying all constraints.  
+- If treating as an integer LP, also ensure x and y are whole numbers; check integer points around the continuous optimum.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by suggestions for Python tools to solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of pills of supplement A taken per day  
+- \(y\) = number of pills of supplement B taken per day  
+
+Because pills can’t be fractional:
+
+- \(x, y \in \mathbb{Z}_{\ge 0}\) (nonnegative integers)
+
+If you are fine with fractional solutions (approximation / relaxed model), you can drop integrality and require only \(x, y \ge 0\).
+
+---
+
+## 2. Objective: minimize daily cost
+
+Cost per pill:
+- Supplement A: \$2  
+- Supplement B: \$3  
+
+Total daily cost:
+\[
+\text{Minimize } C = 2x + 3y
+\]
+
+---
+
+## 3. Constraints
+
+### Iron requirement
+
+Each pill provides:
+- A: 5 units iron  
+- B: 4 units iron  
+
+Daily requirement: at least 40 units.
+
+\[
+5x + 4y \;\ge\; 40
+\]
+
+---
+
+### Calcium requirement
+
+Each pill provides:
+- A: 10 units calcium  
+- B: 15 units calcium  
+
+Daily requirement: at least 50 units.
+
+\[
+10x + 15y \;\ge\; 50
+\]
+
+---
+
+### Non-negativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \text{ integers}
+\]
+
+If modeling as a pure linear program (LP) without integrality:
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+## 4. Complete optimization model
+
+**Integer Linear Program (ILP):**
+
+\[
+\begin{aligned}
+\min_{x,y} \quad & 2x + 3y \\
+\text{s.t.} \quad & 5x + 4y \ge 40 \quad \text{(iron requirement)}\\
+& 10x + 15y \ge 50 \quad \text{(calcium requirement)}\\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+**LP relaxation (if fractional pills temporarily allowed):**
+
+\[
+\begin{aligned}
+\min_{x,y} \quad & 2x + 3y \\
+\text{s.t.} \quad & 5x + 4y \ge 40 \\
+& 10x + 15y \ge 50 \\
+& x, y \ge 0
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+To implement and solve this model in Python, these are good options:
+
+- **PuLP**  
+  - Very easy for small LP/ILP models like this.  
+  - Lets you write `LpVariable('x', lowBound=0, cat='Integer')` and define constraints and objective declaratively.  
+  - Can use built-in CBC solver for ILP.
+
+- **OR-Tools (Google OR-Tools)**  
+  - Strong support for integer and linear optimization.  
+  - Use the `pywraplp.Solver` with `CBC_MIXED_INTEGER_PROGRAMMING`.  
+  - Good if you may later grow the model or add more constraints/variables.
+
+- **Pyomo**  
+  - More general modeling framework; very flexible and scalable.  
+  - Good if you might later extend this into richer optimization models.
+
+- **scipy.optimize**  
+  - `scipy.optimize.linprog` can solve the LP relaxation (continuous variables only).  
+  - Not suitable if you must enforce integer pills, unless you implement additional logic on top.
+
+For this specific 2-variable ILP, **PuLP** or **OR-Tools** are the most straightforward choices.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: minimize cost
+    prob = pulp.LpProblem("Supplement_Optimization", pulp.LpMinimize)
+
+    # Decision variables: nonnegative integers
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # pills of supplement A
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # pills of supplement B
+
+    # Objective function: minimize daily cost 2x + 3y
+    prob += 2 * x + 3 * y
+
+    # Constraints
+    # Iron requirement: 5x + 4y >= 40
+    prob += 5 * x + 4 * y >= 40, "IronRequirement"
+
+    # Calcium requirement: 10x + 15y >= 50
+    prob += 10 * x + 15 * y >= 50, "CalciumRequirement"
+
+    # Solve the problem using CBC (default solver in PuLP)
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the final objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print the result in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,150 @@
+[MODELER]:
+Let’s turn the problem into a formal optimization model.
+
+### 1. Decision variables
+
+Let  
+- \( x \) = number of medium-sized carts (integer, \(x \ge 0\))  
+- \( y \) = number of large-sized carts (integer, \(y \ge 0\))
+
+### 2. Objective
+
+Each medium cart carries 30 kg, each large cart carries 70 kg.
+
+Maximize total rice transported:
+\[
+\max Z = 30x + 70y
+\]
+
+### 3. Constraints
+
+1. **Horse availability**:  
+   Each medium cart uses 2 horses, each large cart uses 4 horses, and there are at most 60 horses:
+   \[
+   2x + 4y \le 60
+   \]
+
+2. **Cart ratio constraint**:  
+   The number of medium carts must be three times the number of large carts:
+   \[
+   x = 3y
+   \]
+
+3. **Minimum numbers of each type**:
+   \[
+   x \ge 5
+   \]
+   \[
+   y \ge 5
+   \]
+
+4. **Integrality**:
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+### 4. Solving analytically
+
+Use \( x = 3y \) in the horse constraint:
+
+\[
+2(3y) + 4y \le 60 \Rightarrow 6y + 4y \le 60 \Rightarrow 10y \le 60 \Rightarrow y \le 6
+\]
+
+Combine with \(y \ge 5\):  
+\[
+y \in \{5, 6\}
+\]
+
+Check both:
+
+- If \(y = 5\):  
+  \(x = 3y = 15\)  
+  Horses used: \(2(15) + 4(5) = 30 + 20 = 50 \le 60\)  
+  Rice: \(30(15) + 70(5) = 450 + 350 = 800\) kg
+
+- If \(y = 6\):  
+  \(x = 3y = 18\)  
+  Horses used: \(2(18) + 4(6) = 36 + 24 = 60 \le 60\)  
+  Rice: \(30(18) + 70(6) = 540 + 420 = 960\) kg
+
+So the optimal solution is:
+- \(x^* = 18\) medium carts  
+- \(y^* = 6\) large carts  
+- Maximum rice = 960 kg
+
+### 5. Suitable Python libraries
+
+This is a small integer linear programming (ILP) problem. Good Python libraries:
+
+- **PuLP** (`pulp`) – simple for teaching and small LP/ILP models.
+- **OR-Tools** (`ortools.linear_solver` or `ortools.sat.python.cp_solver`) – very efficient for integer problems.
+- **SciPy** (`scipy.optimize.linprog`) – for linear programming, but does not handle integrality directly (you’d need extra work for integer constraints).
+
+### 6. Example model using PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Rice_Transport", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('medium_carts', lowBound=0, cat='Integer')
+y = pl.LpVariable('large_carts', lowBound=0, cat='Integer')
+
+# Objective
+prob += 30*x + 70*y
+
+# Constraints
+prob += 2*x + 4*y <= 60        # horses
+prob += x == 3*y               # ratio
+prob += x >= 5                 # min medium
+prob += y >= 5                 # min large
+
+# Solve
+prob.solve()
+print("Status:", pl.LpStatus[prob.status])
+print("Medium carts:", x.value())
+print("Large carts:", y.value())
+print("Max rice (kg):", pl.value(prob.objective))
+```
+
+This will yield:
+- Medium carts = 18  
+- Large carts = 6  
+- Max rice = 960 kg
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the optimization problem
+    prob = pl.LpProblem("Rice_Transport", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('medium_carts', lowBound=0, cat='Integer')
+    y = pl.LpVariable('large_carts', lowBound=0, cat='Integer')
+
+    # Objective function: Maximize 30x + 70y
+    prob += 30 * x + 70 * y
+
+    # Constraints
+    prob += 2 * x + 4 * y <= 60      # Horse availability
+    prob += x == 3 * y               # Cart ratio
+    prob += x >= 5                   # Minimum medium carts
+    prob += y >= 5                   # Minimum large carts
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

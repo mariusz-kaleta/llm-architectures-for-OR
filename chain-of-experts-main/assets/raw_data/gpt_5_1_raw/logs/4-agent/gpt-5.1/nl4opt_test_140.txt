@@ -1,0 +1,203 @@
+[PLANNER]:
+1. Key optimisation goal  
+   Goal: Maximize total profit from producing the two candy mixes (regular mix and sour surprise mix), given limited amounts of regular and sour candy.
+
+2. Suggested model type  
+   Model: Linear Programming (LP) with two continuous decision variables (kilograms of each mix).
+
+3. Main decision variables  
+   Define variables in terms of kilograms of each final mix produced:
+   - Variable 1: Quantity (kg) of regular mix to produce.
+   - Variable 2: Quantity (kg) of sour surprise mix to produce.
+
+4. Objective function structure  
+   - Profit contribution:
+     - Each kg of regular mix yields $3 profit.
+     - Each kg of sour surprise mix yields $5 profit.
+   - Objective: Maximize total profit = (profit from regular mix) + (profit from sour surprise mix).
+
+5. Key constraints to consider  
+
+   a) Regular candy availability  
+   - Each kg of regular mix uses 0.8 kg of regular candy.  
+   - Each kg of sour surprise mix uses 0.1 kg of regular candy.  
+   - Total regular candy used across both mixes ≤ 80 kg (available stock).  
+   - This generates a linear inequality linking both decision variables.
+
+   b) Sour candy availability  
+   - Each kg of regular mix uses 0.2 kg of sour candy.  
+   - Each kg of sour surprise mix uses 0.9 kg of sour candy.  
+   - Total sour candy used across both mixes ≤ 60 kg (available stock).  
+   - This also generates a linear inequality linking both decision variables.
+
+   c) Non-negativity constraints  
+   - Both quantities of mixes must be ≥ 0 (cannot produce negative quantities).
+
+6. Modelling notes / strategy hints for the Modeller  
+
+   - Express constraints explicitly from ingredient usage:
+     - Sum of (usage rate × kg of each mix) ≤ corresponding candy availability.
+   - Check whether either ingredient constraint is binding at optimality (likely both will be candidates).  
+   - This is a 2-variable LP, so it can be solved graphically (with constraint lines and feasible region) or via a standard LP solver.  
+   - Corner points of the feasible region (intersections of constraints and axes) should be evaluated to find the maximum profit.  
+   - Ensure all coefficients are kept in consistent units (kg for quantities, dollars per kg for profit).
+
+---
+
+[MODELER]:
+Below is a complete mathematical model of the problem, followed by a note on how to solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_1 \ge 0\): kilograms of **regular mix** to produce  
+- \(x_2 \ge 0\): kilograms of **sour surprise mix** to produce  
+
+Both are continuous variables (you can produce fractional kilograms).
+
+---
+
+## 2. Objective function
+
+Profit per kilogram:
+
+- Regular mix: \$3/kg  
+- Sour surprise mix: \$5/kg  
+
+Maximize total profit:
+
+\[
+\max\; Z = 3x_1 + 5x_2
+\]
+
+---
+
+## 3. Constraints
+
+### a) Regular candy availability
+
+Usage per kg of mix:
+
+- Regular mix uses 0.8 kg regular candy per kg  
+- Sour surprise mix uses 0.1 kg regular candy per kg  
+
+Total regular candy available: 80 kg.
+
+\[
+0.8x_1 + 0.1x_2 \le 80
+\]
+
+### b) Sour candy availability
+
+Usage per kg of mix:
+
+- Regular mix uses 0.2 kg sour candy per kg  
+- Sour surprise mix uses 0.9 kg sour candy per kg  
+
+Total sour candy available: 60 kg.
+
+\[
+0.2x_1 + 0.9x_2 \le 60
+\]
+
+### c) Non-negativity
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+---
+
+## 4. Complete LP model (compact form)
+
+\[
+\begin{aligned}
+\max\quad & Z = 3x_1 + 5x_2 \\
+\text{s.t.}\quad
+& 0.8x_1 + 0.1x_2 \le 80 \quad &\text{(regular candy)} \\
+& 0.2x_1 + 0.9x_2 \le 60 \quad &\text{(sour candy)} \\
+& x_1 \ge 0, \; x_2 \ge 0 &\text{(non-negativity)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+To solve this linear program in Python, any of the following is suitable:
+
+- **PuLP** (very straightforward for small LPs, pure Python)
+- **OR-Tools Linear Solver** (`ortools.linear_solver.pywraplp`) by Google  
+- **SciPy** (`scipy.optimize.linprog`) for generic LP solving
+
+For teaching / clarity, **PuLP** is an excellent choice. For larger or more complex models and integration with other combinatorial problems, **OR-Tools** is strong.
+
+---
+
+## 6. Example: PuLP implementation (sketch)
+
+```python
+import pulp as pl
+
+# Create problem: maximize
+prob = pl.LpProblem("Candy_Mix_Profit_Max", pl.LpMaximize)
+
+# Decision variables
+x1 = pl.LpVariable('regular_mix', lowBound=0)       # x1
+x2 = pl.LpVariable('sour_surprise_mix', lowBound=0) # x2
+
+# Objective
+prob += 3 * x1 + 5 * x2
+
+# Constraints
+prob += 0.8 * x1 + 0.1 * x2 <= 80, "Regular_candy"
+prob += 0.2 * x1 + 0.9 * x2 <= 60, "Sour_candy"
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Regular mix (kg):", x1.value())
+print("Sour surprise mix (kg):", x2.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This code directly implements the model above and lets a solver find the optimal mix quantities.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the LP problem: maximize profit
+    prob = pl.LpProblem("Candy_Mix_Profit_Max", pl.LpMaximize)
+
+    # Decision variables
+    x1 = pl.LpVariable('regular_mix', lowBound=0)       # x1: kg of regular mix
+    x2 = pl.LpVariable('sour_surprise_mix', lowBound=0) # x2: kg of sour surprise mix
+
+    # Objective function: Maximize 3*x1 + 5*x2
+    prob += 3 * x1 + 5 * x2
+
+    # Constraints
+    # Regular candy: 0.8x1 + 0.1x2 <= 80
+    prob += 0.8 * x1 + 0.1 * x2 <= 80, "Regular_candy"
+
+    # Sour candy: 0.2x1 + 0.9x2 <= 60
+    prob += 0.2 * x1 + 0.9 * x2 <= 60, "Sour_candy"
+
+    # Solve the problem
+    prob.solve()
+
+    # Get the objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

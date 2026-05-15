@@ -1,0 +1,89 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of regular vans (integer, x >= 0)
+  - y = number of hybrid vans  (integer, y >= 0)
+
+- Objective
+  - Minimize total vans: minimize Z = x + y
+
+- Constraints
+  1. Package demand: 500 x + 300 y >= 20,000
+  2. Pollution limit: 200 x + 100 y <= 7,000
+  3. Integrality and nonnegativity: x, y ∈ Z_{\ge 0}
+
+Solution (analytic)
+- From the pollution constraint: 2x + y <= 70 -> y <= 70 - 2x.
+- From the package constraint: 5x + 3y >= 200 -> y >= (200 - 5x)/3.
+- At optimum both constraints are tight (intersection): solve
+  500x + 300y = 20000 and 200x + 100y = 7000.
+  From the second: y = 70 - 2x. Substitute into the first:
+  500x + 300(70 - 2x) = 20000 -> x = 10, y = 50.
+
+So the company should buy 10 regular vans and 50 hybrid vans (total 60 vans). These values meet both constraints exactly:
+- Packages: 500*10 + 300*50 = 20,000
+- Pollution: 200*10 + 100*50 = 7,000
+
+Recommended solvers / Python libraries
+- pulp (simple MILP modeling and CBC solver)
+- ortools (Google OR-Tools CP-SAT / MIP)
+- mip (Python-MIP with CBC, CPLEX, Gurobi backends)
+- for small problems, you can solve analytically as shown above
+
+Example (pulp)
+from pulp import LpProblem, LpMinimize, LpVariable, LpInteger, lpSum, PULP_CBC_CMD
+
+prob = LpProblem('vans', LpMinimize)
+x = LpVariable('regular', lowBound=0, cat=LpInteger)
+y = LpVariable('hybrid',  lowBound=0, cat=LpInteger)
+prob += x + y
+prob += 500*x + 300*y >= 20000
+prob += 200*x + 100*y <= 7000
+prob.solve(PULP_CBC_CMD(msg=False))
+print(int(x.value()), int(y.value()), 'total', int(x.value())+int(y.value()))
+
+This will return x=10, y=50.
+
+---
+
+[CODER]:
+```python
+# Self-contained script to solve the integer minimization problem by enumeration
+
+# Initialize data
+package_req = 20000
+pollution_limit = 7000
+
+# capacities per van
+pkg_regular = 500
+pkg_hybrid = 300
+poll_regular = 200
+poll_hybrid = 100
+
+# Reasonable search bounds
+# From package constraint alone: x <= package_req / pkg_regular
+# From pollution constraint alone: x <= pollution_limit / poll_regular
+x_max = int(min(package_req // pkg_regular + 1, pollution_limit // poll_regular + 1, 100))
+y_max = int(min(package_req // pkg_hybrid + 1, pollution_limit // poll_hybrid + 1, 200))
+
+best_obj = None
+best_solution = None
+
+for x in range(0, x_max + 1):
+    for y in range(0, y_max + 1):
+        if (pkg_regular * x + pkg_hybrid * y) >= package_req and (poll_regular * x + poll_hybrid * y) <= pollution_limit:
+            obj = x + y
+            if best_obj is None or obj < best_obj:
+                best_obj = obj
+                best_solution = (x, y)
+
+# best_solution should be (10, 50) with best_obj = 60
+if best_solution is None:
+    # No feasible solution found
+    final_value = None
+else:
+    final_value = best_obj
+
+print(f"FINAL_OBJ: {final_value}")
+```

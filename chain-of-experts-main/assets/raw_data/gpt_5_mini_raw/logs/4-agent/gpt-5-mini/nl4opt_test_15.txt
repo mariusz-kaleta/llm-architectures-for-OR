@@ -1,0 +1,130 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Minimise the hospital's total daily transport cost while transporting at least 320 patients.
+
+2. Suggested model type
+- Model: Integer Linear Programming (ILP). (A small 2-variable ILP; you may optionally solve by enumerating a small integer range or relax to LP then round and check feasibility.)
+
+3. Main decision variables
+- A = number of type II ambulance shifts scheduled (integer, >= 0).
+- V = number of hospital van shifts scheduled (integer, >= 0).
+
+4. Objective (verbal)
+- Minimise total cost = (cost per ambulance shift * A) + (cost per van shift * V). (Use 820 per ambulance shift and 550 per van shift.)
+
+5. Key constraints to include (verbal descriptions)
+- Capacity constraint: The combined capacity of scheduled shifts must cover at least 320 patients (each ambulance shift carries 20 patients, each van shift carries 15 patients).
+- Union fraction constraint: At most 60% of all scheduled shifts may be hospital vans. In words: V <= 0.60 * (A + V). (Equivalently, ensure at least 40% of shifts are ambulances.)
+- Integrality: A and V must be integer nonnegative values (shifts are indivisible).
+- Non-negativity: A >= 0, V >= 0.
+- Practical bounds (recommended to improve solver speed): compute minimal and maximal reasonable shifts
+  - If only ambulances were used, an upper bound on A is ceil(320/20) = 16 (practically A will not need to exceed this).
+  - If only vans were used, an upper bound on V is ceil(320/15) = 22.
+  Use these to bound search (e.g., 0 <= A <= 16, 0 <= V <= 22).
+
+6. Modelling/solution notes and useful checks
+- Because there are only two decision variables and tight integer bounds, a simple enumeration over feasible integer (A,V) pairs or over total shifts T = A+V (T in [16,22]) with V limited to floor(0.6*T) is an efficient approach.
+- Check cost-per-patient to guide intuition: ambulance = 820/20 = $41.00 per patient; van = 550/15 ≈ $36.67 per patient. Vans are cheaper per patient, so the optimal solution will try to use as many vans as allowed by the 60% constraint, then use ambulances to meet remaining capacity — but because capacities and integrality interact, verify feasibility after rounding.
+- If using an ILP solver, formulate the objective and constraints as above and request an optimal integer solution. If using LP relaxation, round carefully and re-check the union constraint and capacity constraint; if violated, adjust and re-optimize.
+
+Deliver to the modeller: set up an ILP with variables A and V, objective to minimize 820*A + 550*V, and enforce the capacity and van-fraction constraints plus integer nonnegativity and the practical bounds suggested.
+
+---
+
+[MODELER]:
+Below I give a concise formal ILP formulation, a few algebraic simplifications, recommended solvers, a short solving strategy for this small instance, and the optimal integer solution.
+
+Model (variables, objective, constraints)
+
+- Decision variables
+  - A ∈ Z_{\ge 0}: number of type II ambulance shifts.
+  - V ∈ Z_{\ge 0}: number of hospital van shifts.
+
+- Objective
+  - Minimise total daily cost: minimize 820·A + 550·V.
+
+- Constraints
+  1. Capacity: 20·A + 15·V ≥ 320.
+  2. Union fraction (at most 60% of shifts are vans):
+     V ≤ 0.60·(A + V).
+     This is equivalent (after rearranging) to V ≤ 1.5·A (or A ≥ (2/3)·V).
+  3. Practical integer bounds (optional but useful):
+     0 ≤ A ≤ 16  (since ceil(320/20) = 16)
+     0 ≤ V ≤ 22  (since ceil(320/15) = 22)
+  4. Integrality: A and V integers.
+
+Remarks on the union constraint
+- V ≤ 0.60(A + V) ⇒ V − 0.6V ≤ 0.6A ⇒ 0.4V ≤ 0.6A ⇒ V ≤ 1.5A.
+  Either form is fine in a solver; the V ≤ 1.5A integer-friendly linear form is convenient.
+
+Solving approach (small discrete search)
+- Because A ∈ {0,…,16} and V ∈ {0,…,22}, a direct enumeration (or loop over A computing the minimal feasible V = max(0, ceil((320−20A)/15)) and checking V ≤ floor(1.5A)) is trivial and robust.
+- Alternatively formulate and solve with an ILP solver (pulp, ortools, mip, pyomo, gurobi, CPLEX).
+
+Recommended Python libraries
+- pulp (simple and pure-Python ILP modeling + CBC solver)
+- OR-Tools (Google’s CP-SAT for integer problems)
+- mip (python-mip) or pyomo (if you have commercial solvers)
+- For brute-force enumeration plain Python / numpy is sufficient.
+
+Optimal solution (found by enumeration / ILP)
+- A = 10 ambulance shifts
+- V = 8 van shifts
+- Total capacity = 20·10 + 15·8 = 200 + 120 = 320 (meets requirement exactly)
+- Union constraint: V ≤ 1.5·A ⇒ 8 ≤ 15 (satisfied)
+- Total cost = 820·10 + 550·8 = 8,200 + 4,400 = $12,600 (minimum)
+
+Notes
+- Intuition: vans are cheaper per patient (≈36.67 vs 41.00), so the model uses as many vans as the union constraint allows, but because vans carry fewer patients, some ambulances are needed to meet capacity efficiently. The integer/capacity interplay causes the exact optimum to be A=10, V=8 rather than the “max-vans” combination for a different total-shift count.
+- Implementation tip: either solve the ILP with pulp/or-tools, or enumerate A = 0..16 and set V = ceil(max(0, (320−20A)/15)). Reject if V > floor(1.5A) or V > 22. Choose the pair with minimum cost.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the ILP by enumeration
+import math
+
+# Problem data
+cost_A = 820
+cost_V = 550
+cap_A = 20
+cap_V = 15
+demand = 320
+
+# Practical bounds
+A_max = 16
+V_max = 22
+
+best_obj = None
+best_solution = None
+
+for A in range(0, A_max + 1):
+    # Minimum V to meet capacity
+    remaining = demand - cap_A * A
+    if remaining <= 0:
+        V_min = 0
+    else:
+        V_min = math.ceil(remaining / cap_V)
+    # Union constraint: V <= 1.5 * A  => V <= floor(1.5*A)
+    V_ub_by_union = math.floor(1.5 * A)
+    # Also respect practical V bound
+    V_ub = min(V_ub_by_union, V_max)
+    if V_min > V_ub:
+        continue  # no feasible V for this A
+    # For cost minimization and positive cost for V, choose smallest feasible V (V_min)
+    V = V_min
+    obj = cost_A * A + cost_V * V
+    if (best_obj is None) or (obj < best_obj):
+        best_obj = obj
+        best_solution = (A, V)
+
+# If no feasible solution found (shouldn't happen for this data), raise error
+if best_obj is None:
+    raise RuntimeError("No feasible solution found")
+
+value = best_obj
+# Final required print line
+print(f"FINAL_OBJ: {value}")
+```

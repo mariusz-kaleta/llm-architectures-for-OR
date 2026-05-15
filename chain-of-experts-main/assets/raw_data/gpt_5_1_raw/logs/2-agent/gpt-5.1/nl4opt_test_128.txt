@@ -1,0 +1,171 @@
+[MODELER]:
+Here is a clean optimization model for your problem.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of glass bottles (500 ml each)  
+- \(y\) = number of plastic bottles (750 ml each)  
+
+Both must be non‑negative integers:
+- \(x \ge 0,\; x \in \mathbb{Z}\)  
+- \(y \ge 0,\; y \in \mathbb{Z}\)
+
+## 2. Objective
+
+Maximize the total number of bottles:
+\[
+\max \; Z = x + y
+\]
+
+## 3. Constraints
+
+1. **Water availability (capacity constraint)**  
+   Each glass bottle uses 500 ml, each plastic uses 750 ml, and total water is 250000 ml:
+   \[
+   500x + 750y \le 250{,}000
+   \]
+
+2. **Preference for plastic bottles**  
+   The number of plastic bottles must be at least 3 times the number of glass bottles:
+   \[
+   y \ge 3x
+   \]
+
+3. **Minimum glass bottles**  
+   At least 20 glass bottles must be produced:
+   \[
+   x \ge 20
+   \]
+
+4. **Integrality**  
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+This is an integer linear programming (ILP) problem.
+
+## 4. Solving the model (conceptual solution)
+
+From the constraints:
+
+- From \(y \ge 3x\), substitute the minimum \(y\) into the water constraint to see what bounds \(x\):
+  \[
+  500x + 750(3x) \le 250000 \Rightarrow 500x + 2250x \le 250000 \Rightarrow 2750x \le 250000
+  \]
+  \[
+  x \le \frac{250000}{2750} \approx 90.91
+  \]
+  Since \(x\) must be integer and \(x \ge 20\), we have \(20 \le x \le 90\).
+
+- For a fixed \(x\), to maximize \(x + y\) you should make \(y\) as large as possible under the water constraint:
+  \[
+  750y \le 250000 - 500x \Rightarrow y \le \frac{250000 - 500x}{750}
+  \]
+  Combine with \(y \ge 3x\); for feasibility we need:
+  \[
+  3x \le \frac{250000 - 500x}{750}
+  \]
+  which leads back to \(x \le 90.91...\), so any integer \(x \in [20, 90]\) allows some feasible \(y\).
+
+Total bottles:
+\[
+\text{Total} = x + y \le x + \frac{250000 - 500x}{750}
+= \frac{250000 + 250x}{750}
+\]
+This expression **increases** with \(x\), so we should choose the largest feasible \(x\), i.e. \(x = 90\).
+
+Then:
+\[
+750y \le 250000 - 500\cdot 90 = 250000 - 45000 = 205000
+\Rightarrow y \le \frac{205000}{750} \approx 273.33
+\]
+So max integer \(y = 273\).
+
+Check the plastic-bottle constraint:  
+\(y = 273 \ge 3x = 270\) → satisfied.
+
+So the optimal solution is:
+- \(x^\* = 90\) glass bottles  
+- \(y^\* = 273\) plastic bottles  
+- Total bottles: \(90 + 273 = 363\).
+
+## 5. Suitable Python libraries
+
+To solve this programmatically, you can use any standard linear/integer programming library:
+
+- `PuLP` – very convenient modeling for small/medium ILPs.
+- `ortools.linear_solver` from Google OR-Tools – powerful and efficient for ILPs.
+- `Pyomo` – more general algebraic modeling, good for larger projects.
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Bottle_Production", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('glass_bottles', lowBound=20, cat='Integer')
+y = pl.LpVariable('plastic_bottles', lowBound=0, cat='Integer')
+
+# Objective
+prob += x + y, "Total_Bottles"
+
+# Constraints
+prob += 500*x + 750*y <= 250000          # water constraint
+prob += y >= 3*x                          # preference constraint
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Glass bottles:", x.value())
+print("Plastic bottles:", y.value())
+print("Total bottles:", x.value() + y.value())
+```
+
+This will return:
+- Glass bottles: 90  
+- Plastic bottles: 273  
+- Total bottles: 363.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Bottle_Production", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('glass_bottles', lowBound=20, cat='Integer')  # x >= 20
+    y = pl.LpVariable('plastic_bottles', lowBound=0, cat='Integer')  # y >= 0
+
+    # Objective: maximize total number of bottles
+    prob += x + y, "Total_Bottles"
+
+    # Constraints
+    prob += 500 * x + 750 * y <= 250000          # Water availability
+    prob += y >= 3 * x                           # Plastic preference
+
+    # Solve the ILP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    x_val = x.value()
+    y_val = y.value()
+    total_bottles = x_val + y_val
+
+    # Print detailed results (if needed)
+    print(f"Glass bottles (x): {x_val}")
+    print(f"Plastic bottles (y): {y_val}")
+    print(f"Total bottles (objective): {total_bottles}")
+
+    # Final objective value in required format
+    print(f"FINAL_OBJ: {int(total_bottles)}")
+
+if __name__ == "__main__":
+    main()

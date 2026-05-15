@@ -1,0 +1,232 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total number of scooters used while transporting at least 300 visitors, subject to capacity and pollution restrictions.
+
+2. Suggested model type  
+Model: Small deterministic Integer Linear Programming (ILP) / pure Integer Program (IP).  
+(Decision variables are counts of vehicles, which must be non‑negative integers.)
+
+3. Main decision variables  
+Define vehicle-count variables such as:
+- Number of scooters used.
+- Number of rickshaws used.
+
+(Ensure they are constrained to be integers and non‑negative.)
+
+4. Key constraints to consider  
+
+a) Capacity (visitor transport) constraint  
+- Each scooter carries 2 visitors.  
+- Each rickshaw carries 3 visitors.  
+- Total transported visitors must be at least 300.  
+→ Capacity from scooters plus rickshaws ≥ 300.
+
+b) Pollution / composition constraint  
+- At most 40% of the vehicles used can be rickshaws.  
+- Total vehicles = scooters + rickshaws.  
+- Fraction of rickshaws ≤ 0.4.  
+→ Rickshaws ≤ 0.4 × (scooters + rickshaws).  
+This can be rearranged into a linear inequality suitable for ILP (no division).
+
+c) Integrality and non‑negativity  
+- Both vehicle-count variables must be integer.  
+- Both must be ≥ 0.
+
+5. Modelling strategy notes for the Modeller  
+
+- Express the objective as minimising the scooter variable directly.  
+- Take care to linearise the pollution constraint properly (clear denominators).  
+- Since the problem is small and variables are low-dimensional, standard ILP solving (or even enumeration) is straightforward.  
+- Optionally, you can also compute or check the solution by hand using the constraints as a consistency check for the ILP result.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem as an Integer Linear Program (ILP), and how you could implement/solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(S \in \mathbb{Z}_{\ge 0}\): number of scooters used  
+- \(R \in \mathbb{Z}_{\ge 0}\): number of rickshaws used  
+
+Both are non‑negative integers.
+
+---
+
+## 2. Objective
+
+The planner text says “minimize the total number of scooters used,” but the original problem text is slightly ambiguous (it could also mean “minimize total vehicles”). To follow the planner explicitly:
+
+- **Objective**: minimize the number of scooters
+
+\[
+\min \; S
+\]
+
+(If instead you wanted to minimize the **total number of vehicles**, you would use \(\min (S + R)\).)
+
+---
+
+## 3. Constraints
+
+### a) Visitor capacity constraint
+
+Each scooter carries 2 people, each rickshaw carries 3 people, and we need to transport **at least 300 visitors**:
+
+\[
+2S + 3R \;\ge\; 300
+\]
+
+---
+
+### b) Pollution / composition constraint
+
+At most 40% of the vehicles used can be rickshaws:
+
+\[
+\frac{R}{S + R} \;\le\; 0.4
+\quad \text{(with \(S + R > 0\) if any vehicles are used)}
+\]
+
+To make this linear, clear the denominator:
+
+\[
+R \;\le\; 0.4(S + R)
+\]
+
+Multiply both sides by 10 to avoid decimals (optional but neat):
+
+\[
+10R \;\le\; 4S + 4R
+\]
+
+Rearrange:
+
+\[
+10R - 4R \;\le\; 4S  
+\Rightarrow 6R \;\le\; 4S
+\]
+
+You can keep it as:
+
+\[
+6R \le 4S
+\]
+
+or simplified (divide both sides by 2):
+
+\[
+3R \le 2S
+\]
+
+That last form is the cleanest linear constraint:
+
+\[
+3R \;\le\; 2S
+\]
+
+---
+
+### c) Non‑negativity and integrality
+
+\[
+S \in \mathbb{Z}_{\ge 0}, \quad R \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Full ILP model
+
+\[
+\begin{aligned}
+\min \quad & S \\
+\text{s.t.} \quad
+& 2S + 3R \;\ge\; 300 &\text{(visitor capacity)} \\
+& 3R \;\le\; 2S         &\text{(at most 40\% rickshaws)} \\
+& S, R \in \mathbb{Z}_{\ge 0} &\text{(integrality, non-negativity)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+For this small ILP, any standard MILP solver will work:
+
+- **PuLP**: very user‑friendly, pure Python, good for teaching and small models.
+- **OR-Tools (Google OR-Tools, `ortools.linear_solver`)**: powerful, free, supports several MILP backends.
+- **Pyomo**: more general algebraic modeling, good if you plan to scale up or add more structure.
+- **SciPy** is *not* ideal here because it does not natively handle integer variables; you need a MILP solver.
+
+For this problem, **PuLP** or **OR-Tools** is the most straightforward choice.
+
+---
+
+## 6. Example PuLP formulation (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("ThemeParkTransport", pl.LpMinimize)
+
+# Variables
+S = pl.LpVariable("Scooters", lowBound=0, cat="Integer")
+R = pl.LpVariable("Rickshaws", lowBound=0, cat="Integer")
+
+# Objective: minimize scooters
+prob += S
+
+# Constraints
+prob += 2*S + 3*R >= 300          # capacity
+prob += 3*R <= 2*S                # at most 40% rickshaws
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal scooters:", S.value())
+print("Optimal rickshaws:", R.value())
+print("Objective value (scooters):", pl.value(prob.objective))
+```
+
+You can switch to minimizing total vehicles by changing the objective to `prob += S + R`.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the ILP problem: minimize number of scooters
+    prob = pl.LpProblem("ThemeParkTransport", pl.LpMinimize)
+
+    # Decision variables: number of scooters (S) and rickshaws (R)
+    S = pl.LpVariable("Scooters", lowBound=0, cat="Integer")
+    R = pl.LpVariable("Rickshaws", lowBound=0, cat="Integer")
+
+    # Objective: minimize number of scooters
+    prob += S
+
+    # Constraints
+    # Visitor capacity: each scooter 2 people, each rickshaw 3 people, at least 300 visitors
+    prob += 2 * S + 3 * R >= 300
+
+    # Pollution/composition: at most 40% rickshaws -> 3R <= 2S
+    prob += 3 * R <= 2 * S
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Retrieve objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

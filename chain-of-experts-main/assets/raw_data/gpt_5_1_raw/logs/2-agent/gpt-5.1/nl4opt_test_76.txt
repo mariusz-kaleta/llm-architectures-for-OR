@@ -1,0 +1,162 @@
+[MODELER]:
+Here is a clean mathematical model of the problem and how to solve it.
+
+---
+
+## 1. Decision variables
+
+Let:
+
+- \(x\) = number of small kegs used  
+- \(y\) = number of large kegs used  
+
+Both must be nonnegative integers:
+
+- \(x, y \in \mathbb{Z}_{\ge 0}\)
+
+---
+
+## 2. Objective function
+
+Each small keg holds 40 liters, each large keg holds 100 liters.
+
+Maximize total transported water:
+\[
+\max \; Z = 40x + 100y
+\]
+
+---
+
+## 3. Constraints
+
+1. **Availability of kegs**  
+   At most 30 small and at most 10 large:
+   \[
+   x \le 30
+   \]
+   \[
+   y \le 10
+   \]
+
+2. **At least twice as many small as large**  
+   \[
+   x \ge 2y
+   \]
+
+3. **Total kegs capacity** (at most 25 total):
+   \[
+   x + y \le 25
+   \]
+
+4. **At least 5 large kegs**:
+   \[
+   y \ge 5
+   \]
+
+5. **Integrality and non-negativity**:
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+This is a 2-variable integer linear programming (ILP) problem.
+
+---
+
+## 4. Solving the model logically
+
+Because constraints are small, we can reason directly:
+
+- From \(y \ge 5\) and \(y \le 10\), we have \(y \in \{5,6,7,8,9,10\}\).
+- For each feasible \(y\), the constraints on \(x\) are:
+  - \(x \le 30\)
+  - \(x \ge 2y\)
+  - \(x + y \le 25 \Rightarrow x \le 25 - y\)
+
+So:
+\[
+2y \le x \le \min(30, 25 - y)
+\]
+
+We seek to maximize \(40x + 100y\). For fixed \(y\), this increases with \(x\), so choose:
+\[
+x = \min(30, 25 - y)
+\]
+subject to \(x \ge 2y\).
+
+Check feasible pairs:
+
+- \(y = 5\):  
+  \(x \le 25 - 5 = 20\), and \(x \ge 10\) → choose \(x = 20\)  
+  Water = \(40 \cdot 20 + 100 \cdot 5 = 800 + 500 = 1300\)
+
+- \(y = 6\):  
+  \(x \le 25 - 6 = 19\), \(x \ge 12\) → choose \(x = 19\)  
+  Water = \(40 \cdot 19 + 100 \cdot 6 = 760 + 600 = 1360\)
+
+- \(y = 7\):  
+  \(x \le 25 - 7 = 18\), \(x \ge 14\) → choose \(x = 18\)  
+  Water = \(40 \cdot 18 + 100 \cdot 7 = 720 + 700 = 1420\)
+
+- \(y = 8\):  
+  \(x \le 25 - 8 = 17\), \(x \ge 16\) → choose \(x = 17\)  
+  Water = \(40 \cdot 17 + 100 \cdot 8 = 680 + 800 = 1480\)
+
+- \(y = 9\):  
+  \(x \le 25 - 9 = 16\), \(x \ge 18\) → infeasible (no \(x\) such that \(18 \le x \le 16\))
+
+- \(y = 10\):  
+  \(x \le 25 - 10 = 15\), \(x \ge 20\) → infeasible
+
+Best feasible solution:  
+\[
+x = 17,\quad y = 8,\quad Z = 1480 \text{ liters}
+\]
+
+---
+
+## 5. Final answer
+
+- Number of small kegs: **17**  
+- Number of large kegs: **8**  
+- Maximum transported water: **1480 liters**
+
+---
+
+## 6. Suitable Python libraries
+
+This is a tiny integer linear program; any standard LP/ILP library will handle it:
+
+- **PuLP** (`pulp`) – very straightforward for educational and small ILP problems.
+- **OR-Tools** (`ortools.linear_solver` or `ortools.sat.python.cp_model`) – powerful and efficient.
+- **Pyomo** – more general algebraic modeling language for optimization.
+
+For simplicity and readability, PuLP or OR-Tools are ideal here.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import itertools
+
+def objective(x, y):
+    return 40 * x + 100 * y
+
+best_val = None
+best_solution = None
+
+# Enumerate all feasible integer pairs (x, y)
+for x, y in itertools.product(range(0, 31), range(0, 11)):
+    # Constraints:
+    # 1) x <= 30, y <= 10 are already ensured by ranges
+    # 2) x >= 2y
+    # 3) x + y <= 25
+    # 4) y >= 5
+    if x >= 2 * y and x + y <= 25 and y >= 5:
+        val = objective(x, y)
+        if best_val is None or val > best_val:
+            best_val = val
+            best_solution = (x, y)
+
+# For completeness, we could print the solution (but requirement is only final objective)
+# print("Best (x, y):", best_solution, "Objective:", best_val)
+
+print(f"FINAL_OBJ: {best_val}")

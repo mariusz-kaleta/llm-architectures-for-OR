@@ -1,0 +1,228 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximize the total amount of slime produced from beaker 1 and beaker 2 mixtures.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with two continuous decision variables.  
+   - If the context requires that only whole “batches” of beakers can be used, the Modeller may alternatively consider an Integer Linear Program (ILP), but start with a continuous LP.
+
+3. Main decision variables  
+   Define:  
+   - \(x_1\): Number of times the Beaker 1 mixture is used (batches of Beaker 1).  
+   - \(x_2\): Number of times the Beaker 2 mixture is used (batches of Beaker 2).
+
+   Derived quantities (for clarity, not as separate variables unless modelling software needs them):  
+   - Total flour used = \(4x_1 + 6x_2\).  
+   - Total special liquid used = \(6x_1 + 3x_2\).  
+   - Total slime produced = \(5x_1 + 3x_2\).  
+   - Total waste produced = \(4x_1 + 2x_2\).
+
+4. Objective function (strategic description)  
+   - Maximize total slime: use the linear combination of decision variables that yields the greatest total units of slime, given all the resource and waste constraints.  
+   - Objective: Maximize \(5x_1 + 3x_2\).
+
+5. Key constraints to consider  
+
+   a) Flour availability  
+   - Each Beaker 1 batch uses 4 units of flour.  
+   - Each Beaker 2 batch uses 6 units of flour.  
+   - Total flour used cannot exceed 150 units.  
+   - Constraint: Flour usage of all chosen batches ≤ 150.
+
+   b) Special liquid availability  
+   - Each Beaker 1 batch uses 6 units of special liquid.  
+   - Each Beaker 2 batch uses 3 units of special liquid.  
+   - Total special liquid used cannot exceed 100 units.  
+   - Constraint: Special liquid usage of all chosen batches ≤ 100.
+
+   c) Waste limit  
+   - Each Beaker 1 batch produces 4 units of waste.  
+   - Each Beaker 2 batch produces 2 units of waste.  
+   - Total waste must not exceed 30 units.  
+   - Constraint: Waste from all chosen batches ≤ 30.
+
+   d) Non-negativity  
+   - The number of batches of each beaker cannot be negative.  
+   - Constraints: \(x_1 ≥ 0\), \(x_2 ≥ 0\).
+
+   e) (Optional) Integrality constraints  
+   - If the real-world setting requires using whole beakers only (no fractional batches), impose:  
+     - \(x_1\) and \(x_2\) are integers (typically nonnegative integers).  
+   - If fractional usage (e.g., proportional use of recipes) is acceptable, keep them continuous.
+
+6. Modelling strategy / notes for the Modeller  
+
+   - Step 1: Formulate the LP with the two decision variables and the three main resource/waste constraints plus non-negativity.  
+   - Step 2: Solve the LP; due to the small dimension, you can:  
+     - Use a standard LP solver, or  
+     - Solve graphically by plotting feasible region defined by the three inequalities in the \(x_1,x_2\) plane and checking corner points.  
+   - Step 3: If an integer solution is required and the LP optimum is fractional, either:  
+     - Round and test nearby integer points, or  
+     - Solve directly as an ILP using integer constraints.
+
+   - Sensitivity / binding-constraint insight (optional, for analysis):  
+     - Check which constraints are binding (equalities) at the optimum: flour, liquid, and/or waste.  
+     - Understand how relaxing the 30-unit waste limit or increasing flour/special liquid would impact the optimal combination of beakers and total slime.
+
+This plan defines the objective, the two decision variables, and the three key resource/waste constraints that must guide the mathematical model.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model and how you could implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x_1 \ge 0\): number of batches of Beaker 1 to use  
+- \(x_2 \ge 0\): number of batches of Beaker 2 to use  
+
+(If you must use only whole beakers, we later add: \(x_1, x_2 \in \mathbb{Z}\).)
+
+---
+
+## 2. Objective function
+
+Total slime produced:
+- Beaker 1: 5 units of slime per batch  
+- Beaker 2: 3 units of slime per batch  
+
+Maximize:
+\[
+\max\; Z = 5x_1 + 3x_2
+\]
+
+---
+
+## 3. Constraints
+
+### a) Flour availability  
+- Beaker 1: 4 units flour / batch  
+- Beaker 2: 6 units flour / batch  
+- Total flour available: 150 units  
+
+\[
+4x_1 + 6x_2 \le 150
+\]
+
+### b) Special liquid availability  
+- Beaker 1: 6 units / batch  
+- Beaker 2: 3 units / batch  
+- Total liquid available: 100 units  
+
+\[
+6x_1 + 3x_2 \le 100
+\]
+
+### c) Waste limit  
+- Beaker 1: 4 units waste / batch  
+- Beaker 2: 2 units waste / batch  
+- Waste limit: 30 units  
+
+\[
+4x_1 + 2x_2 \le 30
+\]
+
+### d) Non-negativity  
+
+\[
+x_1 \ge 0, \quad x_2 \ge 0
+\]
+
+### e) (Optional) Integrality
+
+If only whole beakers are allowed:
+
+\[
+x_1, x_2 \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Model type and suitable Python libraries
+
+This is a small **linear programming (LP)** problem with 2 continuous variables and 3 linear constraints.
+
+- If fractional batches are acceptable (standard LP):  
+  - Recommended libraries:
+    - `PuLP` (simple LP modeling in Python)
+    - `scipy.optimize.linprog`
+    - `ortools.linear_solver.pywraplp` (Google OR-Tools)
+
+- If you require integer numbers of beakers (ILP / MILP):  
+  - Recommended libraries:
+    - `PuLP` with CBC (default solver)
+    - `OR-Tools` MIP solver (`CBC` or `SCIP` backends)
+    - `Pyomo` with an MILP solver (e.g., CBC, GLPK, Gurobi, CPLEX)
+
+---
+
+## 5. Example PuLP formulation (continuous LP)
+
+```python
+import pulp as pl
+
+# Create problem: maximize
+prob = pl.LpProblem("Slime_Production", pl.LpMaximize)
+
+# Decision variables (continuous, >= 0)
+x1 = pl.LpVariable('x1', lowBound=0)
+x2 = pl.LpVariable('x2', lowBound=0)
+
+# Objective: maximize 5x1 + 3x2
+prob += 5 * x1 + 3 * x2, "Total_Slime"
+
+# Constraints
+prob += 4 * x1 + 6 * x2 <= 150, "Flour"
+prob += 6 * x1 + 3 * x2 <= 100, "Special_Liquid"
+prob += 4 * x1 + 2 * x2 <= 30,  "Waste"
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("x1 (Beaker 1 batches) =", x1.value())
+print("x2 (Beaker 2 batches) =", x2.value())
+print("Max slime =", pl.value(prob.objective))
+```
+
+To impose integer solutions, change the variable definitions:
+
+```python
+x1 = pl.LpVariable('x1', lowBound=0, cat='Integer')
+x2 = pl.LpVariable('x2', lowBound=0, cat='Integer')
+```
+
+This fully specifies the optimization model and how to solve it programmatically.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create problem: maximize
+    prob = pl.LpProblem("Slime_Production", pl.LpMaximize)
+
+    # Decision variables (integer, >= 0)
+    x1 = pl.LpVariable('x1', lowBound=0, cat='Integer')
+    x2 = pl.LpVariable('x2', lowBound=0, cat='Integer')
+
+    # Objective: maximize 5x1 + 3x2
+    prob += 5 * x1 + 3 * x2, "Total_Slime"
+
+    # Constraints
+    prob += 4 * x1 + 6 * x2 <= 150, "Flour"
+    prob += 6 * x1 + 3 * x2 <= 100, "Special_Liquid"
+    prob += 4 * x1 + 2 * x2 <= 30,  "Waste"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    final_obj = pl.value(prob.objective)
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

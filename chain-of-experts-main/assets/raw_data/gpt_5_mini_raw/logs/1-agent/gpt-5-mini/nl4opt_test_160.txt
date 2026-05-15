@@ -1,0 +1,39 @@
+[MONOLITH]:
+import pulp
+
+# Data from the problem
+prod_medium = 50   # toys per day for a medium factory
+prod_small  = 35   # toys per day for a small factory
+ops_medium  = 3    # operators required for a medium factory
+ops_small   = 2    # operators required for a small factory
+required_toys = 250
+available_ops  = 16
+
+# Define problem
+prob = pulp.LpProblem("Factory_Minimization", pulp.LpMinimize)
+
+# Decision variables: number of medium and small factories (integer, non-negative)
+x = pulp.LpVariable("medium_factories", lowBound=0, cat='Integer')
+y = pulp.LpVariable("small_factories",  lowBound=0, cat='Integer')
+
+# Objective: minimize total number of factories
+prob += x + y, "Total_Factories"
+
+# Constraints
+prob += prod_medium * x + prod_small * y >= required_toys, "Production_Requirement"
+prob += ops_medium * x + ops_small * y <= available_ops, "Operator_Limit"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+x_val = int(pulp.value(x))
+y_val = int(pulp.value(y))
+value = int(pulp.value(prob.objective))
+
+# Print solution (optional additional info)
+print(f"Medium factories (x): {x_val}")
+print(f"Small factories  (y): {y_val}")
+
+# Final required line (must be the last print)
+print(f"FINAL_OBJ: {value}")

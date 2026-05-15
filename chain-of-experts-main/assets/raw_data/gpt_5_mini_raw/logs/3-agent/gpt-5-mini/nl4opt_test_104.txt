@@ -1,0 +1,79 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- L ∈ Z_{\ge 0}: number of limousines.
+- B ∈ Z_{\ge 0}: number of buses.
+
+Objective
+- Minimize total vehicles: minimize Z = L + B.
+
+Constraints
+1. Capacity: 12L + 18B ≥ 400 (at least 400 people transported).
+2. Limousine share: L ≥ 0.7(L + B). This is linearized as
+   0.3L ≥ 0.7B ⇒ 3L − 7B ≥ 0 (equivalently L ≥ (7/3)B).
+3. Integrality and nonnegativity: L, B ∈ Z_{\ge 0}.
+
+Equivalent optimization problem
+minimize L + B
+subject to
+  12L + 18B ≥ 400
+  3L − 7B ≥ 0
+  L, B ∈ Z_{\ge 0}.
+
+Solution (analysis)
+For a given B, the smallest feasible L is
+L = max( ceil((400 − 18B)/12), ceil((7/3)B), 0 ).
+Evaluate over feasible integer B (0..23 suffices since 23 buses alone would cover capacity) to find the minimal L + B.
+
+Doing this gives minimum total vehicles Z* = 30. The integer optimal solutions are:
+- (L, B) = (23, 7) → 12·23 + 18·7 = 276 + 126 = 402 people, total vehicles 30.
+- (L, B) = (22, 8) → capacity 396 + 144 = 420, total 30.
+- (L, B) = (21, 9) → capacity 252 + 162 = 414, total 30.
+
+All three satisfy 3L − 7B ≥ 0 and transport ≥400 people. If you need a single recommendation and prefer more limousines (they are "more attractive"), pick (L, B) = (23, 7) which has the largest share of limousines among the optima.
+
+Suggested Python libraries to solve/verify
+- pulp (easy linear/integer programming): pulp.LpProblem with LpInteger variables.
+- OR-Tools CP-SAT (ortools.sat.python.cp_model) for integer programming.
+- mip or pyomo if you prefer other modeling interfaces.
+
+Short example approach (concept)
+- Use pulp: define integer variables L,B; add constraints 12L+18B >=400 and 3L-7B >=0; objective L+B; solve; read integer solution.
+- Or simple enumeration over B from 0..23 and compute minimal feasible L as above and pick minimal L+B.
+
+---
+
+[CODER]:
+import math
+
+# Enumerate feasible integer solutions
+best_Z = None
+best_solutions = []
+
+for B in range(0, 24):  # 0..23 buses suffices
+    # minimal L to meet capacity: ceil((400 - 18B)/12)
+    need_capacity = 400 - 18 * B
+    L_capacity = math.ceil(need_capacity / 12) if need_capacity > 0 else 0
+    # minimal L to meet limousine share: ceil(7/3 * B)
+    L_share = math.ceil(7 * B / 3)
+    L = max(L_capacity, L_share, 0)
+    # verify constraints (just in case)
+    if 12 * L + 18 * B >= 400 and 3 * L - 7 * B >= 0 and L >= 0:
+        Z = L + B
+        if best_Z is None or Z < best_Z:
+            best_Z = Z
+            best_solutions = [(L, B)]
+        elif Z == best_Z:
+            best_solutions.append((L, B))
+
+# (Optional) Print best solutions (not required by final line specification)
+for sol in best_solutions:
+    L, B = sol
+    # capacity check value
+    capacity = 12 * L + 18 * B
+    # print solution details
+    print(f"Optimal solution: L={L}, B={B}, vehicles={L+B}, capacity={capacity}")
+
+# Final required output line
+print(f"FINAL_OBJ: {best_Z}")

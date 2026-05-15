@@ -1,0 +1,120 @@
+[MODELER]:
+Here is one way to model this as an optimization problem.
+
+### 1. Decision variables
+
+Let  
+- \(x \in \mathbb{Z}_{\ge 0}\): number of medium factories  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of small factories  
+
+(Both are nonnegative integers.)
+
+### 2. Objective
+
+Minimize the total number of factories:
+
+\[
+\min \; x + y
+\]
+
+### 3. Constraints
+
+1. **Production requirement (at least 250 toys/day):**
+
+Each medium factory produces 50 toys/day, each small factory 35 toys/day:
+
+\[
+50x + 35y \;\ge\; 250
+\]
+
+2. **Operator availability (at most 16 operators):**
+
+Each medium factory needs 3 operators, each small factory 2 operators:
+
+\[
+3x + 2y \;\le\; 16
+\]
+
+3. **Nonnegativity and integrality:**
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+This is a small **integer linear programming** (ILP) problem.
+
+### 4. Solving (conceptually)
+
+You can solve this with a MILP solver. Suitable Python libraries include:
+
+- `PuLP` (interfaces to CBC, GLPK, etc.)
+- `ortools.linear_solver` from Google OR-Tools
+- `Pyomo` with a MILP solver (CBC, GLPK, Gurobi, CPLEX, etc.)
+
+For example, in PuLP:
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("FactoryPlanning", pl.LpMinimize)
+
+# Variables
+x = pl.LpVariable('medium_factories', lowBound=0, cat='Integer')
+y = pl.LpVariable('small_factories', lowBound=0, cat='Integer')
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 50*x + 35*y >= 250      # production
+prob += 3*x + 2*y <= 16         # operators
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Medium factories:", x.value())
+print("Small factories:", y.value())
+print("Total factories:", x.value() + y.value())
+```
+
+This model exactly represents: “How many of each factory should the company build to minimize the total number of factories, while meeting production and operator constraints?”
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def solve_factory_planning():
+    # Define the problem
+    prob = pl.LpProblem("FactoryPlanning", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('medium_factories', lowBound=0, cat='Integer')
+    y = pl.LpVariable('small_factories', lowBound=0, cat='Integer')
+
+    # Objective: Minimize total number of factories
+    prob += x + y
+
+    # Constraints
+    prob += 50 * x + 35 * y >= 250    # Production requirement
+    prob += 3 * x + 2 * y <= 16       # Operator availability
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    medium = x.value()
+    small = y.value()
+    total_factories = medium + small
+
+    # Optional prints (not required, but helpful if running the script)
+    print("Medium factories:", medium)
+    print("Small factories:", small)
+    print("Total factories:", total_factories)
+
+    # Final objective value output
+    print(f"FINAL_OBJ: {int(total_factories)}")
+
+if __name__ == "__main__":
+    solve_factory_planning()

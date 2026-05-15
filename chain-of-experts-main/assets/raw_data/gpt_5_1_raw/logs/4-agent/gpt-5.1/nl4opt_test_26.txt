@@ -1,0 +1,214 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximise total profit from producing math and English workbooks, given production bounds and a minimum total-contract requirement.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with two decision variables.
+
+3. Main decision variables  
+Let the modeller define:
+- Variable 1: Number of math workbooks to produce.
+- Variable 2: Number of English workbooks to produce.
+
+Both variables should be:
+- Continuous and non-negative (integer treatment is optional here since the feasible region will naturally yield integer solutions with such small bounds).
+
+4. Objective function (conceptual)  
+- Maximise: (profit per math workbook × number of math workbooks)  
+  + (profit per English workbook × number of English workbooks).  
+- Coefficients:  
+  - Math: 15  
+  - English: 17  
+
+5. Key constraints to consider  
+
+a) Individual product minimum requirements  
+- Math workbooks: at least a specified lower bound (≥ 40).  
+- English workbooks: at least a specified lower bound (≥ 60).
+
+b) Individual product capacity/upper bounds  
+- Math workbooks: at most a specified upper bound (≤ 140).  
+- English workbooks: at most a specified upper bound (≤ 170).
+
+c) Contractual total-minimum requirement  
+- Total number of workbooks (math + English): must be at least 200.
+
+d) Non-negativity  
+- Both decision variables ≥ 0.
+
+6. Modelling strategy / structure  
+
+- Step 1: Define the two decision variables with clear names and units (e.g., “number of math workbooks,” “number of English workbooks”).  
+- Step 2: Formulate the linear profit objective function using the given per-unit profits (15 and 17).  
+- Step 3: Translate each textual constraint into an inequality:
+  - Lower bounds for each workbook type.  
+  - Upper bounds for each workbook type.  
+  - Aggregate lower bound for the sum (contract).  
+- Step 4: Check feasibility: confirm that lower bounds and the contract requirement are consistent (i.e., minimum math + minimum English ≤ contract total).  
+- Step 5: Solve graphically or via simplex:
+  - Since there are only two variables, plotting feasible region and checking corner (extreme) points is straightforward.  
+  - Evaluate the objective function at all vertices of the feasible region.  
+- Step 6: Identify the combination of math and English workbooks that gives the maximum profit while satisfying all constraints.
+
+7. Special attention points for the Modeller  
+
+- Note that profit per English workbook is higher than for math, so the optimiser will tend to push English production toward its upper bound within feasible constraints; hence pay special attention to corners involving the English upper bound.  
+- Ensure the contract constraint is active or checked; the optimal solution might lie where the total equals the minimum 200 or at product upper bounds, depending on which yields higher profit.  
+- Confirm that all constraints are properly combined: the final feasible region is the intersection of:
+  - Individual min/max bounds, and  
+  - The total-minimum requirement.  
+
+This is a small, standard LP; solving via corner-point analysis or a simplex implementation will yield the optimal quantities of math and English workbooks.
+
+---
+
+[MODELER]:
+Here is a precise optimisation model for the problem.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_M \ge 0\): number of math workbooks to produce  
+- \(x_E \ge 0\): number of English workbooks to produce  
+
+(Units: workbooks.)
+
+---
+
+## 2. Objective function
+
+Maximise total profit:
+
+\[
+\max \; Z = 15\,x_M + 17\,x_E
+\]
+
+where
+
+- 15 = profit per math workbook  
+- 17 = profit per English workbook
+
+---
+
+## 3. Constraints
+
+1. **Minimum production requirements**
+
+\[
+x_M \ge 40
+\]
+\[
+x_E \ge 60
+\]
+
+2. **Maximum capacity limits**
+
+\[
+x_M \le 140
+\]
+\[
+x_E \le 170
+\]
+
+3. **Contractual total-minimum requirement**
+
+\[
+x_M + x_E \ge 200
+\]
+
+4. **Non-negativity**
+
+\[
+x_M \ge 0,\quad x_E \ge 0
+\]
+
+Note: the individual minimums already imply \(x_M + x_E \ge 40 + 60 = 100\), which is less than 200, so the contract constraint is binding in general and must be included.
+
+---
+
+## 4. Structure and solution insight
+
+- This is a 2-variable linear program.
+- Profit per English workbook (17) is higher than per math workbook (15), so the model will try to:
+  - Maximise \(x_E\) up to its upper bound (170),
+  - While respecting all constraints, especially the total-minimum 200.
+- Typical candidate optimal points will be **corners** of the feasible region, such as:
+  - \((x_M, x_E) = (40, 160)\),
+  - \((x_M, x_E) = (30, 170)\) → infeasible because \(x_M \ge 40\),
+  - \((x_M, x_E) = (140, 60)\),
+  - etc., all under \(x_M + x_E \ge 200\) and the individual bounds.
+
+You would evaluate \(Z = 15x_M + 17x_E\) at every feasible corner and select the maximum.
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard LP solver will handle this easily; recommended:
+
+- **PuLP** (`pulp`): very simple for small LPs, integrates with CBC solver.
+- **OR-Tools Linear Solver** (`ortools.linear_solver.pywraplp`): robust and efficient.
+- **SciPy** (`scipy.optimize.linprog`): also suitable for continuous LPs.
+
+Example using PuLP (continuous variables as in the model):
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Workbooks_Profit_Max", pl.LpMaximize)
+
+# Decision variables
+x_M = pl.LpVariable("Math_Workbooks", lowBound=40, upBound=140)   # 40 <= x_M <= 140
+x_E = pl.LpVariable("English_Workbooks", lowBound=60, upBound=170) # 60 <= x_E <= 170
+
+# Objective
+prob += 15 * x_M + 17 * x_E
+
+# Contract constraint
+prob += x_M + x_E >= 200, "Total_Min_Contract"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal math workbooks:", x_M.value())
+print("Optimal English workbooks:", x_E.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+To enforce integer workbook counts, add `cat='Integer'` to `LpVariable` definitions.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the LP maximization problem
+    prob = pl.LpProblem("Workbooks_Profit_Max", pl.LpMaximize)
+
+    # Decision variables with bounds from the model
+    x_M = pl.LpVariable("Math_Workbooks", lowBound=40, upBound=140)
+    x_E = pl.LpVariable("English_Workbooks", lowBound=60, upBound=170)
+
+    # Objective function: maximize profit
+    prob += 15 * x_M + 17 * x_E
+
+    # Contractual total-minimum requirement
+    prob += x_M + x_E >= 200, "Total_Min_Contract"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Retrieve the objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

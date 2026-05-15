@@ -1,0 +1,43 @@
+[MONOLITH]:
+import pulp
+
+# Create the problem: minimize total number of machines
+prob = pulp.LpProblem("Sanitizer_Machine_Selection", pulp.LpMinimize)
+
+# Decision variables: number of motion-activated (M) and manual (N) machines
+M = pulp.LpVariable('M', lowBound=0, cat='Integer')
+N = pulp.LpVariable('N', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of machines
+prob += M + N, "Total_Machines"
+
+# Constraints:
+
+# 1. At least 3 motion-activated machines
+prob += M >= 3, "Min_Motion_Activated"
+
+# 2. Drop delivery capacity: 50M + 75N >= 1000
+prob += 50 * M + 75 * N >= 1000, "Drop_Capacity"
+
+# 3. Energy consumption: 30M + 20N <= 500
+prob += 30 * M + 20 * N <= 500, "Energy_Constraint"
+
+# 4. At most 40% of machines can be manual:
+#    N <= 0.4(M + N)  =>  0.6N <= 0.4M  =>  3N <= 2M
+prob += 3 * N <= 2 * M, "Manual_Limit"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+M_val = pulp.value(M)
+N_val = pulp.value(N)
+obj_val = pulp.value(prob.objective)
+
+# Print solution details (not required but useful for understanding)
+print("Number of motion-activated machines (M):", M_val)
+print("Number of manual machines (N):", N_val)
+print("Minimum total number of machines:", obj_val)
+
+# Final required output
+print(f"FINAL_OBJ: {obj_val}")

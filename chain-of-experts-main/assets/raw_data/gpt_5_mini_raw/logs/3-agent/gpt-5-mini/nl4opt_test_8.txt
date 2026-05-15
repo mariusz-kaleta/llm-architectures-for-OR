@@ -1,0 +1,154 @@
+[MODELER]:
+Formulation
+
+- Decision variables
+  - s = number of scooters produced per month (s ≥ 0, integer or continuous)
+  - b = number of bikes produced per month (b ≥ 0, integer or continuous)
+
+- Objective
+  Maximize total profit: maximize Z = 200 s + 300 b
+
+- Constraints
+  - Design-team hours: 2 s + 4 b ≤ 5000
+  - Engineering-team hours: 3 s + 5 b ≤ 6000
+  - Nonnegativity: s ≥ 0, b ≥ 0
+  - (Optional) Integrality: s, b ∈ Z≥0 if you require whole units
+
+Solution (analysis)
+- Profit per engineering hour: scooter = 200/3 ≈ 66.67, bike = 300/5 = 60.
+- Profit per design hour: scooter = 200/2 = 100, bike = 300/4 = 75.
+  Because scooters yield higher profit per unit of both scarce resources, the LP-optimal solution is to produce only scooters until one resource binds.
+
+Check feasibility on axes:
+- If b = 0: design → s ≤ 2500, engineering → s ≤ 2000 ⇒ s = 2000 (engineering binds).
+  Profit = 200 × 2000 = $400,000.
+- If s = 0: design → b ≤ 1250, engineering → b ≤ 1200 ⇒ b = 1200.
+  Profit = 300 × 1200 = $360,000.
+
+No interior mix can do better because scooters dominate on both resources. Thus the optimal plan:
+- Produce 2000 scooters and 0 bikes.
+- Maximum monthly profit = $400,000.
+
+Suggested Python libraries to solve
+- pulp (easy LP / MILP modeling)
+- OR-Tools (CP-SAT for integer, or linear solver)
+- scipy.optimize.linprog (for continuous LP)
+- cvxpy (convex optimization modeling)
+
+Example (pulp) code snippet
+- Continuous LP:
+  from pulp import LpMaximize, LpProblem, LpVariable, value
+  prob = LpProblem("Production", LpMaximize)
+  s = LpVariable("s", lowBound=0)
+  b = LpVariable("b", lowBound=0)
+  prob += 200*s + 300*b
+  prob += 2*s + 4*b <= 5000
+  prob += 3*s + 5*b <= 6000
+  prob.solve()
+  print(value(s), value(b), value(prob.objective))
+
+- Integer (if required):
+  s = LpVariable("s", lowBound=0, cat="Integer")
+  b = LpVariable("b", lowBound=0, cat="Integer")
+  (rest same)
+
+If you want, I can provide a full runnable script or solve with integer constraints enforced.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+import numpy as np
+
+# Problem data
+c_s = 200.0  # profit per scooter
+c_b = 300.0  # profit per bike
+
+# Constraints:
+# 2 s + 4 b <= 5000
+# 3 s + 5 b <= 6000
+A = np.array([[2.0, 4.0],
+              [3.0, 5.0]])
+rhs = np.array([5000.0, 6000.0])
+
+tolerance = 1e-9
+
+candidates = []
+
+# Origin
+candidates.append((0.0, 0.0))
+
+# Intersections with axes (s=0 and b=0) for each constraint equality
+# For s = 0 -> solve for b from each constraint equality
+b1 = rhs[0] / A[0, 1]  # from 2*s + 4*b = 5000
+b2 = rhs[1] / A[1, 1]  # from 3*s + 5*b = 6000
+candidates.append((0.0, b1))
+candidates.append((0.0, b2))
+
+# For b = 0 -> solve for s from each constraint equality
+s1 = rhs[0] / A[0, 0]  # from 2*s + 4*b = 5000
+s2 = rhs[1] / A[1, 0]  # from 3*s + 5*b = 6000
+candidates.append((s1, 0.0))
+candidates.append((s2, 0.0))
+
+# Intersection of the two constraint lines (if any)
+try:
+    inter = np.linalg.solve(A, rhs)
+    candidates.append((inter[0], inter[1]))
+except np.linalg.LinAlgError:
+    pass
+
+# Filter feasible candidates (s >= 0, b >= 0, satisfy constraints)
+feasible = []
+for s_val, b_val in candidates:
+    if s_val is None or b_val is None:
+        continue
+    if s_val + tolerance < 0 or b_val + tolerance < 0:
+        continue
+    # Check inequalities
+    c1 = 2.0 * s_val + 4.0 * b_val
+    c2 = 3.0 * s_val + 5.0 * b_val
+    if c1 <= 5000.0 + 1e-6 and c2 <= 6000.0 + 1e-6:
+        feasible.append((max(0.0, s_val), max(0.0, b_val)))
+
+# Remove duplicates (within tolerance)
+unique_feasible = []
+for pt in feasible:
+    if not any(math.isclose(pt[0], q[0], rel_tol=1e-9, abs_tol=1e-9) and math.isclose(pt[1], q[1], rel_tol=1e-9, abs_tol=1e-9) for q in unique_feasible):
+        unique_feasible.append(pt)
+
+# Evaluate objective at feasible points and pick best
+best_val = -math.inf
+best_pt = None
+for s_val, b_val in unique_feasible:
+    val = c_s * s_val + c_b * b_val
+    if val > best_val + 1e-9:
+        best_val = val
+        best_pt = (s_val, b_val)
+
+# As a fallback, if numeric routine missed obvious axis-bound feasible points, evaluate axis maxima
+# s-axis max feasible (b=0)
+s_axis_max = min(5000.0 / 2.0, 6000.0 / 3.0)
+val_s_axis = c_s * s_axis_max
+if val_s_axis > best_val + 1e-9:
+    best_val = val_s_axis
+    best_pt = (s_axis_max, 0.0)
+
+# b-axis max feasible (s=0)
+b_axis_max = min(5000.0 / 4.0, 6000.0 / 5.0)
+val_b_axis = c_b * b_axis_max
+if val_b_axis > best_val + 1e-9:
+    best_val = val_b_axis
+    best_pt = (0.0, b_axis_max)
+
+# Round objective to integer if very close
+if abs(best_val - round(best_val)) < 1e-6:
+    final_obj = int(round(best_val))
+else:
+    final_obj = float(best_val)
+
+# Final required print (only this exact formatted line at the end)
+print(f"FINAL_OBJ: {final_obj}")
+```

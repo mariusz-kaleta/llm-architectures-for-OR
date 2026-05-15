@@ -1,0 +1,84 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x ∈ Z_{\ge0} = number of 4-wheeler vehicles
+- y ∈ Z_{\ge0} = number of 3-wheeler vehicles
+
+Objective
+- Minimize the total number of vehicles: minimize Z = x + y
+
+Constraints
+- Luggage capacity: 60x + 40y ≥ 1000  (must move at least 1000 pieces/day)
+  (equivalently: 3x + 2y ≥ 50 after dividing by 20)
+- Pollution limit: 30x + 15y ≤ 430  (at most 430 pollution units/day)
+  (equivalently: 2x + y ≤ 28.666..., integer version gives 2x + y ≤ 28)
+- Integrality and nonnegativity: x, y ∈ Z_{\ge0}
+
+Mathematical statement
+minimize x + y
+subject to
+  3x + 2y ≥ 50
+  2x + y ≤ 28  (since x,y integers)
+  x, y ∈ Z_{\ge0}
+
+Analytical solution
+- Substitute y bounds from the pollution constraint: y ≤ 28 − 2x.
+- From the luggage constraint: y ≥ ceil((50 − 3x)/2).
+- Checking integer x = 0..6 (from feasibility) gives the best feasible integer solution at x = 6, y = 16.
+- This yields total vehicles = 6 + 16 = 22.
+- Verify: luggage = 60·6 + 40·16 = 1000 (meets requirement exactly); pollution = 30·6 + 15·16 = 420 ≤ 430.
+
+Thus the airport should buy 6 four-wheelers and 16 three-wheelers (22 vehicles total).
+
+Solution method and libraries
+- This is an integer linear program (ILP). Suitable Python libraries:
+  - PuLP (easy modeling + CBC solver)
+  - OR-Tools (CP-SAT / MIP solver)
+  - Google OR-Tools linear solver (linear/MIP interface)
+  - scipy.optimize is not appropriate for integer programs (continuous only)
+- You can also solve by simple enumeration since variables are small, or solve the LP relaxation (continuous) which here gives the same corner solution (x=6, y=16).
+
+Example (PuLP)
+- Use pulp.LpProblem, LpVariable(..., cat='Integer'), add the two constraints and objective, then solve with the default CBC solver.
+
+If you want, I can provide a short runnable code snippet in PuLP or OR-Tools.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the integer program by enumeration
+
+import math
+
+# Decision variables: x = number of 4-wheelers, y = number of 3-wheelers (nonnegative integers)
+# Constraints (scaled form used in the problem statement):
+# 3x + 2y >= 50   (luggage requirement)
+# 2x + y <= 28    (pollution limit)
+# Minimize Z = x + y
+
+best_obj = None
+best_x = None
+best_y = None
+
+# Reasonable search bounds:
+# From 2x + y <= 28 and y >= 0 => x <= 14
+# From 3x + 2y >= 50 and x >= 0 => y can be at most something like 50 (but pollution bound smaller)
+x_max = 14
+y_max = 50
+
+for x in range(0, x_max + 1):
+    for y in range(0, y_max + 1):
+        if 3 * x + 2 * y >= 50 and 2 * x + y <= 28:
+            obj = x + y
+            if best_obj is None or obj < best_obj:
+                best_obj = obj
+                best_x = x
+                best_y = y
+
+# At this point best_obj should be found (problem is feasible)
+# Print final objective value in required format
+print(f"FINAL_OBJ: {best_obj}")
+```

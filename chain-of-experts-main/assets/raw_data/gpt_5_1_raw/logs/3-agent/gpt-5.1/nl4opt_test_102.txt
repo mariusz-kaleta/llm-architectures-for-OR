@@ -1,0 +1,87 @@
+[MODELER]:
+Define decision variables:
+
+- \(x\): number of servings of Rice per day (continuous, \(x \ge 0\))  
+- \(y\): number of servings of Kebab per day (continuous, \(y \ge 0\))
+
+Objective:  
+Minimize the total daily cost:
+\[
+\min \ Z = 3x + 2y
+\]
+
+Subject to nutritional constraints:
+
+1. Calorie requirement (at least 2200 calories):  
+   Each serving of Rice has 300 calories; each Kebab has 200 calories:
+   \[
+   300x + 200y \;\ge\; 2200
+   \]
+
+2. Protein requirement (at least 30 grams):  
+   Each serving of Rice has 4.5 g protein; each Kebab has 4 g protein:
+   \[
+   4.5x + 4y \;\ge\; 30
+   \]
+
+3. Non-negativity:
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+
+So the linear program is:
+
+\[
+\begin{aligned}
+\min \quad & 3x + 2y \\
+\text{s.t.} \quad
+& 300x + 200y \ge 2200 \\
+& 4.5x + 4y \ge 30 \\
+& x \ge 0,\ y \ge 0
+\end{aligned}
+\]
+
+---
+
+To solve this in Python, suitable linear programming libraries include:
+
+- **PuLP** (`pulp`) – simple modeling, integrates with CBC solver by default.
+- **SciPy** (`scipy.optimize.linprog`) – good for basic LPs.
+- **OR-Tools** (`ortools.linear_solver`) – powerful Google optimization library.
+
+For teaching/clarity, **PuLP** is a very natural choice for this problem.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the LP minimization problem
+    prob = pulp.LpProblem("Diet_Problem", pulp.LpMinimize)
+
+    # Decision variables: x = Rice servings, y = Kebab servings
+    x = pulp.LpVariable('x', lowBound=0, cat='Continuous')
+    y = pulp.LpVariable('y', lowBound=0, cat='Continuous')
+
+    # Objective function: Minimize cost = 3x + 2y
+    prob += 3 * x + 2 * y, "Total_Cost"
+
+    # Constraints
+    # 1) Calorie requirement: 300x + 200y >= 2200
+    prob += 300 * x + 200 * y >= 2200, "Calorie_Requirement"
+
+    # 2) Protein requirement: 4.5x + 4y >= 30
+    prob += 4.5 * x + 4 * y >= 30, "Protein_Requirement"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print the final objective value as requested
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,182 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total number of carts used while transporting at least 80 guests and respecting the space restriction on golf carts.
+
+2. Suggested model type  
+Model: Integer Linear Programming (small-scale; could also be solved as a simple integer optimisation problem).
+
+3. Main decision variables  
+Define two non-negative integer variables:
+- Number of golf carts to use.
+- Number of pull carts to use.
+
+(If needed, also define a helper variable for the total number of carts, but it’s not strictly necessary.)
+
+4. Key constraints to consider  
+
+a) Capacity (guest transport requirement)  
+- Each golf cart carries 4 guests.  
+- Each pull cart carries 1 guest.  
+- Combined capacity from chosen carts must be at least 80 guests.
+
+b) Golf cart proportion limit  
+- At most 60% of all carts in use can be golf carts.  
+- Express this as a relationship between the number of golf carts and the total number of carts. This will be a linear inequality tying golf carts to the sum of golf and pull carts.
+
+c) Non-negativity and integrality  
+- Both variables must be integers greater than or equal to zero (partial carts are not allowed).
+
+5. Objective function structure  
+- Objective: Minimise the sum of golf carts and pull carts (total number of carts).  
+- The model should search over integer combinations satisfying all constraints and choose the one with the smallest total cart count.
+
+6. Modelling notes / strategy  
+- Use the proportion constraint to link the two cart types; rearrange the “at most 60% golf carts” condition into a standard linear inequality to avoid ratios.  
+- Since the problem size is small and there are only two decision variables, you can also consider validating the optimal solution graphically or by simple enumeration around the feasible region.
+
+---
+
+[MODELER]:
+Here’s a clean mathematical model of the problem and how you’d solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of golf carts used (integer, \(\ge 0\))  
+- \(y\) = number of pull carts used (integer, \(\ge 0\))
+
+Both must be integers because you can’t use a fraction of a cart.
+
+---
+
+## 2. Objective
+
+Minimise the total number of carts:
+
+\[
+\min \; z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Capacity (guest transport requirement)
+
+Each golf cart carries 4 guests, each pull cart 1 guest. Need to transport at least 80 guests:
+
+\[
+4x + y \;\ge\; 80
+\]
+
+---
+
+### b) Golf cart proportion limit
+
+At most 60% of all carts used can be golf carts.
+
+\[
+\frac{x}{x+y} \;\le\; 0.6
+\]
+
+We must rewrite this as a linear inequality:
+
+\[
+\frac{x}{x+y} \le 0.6
+\quad\Longrightarrow\quad
+x \le 0.6(x + y)
+\]
+
+\[
+x \le 0.6x + 0.6y
+\quad\Longrightarrow\quad
+x - 0.6x \le 0.6y
+\quad\Longrightarrow\quad
+0.4x \le 0.6y
+\]
+
+\[
+\Longrightarrow\quad 2x \le 3y
+\]
+
+So the proportion constraint is:
+
+\[
+2x \;\le\; 3y
+\]
+
+(and implicitly \(x + y > 0\) is guaranteed by the guest requirement).
+
+---
+
+### c) Non-negativity and integrality
+
+\[
+x \in \mathbb{Z}_{\ge 0}, \quad y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Full ILP model
+
+\[
+\begin{aligned}
+\min\;& x + y \\
+\text{s.t. } & 4x + y \;\ge\; 80 \\
+             & 2x \;\le\; 3y \\
+             & x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+This is a small integer linear program. Any standard MILP/ILP or LP toolkit with integer capabilities works well:
+
+- **PuLP** (`pulp`) – very simple interface, uses CBC by default.
+- **OR-Tools** (`ortools.linear_solver` or `ortools.sat.python.cp_model`) – fast, good for discrete optimisation.
+- **Pyomo** – flexible algebraic modeling, good for scaling to more complex models.
+- **SciPy** (`scipy.optimize`) is *not* ideal here because its core LP solvers do not handle integrality directly; you would need a separate MILP solver.
+
+For a direct and easy implementation, **PuLP** or **OR-Tools** are the most straightforward choices.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: minimize total carts
+    prob = pulp.LpProblem("Golf_Pull_Cart_Problem", pulp.LpMinimize)
+
+    # Decision variables: x = golf carts, y = pull carts
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')
+
+    # Objective: minimize x + y
+    prob += x + y
+
+    # Constraint: capacity requirement 4x + y >= 80
+    prob += 4 * x + y >= 80
+
+    # Constraint: proportion limit 2x <= 3y
+    prob += 2 * x <= 3 * y
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    if pulp.LpStatus[prob.status] != 'Optimal':
+        raise RuntimeError("Optimal solution not found")
+
+    final_obj = pulp.value(prob.objective)
+
+    # Print the final objective in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

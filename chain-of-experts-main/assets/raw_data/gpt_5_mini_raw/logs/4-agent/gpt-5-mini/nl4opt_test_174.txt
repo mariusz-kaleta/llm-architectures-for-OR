@@ -1,0 +1,131 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Maximise the total number of patients whose temperature is taken during the office hours.
+
+2. Suggested model type
+- Model: Integer Linear Programming (ILP). A small 2-variable ILP is appropriate (LP relaxation will suffice for reasoning, but variables must be integer counts).
+
+3. Main decision variables
+- E = number of patients checked with the electronic thermometer.
+- R = number of patients checked with the regular thermometer.
+(Variables are non‑negative integers.)
+
+4. Key constraints to include
+- Time capacity: total time used by both thermometer types cannot exceed office open time. (Use unit times per patient: electronic = 3 minutes, regular = 2 minutes.)
+- Accuracy ratio: at least twice as many patients must use the electronic thermometer as the regular one (electronic count >= 2 × regular count).
+- Minimum regular uses: at least 50 patients must be checked by the regular thermometer.
+- Integrality and non-negativity: E and R must be non‑negative integers.
+
+5. Implementation / solution guidance for the Modeller
+- Mathematical structure: maximise E + R subject to the listed linear constraints.
+- Practical solution approach: solve the LP relaxation first; because variables are counts with simple integer coefficients and constraints, the LP optimum will be integral here. Also consider that to maximise total patients you will typically set the electronic count to its minimum allowed by the ratio constraint (E = 2R) and push R up until the time capacity binds. Use that boundary logic to compute the optimal integer solution quickly (or use any ILP solver).
+- Assumptions to confirm before modelling: there is a single stream of patients (one temperature taken at a time), times per reading are fixed and deterministic, and both thermometer types cannot be used in parallel on the same patient. If simultaneous/parallel use or multiple staff is possible, the time constraint must be reformulated.
+
+6. Outputs to produce
+- Optimal integer values for E and R.
+- Total patients processed and total time used.
+- Sensitivity notes: how total changes if office minutes or the ratio/minimum constraints change.
+
+---
+
+[MODELER]:
+Below I convert the textual problem into a compact mathematical model, solve it, and give solver recommendations plus sensitivity formulas.
+
+1) Variables
+- E ∈ Z, E ≥ 0 : number of patients checked with the electronic thermometer.
+- R ∈ Z, R ≥ 0 : number of patients checked with the regular thermometer.
+
+2) Parameters (given)
+- t_e = 3 minutes (time per electronic reading)
+- t_r = 2 minutes (time per regular reading)
+- T = 15000 minutes (total office time)
+- ratio requirement: E ≥ 2 R
+- minimum regular uses: R ≥ 50
+
+3) Objective
+Maximise total patients: maximize Z = E + R
+
+4) Constraints (linear)
+- Time capacity: 3E + 2R ≤ 15000
+- Accuracy ratio: E ≥ 2 R
+- Minimum regular uses: R ≥ 50
+- Integrality and nonnegativity: E, R ∈ Z, E ≥ 0, R ≥ 0
+
+5) Analytical solution reasoning
+For fixed R, E must be at least 2R. Because electronic readings take more time per patient (3 min) than regular (2 min), raising E above the minimal allowed (E = 2R) only consumes extra time without improving feasibility for more R. Thus at optimum we set E = 2R.
+
+Substitute E = 2R into time constraint:
+3(2R) + 2R = 8R ≤ 15000 → R ≤ 15000 / 8 = 1875.
+
+R must also be ≥ 50, so the feasible maximizing R is R* = floor(1875) = 1875 (≫ 50). Then E* = 2R* = 3750.
+
+6) Optimal solution (integer)
+- R* = 1875
+- E* = 3750
+- Total patients = E* + R* = 3750 + 1875 = 5625
+- Total time used = 3·3750 + 2·1875 = 11250 + 3750 = 15000 minutes (capacity exactly filled)
+
+7) Sensitivity / general formulas
+- With general total time T, ratio k (E ≥ kR), and times t_e, t_r:
+  - Optimal R = floor( T / (k t_e + t_r) ) provided this ≥ required minimum R_min; otherwise check feasibility.
+  - Optimal E = k·R
+  - Total patients = (k + 1) · R
+  - For this problem (k=2, t_e=3, t_r=2): R = floor(T / 8), total patients = 3·floor(T/8).
+- If R_min > floor(T / (k t_e + t_r)) → the problem is infeasible.
+- Marginal rate: here each increase of R by 1 (with E at 2R) consumes 8 minutes and yields +3 patients, so patients per minute = 3/8 = 0.375.
+
+8) Implementation suggestions
+This is a tiny ILP that can be solved analytically as above. If you want to model and solve numerically, use:
+- pulp (simple LP/ILP interface): good for small integer linear programs.
+- OR-Tools CP-SAT (ortools.sat.python): robust integer solver.
+- scipy.optimize is less suitable for integer constraints (would need rounding).
+
+Minimal Python (analytic) solution:
+- R = T // 8
+- E = 2 * R
+- total = 3 * R
+
+Or with pulp (explicit ILP):
+- Use pulp.LpVariable(..., lowBound=0, cat='Integer') and solve maximizing E+R subject to the constraints above.
+
+9) Assumptions / caveats
+- Single sequential stream of temperature readings (no parallel work).
+- Reading times are deterministic and fixed (3 and 2 minutes).
+- Each patient receives exactly one reading by one thermometer.
+- If staff can use multiple thermometers in parallel or there are multiple servers, the time constraint must be reformulated (e.g., in terms of staff-hours or parallel capacity).
+
+If you want, I can provide the exact pulp/ortools code snippet to solve this ILP or compute sensitivity tables (varying T, ratio k, or R_min).
+
+---
+
+[CODER]:
+```python
+# Self-contained solution for the ILP described:
+# Maximize E + R
+# s.t. 3E + 2R <= 15000, E >= 2R, R >= 50, E,R integers >= 0
+
+# Initialize data
+t_e = 3            # minutes per electronic reading
+t_r = 2            # minutes per regular reading
+T = 15000          # total minutes available
+k = 2              # ratio requirement E >= k * R
+R_min = 50         # minimum regular uses
+
+# Analytical solution:
+# For fixed R, set E = k * R (minimum allowed). Time constraint:
+# k*t_e*R + t_r*R <= T  => R <= T / (k*t_e + t_r)
+R_max = T // (k * t_e + t_r)
+
+if R_max < R_min:
+    # Infeasible: cannot satisfy minimum regular uses with available time
+    R_opt = None
+    E_opt = None
+    total_patients = 0
+else:
+    R_opt = R_max
+    E_opt = k * R_opt
+    total_patients = E_opt + R_opt
+
+# Final required print
+print(f"FINAL_OBJ: {total_patients}")
+```

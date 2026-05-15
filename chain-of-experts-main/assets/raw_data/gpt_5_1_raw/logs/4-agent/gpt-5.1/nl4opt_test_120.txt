@@ -1,0 +1,258 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- **Goal:** Maximize the total amount of minty foam produced by choosing how many times to perform each demonstration.
+
+2. **Suggested model type**
+
+- **Model:** Linear Programming (LP) with two decision variables and linear constraints.
+
+3. **Main decision variables**
+
+Define nonnegative, continuous variables (unless the problem is later specified to require integers):
+
+- \(x_1\): Number of times Demonstration 1 is performed.
+- \(x_2\): Number of times Demonstration 2 is performed.
+
+4. **Objective function (conceptually)**
+
+Each demo run produces minty foam:
+
+- Demo 1 produces 25 units of minty foam per run.
+- Demo 2 produces 18 units of minty foam per run.
+
+So the objective is:
+
+- **Maximize total foam:** foam from Demo 1 + foam from Demo 2.
+
+5. **Key constraints to consider**
+
+Use and production per run:
+
+- Demo 1 uses:
+  - 10 units of mint.
+  - 20 units of active ingredient.
+  - Produces 5 units of black tar.
+- Demo 2 uses:
+  - 12 units of mint.
+  - 15 units of active ingredient.
+  - Produces 3 units of black tar.
+
+Resource limits:
+
+1. **Mint availability constraint**
+   - Total mint used by both demos cannot exceed 120 units.
+   - Combine: (mint per Demo 1 × \(x_1\)) + (mint per Demo 2 × \(x_2\)) ≤ total available mint.
+
+2. **Active ingredient availability constraint**
+   - Total active ingredient used cannot exceed 100 units.
+   - Combine: (active per Demo 1 × \(x_1\)) + (active per Demo 2 × \(x_2\)) ≤ total available active ingredient.
+
+3. **Black tar production constraint**
+   - Total black tar generated cannot exceed 50 units.
+   - Combine: (tar per Demo 1 × \(x_1\)) + (tar per Demo 2 × \(x_2\)) ≤ max tar allowed.
+
+4. **Nonnegativity constraints**
+   - \(x_1 ≥ 0\)
+   - \(x_2 ≥ 0\)
+
+5. **(Optional, depending on interpretation) Integrality**
+   - If the context requires a whole number of demonstrations (likely in a real show):
+     - \(x_1\), \(x_2\) integer.
+   - Otherwise, keep them continuous for a standard LP relaxation.
+
+6. **Modelling strategy**
+
+- Formulate the objective and constraints as above in a standard LP form.
+- First solve the continuous LP:
+  - Identify which constraints are binding at optimum (likely mint, active ingredient, or tar).
+- If integer solutions are required:
+  - Apply an integer programming solver (MILP) with the same structure but integer restrictions on \(x_1, x_2\).
+- Optionally perform sensitivity analysis:
+  - How the optimal mix of demos changes if:
+    - Available mint or active ingredient changes.
+    - Max black tar limit changes.
+    - Foam yields per demonstration change.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model plus how you’d implement it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_1 \ge 0\): number of times Demonstration 1 is performed  
+- \(x_2 \ge 0\): number of times Demonstration 2 is performed  
+
+If the show must perform whole demonstrations, enforce \(x_1, x_2 \in \mathbb{Z}_{\ge 0}\); otherwise treat them as continuous (standard LP).
+
+---
+
+## 2. Objective function
+
+Each demonstration produces minty foam:
+
+- Demo 1: 25 units foam per run  
+- Demo 2: 18 units foam per run  
+
+Maximize total foam:
+
+\[
+\max Z = 25x_1 + 18x_2
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Mint availability
+
+- Demo 1 uses 10 units of mint per run  
+- Demo 2 uses 12 units of mint per run  
+- At most 120 units total:
+
+\[
+10x_1 + 12x_2 \le 120
+\]
+
+### 3.2 Active ingredient availability
+
+- Demo 1 uses 20 units per run  
+- Demo 2 uses 15 units per run  
+- At most 100 units total:
+
+\[
+20x_1 + 15x_2 \le 100
+\]
+
+### 3.3 Black tar limit
+
+- Demo 1 creates 5 units of black tar per run  
+- Demo 2 creates 3 units of black tar per run  
+- At most 50 units total:
+
+\[
+5x_1 + 3x_2 \le 50
+\]
+
+### 3.4 Nonnegativity (and optional integrality)
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+If needed:
+
+\[
+x_1, x_2 \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Final LP / MILP formulation
+
+**Linear program (continuous):**
+
+\[
+\begin{aligned}
+\max \quad & 25x_1 + 18x_2 \\
+\text{s.t.}\quad
+& 10x_1 + 12x_2 \le 120 \quad \text{(mint)}\\
+& 20x_1 + 15x_2 \le 100 \quad \text{(active ingredient)}\\
+& 5x_1 + 3x_2 \le 50 \quad \text{(black tar)}\\
+& x_1 \ge 0,\; x_2 \ge 0
+\end{aligned}
+\]
+
+**Integer version (MILP):** same, plus \(x_1, x_2 \in \mathbb{Z}_{\ge 0}\).
+
+---
+
+## 5. Suitable Python libraries
+
+Any LP/MILP solver can handle this easily. Good options:
+
+- `PuLP` (pure Python interface, can use CBC, GLPK, etc.)
+- `ortools.linear_solver` (Google OR-Tools)
+- `scipy.optimize.linprog` (for continuous LP only, no integrality)
+- Commercial: `gurobipy` (Gurobi), `docplex` (CP Optimizer / CPLEX)
+
+For teaching / simplicity, `PuLP` or OR-Tools is ideal.
+
+---
+
+## 6. Example PuLP implementation (continuous LP)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("MintyFoamMaximization", pl.LpMaximize)
+
+# Decision variables (continuous, >=0)
+x1 = pl.LpVariable("x1", lowBound=0)
+x2 = pl.LpVariable("x2", lowBound=0)
+
+# Objective
+prob += 25 * x1 + 18 * x2
+
+# Constraints
+prob += 10 * x1 + 12 * x2 <= 120     # Mint
+prob += 20 * x1 + 15 * x2 <= 100     # Active ingredient
+prob += 5 * x1 + 3 * x2 <= 50        # Black tar
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("x1 =", x1.value())
+print("x2 =", x2.value())
+print("Max foam =", pl.value(prob.objective))
+```
+
+To make it integer, just define:
+
+```python
+x1 = pl.LpVariable("x1", lowBound=0, cat="Integer")
+x2 = pl.LpVariable("x2", lowBound=0, cat="Integer")
+```
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem: maximization
+    prob = pl.LpProblem("MintyFoamMaximization", pl.LpMaximize)
+
+    # Decision variables (continuous, >= 0)
+    x1 = pl.LpVariable("x1", lowBound=0)
+    x2 = pl.LpVariable("x2", lowBound=0)
+
+    # Objective function: maximize total foam
+    prob += 25 * x1 + 18 * x2
+
+    # Constraints
+    # Mint availability
+    prob += 10 * x1 + 12 * x2 <= 120
+    # Active ingredient availability
+    prob += 20 * x1 + 15 * x2 <= 100
+    # Black tar limit
+    prob += 5 * x1 + 3 * x2 <= 50
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Retrieve objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print final objective as required
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

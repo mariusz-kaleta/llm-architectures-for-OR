@@ -1,0 +1,237 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise total production time needed to make wraps and platters while satisfying ingredient-usage and product-mix requirements.
+
+2. Suggested model type  
+Model: Linear Programming (LP) – two-variable linear minimisation problem.
+
+3. Main decision variables  
+Define:
+- \(x\): number of wraps to produce  
+- \(y\): number of platters to produce  
+
+4. Key constraints and structure  
+
+a) Objective function (to minimize)  
+- Each wrap takes 10 minutes.  
+- Each platter takes 8 minutes.  
+- Total time = 10·(number of wraps) + 8·(number of platters).  
+→ Objective: Minimise total time as a linear function of \(x\) and \(y\).
+
+b) Meat usage constraint  
+- Wrap: 5 units of meat  
+- Platter: 7 units of meat  
+- Must use at least 3000 units of meat.  
+→ Linear inequality involving 5x + 7y ≥ 3000.
+
+c) Rice usage constraint  
+- Wrap: 3 units of rice  
+- Platter: 5 units of rice  
+- Must use at least 2500 units of rice.  
+→ Linear inequality involving 3x + 5y ≥ 2500.
+
+d) Product mix (wrap dominance) constraint  
+- “At least 3 times as many wraps as platters”: wraps ≥ 3 × platters.  
+→ Linear inequality x ≥ 3y.
+
+e) Non-negativity and integrality  
+- Cannot make a negative number of items: x ≥ 0, y ≥ 0.  
+- In a stricter realistic version, x and y should be integers (but solving as a continuous LP first is fine; then check nearby integers).
+
+5. Modelling/solution strategy  
+
+- Formulate the LP with the single objective and three main linear constraints plus non-negativity.  
+- Because there are only two decision variables, you can:
+  - Solve algebraically using binding constraints (find intersection points of pairs of constraints) or  
+  - Use a graphical method: plot the feasible region and evaluate the objective at corner points.  
+- Identify all candidate corner points from:
+  - Intersection of meat and rice constraints  
+  - Intersection of meat and wrap-ratio constraint  
+  - Intersection of rice and wrap-ratio constraint  
+  - Any intersections with axes that still satisfy all constraints (though x ≥ 3y will often rule out many axis points except possibly x-axis).  
+- Evaluate total time at each feasible corner and select the minimum.  
+- If you want integer solutions, round to nearby integer points around the optimal continuous solution and check feasibility and objective value.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, plus how you could solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x \ge 0\): number of wraps to produce  
+- \(y \ge 0\): number of platters to produce  
+
+(Optionally, you can later require \(x, y\) to be integers.)
+
+---
+
+## 2. Objective: Minimise total production time
+
+- Each wrap takes 10 minutes.  
+- Each platter takes 8 minutes.
+
+Total production time (in minutes):  
+\[
+T = 10x + 8y
+\]
+
+**Objective function:**
+\[
+\min\; 10x + 8y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Meat usage (at least 3000 units)
+
+- Wrap: 5 units of meat  
+- Platter: 7 units of meat  
+
+\[
+5x + 7y \;\ge\; 3000
+\]
+
+---
+
+### b) Rice usage (at least 2500 units)
+
+- Wrap: 3 units of rice  
+- Platter: 5 units of rice  
+
+\[
+3x + 5y \;\ge\; 2500
+\]
+
+---
+
+### c) Product mix: wraps dominate
+
+“At least 3 times as many wraps as platters”:
+
+\[
+x \;\ge\; 3y
+\]
+
+---
+
+### d) Non-negativity (and optional integrality)
+
+\[
+x \;\ge\; 0,\quad y \;\ge\; 0
+\]
+
+Optionally:
+\[
+x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete LP model
+
+\[
+\begin{aligned}
+\min\; & 10x + 8y \\
+\text{s.t. } 
+& 5x + 7y \ge 3000 \\
+& 3x + 5y \ge 2500 \\
+& x - 3y \ge 0 \\
+& x \ge 0,\; y \ge 0 \\
+& \text{(optionally } x, y \in \mathbb{Z})
+\end{aligned}
+\]
+
+This is a small linear program (LP) with 2 variables and 3 main constraints.
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard LP solver will handle this easily. In Python, good options:
+
+- **PuLP**: Very simple for small LP/IP problems; pure Python, uses CBC by default.
+- **OR-Tools (Linear Solver)**: Industrial-strength; supports multiple solvers (CBC, GLOP, SCIP, etc.).
+- **scipy.optimize.linprog**: Works well for continuous LP (no integrality).
+
+Because this is a textbook-style LP with possible integrality, **PuLP** or **OR-Tools** are most suitable.
+
+---
+
+## 6. Example PuLP implementation
+
+Here is how you could encode and solve the model (continuous version) in PuLP:
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Wraps_Platters_Time_Min", pl.LpMinimize)
+
+# Decision variables (continuous; add cat='Integer' if you want integrality)
+x = pl.LpVariable('wraps', lowBound=0)
+y = pl.LpVariable('platters', lowBound=0)
+
+# Objective
+prob += 10 * x + 8 * y, "Total_Time"
+
+# Constraints
+prob += 5 * x + 7 * y >= 3000, "Meat"
+prob += 3 * x + 5 * y >= 2500, "Rice"
+prob += x - 3 * y >= 0,        "Wraps_at_least_3_times_platters"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal wraps (x):", x.value())
+print("Optimal platters (y):", y.value())
+print("Minimum total time:", pl.value(prob.objective))
+```
+
+To enforce integer solutions:
+
+```python
+x = pl.LpVariable('wraps', lowBound=0, cat='Integer')
+y = pl.LpVariable('platters', lowBound=0, cat='Integer')
+```
+
+The same constraints and objective stay unchanged.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem: minimize total production time
+    prob = pl.LpProblem("Wraps_Platters_Time_Min", pl.LpMinimize)
+
+    # Decision variables (integer version as optional integrality is allowed)
+    x = pl.LpVariable('wraps', lowBound=0, cat='Integer')
+    y = pl.LpVariable('platters', lowBound=0, cat='Integer')
+
+    # Objective function: minimize 10x + 8y
+    prob += 10 * x + 8 * y, "Total_Time"
+
+    # Constraints
+    prob += 5 * x + 7 * y >= 3000, "Meat"
+    prob += 3 * x + 5 * y >= 2500, "Rice"
+    prob += x - 3 * y >= 0,        "Wraps_at_least_3_times_platters"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Final required output
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,135 @@
+[MODELER]:
+Below is a clear formulation of the problem as an integer linear program, followed by a short explanation and a ready-to-run Python example using PuLP (an MILP solver). I also state the optimal solution.
+
+Mathematical model
+- Decision variables (integers)
+  - A = number of motion-activated machines (motion)
+  - B = number of manual machines (manual)
+
+- Objective
+  - Minimize total machines: minimize Z = A + B
+
+- Constraints (all linear)
+  1. Minimum dispensing capacity:
+     50 A + 75 B >= 1000
+     (equivalently 2A + 3B >= 40, dividing by 25)
+  2. Maximum energy use:
+     30 A + 20 B <= 500
+     (equivalently 3A + 2B <= 50, dividing by 10)
+  3. At most 40% can be manual:
+     B <= 0.4 (A + B)
+     -> 0.6 B <= 0.4 A -> multiply by 5: 3B <= 2A
+     (i.e. 3B <= 2A)
+  4. At least 3 motion-activated:
+     A >= 3
+  5. Integrality and nonnegativity:
+     A, B integers, A >= 3, B >= 0
+
+Summary of the linearized system:
+- Minimize Z = A + B
+- s.t.
+  - 2A + 3B >= 40
+  - 3A + 2B <= 50
+  - 2A - 3B >= 0
+  - A >= 3
+  - A, B ∈ Z_{\ge 0}
+
+Optimal solution (by solving the ILP)
+- A = 11 motion-activated machines
+- B = 6 manual machines
+- Total = 17 machines
+
+Verification:
+- Capacity: 50*11 + 75*6 = 550 + 450 = 1000 drops/min (meets requirement)
+- Energy:   30*11 + 20*6 = 330 + 120 = 450 kWh (<= 500)
+- Manual share: 6 / 17 ≈ 35.29% (<= 40%)
+- A >= 3 satisfied
+
+Suggested solvers / Python libraries
+- PuLP (simple MILP interface, solves with CBC by default)
+- OR-Tools (CP-SAT solver is fast for integer problems)
+- Gurobi, CPLEX (commercial, very fast if available)
+- For a small exhaustive check, plain Python looping is sufficient
+
+Example: PuLP code
+(you can paste and run this in a Python environment with pulp installed)
+
+from pulp import LpProblem, LpMinimize, LpVariable, LpInteger, lpSum, PULP_CBC_CMD, value
+
+# Create model
+prob = LpProblem("SanitizerMachines", LpMinimize)
+
+# Variables
+A = LpVariable("A", lowBound=3, cat=LpInteger)   # motion-activated
+B = LpVariable("B", lowBound=0, cat=LpInteger)   # manual
+
+# Objective
+prob += A + B
+
+# Constraints
+prob += 50*A + 75*B >= 1000          # capacity
+prob += 30*A + 20*B <= 500           # energy
+prob += 3*B <= 2*A                   # manual <= 40% linearized
+
+# Solve
+prob.solve(PULP_CBC_CMD(msg=False))
+print("Status:", prob.status)
+print("A (motion) =", int(value(A)))
+print("B (manual) =", int(value(B)))
+print("Total =", int(value(A) + value(B)))
+
+Running this returns A = 11, B = 6.
+
+If you want, I can provide an OR-Tools CP-SAT model or a small brute-force checker that enumerates feasible integer pairs and finds the minimum.
+
+---
+
+[CODER]:
+import math
+
+# Brute-force search for the integer solution
+best_obj = None
+best_solutions = []
+
+# Iterate A from 3 up to a reasonable upper bound.
+# Energy constraint: 3A + 2B <= 50 implies A <= 16 when B >= 0,
+# so we can cap A at 50 safely, but 3A<=50 -> A<=16 is sufficient.
+for A in range(3, 51):
+    # From 2A + 3B >= 40 -> B >= ceil((40 - 2A)/3)
+    minB_1 = math.ceil((40 - 2 * A) / 3)
+    # From 3A + 2B <= 50 -> B <= floor((50 - 3A)/2)
+    maxB_2 = math.floor((50 - 3 * A) / 2)
+    # From 2A - 3B >= 0 -> B <= floor(2A/3)
+    maxB_3 = math.floor((2 * A) / 3)
+
+    minB = max(0, minB_1)
+    maxB = min(maxB_2, maxB_3)
+
+    if maxB < minB:
+        continue
+
+    for B in range(minB, maxB + 1):
+        # Double-check original constraints (using original coefficients) to be safe
+        if 50 * A + 75 * B < 1000:
+            continue
+        if 30 * A + 20 * B > 500:
+            continue
+        if B > 0.4 * (A + B):
+            continue
+        # All constraints satisfied
+        obj = A + B
+        if best_obj is None or obj < best_obj:
+            best_obj = obj
+            best_solutions = [(A, B)]
+        elif obj == best_obj:
+            best_solutions.append((A, B))
+
+# Print found solutions (optional), then final objective as required
+if best_obj is None:
+    print("No feasible solution found.")
+else:
+    # Print the solutions found
+    for (A, B) in best_solutions:
+        print(f"A (motion) = {A}, B (manual) = {B}, Total = {A+B}")
+    # Final required line (must be last and exact format)
+    print(f"FINAL_OBJ: {best_obj}")

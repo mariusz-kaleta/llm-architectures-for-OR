@@ -1,0 +1,180 @@
+[MODELER]:
+Let’s model this as a linear optimization problem.
+
+### 1. Decision variables
+
+Let  
+- \( x \) = number of hours allocated to the specialized company  
+- \( y \) = number of hours allocated to the common company  
+
+### 2. Derived quantities
+
+Images annotated by each company:
+
+- Specialized company: \( 60x \) images  
+- Common company: \( 40y \) images  
+
+Total images annotated:
+
+\[
+60x + 40y
+\]
+
+### 3. Objective function (minimize total cost)
+
+Cost per hour:
+
+- Specialized: \$100/hour  
+- Common: \$72/hour  
+
+Total cost to minimize:
+
+\[
+\min \; C = 100x + 72y
+\]
+
+### 4. Constraints
+
+1. **Total images at least 10,000**
+
+\[
+60x + 40y \;\geq\; 10{,}000
+\]
+
+2. **At least one-third of work (images) must go to specialized**
+
+“At least a third of work” interpreted as a fraction of images:
+
+\[
+60x \;\geq\; \frac{1}{3}(60x + 40y)
+\]
+
+Multiply both sides by 3 to simplify:
+
+\[
+180x \ge 60x + 40y \\
+120x \ge 40y \\
+3x \ge y
+\quad\Rightarrow\quad
+y \le 3x
+\]
+
+3. **Non-negativity**
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+So the full model is:
+
+\[
+\begin{aligned}
+\min\;\; & 100x + 72y \\
+\text{s.t.}\;\; & 60x + 40y \ge 10{,}000 \\
+& y \le 3x \\
+& x, y \ge 0
+\end{aligned}
+\]
+
+### 5. Solving the model analytically
+
+Because the common company is cheaper per image:
+
+- Specialized: \$100/60 ≈ \$1.667 per image  
+- Common: \$72/40 = \$1.8 per image  
+
+The specialized company is actually cheaper per image. So the cost-minimizing solution under the constraints will use **as many specialized hours as possible** and only use common hours if absolutely needed by constraints (here it’s not needed).
+
+Check if using only specialized company can satisfy all constraints:
+
+Let \( y = 0 \).
+
+- Image constraint: \(60x \ge 10{,}000 \Rightarrow x \ge \frac{10{,}000}{60} \approx 166.\overline{6}\) hours.
+- One-third constraint: \( y \le 3x \Rightarrow 0 \le 3x\) holds automatically.
+
+So a feasible and cost-minimizing solution is:
+
+\[
+x = \frac{10{,}000}{60} \approx 166.67 \text{ hours}, \quad y = 0 \text{ hours}
+\]
+
+Total cost:
+
+\[
+C = 100 \times 166.67 \approx \$16{,}667
+\]
+
+If integrality on hours or images is required, you can round up the hours or require integer image counts, but the structure of the optimal solution will remain: **use only the specialized company** until the image requirement is met.
+
+### 6. Suitable Python libraries
+
+This is a simple linear program (LP). Suitable Python tools to model and solve it:
+
+- **PuLP** (`pulp`) – very straightforward for LPs.
+- **OR-Tools Linear Solver** (`ortools.linear_solver.pywraplp`) – efficient and widely used.
+- **SciPy** (`scipy.optimize.linprog`) – general-purpose LP solver.
+
+#### Example with PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("AnnotationCostMinimization", pl.LpMinimize)
+
+# Decision variables (continuous)
+x = pl.LpVariable("hours_specialized", lowBound=0)
+y = pl.LpVariable("hours_common", lowBound=0)
+
+# Objective
+prob += 100 * x + 72 * y
+
+# Constraints
+prob += 60 * x + 40 * y >= 10000, "TotalImages"
+prob += y <= 3 * x, "OneThirdToSpecialized"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Hours specialized (x):", x.value())
+print("Hours common (y):", y.value())
+print("Minimum cost:", pl.value(prob.objective))
+```
+
+This will return approximately \( x = 166.67 \), \( y = 0 \), with minimum total cost around \$16,667.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the linear program: minimize cost
+    prob = pl.LpProblem("AnnotationCostMinimization", pl.LpMinimize)
+
+    # Decision variables (continuous, non-negative)
+    x = pl.LpVariable("hours_specialized", lowBound=0)
+    y = pl.LpVariable("hours_common", lowBound=0)
+
+    # Objective function: minimize 100x + 72y
+    prob += 100 * x + 72 * y
+
+    # Constraints
+    # 1) Total images at least 10,000: 60x + 40y >= 10000
+    prob += 60 * x + 40 * y >= 10000, "TotalImages"
+
+    # 2) At least one-third of images to specialized: y <= 3x
+    prob += y <= 3 * x, "OneThirdToSpecialized"
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective strictly in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

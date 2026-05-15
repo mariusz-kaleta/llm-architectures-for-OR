@@ -1,0 +1,69 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - T ∈ Z≥0 : number of truck trips
+  - C ∈ Z≥0 : number of car trips
+
+- Objective
+  - Minimize total gas: minimize Z = 20 T + 15 C  (liters)
+
+- Constraints
+  1. Package demand: 50 T + 30 C ≥ 500
+     (equivalently 5 T + 3 C ≥ 50)
+  2. Truck trip limit: T ≤ 5
+  3. At least 30% of trips by car: C ≥ 0.3 (T + C)
+     (rearrange to integer-coefficient form: 7 C - 3 T ≥ 0)
+  4. Integrality: T, C are nonnegative integers
+
+Solving analytically (small integer range)
+- Because T ≤ 5, enumerate T = 0..5 and for each take the smallest integer C satisfying both package and 30%-by-car constraints:
+  - C ≥ ceil((50 - 5 T)/3) and C ≥ ceil(3/7 T)
+- Evaluating:
+  - T=0 → C=17 → gas = 0*20 + 17*15 = 255 L
+  - T=1 → C=15 → gas = 20 + 225 = 245 L
+  - T=2 → C=14 → gas = 40 + 210 = 250 L
+  - T=3 → C=12 → gas = 60 + 180 = 240 L
+  - T=4 → C=10 → gas = 80 + 150 = 230 L  ← minimum
+  - T=5 → C=9  → gas = 100 + 135 = 235 L
+
+Optimal solution: use 4 truck trips and 10 car trips; minimum total gas = 230 liters.
+
+Recommended libraries to solve this
+- For direct integer linear programming: PuLP (interface to CBC), OR-Tools (CP-SAT), or Gurobi/Cplex if available.
+- For simple enumeration or small problems: plain Python or numpy is sufficient.
+
+Example (quick Python enumeration)
+- Approach: loop T in 0..5, compute minimal feasible C and evaluate objective. This is simplest and exact given the small T range.
+- If you prefer a solver, model the two integer variables and the linear constraints in PuLP or OR-Tools and solve with their MIP solver.
+
+---
+
+[CODER]:
+import math
+
+# Data / parameters
+cost_truck = 20
+cost_car = 15
+demand_per_truck = 50
+demand_per_car = 30
+total_demand = 500
+max_trucks = 5
+
+best_obj = None
+best_solution = None
+
+for T in range(0, max_trucks + 1):
+    # package constraint: 50 T + 30 C >= 500  -> C >= (500 - 50T)/30 = (50 - 5T)/3
+    # car-share constraint: C >= (3/7) T
+    c_req_packages = math.ceil((50 - 5 * T) / 3)
+    c_req_share = math.ceil((3 * T) / 7)
+    C = max(0, c_req_packages, c_req_share)
+    obj = cost_truck * T + cost_car * C
+
+    if (best_obj is None) or (obj < best_obj):
+        best_obj = obj
+        best_solution = (T, C)
+
+# best_obj should be the minimal total gas
+print(f"FINAL_OBJ: {best_obj}")

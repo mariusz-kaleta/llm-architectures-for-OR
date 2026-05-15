@@ -1,0 +1,97 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x ∈ Z≥0 : number of staff teachers (6 hours, $300 each)
+  - y ∈ Z≥0 : number of substitute teachers (3 hours, $100 each)
+
+- Objective
+  - Minimize total number of teachers: minimize z = x + y
+
+- Constraints
+  - Hours requirement: 6x + 3y ≥ 1000
+  - Budget limit: 300x + 100y ≤ 40000
+  - Integrality: x, y integers ≥ 0
+
+Objective function
+  minimize z = x + y
+
+Solution (analysis and numeric)
+- For a given x, the minimum y to meet hours is y ≥ ceil((1000 − 6x)/3).
+- For feasibility y must also satisfy y ≤ floor((40000 − 300x)/100).
+- Increasing x reduces x + required y, so the best feasible x is the largest integer x that still allows a feasible y.
+
+Compute x = 66:
+- Required y = ceil((1000 − 6·66)/3) = ceil((1000 − 396)/3) = ceil(604/3) = 202
+- Budget check: 300·66 + 100·202 = 19800 + 20200 = 40000 (within budget)
+- Hours check: 6·66 + 3·202 = 396 + 606 = 1002 ≥ 1000
+
+x = 66, y = 202 is feasible and gives total teachers 268. Any larger x is infeasible because of the budget; any smaller x gives a larger total x+y. Hence the optimal integer solution is:
+
+- Staff teachers: 66
+- Substitute teachers: 202
+- Total teachers: 268
+
+Suggested solvers / Python libraries
+- For integer linear programming: pulp (CBC), OR-Tools (CP-SAT or linear solver), mip (CBC/Gurobi), or Pyomo with a suitable MILP solver.
+- For continuous relaxation or quick LP: scipy.optimize.linprog or cvxpy (but you need integer solvers for the true problem).
+
+Example (pulp) sketch
+- Define LpProblem, LpVariables x,y as LpInteger ≥0
+- Add constraints 6*x + 3*y >= 1000 and 300*x + 100*y <= 40000
+- Objective minimize x + y
+- Solve and read x.value(), y.value()
+
+This will return x = 66, y = 202 (total 268).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data
+staff_hours = 6       # hours per staff teacher (x)
+sub_hours = 3         # hours per substitute teacher (y)
+staff_cost = 300      # cost per staff teacher
+sub_cost = 100        # cost per substitute teacher
+hours_req = 1000      # required total hours
+budget = 40000        # budget limit
+
+# Bounds for search
+x_max = budget // staff_cost  # max possible staff teachers by budget
+
+best_obj = None
+best_x = None
+best_y = None
+
+for x in range(x_max + 1):
+    # minimum y to satisfy hours
+    rem_hours = hours_req - staff_hours * x
+    if rem_hours <= 0:
+        y_min_hours = 0
+    else:
+        y_min_hours = math.ceil(rem_hours / sub_hours)
+    # maximum y allowed by budget
+    rem_budget = budget - staff_cost * x
+    if rem_budget < 0:
+        continue
+    y_max_budget = rem_budget // sub_cost
+
+    if y_min_hours <= y_max_budget:
+        y = y_min_hours
+        obj = x + y
+        if (best_obj is None) or (obj < best_obj):
+            best_obj = obj
+            best_x = x
+            best_y = y
+
+# Final check: ensure we found a feasible solution
+if best_obj is None:
+    # No feasible solution; set to a sentinel (could also raise)
+    best_obj = float('inf')
+
+# The required final output line
+print(f"FINAL_OBJ: {best_obj}")
+```

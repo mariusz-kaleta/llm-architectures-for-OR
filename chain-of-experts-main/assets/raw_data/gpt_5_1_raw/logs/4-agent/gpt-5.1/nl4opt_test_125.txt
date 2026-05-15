@@ -1,0 +1,248 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the gorilla’s total sugar intake from bananas and mangoes while meeting its nutritional and preference requirements.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with two continuous decision variables (can later be restricted to integers if whole fruits are required).
+
+3. Main decision variables  
+Define:  
+- \(B\): number of bananas to feed the gorilla per day  
+- \(M\): number of mangoes to feed the gorilla per day  
+
+4. Objective function (conceptual)  
+Minimise total sugar:  
+- Each banana: 10 g sugar  
+- Each mango: 8 g sugar  
+
+Objective: Minimise \(10B + 8M\) (total grams of sugar).
+
+5. Key constraints to consider  
+
+a) Calorie requirement (minimum)  
+- Banana: 80 calories  
+- Mango: 100 calories  
+- Gorilla must consume at least 4000 calories.  
+Constraint:  
+- Total calories from bananas and mangoes ≥ 4000
+
+b) Potassium requirement (minimum)  
+- Banana: 20 g potassium  
+- Mango: 15 g potassium  
+- Gorilla must consume at least 150 g potassium.  
+Constraint:  
+- Total potassium from bananas and mangoes ≥ 150
+
+c) Mango proportion limit (preference constraint)  
+- At most 33% of the fruits can be mangoes.  
+- Formally: \(M \leq 0.33(B + M)\).  
+This is a ratio constraint; for LP formulation, rewrite to a linear form (e.g., by moving all terms to one side so only linear terms appear; avoid divisions by decision variables).
+
+d) Non-negativity  
+- The gorilla cannot eat a negative amount of fruit:  
+  - \(B \geq 0\)  
+  - \(M \geq 0\)
+
+e) (Optional, if required) Integrality  
+- If the context requires whole fruits only, specify:  
+  - \(B\), \(M\) are non-negative integers.  
+- Note: The LP relaxation will often produce integer solutions here due to problem structure, but integrality can be added explicitly in an integer programming variant if needed.
+
+6. Modelling sequence for the Modeller  
+
+1) Define decision variables \(B\) and \(M\).  
+2) Express the objective function as the linear sugar expression.  
+3) Translate nutritional requirements into linear inequalities for calories and potassium.  
+4) Linearise the “at most 33% mangoes” condition; check that this is equivalent to the proportion requirement and correctly restricts the feasible region.  
+5) Add non-negativity (and, if needed, integrality) constraints.  
+6) Solve the LP; verify that the optimal solution satisfies all original logical/nutritional conditions, especially the mango proportion cap.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model of the problem, followed by recommendations for Python libraries.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(B \ge 0\): number of bananas fed to the gorilla per day  
+- \(M \ge 0\): number of mangoes fed to the gorilla per day  
+
+(Optionally, you may require \(B, M\) to be integers if only whole fruits are allowed.)
+
+---
+
+## 2. Objective function
+
+Minimise total sugar intake.
+
+- Each banana has 10 g sugar  
+- Each mango has 8 g sugar  
+
+Objective:
+\[
+\min\; Z = 10B + 8M
+\]
+
+---
+
+## 3. Constraints
+
+### a) Calorie requirement
+
+- Banana: 80 calories  
+- Mango: 100 calories  
+- Total calories \(\ge 4000\)
+
+\[
+80B + 100M \;\ge\; 4000
+\]
+
+### b) Potassium requirement
+
+- Banana: 20 g potassium  
+- Mango: 15 g potassium  
+- Total potassium \(\ge 150\) g
+
+\[
+20B + 15M \;\ge\; 150
+\]
+
+### c) Mango proportion limit (preference constraint)
+
+“At most 33% of the fruits can be mangoes”:
+
+\[
+\frac{M}{B + M} \;\le\; 0.33
+\quad\text{whenever } B + M > 0
+\]
+
+To keep the model linear, rewrite without division:
+
+\[
+M \le 0.33(B + M)
+\]
+
+Move terms to one side:
+
+\[
+M - 0.33B - 0.33M \le 0
+\quad\Rightarrow\quad
+0.67M - 0.33B \le 0
+\]
+
+For nicer integer coefficients, multiply by 100 (any positive factor preserves the inequality):
+
+\[
+67M - 33B \le 0
+\quad\text{or equivalently}\quad
+67M \le 33B
+\]
+
+This linear constraint enforces that mangoes are at most 33% of total fruits (except in the trivial case \(B = M = 0\), which will never be optimal or feasible due to nutritional constraints).
+
+### d) Non-negativity
+
+\[
+B \ge 0,\quad M \ge 0
+\]
+
+### e) (Optional) Integrality
+
+If whole fruits are required:
+
+\[
+B, M \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Full LP / MILP formulation
+
+**Linear program (continuous version):**
+
+\[
+\begin{aligned}
+\min\quad & 10B + 8M \\
+\text{s.t.}\quad 
+& 80B + 100M \ge 4000 && \text{(calories)} \\
+& 20B + 15M \ge 150 && \text{(potassium)} \\
+& 67M \le 33B && \text{(mango proportion)} \\
+& B \ge 0,\ M \ge 0
+\end{aligned}
+\]
+
+**Integer program (if whole fruits only):**
+
+Same as above, plus \(B, M \in \mathbb{Z}_{\ge 0}\).
+
+---
+
+## 5. Suitable Python libraries and suggestions
+
+You can implement and solve this model with any standard LP/MIP solver interface. Recommended options:
+
+- **PuLP**  
+  - Simple, pure-Python, good for teaching and small/medium problems.  
+  - Can use CBC (default), GLPK, or commercial solvers if installed.
+  - Typical workflow: define `LpProblem`, `LpVariable` for `B`, `M`, add constraints, solve.
+
+- **OR-Tools (Google OR-Tools)**  
+  - Very efficient, supports linear, integer, and constraint programming.  
+  - Use `pywraplp.Solver` (e.g., `GLOP` or `CBC_MIXED_INTEGER_PROGRAMMING`).  
+  - Good if you might extend the model later (more foods, more constraints, scheduling, etc.).
+
+- **SciPy (`scipy.optimize.linprog`)**  
+  - Works well for continuous LPs (no integrality).  
+  - Suitable if you accept fractional fruits, or want to first solve the LP relaxation.
+
+- **Pyomo**  
+  - More general algebraic modeling language; good if the model may grow or need more structure.  
+  - Can connect to open-source (CBC, GLPK) or commercial solvers.
+
+For this specific problem:
+
+- If you want a quick educational implementation: **PuLP** is likely the easiest.
+- If you require integrality and plan to scale up: **OR-Tools** or **Pyomo** with a MIP solver are strong choices.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: minimize total sugar
+    prob = pulp.LpProblem("Gorilla_Diet", pulp.LpMinimize)
+
+    # Decision variables: number of bananas (B) and mangoes (M), non-negative integers
+    B = pulp.LpVariable('B', lowBound=0, cat='Integer')
+    M = pulp.LpVariable('M', lowBound=0, cat='Integer')
+
+    # Objective function: Minimize sugar = 10B + 8M
+    prob += 10 * B + 8 * M, "Total_Sugar"
+
+    # Constraints
+
+    # Calorie requirement: 80B + 100M >= 4000
+    prob += 80 * B + 100 * M >= 4000, "Calories"
+
+    # Potassium requirement: 20B + 15M >= 150
+    prob += 20 * B + 15 * M >= 150, "Potassium"
+
+    # Mango proportion constraint: 67M <= 33B
+    prob += 67 * M <= 33 * B, "Mango_Proportion"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

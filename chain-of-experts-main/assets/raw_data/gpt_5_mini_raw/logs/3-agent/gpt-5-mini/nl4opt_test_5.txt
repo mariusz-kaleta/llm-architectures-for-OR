@@ -1,0 +1,202 @@
+[MODELER]:
+Model
+
+Decision variables
+- H = square feet of hardwood produced per week (continuous).
+- V = square feet of vinyl produced per week (continuous).
+
+Objective
+- Maximize profit P = 2.5 H + 3.0 V.
+
+Constraints
+- Demand lower bounds:
+  - H ≥ 20,000
+  - V ≥ 10,000
+- Shipping contract:
+  - H + V ≥ 60,000
+- Production capacity (labor shortage):
+  - H ≤ 50,000
+  - V ≤ 30,000
+- Nonnegativity:
+  - H ≥ 0, V ≥ 0 (implicitly covered by the above).
+
+Mathematical formulation
+Maximize
+  P = 2.5 H + 3.0 V
+subject to
+  H ≥ 20,000
+  V ≥ 10,000
+  H + V ≥ 60,000
+  H ≤ 50,000
+  V ≤ 30,000
+
+Solution (analysis)
+Because both profit coefficients are positive, profit increases by producing more of either product. The objective is therefore maximized by taking both variables to their upper capacity limits, provided other constraints remain satisfied. The capacity limits H ≤ 50,000 and V ≤ 30,000 are feasible with the lower bounds and the shipping constraint (50,000 + 30,000 = 80,000 ≥ 60,000).
+
+Optimal production levels
+- H* = 50,000 sq ft (hardwood)
+- V* = 30,000 sq ft (vinyl)
+
+Maximum weekly profit
+P* = 2.5·50,000 + 3.0·30,000 = 125,000 + 90,000 = $215,000
+
+Suggested solvers / Python libraries
+- PuLP (pure-Python linear programming; easy to express LPs)
+- scipy.optimize.linprog (good for small LPs; minimizes objective)
+- OR-Tools (Google's solver; fast and feature-rich)
+- CVXPY (higher-level convex optimization interface)
+
+Example (PuLP) code snippet
+
+from pulp import LpProblem, LpMaximize, LpVariable, lpSum, value
+
+# Define problem
+prob = LpProblem("Flooring_Profit", LpMaximize)
+
+# Decision variables
+H = LpVariable("H", lowBound=0)
+V = LpVariable("V", lowBound=0)
+
+# Objective
+prob += 2.5 * H + 3.0 * V
+
+# Constraints
+prob += H >= 20000
+prob += V >= 10000
+prob += H + V >= 60000
+prob += H <= 50000
+prob += V <= 30000
+
+prob.solve()
+
+print("H =", H.varValue)
+print("V =", V.varValue)
+print("Profit =", value(prob.objective))
+
+This will return H = 50000, V = 30000, Profit = 215000.
+
+If you want, I can provide the scipy.optimize.linprog version or plot the feasible region and objective contours.
+
+---
+
+[CODER]:
+import math
+
+# Problem data
+profit_H = 2.5
+profit_V = 3.0
+
+H_min = 20000
+V_min = 10000
+H_max = 50000
+V_max = 30000
+shipping_min = 60000  # H + V >= shipping_min
+
+# Define boundary specifications
+boundaries = [
+    ("H_eq", H_min),
+    ("H_eq", H_max),
+    ("V_eq", V_min),
+    ("V_eq", V_max),
+    ("HV_eq", shipping_min),  # H + V = shipping_min
+]
+
+def is_feasible(H, V):
+    # Check all constraints
+    if H < H_min - 1e-9: return False
+    if V < V_min - 1e-9: return False
+    if H + V < shipping_min - 1e-9: return False
+    if H > H_max + 1e-9: return False
+    if V > V_max + 1e-9: return False
+    return True
+
+candidates = []
+
+# Generate candidate points by intersecting pairs of boundaries
+n = len(boundaries)
+for i in range(n):
+    for j in range(i+1, n):
+        b1, val1 = boundaries[i]
+        b2, val2 = boundaries[j]
+
+        H = None
+        V = None
+        # H_eq & V_eq
+        if b1 == "H_eq" and b2 == "V_eq":
+            H = val1
+            V = val2
+        elif b1 == "V_eq" and b2 == "H_eq":
+            H = val2
+            V = val1
+        # H_eq & HV_eq => V = shipping - H
+        elif b1 == "H_eq" and b2 == "HV_eq":
+            H = val1
+            V = val2 - H
+        elif b2 == "H_eq" and b1 == "HV_eq":
+            H = val2
+            V = val1 - H
+        # V_eq & HV_eq => H = shipping - V
+        elif b1 == "V_eq" and b2 == "HV_eq":
+            V = val1
+            H = val2 - V
+        elif b2 == "V_eq" and b1 == "HV_eq":
+            V = val2
+            H = val1 - V
+        # H_eq & H_eq or V_eq & V_eq or HV_eq & HV_eq produce either same line or inconsistent; skip
+
+        if H is None or V is None:
+            continue
+
+        # Only consider finite numeric candidates
+        if math.isfinite(H) and math.isfinite(V):
+            candidates.append((H, V))
+
+# Also consider the intersections of single-variable bounds combinations explicitly (corners)
+# (H_min, V_min), (H_min, V_max), (H_max, V_min), (H_max, V_max)
+corners = [
+    (H_min, V_min),
+    (H_min, V_max),
+    (H_max, V_min),
+    (H_max, V_max),
+]
+for c in corners:
+    candidates.append(c)
+
+# Filter feasible candidates and evaluate objective
+best_obj = -math.inf
+best_point = None
+for H, V in candidates:
+    if is_feasible(H, V):
+        obj = profit_H * H + profit_V * V
+        if obj > best_obj + 1e-9:
+            best_obj = obj
+            best_point = (H, V)
+
+# As a fallback (shouldn't be needed here), if no candidate found, try a simple direct feasible choice
+if best_point is None:
+    # Try upper bounds
+    H_try = H_max
+    V_try = V_max
+    if is_feasible(H_try, V_try):
+        best_point = (H_try, V_try)
+        best_obj = profit_H * H_try + profit_V * V_try
+    else:
+        # Try to satisfy shipping by increasing V if needed
+        if H_max + V_min >= shipping_min:
+            best_point = (H_max, V_min)
+            best_obj = profit_H * H_max + profit_V * V_min
+        elif H_min + V_max >= shipping_min:
+            best_point = (H_min, V_max)
+            best_obj = profit_H * H_min + profit_V * V_max
+        else:
+            # Last resort: set to lower bounds (feasible only if they meet shipping)
+            best_point = (H_min, V_min)
+            best_obj = profit_H * H_min + profit_V * V_min
+
+# Ensure final objective is a numeric value (convert tiny floating rounding to int if appropriate)
+final_obj = best_obj
+if abs(final_obj - round(final_obj)) < 1e-6:
+    final_obj = int(round(final_obj))
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {final_obj}")

@@ -1,0 +1,144 @@
+[MODELER]:
+Formulate this as an integer linear programming (ILP) problem.
+
+### Decision variables
+Let  
+- \(x\) = number of helicopter trips (integer, \(x \ge 0\))  
+- \(y\) = number of truck trips (integer, \(y \ge 0\))
+
+### Objective
+Minimize total pollution:
+\[
+\min\; Z = 5x + 10y
+\]
+
+### Constraints
+
+1. **Transport at least 80 cows**  
+   Each helicopter trip carries 3 cows; each truck trip carries 7 cows:
+   \[
+   3x + 7y \;\ge\; 80
+   \]
+
+2. **At most 8 truck trips (budget constraint)**  
+   \[
+   y \;\le\; 8
+   \]
+
+3. **Integrality and non-negativity**  
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+---
+
+### Solving the model (by reasoning)
+
+To reduce pollution, prefer the more “efficient” vehicle.  
+Pollution per cow:
+
+- Helicopter: \(5/3 \approx 1.667\) units per cow  
+- Truck: \(10/7 \approx 1.429\) units per cow  
+
+Trucks are less polluting per cow, so use as many trucks as allowed (up to 8), then helicopters for the remainder.
+
+If \(y = 8\):
+\[
+3x + 7\cdot 8 \ge 80 \;\Rightarrow\; 3x + 56 \ge 80 \;\Rightarrow\; 3x \ge 24 \;\Rightarrow\; x \ge 8
+\]
+So minimal integer \(x = 8\).
+
+Pollution:
+\[
+Z = 5x + 10y = 5\cdot 8 + 10\cdot 8 = 40 + 80 = 120
+\]
+
+We can check whether using fewer trucks and more helicopters ever reduces pollution. Try decreasing \(y\) by 1 from 8:
+
+- If \(y = 7\):  
+  \(3x + 7\cdot 7 \ge 80 \Rightarrow 3x + 49 \ge 80 \Rightarrow 3x \ge 31 \Rightarrow x \ge 11\).  
+  Pollution: \(Z = 5\cdot 11 + 10\cdot 7 = 55 + 70 = 125 > 120\).
+
+Each time we replace 1 truck with enough helicopters to keep ≥ 80 cows, total pollution increases (trucks are more efficient per cow), so \(x=8, y=8\) is optimal.
+
+### Answer
+- Helicopter trips: **8**  
+- Truck trips: **8**  
+Minimum total pollution: **120 units**
+
+---
+
+### Python libraries to solve this programmatically
+
+You can model and solve this ILP using:
+
+- **PuLP** (`pulp`) – simple and pure Python, good for teaching and small problems.
+- **OR-Tools** (`ortools.linear_solver`) – powerful and fast, from Google.
+- **Pyomo** – more general modeling framework if you plan larger models.
+
+Example with PuLP:
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Cow_Transport", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('helicopter_trips', lowBound=0, cat='Integer')
+y = pl.LpVariable('truck_trips', lowBound=0, cat='Integer')
+
+# Objective
+prob += 5 * x + 10 * y
+
+# Constraints
+prob += 3 * x + 7 * y >= 80        # transport requirement
+prob += y <= 8                     # max truck trips
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Helicopter trips:", x.value())
+print("Truck trips:", y.value())
+print("Minimum pollution:", pl.value(prob.objective))
+```
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def solve_cow_transport():
+    # Define problem
+    prob = pl.LpProblem("Cow_Transport", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('helicopter_trips', lowBound=0, cat='Integer')
+    y = pl.LpVariable('truck_trips', lowBound=0, cat='Integer')
+
+    # Objective: Minimize total pollution
+    prob += 5 * x + 10 * y
+
+    # Constraints
+    prob += 3 * x + 7 * y >= 80      # transport at least 80 cows
+    prob += y <= 8                   # at most 8 truck trips
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    x_val = x.value()
+    y_val = y.value()
+    obj_val = pl.value(prob.objective)
+
+    # Optional detailed prints (not required by spec, but useful)
+    print("Status:", pl.LpStatus[prob.status])
+    print("Helicopter trips (x):", x_val)
+    print("Truck trips (y):", y_val)
+    print("Minimum pollution:", obj_val)
+
+    return obj_val
+
+if __name__ == "__main__":
+    final_obj = solve_cow_transport()
+    print(f"FINAL_OBJ: {final_obj}")

@@ -1,0 +1,133 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- r >= 0 : number of ramen packs (integer if meals must be whole packs; otherwise continuous).
+- f >= 0 : number of fries packs (integer or continuous as above).
+
+Objective
+Minimize total sodium (mg):
+minimize S = 100 r + 75 f
+
+Constraints
+1) Calorie requirement: 400 r + 300 f >= 3000
+2) Protein requirement: 20 r + 10 f >= 80
+3) Ramen share limit: r / (r + f) <= 0.30  (equivalently r <= 0.3 (r + f), or 0.7 r <= 0.3 f, or r <= (3/7) f)
+4) Nonnegativity and integrality: r >= 0, f >= 0 (and r,f integer if packs must be whole)
+
+Remarks that simplify analysis
+- Sodium = 100 r + 75 f = 0.25 (400 r + 300 f). So sodium is exactly 0.25 × (total calories). Minimizing sodium is therefore equivalent to minimizing total calories.
+- The calorie constraint requires total calories >= 3000, so the minimum possible total calories (and hence sodium) is 3000 calories → minimum sodium = 0.25 × 3000 = 750 mg, provided the other constraints can be met at 3000 calories.
+
+Feasibility at 3000 calories
+- With 400 r + 300 f = 3000 (active calorie constraint), the protein constraint is automatically satisfied (it reduces to r >= -3).
+- So any (r,f) satisfying 4r + 3f = 30 and the ramen-share constraint r/(r+f) <= 0.3 achieves the minimum sodium 750 mg.
+- If fractional packs are allowed, there is a continuum of optimal solutions on the line 4r+3f = 30 with 0 <= r <= 30/11 ≈ 2.7273 (e.g. r = 30/11, f = 70/11 lies exactly on the ramen-share boundary).
+- If packs must be integer, solve 4r + 3f = 30 in integers. The integer solutions are (r,f) = (0,10), (3,6), (6,2). Among these only (0,10) satisfies r/(r+f) <= 0.3 (since 3/9 = 0.333..., 6/8 = 0.75). Thus the integer optimal is:
+  r = 0 packs of ramen, f = 10 packs of fries, sodium = 75 × 10 = 750 mg, calories = 3000, protein = 100 g.
+
+Suggested solvers / Python libraries
+- For continuous LP: scipy.optimize.linprog or pulp (continuous mode) or ortools linear solver.
+- For integer (ILP) version: pulp (with CBC/Gurobi/CPLEX backends), OR-Tools CP-SAT, or mip (python-mip).
+- If you only need to verify the simple analytical result, no solver is necessary.
+
+Example (pulp) sketch for integer solution
+- Use pulp.LpVariable('r', lowBound=0, cat='Integer') and similarly for f.
+- Minimize 100*r + 75*f subject to the three constraints above.
+- Solve and you will get r=0, f=10.
+
+Final answer
+- If packs must be whole: eat 0 packs of ramen and 10 packs of fries (sodium 750 mg).
+- If fractional packs were allowed: any (r,f) with 4r+3f = 30 and r/(r+f) <= 0.3 is optimal; e.g. r = 0, f = 10 or r = 30/11, f = 70/11 both give the minimum sodium 750 mg.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the ramen/fries sodium minimization problem.
+# It checks the continuous (fractional) optimum analytically and enumerates integer solutions.
+
+from math import isclose, ceil
+
+# Problem data (directly in code)
+sodium_r = 100   # mg per ramen pack
+sodium_f = 75    # mg per fries pack
+
+cal_r = 400      # calories per ramen pack
+cal_f = 300      # calories per fries pack
+cal_req = 3000   # required calories (>=)
+
+prot_r = 20      # protein per ramen pack
+prot_f = 10      # protein per fries pack
+prot_req = 80    # required protein (>=)
+
+# Ramen share constraint: r/(r+f) <= 0.30
+# Equivalent (for r+f>0): r <= (3/7) f
+
+# 1) Continuous (fractional) analysis (analytical)
+# Sodium = 0.25 * total calories. Minimum total calories is 3000 -> sodium = 0.25*3000 = 750 mg,
+# provided the other constraints can be met at 3000 calories.
+cont_min_sodium = 0.25 * cal_req  # 750.0
+
+# Provide one example fractional solution on the active calorie line 4r + 3f = 30 (i.e., 400r+300f=3000)
+# Choose r = 30/11 (the largest r allowed by the ramen-share boundary), f = (30 - 4r)/3
+r_cont_example = 30.0 / 11.0
+f_cont_example = (30.0 - 4.0 * r_cont_example) / 3.0
+sodium_cont_example = sodium_r * r_cont_example + sodium_f * f_cont_example
+
+# 2) Integer enumeration to find integer optimal solution
+# Bounds: r up to ceil(cal_req / cal_r) and f up to ceil(cal_req / cal_f) are enough to cover feasible region
+r_max = ceil(cal_req / cal_r) + 5  # small buffer
+f_max = ceil(cal_req / cal_f) + 5
+
+best_int_sodium = None
+best_int_solutions = []
+
+for r in range(0, r_max + 1):
+    for f in range(0, f_max + 1):
+        # Skip the trivial zero packs
+        if r == 0 and f == 0:
+            continue
+        # Calorie constraint
+        if cal_r * r + cal_f * f < cal_req:
+            continue
+        # Protein constraint
+        if prot_r * r + prot_f * f < prot_req:
+            continue
+        # Ramen share constraint: r/(r+f) <= 0.3
+        if (r + f) > 0:
+            if (r / (r + f)) - 0.3 > 1e-12:
+                continue
+        # Feasible integer solution
+        sodium_val = sodium_r * r + sodium_f * f
+        if (best_int_sodium is None) or (sodium_val < best_int_sodium - 1e-9):
+            best_int_sodium = sodium_val
+            best_int_solutions = [(r, f)]
+        elif isclose(sodium_val, best_int_sodium, rel_tol=1e-9, abs_tol=1e-9):
+            best_int_solutions.append((r, f))
+
+# Print results (informational)
+print("Continuous (fractional) analytic optimum:")
+print(f"  Example solution: r = {r_cont_example:.8f}, f = {f_cont_example:.8f}")
+print(f"  Sodium = {sodium_cont_example:.6f} mg (expected {cont_min_sodium} mg)")
+
+if best_int_sodium is None:
+    print("No feasible integer solution found within search bounds.")
+else:
+    print("Integer optimal solutions found (minimizing sodium):")
+    for (r_i, f_i) in best_int_solutions:
+        cal_i = cal_r * r_i + cal_f * f_i
+        prot_i = prot_r * r_i + prot_f * f_i
+        print(f"  r = {r_i}, f = {f_i}, sodium = {sodium_r*r_i + sodium_f*f_i} mg, calories = {cal_i}, protein = {prot_i} g")
+
+# Final required single-line output with the final objective value.
+# We choose to report the integer optimal sodium if integer feasible solutions exist;
+# otherwise report the continuous minimum sodium.
+if best_int_sodium is not None:
+    final_obj = int(best_int_sodium) if float(best_int_sodium).is_integer() else best_int_sodium
+else:
+    final_obj = cont_min_sodium
+
+print(f"FINAL_OBJ: {final_obj}")
+```

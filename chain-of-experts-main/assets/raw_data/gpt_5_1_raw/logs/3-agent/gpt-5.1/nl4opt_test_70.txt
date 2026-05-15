@@ -1,0 +1,141 @@
+[MODELER]:
+Here is a clean mathematical model of the problem as a linear program.
+
+### 1. Decision variables
+
+Let:
+
+- \(x\) = number of trips made by the **new** company  
+- \(y\) = number of trips made by the **old** company  
+
+We will treat \(x\) and \(y\) as continuous nonnegative variables at first (LP). If you require trip counts to be integers, we then have an integer linear program (ILP).
+
+### 2. Objective: Minimize diesel usage
+
+Each trip by:
+- new company uses 30 liters
+- old company uses 40 liters
+
+Total diesel used:
+
+\[
+\text{Minimize } Z = 30x + 40y
+\]
+
+### 3. Constraints
+
+1. **Demand: at least 1000 gifts must be delivered**
+
+   - New company: 50 gifts per trip  
+   - Old company: 70 gifts per trip  
+
+   So:
+   \[
+   50x + 70y \;\ge\; 1000
+   \]
+
+2. **New company trip limit: at most 15 trips**
+
+   \[
+   x \;\le\; 15
+   \]
+
+3. **Old company must handle at least 40% of all trips**
+
+   At least 40% of all trips are by the old company:
+   \[
+   y \;\ge\; 0.4(x + y)
+   \]
+
+   Rearranging:
+   \[
+   y \;\ge\; 0.4x + 0.4y
+   \]
+   \[
+   0.6y \;\ge\; 0.4x
+   \]
+   \[
+   3y \;\ge\; 2x
+   \quad\Longleftrightarrow\quad
+   y \;\ge\; \tfrac{2}{3}x
+   \]
+
+4. **Nonnegativity**
+
+   \[
+   x \;\ge\; 0,\quad y \;\ge\; 0
+   \]
+
+5. **(Optional) Integrality**
+
+   If we require whole trips:
+   \[
+   x, y \in \mathbb{Z}
+   \]
+
+---
+
+### 4. Final mathematical model
+
+\[
+\begin{aligned}
+\min \quad & 30x + 40y \\
+\text{s.t.}\quad 
+& 50x + 70y \ge 1000 \\
+& x \le 15 \\
+& 3y \ge 2x \\
+& x \ge 0,\; y \ge 0 \\
+& x, y \in \mathbb{Z} \quad \text{(if integer trips are enforced)}
+\end{aligned}
+\]
+
+---
+
+### 5. Suitable Python libraries
+
+This is a small linear/integer linear optimization problem. Appropriate Python libraries:
+
+- **PuLP** (`pulp`): Simple modeling of linear and integer programs in Python; comes with CBC solver by default.
+- **OR-Tools Linear Solver** (`ortools.linear_solver`): Very efficient for LP/ILP, easy to define integer/binary variables.
+- **Pyomo**: More general modeling framework, also supports LP/ILP.
+- **SciPy** (`scipy.optimize.linprog`): Can solve the LP relaxation (without integrality). For integer constraints you’d need another library.
+
+For this specific “how many trips” problem, I’d recommend **PuLP** or **OR-Tools** if you want integer solutions.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: minimize diesel usage
+    prob = pulp.LpProblem("Gift_Transport_Optimization", pulp.LpMinimize)
+
+    # Decision variables: integer number of trips
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # trips by new company
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # trips by old company
+
+    # Objective function: Minimize total diesel
+    prob += 30 * x + 40 * y
+
+    # Constraints
+    # 1) Demand: at least 1000 gifts
+    prob += 50 * x + 70 * y >= 1000, "Demand"
+
+    # 2) New company trip limit
+    prob += x <= 15, "New_Trip_Limit"
+
+    # 3) Old company handles at least 40% of trips: 3y >= 2x
+    prob += 3 * y >= 2 * x, "Old_Trip_Share"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,248 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+   - **Goal:** Minimize the *total number of workers* scheduled (i.e., total shifts), subject to:
+     - Meeting at least 500 hours of ultrasound service,
+     - Not exceeding the $14,000 budget,
+     - Maintaining twice as many ultrasound technician shifts as graduate researcher shifts.
+
+2. **Suggested model type**
+
+   - **Model:** Integer Linear Programming (ILP)  
+     (A standard LP formulation, but decision variables should be constrained to be non-negative integers since you are counting shifts/people.)
+
+3. **Main decision variables**
+
+   Define integer decision variables at the level of *shifts* (since pay and hours are per shift):
+
+   - \(T\): Number of **ultrasound technician shifts** to schedule.
+   - \(G\): Number of **graduate researcher shifts** to schedule.
+
+   Notes:
+   - Each technician shift provides 8 hours and costs $300.
+   - Each graduate researcher shift provides 5 hours and costs $100.
+   - The “twice as many” requirement is a hard ratio constraint between \(T\) and \(G\).
+
+4. **Key constraints to consider**
+
+   1. **Coverage of ultrasound hours (service requirement)**
+      - Ensure the total ultrasound hours from all scheduled shifts meets or exceeds the 500-hour requirement.
+      - Formulation idea:  
+        Total hours = (hours per technician shift) × T + (hours per graduate shift) × G  
+        This must be ≥ 500.
+
+   2. **Budget limitation**
+      - Total labor cost from all shifts cannot exceed the $14,000 budget.
+      - Formulation idea:  
+        Total cost = (cost per technician shift) × T + (cost per graduate shift) × G  
+        This must be ≤ 14,000.
+
+   3. **Regulatory ratio of technicians to graduates**
+      - There must be **twice as many ultrasound technician shifts as graduate researcher shifts**.
+      - This is a fixed proportion constraint linking T and G.
+      - Formulation idea:  
+        T = 2 × G.
+
+   4. **Non-negativity and integrality**
+      - Both T and G must be non-negative integers because you cannot schedule a negative or fractional shift.
+      - Formulation idea:  
+        T ≥ 0, integer  
+        G ≥ 0, integer  
+
+5. **Objective function structure**
+
+   - Objective: **Minimize total number of workers (shifts)**:
+     - Total workers/shifts = T + G.
+     - Since T and G are integers and linked by T = 2G, the objective effectively minimizes an integer count of shifts subject to the constraints.
+
+6. **Simplification opportunities (for the Modeller)**
+
+   - Because of the fixed ratio T = 2G, you can:
+     - Reduce the model to one decision variable (e.g., G), and express T in terms of G, or
+     - Keep both variables to maintain clarity, but note that the ratio will reduce dimensionality.
+   - This can make the model easy to solve even by inspection or simple enumeration, but it should still be expressed formally as an ILP.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model plus guidance on how to implement it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(T \in \mathbb{Z}_{\ge 0}\): number of ultrasound technician shifts  
+- \(G \in \mathbb{Z}_{\ge 0}\): number of graduate researcher shifts  
+
+(They represent counts of shifts/people; hence integer and non-negative.)
+
+---
+
+## 2. Objective
+
+Minimize the total number of workers (i.e., total shifts):
+
+\[
+\min \; Z = T + G
+\]
+
+---
+
+## 3. Constraints
+
+1. **Service-hours requirement**
+
+Each technician shift provides 8 hours; each graduate researcher shift provides 5 hours.  
+At least 500 hours are needed:
+
+\[
+8T + 5G \;\ge\; 500
+\]
+
+2. **Budget constraint**
+
+Technicians cost \$300 per shift; graduate researchers cost \$100 per shift.  
+Total cost must not exceed \$14{,}000:
+
+\[
+300T + 100G \;\le\; 14000
+\]
+
+3. **Regulatory ratio**
+
+There must be exactly twice as many technician shifts as graduate researcher shifts:
+
+\[
+T = 2G
+\]
+
+4. **Integrality and non-negativity**
+
+\[
+T, G \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Simplified single-variable formulation (optional)
+
+Using the ratio \(T = 2G\), you can substitute \(T\) out and use only \(G\):
+
+- Service-hours:
+
+  \[
+  8(2G) + 5G = 21G \;\ge\; 500 \quad\Rightarrow\quad G \;\ge\; \frac{500}{21}
+  \]
+
+- Budget:
+
+  \[
+  300(2G) + 100G = 700G \;\le\; 14000 \quad\Rightarrow\quad G \;\le\; 20
+  \]
+
+- Objective:
+
+  \[
+  \min\; T + G = 2G + G = 3G
+  \]
+
+Subject to:
+
+\[
+G \in \mathbb{Z}_{\ge 0},\quad G \ge \frac{500}{21},\quad G \le 20
+\]
+
+In practice, you would encode the original two-variable ILP; most solvers will automatically exploit this structure.
+
+---
+
+## 5. Suitable Python libraries
+
+Any mixed-integer linear programming (MILP) or ILP solver is appropriate:
+
+- **PuLP**  
+  - Pure Python, easy to use; good for teaching and small/medium problems.  
+  - `pip install pulp`
+
+- **OR-Tools (Google OR-Tools)**  
+  - Very powerful and fast MILP/CP-SAT solver; good for larger/complex models.  
+  - `pip install ortools`
+
+- **SciPy** (`scipy.optimize.linprog`)  
+  - Only handles continuous LP, *not* integer constraints, so it’s **not suitable** if you must enforce integrality here.
+
+For this problem, **PuLP** or **OR-Tools** are the best choices.
+
+---
+
+## 6. Example PuLP formulation (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("UltrasoundStaffing", pl.LpMinimize)
+
+# Decision variables
+T = pl.LpVariable("T", lowBound=0, cat="Integer")
+G = pl.LpVariable("G", lowBound=0, cat="Integer")
+
+# Objective: minimize total number of workers (shifts)
+prob += T + G
+
+# Constraints
+prob += 8*T + 5*G >= 500      # Service-hours
+prob += 300*T + 100*G <= 14000  # Budget
+prob += T == 2*G              # Ratio
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("T (technician shifts):", T.value())
+print("G (graduate shifts):", G.value())
+print("Total workers:", T.value() + G.value())
+```
+
+This directly implements the ILP model described above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("UltrasoundStaffing", pl.LpMinimize)
+
+    # Decision variables
+    T = pl.LpVariable("T", lowBound=0, cat="Integer")  # Technician shifts
+    G = pl.LpVariable("G", lowBound=0, cat="Integer")  # Graduate researcher shifts
+
+    # Objective: minimize total number of workers (shifts)
+    prob += T + G
+
+    # Constraints
+
+    # 1. Service-hours requirement: 8T + 5G >= 500
+    prob += 8 * T + 5 * G >= 500
+
+    # 2. Budget constraint: 300T + 100G <= 14000
+    prob += 300 * T + 100 * G <= 14000
+
+    # 3. Regulatory ratio: T = 2G
+    prob += T == 2 * G
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,116 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Minimise the total amount of filler material used.
+
+2. Suggested model type
+- Model: Linear Programming (LP). Because variables are counts of pills, use an Integer Linear Program (ILP) or LP with integer rounding (variables should be non‑negative integers).
+
+3. Main decision variables
+- L = number of large pills to produce (integer, ≥ 0)
+- S = number of small pills to produce (integer, ≥ 0)
+
+4. Key objective
+- Minimise total filler used = (filler per large) * L + (filler per small) * S = 2·L + 1·S.
+
+5. Key constraints to include (described qualitatively)
+- Medicinal ingredient availability: total medicinal ingredient consumed by the chosen production mix cannot exceed 1000 units (each large uses 3 units, each small uses 2 units).
+- Minimum large-pill requirement: at least 100 large pills must be produced (L ≥ 100).
+- Popularity proportion requirement: at least 60% of total pills must be small. Expressed as a relationship between S and total production: S ≥ 0.6·(L + S). (This can be rearranged for modelling convenience to a linear inequality linking S and L.)
+- Integrality and non-negativity: L and S must be non‑negative integers.
+
+6. Solution approach / modelling notes for the Modeller
+- Translate the proportion constraint into a linear inequality (e.g., S ≥ 1.5·L) so the model stays linear.
+- Set the objective to minimise 2L + S and solve the ILP (or LP and then enforce integer values).
+- Check feasibility first: ensure constraints are compatible.
+- Because filler increases with additional pills, expect the minimiser to be at the smallest feasible production levels that satisfy the constraints. Verify whether the medicinal-ingredient constraint becomes active; if not, the minimum will be at the lower bounds implied by the L and proportion constraints.
+- Return the optimal integer solution (L, S), total filler used, and confirm medicinal ingredient usage.
+
+7. Quick analytical check (implementation hint)
+- With S ≥ 1.5·L and L ≥ 100, the minimal L is 100, so minimal S is 150. Verify medicinal usage: 3·100 + 2·150 = 600 ≤ 1000 (feasible).
+- Compute filler at that point: 2·100 + 1·150 = 350. Confirm no other feasible (L,S) with lower filler exists (increasing L increases S and thus filler).
+
+Deliverables expected from the Modeller
+- Formal ILP formulation (variables, objective, constraints).
+- Optimal integer solution (L, S), total filler used, and medicinal ingredient utilization.
+- A short verification that this solution is globally optimal (e.g., by LP solver output or simple reasoning).
+
+---
+
+[MODELER]:
+Formal ILP formulation
+
+Decision variables
+- L ∈ Z≥0 : number of large pills produced
+- S ∈ Z≥0 : number of small pills produced
+
+Objective
+- Minimise total filler: minimize Z = 2·L + 1·S
+
+Constraints
+1. Medicinal ingredient availability:
+   3·L + 2·S ≤ 1000
+2. Minimum large-pill requirement:
+   L ≥ 100
+3. Popularity proportion (at least 60% small):
+   S ≥ 0.6·(L + S)  — which is linearised to S ≥ 1.5·L  (since 0.4S ≥ 0.6L ⇒ S ≥ 1.5L)
+4. Integrality and non‑negativity:
+   L, S ∈ Z≥0
+
+Thus the ILP is
+minimize Z = 2L + S
+subject to
+  3L + 2S ≤ 1000
+  L ≥ 100
+  S ≥ 1.5L
+  L, S ∈ Z≥0
+
+Solution (analytic and verification)
+- From S ≥ 1.5L and L ≥ 100, the smallest feasible L is L = 100, which forces S ≥ 1.5·100 = 150. Take S = 150 (smallest S allowed).
+- Check medicinal constraint: 3·100 + 2·150 = 300 + 300 = 600 ≤ 1000 (feasible).
+- Objective value (total filler) at (L,S) = (100,150): Z = 2·100 + 1·150 = 350.
+- Any increase in L requires S to increase (because S ≥ 1.5L), so total filler increases: increasing L by 1 increases filler by at least 2 + 1.5·1 = 3.5 (in LP terms) and in integer terms will increase filler by an integer ≥ 3. So no feasible (L,S) with L > 100 can give smaller filler. Reducing S is not allowed by the proportion constraint. Therefore (L,S) = (100,150) with total filler 350 is globally optimal.
+
+Additional insight
+- Filler per medicinal unit: large = 2/3 ≈ 0.667, small = 1/2 = 0.5. Small pills use less filler per medicinal unit, so if medicinal availability were tight you’d favour small pills — but the constraints here (L ≥ 100 and the 60% small requirement) determine the minimum production mix.
+- Medicinal capacity is not binding at the optimum (600 used of 1000).
+
+Recommended solver libraries
+- For a straightforward ILP: PuLP (with CBC), OR-Tools CP-SAT, or Pyomo with GLPK/CBC/CPLEX/Gurobi.
+- If you want to check LP relaxation quickly: scipy.optimize.linprog (but that does not handle integer constraints).
+
+If you want, I can provide a short PuLP or OR-Tools script that solves this ILP and prints the solution.
+
+---
+
+[CODER]:
+```python
+# Self-contained script to solve the ILP by simple enumeration
+# Decision variables:
+#   L >= 100 integer
+#   S >= ceil(1.5 * L) integer
+# Constraints:
+#   3L + 2S <= 1000
+# Objective:
+#   minimize Z = 2L + S
+
+best_obj = None
+best_L = None
+best_S = None
+
+# feasible L range: start at 100. Upper bound can be set to 1000//3 (safe), enumeration is small.
+for L in range(100, 1000 // 3 + 1):
+    # minimum S due to popularity proportion: ceil(1.5 * L) = ceil(3L/2)
+    s_min = (3 * L + 1) // 2  # integer ceiling
+    # maximum S due to medicinal ingredient: 3L + 2S <= 1000 -> S <= floor((1000 - 3L)/2)
+    s_max = (1000 - 3 * L) // 2
+    if s_min <= s_max and s_min >= 0:
+        S = s_min  # objective coefficient of S is positive so minimal S is best for fixed L
+        obj = 2 * L + S
+        if best_obj is None or obj < best_obj:
+            best_obj = obj
+            best_L = L
+            best_S = S
+
+# Final output: required exact format
+print(f"FINAL_OBJ: {best_obj}")
+```

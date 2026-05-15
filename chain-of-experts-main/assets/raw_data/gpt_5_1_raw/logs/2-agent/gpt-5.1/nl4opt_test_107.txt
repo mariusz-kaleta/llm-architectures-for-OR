@@ -1,0 +1,91 @@
+[MODELER]:
+Let  
+
+- \(x_1\) = number of days to operate the **old** farm  
+- \(x_2\) = number of days to operate the **new** farm  
+
+Both \(x_1, x_2 \ge 0\) and can be fractional if partial days are allowed.
+
+### Objective
+
+Minimize total operating cost:
+\[
+\min \; Z = 300x_1 + 200x_2
+\]
+
+### Constraints
+
+Daily yields:
+
+- Old farm: 2 kg raspberries, 2 kg blueberries, 4 kg strawberries  
+- New farm: 4 kg raspberries, 1 kg blueberries, 2 kg strawberries  
+
+Contract requirements:
+
+1. Raspberries requirement (at least 10 kg):
+   \[
+   2x_1 + 4x_2 \;\ge\; 10
+   \]
+
+2. Blueberries requirement (at least 9 kg):
+   \[
+   2x_1 + 1x_2 \;\ge\; 9
+   \]
+
+3. Strawberries requirement (at least 15 kg):
+   \[
+   4x_1 + 2x_2 \;\ge\; 15
+   \]
+
+4. Nonnegativity:
+   \[
+   x_1 \ge 0,\quad x_2 \ge 0
+   \]
+
+This is a linear program (LP).
+
+### Suitable Python libraries
+
+To model and solve this LP in Python, suitable libraries include:
+
+- **PuLP** (`pulp`): very straightforward for teaching and small LPs.
+- **SciPy** (`scipy.optimize.linprog`): good for direct LP solving.
+- **OR-Tools** (`ortools.linear_solver` with GLOP or CBC): powerful and fast, good for larger problems.
+
+Any of these can express this model with the above objective and constraints.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import numpy as np
+from scipy.optimize import linprog
+
+# Objective coefficients: minimize 300*x1 + 200*x2
+c = np.array([300, 200])
+
+# Constraints: A_ub * x <= b_ub
+# Given constraints are of type >=, so we multiply by -1 to convert to <=
+# 1) 2x1 + 4x2 >= 10  -> -2x1 - 4x2 <= -10
+# 2) 2x1 + 1x2 >= 9   -> -2x1 - 1x2 <= -9
+# 3) 4x1 + 2x2 >= 15  -> -4x1 - 2x2 <= -15
+A_ub = np.array([
+    [-2, -4],
+    [-2, -1],
+    [-4, -2]
+])
+b_ub = np.array([-10, -9, -15])
+
+# Bounds for x1 and x2: x1 >= 0, x2 >= 0
+bounds = [(0, None), (0, None)]
+
+# Solve the LP
+res = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method="highs")
+
+if not res.success:
+    raise RuntimeError("LP did not solve successfully: " + res.message)
+
+x1, x2 = res.x
+objective_value = res.fun
+
+# Print the final objective value in the required format
+print(f"FINAL_OBJ: {objective_value}")

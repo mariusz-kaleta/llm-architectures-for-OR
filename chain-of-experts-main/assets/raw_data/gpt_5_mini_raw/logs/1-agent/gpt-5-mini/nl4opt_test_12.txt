@@ -1,0 +1,37 @@
+[MONOLITH]:
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Minimize_Cars", pl.LpMinimize)
+
+# Decision variables: number of vans (v) and cars (c), integers >= 0
+v = pl.LpVariable('v', lowBound=0, cat=pl.LpInteger)
+c = pl.LpVariable('c', lowBound=0, cat=pl.LpInteger)
+
+# Objective: minimize number of cars
+prob += c, "Minimize_number_of_cars"
+
+# Constraints:
+# 1) Capacity: 6v + 3c >= 200
+prob += 6*v + 3*c >= 200, "Capacity_constraint"
+
+# 2) At most 30% of the vehicles can be vans:
+#    v <= 0.3*(v + c)  ->  0.7 v <= 0.3 c  ->  7 v <= 3 c
+prob += 7*v <= 3*c, "Van_fraction_constraint"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Extract solution values
+v_sol = int(pl.value(v))
+c_sol = int(pl.value(c))
+value = int(pl.value(prob.objective))
+
+# Print solution summary
+print(f"VANS: {v_sol}")
+print(f"CARS: {c_sol}")
+print(f"TOTAL_VEHICLES: {v_sol + c_sol}")
+print(f"TOTAL_CAPACITY: {6*v_sol + 3*c_sol}")
+
+# Final required output line (must be the last printed line)
+print(f"FINAL_OBJ: {value}")

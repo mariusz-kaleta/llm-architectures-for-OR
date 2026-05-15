@@ -1,0 +1,183 @@
+[MODELER]:
+Here is a clear mathematical model of the problem, then a suggestion on how to solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of large pizzas to make  
+- \(y\) = number of medium pizzas to make  
+
+We assume \(x, y \ge 0\) and integer (you can first solve as continuous; it will likely give integer values anyway).
+
+---
+
+## 2. Objective function
+
+We want to **minimize total baking time**.
+
+- Each large pizza takes 12 minutes
+- Each medium pizza takes 8 minutes
+
+So total baking time (in minutes) is:
+\[
+T = 12x + 8y
+\]
+
+**Objective:**
+\[
+\min \; 12x + 8y
+\]
+
+---
+
+## 3. Constraints
+
+1. **Dough usage (at least 10,000 units)**  
+   - Large: 12 units per pizza  
+   - Medium: 8 units per pizza  
+   - Must use at least 10,000 units:
+   \[
+   12x + 8y \;\ge\; 10000
+   \]
+
+2. **Toppings usage (at least 4,400 units)**  
+   - Large: 5 units per pizza  
+   - Medium: 4 units per pizza  
+   - Must use at least 4,400 units:
+   \[
+   5x + 4y \;\ge\; 4400
+   \]
+
+3. **Minimum number of medium pizzas (promotion)**  
+   At least 200 medium pizzas:
+   \[
+   y \;\ge\; 200
+   \]
+
+4. **Large vs medium ratio (regulars prefer large)**  
+   At least twice as many large pizzas as medium pizzas:
+   \[
+   x \;\ge\; 2y
+   \]
+
+5. **Non-negativity**
+   \[
+   x \;\ge\; 0,\quad y \;\ge\; 0
+   \]
+
+Optionally, integer constraints:
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete optimization model
+
+\[
+\begin{aligned}
+\min_{x, y} \quad & 12x + 8y \\
+\text{s.t.} \quad 
+& 12x + 8y \;\ge\; 10000 \\
+& 5x + 4y \;\ge\; 4400 \\
+& y \;\ge\; 200 \\
+& x \;\ge\; 2y \\
+& x, y \;\ge\; 0 \quad (\text{and integer})
+\end{aligned}
+\]
+
+This is a **linear programming** (LP) problem (or MILP if you enforce integrality).
+
+---
+
+## 5. Suitable Python libraries
+
+Because this is a straightforward linear optimization problem, the following libraries are appropriate:
+
+- **PuLP**:  
+  - Simple modeling syntax for LP/MILP.  
+  - Integrates with CBC (open-source) or commercial solvers.  
+  - Good for teaching and small to medium problems.
+
+- **OR-Tools (Google)**:  
+  - `ortools.linear_solver` for LP/MILP.  
+  - Fast and well-documented, good for industrial-scale problems.
+
+- **SciPy (`scipy.optimize.linprog`)**:  
+  - Suitable if you treat \(x,y\) as continuous (no integer constraints).  
+  - Basic LP solving, but no direct integrality.
+
+For this problem, **PuLP** or **OR-Tools** is ideal.
+
+---
+
+## 6. Example PuLP formulation (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("PizzaTimeMinimization", pl.LpMinimize)
+
+# Variables (integer)
+x = pl.LpVariable('Large', lowBound=0, cat='Integer')
+y = pl.LpVariable('Medium', lowBound=0, cat='Integer')
+
+# Objective
+prob += 12 * x + 8 * y
+
+# Constraints
+prob += 12 * x + 8 * y >= 10000      # Dough constraint
+prob += 5 * x + 4 * y >= 4400        # Toppings constraint
+prob += y >= 200                     # Min medium pizzas
+prob += x >= 2 * y                   # Large at least twice medium
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Large pizzas:", x.varValue)
+print("Medium pizzas:", y.varValue)
+print("Total baking time:", 12 * x.varValue + 8 * y.varValue)
+```
+
+This code directly implements the model above and will give you the optimal numbers of large and medium pizzas to minimize total baking time under the given constraints.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("PizzaTimeMinimization", pl.LpMinimize)
+
+    # Decision variables (integer, non-negative)
+    x = pl.LpVariable('Large', lowBound=0, cat='Integer')
+    y = pl.LpVariable('Medium', lowBound=0, cat='Integer')
+
+    # Objective function: minimize baking time
+    prob += 12 * x + 8 * y
+
+    # Constraints
+    prob += 12 * x + 8 * y >= 10000      # Dough usage
+    prob += 5 * x + 4 * y >= 4400        # Toppings usage
+    prob += y >= 200                     # Minimum medium pizzas
+    prob += x >= 2 * y                   # Large at least twice medium
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract values
+    x_val = x.varValue
+    y_val = y.varValue
+    total_time = 12 * x_val + 8 * y_val
+
+    # Print required final objective
+    print(f"FINAL_OBJ: {total_time}")
+
+if __name__ == "__main__":
+    main()

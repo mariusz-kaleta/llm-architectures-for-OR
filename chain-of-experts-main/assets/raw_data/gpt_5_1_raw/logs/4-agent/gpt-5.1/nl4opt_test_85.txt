@@ -1,0 +1,237 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximize total net revenue from processing light, non-sticky, and heavy crude oil, given limited amounts of compounds A and B.
+
+2. Suggested model type  
+Model: Linear Programming (LP).  
+Rationale:  
+- Objective and constraints are linear.  
+- “Full or partial tanks” implies decision variables can be continuous (not just integers).
+
+3. Main decision variables  
+Define continuous decision variables (tanks can be fractional):
+
+- Let x_L = number of tanks of light oil to process.  
+- Let x_N = number of tanks of non-sticky oil to process.  
+- Let x_H = number of tanks of heavy oil to process.
+
+Each variable can take any nonnegative real value.
+
+4. Objective function (conceptual)  
+Maximize total net revenue:  
+- Light oil: 550 per tank  
+- Non-sticky oil: 750 per tank  
+- Heavy oil: 950 per tank  
+
+So the objective is:  
+Maximize 550·x_L + 750·x_N + 950·x_H.
+
+5. Key constraints to consider  
+
+a) Compound A availability  
+- Light oil uses 3 units per tank  
+- Non-sticky oil uses 6 units per tank  
+- Heavy oil uses 9 units per tank  
+- Total available A: 250 units  
+
+Constraint: total A used by all processed tanks cannot exceed 250.
+
+b) Compound B availability  
+- Light oil uses 3 units per tank  
+- Non-sticky oil uses 2 units per tank  
+- Heavy oil uses 3 units per tank  
+- Total available B: 150 units  
+
+Constraint: total B used by all processed tanks cannot exceed 150.
+
+c) Non-negativity  
+- x_L ≥ 0  
+- x_N ≥ 0  
+- x_H ≥ 0  
+
+d) No additional constraints are indicated  
+- There are no stated upper bounds on number of tanks beyond what A and B impose.  
+- No minimum production requirements or integer constraints, since partial tanks are allowed.
+
+6. Modelling strategy outline  
+
+- Set up the LP with the above objective and constraints.  
+- Solve using simplex or any LP solver.  
+- Check which constraints are binding (likely both A and B or just one).  
+- Interpret the optimal solution as the number (possibly fractional) of tanks of each oil to process.
+
+---
+
+[MODELER]:
+Below is a complete mathematical model of the problem, followed by solver suggestions in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_L \ge 0\): number of (possibly fractional) tanks of **light** oil to process  
+- \(x_N \ge 0\): number of (possibly fractional) tanks of **non-sticky** oil to process  
+- \(x_H \ge 0\): number of (possibly fractional) tanks of **heavy** oil to process  
+
+These are continuous variables since “full or partial tanks” are allowed.
+
+---
+
+## 2. Objective function
+
+Net revenue per tank:
+
+- Light: \$550 per tank  
+- Non-sticky: \$750 per tank  
+- Heavy: \$950 per tank  
+
+We want to **maximize total net revenue**:
+
+\[
+\max\; Z \;=\; 550 x_L + 750 x_N + 950 x_H
+\]
+
+---
+
+## 3. Constraints
+
+### a) Compound A availability
+
+Usage of compound A per tank:
+
+- Light: 3 units  
+- Non-sticky: 6 units  
+- Heavy: 9 units  
+
+Total A available: 250 units.
+
+Constraint:
+
+\[
+3x_L + 6x_N + 9x_H \;\le\; 250
+\]
+
+---
+
+### b) Compound B availability
+
+Usage of compound B per tank:
+
+- Light: 3 units  
+- Non-sticky: 2 units  
+- Heavy: 3 units  
+
+Total B available: 150 units.
+
+Constraint:
+
+\[
+3x_L + 2x_N + 3x_H \;\le\; 150
+\]
+
+---
+
+### c) Nonnegativity
+
+\[
+x_L \ge 0,\quad x_N \ge 0,\quad x_H \ge 0
+\]
+
+---
+
+## 4. Complete LP model
+
+\[
+\begin{align}
+\max\;\; & 550 x_L + 750 x_N + 950 x_H \\[4pt]
+\text{s.t.}\;\; 
+& 3x_L + 6x_N + 9x_H \le 250 & \text{(compound A)}\\
+& 3x_L + 2x_N + 3x_H \le 150 & \text{(compound B)}\\
+& x_L, x_N, x_H \ge 0 & \text{(nonnegativity)}
+\end{align}
+\]
+
+This is a standard **linear programming (LP)** problem.
+
+---
+
+## 5. Suitable Python libraries and how to set it up
+
+Several libraries can solve this LP efficiently:
+
+- `PuLP` – very simple for teaching and small/medium LPs.
+- `scipy.optimize.linprog` – part of SciPy, good generic LP solver.
+- `ortools.linear_solver` – Google OR-Tools, powerful and fast.
+
+### Example: model with PuLP
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("MapleOilMaxRevenue", pl.LpMaximize)
+
+# Decision variables (continuous, >= 0)
+x_L = pl.LpVariable('x_L', lowBound=0)
+x_N = pl.LpVariable('x_N', lowBound=0)
+x_H = pl.LpVariable('x_H', lowBound=0)
+
+# Objective function
+prob += 550 * x_L + 750 * x_N + 950 * x_H
+
+# Constraints
+prob += 3 * x_L + 6 * x_N + 9 * x_H <= 250, "Compound_A"
+prob += 3 * x_L + 2 * x_N + 3 * x_H <= 150, "Compound_B"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Output solution
+print("Status:", pl.LpStatus[prob.status])
+print("x_L =", x_L.varValue)
+print("x_N =", x_N.varValue)
+print("x_H =", x_H.varValue)
+print("Max Revenue =", pl.value(prob.objective))
+```
+
+Other options:
+
+- **SciPy**: use `scipy.optimize.linprog` with `c = [-550, -750, -950]` (negated for maximization) and `A_ub`, `b_ub` corresponding to the constraints.
+- **OR-Tools**: use `pywraplp.Solver.CreateSolver('GLOP')` and define variables, objective, and constraints similarly.
+
+This formulation and any of these libraries will allow you to obtain the optimal numbers of full or partial tanks of each oil type.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create problem
+    prob = pl.LpProblem("MapleOilMaxRevenue", pl.LpMaximize)
+
+    # Decision variables (continuous, >= 0)
+    x_L = pl.LpVariable('x_L', lowBound=0)
+    x_N = pl.LpVariable('x_N', lowBound=0)
+    x_H = pl.LpVariable('x_H', lowBound=0)
+
+    # Objective function
+    prob += 550 * x_L + 750 * x_N + 950 * x_H
+
+    # Constraints
+    prob += 3 * x_L + 6 * x_N + 9 * x_H <= 250  # Compound A
+    prob += 3 * x_L + 2 * x_N + 3 * x_H <= 150  # Compound B
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

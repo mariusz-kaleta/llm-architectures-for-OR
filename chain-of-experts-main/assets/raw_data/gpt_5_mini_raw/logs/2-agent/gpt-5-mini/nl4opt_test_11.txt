@@ -1,0 +1,79 @@
+[MODELER]:
+Model
+
+- Variables
+  - b ∈ Z≥0 : number of bikes
+  - c ∈ Z≥0 : number of cars
+
+- Objective
+  - Minimize b (the number of bikes)
+
+- Constraints
+  1. Capacity: 3b + 5c ≥ 500 (each bike carries 3, each car 5)
+  2. Car fraction: c ≤ 0.4(b + c). Equivalently 0.6c ≤ 0.4b or 3c ≤ 2b
+  3. b, c integers and nonnegative
+
+Mathematical formulation
+  minimize b
+  subject to
+    3b + 5c ≥ 500
+    3c ≤ 2b
+    b, c ∈ Z≥0
+
+Solution reasoning (short)
+- From 3c ≤ 2b the maximum cars for a given b is c_max = floor(2/3 · b). For given b you would choose c as large as allowed to help reach the 500-person requirement.
+- Using the continuous upper bound on capacity with c = (2/3)b gives total seats = 3b + 5·(2/3)b = (19/3)b. So b ≥ ceil(500·3/19) = ceil(1500/19) = 79 is a lower bound.
+- Check integer feasibility: for b = 79, c_max = floor(2/3·79) = 52 gives capacity 3·79 + 5·52 = 497 < 500, so b=79 fails.
+- For b = 80, c_max = floor(2/3·80) = 53. The minimal c to meet capacity with b=80 is c = ceil((500 − 3·80)/5) = ceil(260/5) = 52. So (b,c) = (80,52) achieves exactly 500 people and satisfies 3c ≤ 2b. (c = 53 also works, giving 505 seats, but uses an extra vehicle.)
+
+Optimal integer solution
+- Minimum number of bikes b = 80.
+- Minimum number of cars that meets the capacity with b = 80 is c = 52 (c = 53 is also feasible if extra seats are okay).
+
+Suggested solvers / libraries
+- For small problems a simple brute-force loop is trivial.
+- Integer programming libraries: PuLP (CBC), OR-Tools (CP-SAT), Pyomo (with a MIP solver).
+- For example, use pulp or ortools to model and solve this MILP/ILP.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+#!/usr/bin/env python3
+import math
+
+# Problem data (directly initialized)
+required_capacity = 500
+
+# Search for minimal b (number of bikes) satisfying:
+# 3b + 5c >= 500
+# 3c <= 2b  -> c <= floor(2/3 * b)
+# b, c are nonnegative integers
+
+b_opt = None
+c_for_b_opt = None
+
+# Set a reasonable upper bound for search
+max_b = 1000
+
+for b in range(0, max_b + 1):
+    # maximum cars allowed by car-fraction constraint
+    c_max = (2 * b) // 3
+
+    # minimal cars needed to meet capacity given b
+    remaining = required_capacity - 3 * b
+    if remaining <= 0:
+        c_needed = 0
+    else:
+        c_needed = math.ceil(remaining / 5)
+
+    # check feasibility
+    if 0 <= c_needed <= c_max:
+        b_opt = b
+        c_for_b_opt = c_needed
+        break
+
+if b_opt is None:
+    raise RuntimeError("No feasible solution found within search bounds")
+
+# Final output (exact required format)
+print(f"FINAL_OBJ: {b_opt}")

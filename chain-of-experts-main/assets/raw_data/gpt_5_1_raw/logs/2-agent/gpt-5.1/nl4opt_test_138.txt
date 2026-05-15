@@ -1,0 +1,169 @@
+[MODELER]:
+Formulate this as a **linear programming (LP)** problem.
+
+### 1. Decision variables
+
+Let  
+- \(x\) = number of smoothies  
+- \(y\) = number of protein bars
+
+Both must be non-negative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+### 2. Objective: maximize total protein
+
+Each smoothie has 2 units of protein, each protein bar has 7 units of protein.
+
+\[
+\text{Maximize } Z = 2x + 7y
+\]
+
+### 3. Constraints
+
+**a) Calorie constraint**
+
+Each smoothie has 300 calories, each protein bar has 250 calories, maximum 2000 calories:
+
+\[
+300x + 250y \le 2000
+\]
+
+**b) Protein bar ratio constraint**
+
+The woman must eat **2 times more protein bars than smoothies**:  
+“2 times more protein bars than smoothies” = protein bars are twice the number of smoothies:
+
+\[
+y = 2x
+\]
+
+(If you interpret “2 times more” as “2 times as many”, this is correct for most textbook problems.)
+
+### 4. Substitute and simplify
+
+Use \(y = 2x\) in the calorie constraint:
+
+\[
+300x + 250(2x) \le 2000 \\
+300x + 500x \le 2000 \\
+800x \le 2000 \\
+x \le \frac{2000}{800} = 2.5
+\]
+
+To maximize protein (and calories are the only limiting factor), use the **largest feasible** \(x\):  
+\[
+x^* = 2.5,\quad y^* = 2x^* = 5
+\]
+
+Total protein:
+\[
+Z^* = 2(2.5) + 7(5) = 5 + 35 = 40 \text{ units of protein}
+\]
+
+Total calories:
+\[
+300(2.5) + 250(5) = 750 + 1250 = 2000 \text{ calories}
+\]
+
+So, in the **continuous** model (allowing fractional meals), the optimal solution is:
+- Smoothies: \(2.5\)
+- Protein bars: \(5\)
+- Maximum protein: \(40\) units
+
+If the meals must be whole numbers, then you’d add integrality constraints:
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+Feasible integer solutions with \(y = 2x\) and \(300x + 250y \le 2000\) are:
+- \(x = 0, y = 0\) (0 kcal, 0 protein)
+- \(x = 1, y = 2\) (800 kcal, 16 protein)
+- \(x = 2, y = 4\) (1600 kcal, 32 protein)
+
+The **best integer solution** is:
+- 2 smoothies and 4 protein bars (32 units of protein).
+
+---
+
+### 5. Suitable Python libraries
+
+To solve this in Python:
+
+- For **linear programming (continuous variables)**:
+  - `scipy.optimize.linprog`
+  - `PuLP`
+  - `ortools.linear_solver` (Google OR-Tools)
+
+- For **integer programming (if you require integer numbers of meals)**:
+  - `PuLP` (with CBC or other MILP solvers)
+  - `ortools.linear_solver` with `CBC_MIXED_INTEGER_PROGRAMMING`
+
+Example using PuLP (continuous version):
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("DietProteinMax", pl.LpMaximize)
+
+# Variables
+x = pl.LpVariable('smoothies', lowBound=0)
+y = pl.LpVariable('bars', lowBound=0)
+
+# Objective
+prob += 2*x + 7*y
+
+# Constraints
+prob += 300*x + 250*y <= 2000
+prob += y == 2*x
+
+# Solve
+prob.solve()
+print("Smoothies:", x.value())
+print("Protein bars:", y.value())
+print("Max protein:", 2*x.value() + 7*y.value())
+```
+
+For an integer version, add `cat='Integer'` to the variables:
+
+```python
+x = pl.LpVariable('smoothies', lowBound=0, cat='Integer')
+y = pl.LpVariable('bars', lowBound=0, cat='Integer')
+```
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def solve_lp():
+    # Continuous LP: maximize protein with given constraints
+    prob = pl.LpProblem("DietProteinMax", pl.LpMaximize)
+
+    # Decision variables (continuous, >= 0)
+    x = pl.LpVariable('smoothies', lowBound=0)
+    y = pl.LpVariable('bars', lowBound=0)
+
+    # Objective: maximize total protein Z = 2x + 7y
+    prob += 2 * x + 7 * y
+
+    # Calorie constraint: 300x + 250y <= 2000
+    prob += 300 * x + 250 * y <= 2000
+
+    # Protein bar ratio constraint: y = 2x
+    prob += y == 2 * x
+
+    # Solve continuous LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    x_val = x.value()
+    y_val = y.value()
+    z_val = 2 * x_val + 7 * y_val
+
+    return x_val, y_val, z_val
+
+if __name__ == "__main__":
+    x_opt, y_opt, z_opt = solve_lp()
+    # Objective value is the maximum protein
+    print(f"FINAL_OBJ: {z_opt}")

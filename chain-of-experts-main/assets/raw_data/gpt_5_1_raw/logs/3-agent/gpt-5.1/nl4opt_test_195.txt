@@ -1,0 +1,181 @@
+[MODELER]:
+Formulate this as a **linear programming** (LP) problem.
+
+## Decision variables
+
+Let  
+- \(x\) = number of pills of supplement A per day  
+- \(y\) = number of pills of supplement B per day  
+
+Assume \(x, y \ge 0\) and can be non-integer (if whole pills are required, add integer constraints).
+
+## Objective
+
+Minimize the total daily cost:
+
+\[
+\min\; C = 2x + 3y
+\]
+
+## Constraints
+
+1. **Iron requirement** (at least 40 units):
+   - Supplement A: 5 units/pill  
+   - Supplement B: 4 units/pill  
+
+   \[
+   5x + 4y \;\ge\; 40
+   \]
+
+2. **Calcium requirement** (at least 50 units):
+   - Supplement A: 10 units/pill  
+   - Supplement B: 15 units/pill  
+
+   \[
+   10x + 15y \;\ge\; 50
+   \]
+
+3. **Non-negativity**:
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+
+If pills must be whole numbers, add:
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+## Solving the LP analytically (continuous case)
+
+Solve the system where both nutrient constraints are **exactly** binding (this is typically where the minimum cost occurs for such a 2-variable LP):
+
+\[
+\begin{cases}
+5x + 4y = 40\\
+10x + 15y = 50
+\end{cases}
+\]
+
+From the first:
+\[
+5x + 4y = 40 \Rightarrow x = 8 - 0.8y
+\]
+
+Substitute into second:
+\[
+10(8 - 0.8y) + 15y = 50 \\
+80 - 8y + 15y = 50 \\
+80 + 7y = 50 \\
+7y = -30 \Rightarrow y = -\frac{30}{7} < 0
+\]
+
+This is infeasible (cannot have negative pills), so the minimum cost will occur at a **boundary** where one requirement is just met and the other is over-satisfied.
+
+### Check boundary 1: meet iron exactly
+
+\[
+5x + 4y = 40 \quad (x,y \ge 0)
+\]
+
+- If \(y = 0\): \(5x = 40 \Rightarrow x = 8\)  
+  - Calcium: \(10x + 15y = 10\cdot 8 = 80 \ge 50\) ✅  
+  - Cost: \(C = 2\cdot 8 + 3\cdot 0 = 16\)
+
+- If \(x = 0\): \(4y = 40 \Rightarrow y = 10\)  
+  - Calcium: \(15\cdot 10 = 150 \ge 50\) ✅  
+  - Cost: \(C = 3\cdot 10 = 30\)
+
+So on this line, the cheapest feasible point is \(x=8, y=0\) with cost 16.
+
+### Check boundary 2: meet calcium exactly
+
+\[
+10x + 15y = 50
+\]
+
+- If \(y = 0\): \(10x = 50 \Rightarrow x = 5\)  
+  - Iron: \(5\cdot 5 + 4\cdot 0 = 25 < 40\) ❌ not feasible
+
+- If \(x = 0\): \(15y = 50 \Rightarrow y = \frac{50}{15} \approx 3.33\)  
+  - Iron: \(4 \cdot 3.33 \approx 13.33 < 40\) ❌ not feasible
+
+So there is **no** point that meets calcium exactly and also satisfies iron.
+
+Thus the optimal feasible solution is:
+
+\[
+x^* = 8,\quad y^* = 0,\quad \text{minimum cost} = \$16
+\]
+
+He should buy **8 pills of supplement A and 0 pills of supplement B** to minimize cost (in the continuous or integer case this is the same, since 8 is integer).
+
+## Python libraries suitable for solving
+
+You can model and solve this using any of:
+
+- `PuLP` – simple interface for linear and integer programming.
+- `scipy.optimize` (`linprog`) – good for continuous LP (no integer constraints).
+- `ortools.linear_solver` (Google OR-Tools) – powerful for LP/MIP if you need integers.
+- `cvxpy` – general convex optimization, also handles LPs nicely.
+
+### Example with PuLP (continuous or integer)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Supplement_Cost_Minimization", pl.LpMinimize)
+
+# Decision variables (use cat=pl.LpInteger to force integers)
+x = pl.LpVariable("x_A", lowBound=0, cat=pl.LpContinuous)
+y = pl.LpVariable("y_B", lowBound=0, cat=pl.LpContinuous)
+
+# Objective
+prob += 2*x + 3*y
+
+# Constraints
+prob += 5*x + 4*y >= 40, "Iron_requirement"
+prob += 10*x + 15*y >= 50, "Calcium_requirement"
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("x_A =", x.value())
+print("y_B =", y.value())
+print("Min cost =", pl.value(2*x + 3*y))
+```
+
+This will return \(x=8, y=0\) and minimum cost 16.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the LP problem: minimize cost
+    prob = pl.LpProblem("Supplement_Cost_Minimization", pl.LpMinimize)
+
+    # Decision variables (continuous, non-negative)
+    x = pl.LpVariable("x_A", lowBound=0, cat=pl.LpContinuous)
+    y = pl.LpVariable("y_B", lowBound=0, cat=pl.LpContinuous)
+
+    # Objective function: Minimize total daily cost
+    prob += 2 * x + 3 * y, "Total_Cost"
+
+    # Constraints
+    prob += 5 * x + 4 * y >= 40, "Iron_requirement"
+    prob += 10 * x + 15 * y >= 50, "Calcium_requirement"
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract optimal objective value
+    final_obj = pl.value(2 * x + 3 * y)
+
+    # Print the final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,119 @@
+[MODELER]:
+Here is a clean mathematical optimization model of the problem.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of wide pipes (integer, \(x \ge 0\))  
+- \(y\) = number of narrow pipes (integer, \(y \ge 0\))
+
+## 2. Objective
+
+Minimize the total number of pipes:
+\[
+\min \; x + y
+\]
+
+## 3. Constraints
+
+1. **Water capacity requirement**  
+   Each wide pipe carries 25 units/min, each narrow pipe 15 units/min.  
+   Total transported water must be at least 900 units/min:
+   \[
+   25x + 15y \;\ge\; 900
+   \]
+
+2. **Logistics constraint (wide vs. narrow)**  
+   Number of wide pipes can be at most a third of the number of narrow pipes:
+   \[
+   x \;\le\; \frac{1}{3}y
+   \]
+   Equivalently (to avoid fractions):
+   \[
+   3x \;\le\; y
+   \]
+
+3. **Minimum number of wide pipes**  
+   At least 5 wide pipes must be used:
+   \[
+   x \;\ge\; 5
+   \]
+
+4. **Integrality**  
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+This is a small **integer linear programming (ILP)** problem.
+
+## 4. Suitable Python libraries
+
+To solve this model in Python, you can use any standard MILP/LP library, for example:
+
+- **PuLP** (`pulp`): very simple interface for linear and integer programming.
+- **OR-Tools** (`ortools.linear_solver` or `ortools.sat.python.cp_model`): powerful and free from Google.
+- **Pyomo**: more general algebraic modeling language, good for larger modeling tasks.
+
+### Example outline in PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Water_Pipe_Design", pl.LpMinimize)
+
+# Variables
+x = pl.LpVariable("wide_pipes", lowBound=0, cat="Integer")
+y = pl.LpVariable("narrow_pipes", lowBound=0, cat="Integer")
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 25*x + 15*y >= 900       # capacity
+prob += 3*x <= y                 # logistics: x <= y/3
+prob += x >= 5                   # at least 5 wide pipes
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("wide pipes (x) =", x.value())
+print("narrow pipes (y) =", y.value())
+print("total pipes =", x.value() + y.value())
+```
+
+This code directly implements the formal model above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Water_Pipe_Design", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable("wide_pipes", lowBound=0, cat="Integer")
+    y = pl.LpVariable("narrow_pipes", lowBound=0, cat="Integer")
+
+    # Objective: minimize total number of pipes
+    prob += x + y
+
+    # Constraints
+    prob += 25 * x + 15 * y >= 900      # Water capacity requirement
+    prob += 3 * x <= y                  # Logistics constraint
+    prob += x >= 5                      # Minimum number of wide pipes
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print final objective as required
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

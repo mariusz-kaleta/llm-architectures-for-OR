@@ -1,0 +1,73 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x ≥ 0: number of regular sandwiches produced (integer).
+- y ≥ 0: number of special sandwiches produced (integer).
+
+Objective
+- Maximize profit: maximize Z = 3x + 4y.
+
+Constraints
+- Eggs: 2x + 3y ≤ 40 (40 eggs available).
+- Bacon: 3x + 5y ≤ 70 (70 slices of bacon available).
+- Integrality (if sandwiches must be whole): x, y ∈ Z≥0.
+- Nonnegativity: x, y ≥ 0.
+
+Solution (continuous LP)
+- Consider the LP (without integrality). The feasible region vertices are (0,0), (20,0) and (0,13.333...). Objective values: Z(20,0)=60, Z(0,13.333)=53.333. The maximum is at x=20, y=0 with profit $60.
+
+Integer case
+- x=20, y=0 is integer and feasible, so it is also optimal for the integer problem.
+
+Answer
+- Make 20 regular sandwiches and 0 special sandwiches. Maximum profit = $60.
+
+Suggested Python solvers
+- For continuous LP: scipy.optimize.linprog, PuLP (with default CBC), cvxopt.
+- For integer/MIP: PuLP (with CBC or other solver), OR-Tools (CP-SAT), Gurobi or CPLEX (commercial).
+
+Optional PuLP example (MIP)
+- Model with PuLP:
+  from pulp import LpProblem, LpMaximize, LpVariable, lpSum, PULP_CBC_CMD
+  prob = LpProblem('Sandwich', LpMaximize)
+  x = LpVariable('x', lowBound=0, cat='Integer')
+  y = LpVariable('y', lowBound=0, cat='Integer')
+  prob += 3*x + 4*y
+  prob += 2*x + 3*y <= 40
+  prob += 3*x + 5*y <= 70
+  prob.solve(PULP_CBC_CMD())
+  print(x.value(), y.value(), 'Profit', 3*x.value()+4*y.value())
+
+This will return x=20, y=0, profit=60.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained script to solve the integer sandwich production problem by enumeration
+
+# Initialize data
+eggs_available = 40
+bacon_available = 70
+profit_x = 3  # profit per regular sandwich
+profit_y = 4  # profit per special sandwich
+
+# Derive reasonable upper bounds for search
+max_x = min(eggs_available // 2, bacon_available // 3)
+max_y = min(eggs_available // 3, bacon_available // 5)
+
+best_obj = None
+best_solution = (0, 0)
+
+for x in range(max_x + 1):
+    for y in range(max_y + 1):
+        if 2 * x + 3 * y <= eggs_available and 3 * x + 5 * y <= bacon_available:
+            obj = profit_x * x + profit_y * y
+            if best_obj is None or obj > best_obj:
+                best_obj = obj
+                best_solution = (x, y)
+
+# Final objective value
+print(f"FINAL_OBJ: {best_obj}")
+```

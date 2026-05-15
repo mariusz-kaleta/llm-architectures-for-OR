@@ -1,0 +1,134 @@
+[MODELER]:
+Here is a clean mathematical model of the problem and how you could solve it with Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of old vans used  
+- \(y\) = number of new vans used  
+
+We assume they must be nonnegative integers:
+- \(x \ge 0\), integer  
+- \(y \ge 0\), integer  
+
+---
+
+## 2. Objective
+
+Each old van produces 50 units of pollution and each new van 30 units.
+
+Minimize total pollution:
+\[
+\min \; Z = 50x + 30y
+\]
+
+---
+
+## 3. Constraints
+
+1. **Bottle capacity requirement**  
+   Each old van carries 100 bottles, each new van carries 80 bottles.  
+   Company needs at least 5000 bottles:
+
+   \[
+   100x + 80y \;\ge\; 5000
+   \]
+
+2. **Limit on new vans**
+
+   At most 30 new vans can be used:
+
+   \[
+   y \;\le\; 30
+   \]
+
+3. **Nonnegativity and integrality**
+
+   \[
+   x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+   \]
+
+---
+
+## 4. Type of optimization problem
+
+This is a **mixed-integer linear programming (MILP)** problem (actually pure integer linear programming) because:
+
+- Objective is linear in \(x, y\)
+- Constraints are linear
+- Variables are integer
+
+---
+
+## 5. Suitable Python libraries
+
+You can model and solve this using:
+
+- `PuLP` (very user-friendly for linear/integer programs)
+- `ortools.linear_solver` (Google OR-Tools)
+- `scipy.optimize` is less convenient here because it does not natively support integer constraints; it’s better for continuous LP/QP/NLP.
+
+For this specific problem, I recommend **PuLP** or **OR-Tools**.
+
+---
+
+## 6. Example PuLP formulation (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Soda_Van_Optimization", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable("old_vans", lowBound=0, cat="Integer")
+y = pl.LpVariable("new_vans", lowBound=0, upBound=30, cat="Integer")
+
+# Objective
+prob += 50 * x + 30 * y
+
+# Constraints
+prob += 100 * x + 80 * y >= 5000  # bottle capacity
+
+# Solve
+prob.solve()
+
+# Results
+print("Status:", pl.LpStatus[prob.status])
+print("Old vans:", x.value())
+print("New vans:", y.value())
+print("Minimum pollution:", pl.value(prob.objective))
+```
+
+This directly implements the model given above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Problem
+    prob = pl.LpProblem("Soda_Van_Optimization", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable("old_vans", lowBound=0, cat="Integer")
+    y = pl.LpVariable("new_vans", lowBound=0, upBound=30, cat="Integer")
+
+    # Objective: Minimize pollution
+    prob += 50 * x + 30 * y
+
+    # Constraints
+    prob += 100 * x + 80 * y >= 5000  # bottle capacity
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    final_obj = pl.value(prob.objective)
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

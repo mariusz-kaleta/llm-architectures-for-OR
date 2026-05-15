@@ -1,0 +1,217 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total number of workers scheduled (full-time + part-time) while meeting the project’s labor-hour requirement and staying within budget.
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP)  
+Rationale:  
+- Decision variables (number of workers) must be nonnegative integers.  
+- Objective and constraints are linear in these variables.
+
+3. Main decision variables  
+Define two integer decision variables, for one shift of work:  
+- \(x\): number of full-time workers scheduled  
+- \(y\): number of part-time workers scheduled  
+
+(Each worker is assumed to work one shift; if multiple shifts are intended, treat each “worker-shift” as a unit.)
+
+4. Key constraints to consider  
+
+a) Labor-hours requirement  
+- Each full-time worker provides 8 hours.  
+- Each part-time worker provides 4 hours.  
+- Total hours from all workers must be at least the required 500 hours.  
+- Form strategic constraint:  
+  - Total labor hours from full-time and part-time workers ≥ 500 hours.
+
+b) Budget constraint  
+- Each full-time worker costs $300.  
+- Each part-time worker costs $100.  
+- Total wage cost cannot exceed the $15,000 budget.  
+- Form strategic constraint:  
+  - Total wage cost of full-time and part-time workers ≤ 15,000.
+
+c) Nonnegativity and integrality  
+- Both x and y must be ≥ 0.  
+- Both x and y must be integers (you cannot hire a fractional worker).
+
+5. Objective function structure  
+- Minimise total number of workers: x + y.  
+- No need to include costs or hours in the objective, as they are handled in constraints.
+
+6. Additional modelling notes / checks  
+
+- Feasibility check (implicit):  
+  - With only full-time workers, the maximum feasible number given the budget is floor(15000 / 300).  
+  - With only part-time workers, the maximum feasible number is floor(15000 / 100).  
+  - Ensure hours from such combinations can feasibly meet or exceed 500 hours; if not, identify need for mixed solutions.  
+
+- Trade-off structure:  
+  - Full-time workers are more efficient in hours per worker but more expensive per worker.  
+  - Part-time workers are cheaper per worker but provide fewer hours.  
+  - The budget is loose relative to the hours required (check: 500 hours vs. cost and max affordable hours) to see if budget is binding or if the labor-hours constraint is binding.  
+
+- Solution exploration strategy for the Modeller:  
+  - Set up the ILP with objective minimise x + y, constraints as above.  
+  - Because there are only two variables, you can also inspect the feasible region by:  
+    - Solving the labor-hour constraint as an equality (to reduce workers) and verifying budget.  
+    - Checking integer points on or above the labor-hour boundary that also satisfy the budget and then choosing the one with minimal x + y.  
+
+This gives the Modeller a clear structure to implement the ILP and then compute the optimal numbers of full-time and part-time workers.
+
+---
+
+[MODELER]:
+Below is a formal mathematical model that corresponds to the problem and the strategic plan.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x \in \mathbb{Z}_{\ge 0}\): number of full-time workers scheduled  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of part-time workers scheduled  
+
+(Each worker works one shift.)
+
+---
+
+## 2. Objective
+
+Minimize the total number of workers used:
+
+\[
+\min \; z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Labor-hours requirement
+
+- Each full-time worker provides 8 hours.
+- Each part-time worker provides 4 hours.
+- At least 500 hours of labor are required.
+
+\[
+8x + 4y \;\ge\; 500
+\]
+
+---
+
+### b) Budget constraint
+
+- Each full-time worker costs \$300 per shift.
+- Each part-time worker costs \$100 per shift.
+- Total wage cost cannot exceed \$15{,}000.
+
+\[
+300x + 100y \;\le\; 15000
+\]
+
+You can simplify (divide by 100) if desired:
+
+\[
+3x + y \;\le\; 150
+\]
+
+---
+
+### c) Nonnegativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete ILP model (compact form)
+
+\[
+\begin{aligned}
+\min \quad & x + y \\
+\text{s.t.} \quad 
+& 8x + 4y \;\ge\; 500, \\
+& 3x + y \;\le\; 150, \\
+& x, y \in \mathbb{Z}_{\ge 0}.
+\end{aligned}
+\]
+
+This is an Integer Linear Programming (ILP) model with 2 integer variables and 2 linear constraints (plus nonnegativity).
+
+---
+
+## 5. Suitable Python libraries
+
+Any ILP-capable library is sufficient; given the size, even basic solvers are more than enough. Recommended:
+
+- **PuLP** (pure Python, easy syntax, works with CBC or other MILP solvers)
+- **OR-Tools** (`ortools.linear_solver` with `CBC_MIXED_INTEGER_PROGRAMMING`)
+- **Pyomo** (more general algebraic modeling, can also use CBC, GLPK, Gurobi, CPLEX, etc.)
+
+Example using PuLP:
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Worker_Scheduling", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('x_full_time', lowBound=0, cat='Integer')
+y = pl.LpVariable('y_part_time', lowBound=0, cat='Integer')
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 8*x + 4*y >= 500        # labor-hours
+prob += 300*x + 100*y <= 15000  # budget
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Full-time workers (x):", x.value())
+print("Part-time workers (y):", y.value())
+print("Total workers:", x.value() + y.value())
+```
+
+This model directly implements the problem statement and the strategic plan.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Worker_Scheduling", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('x_full_time', lowBound=0, cat='Integer')
+    y = pl.LpVariable('y_part_time', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of workers
+    prob += x + y
+
+    # Constraints
+    # Labor-hours requirement: 8x + 4y >= 500
+    prob += 8 * x + 4 * y >= 500, "Labor_Hours"
+
+    # Budget constraint: 3x + y <= 150 (scaled form of 300x + 100y <= 15000)
+    prob += 3 * x + y <= 150, "Budget"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,38 @@
+[MONOLITH]:
+import pulp
+
+# Initialize the problem: maximize fat intake
+prob = pulp.LpProblem("BabyFoodOptimization", pulp.LpMaximize)
+
+# Decision variables: servings of apple (A) and carrot (C)
+A = pulp.LpVariable('Apple', lowBound=0, cat='Continuous')
+C = pulp.LpVariable('Carrot', lowBound=2, cat='Continuous')  # at least 2 servings of carrot
+
+# Objective function: maximize total fat
+# Each serving: apple -> 2 units fat, carrot -> 4 units fat
+prob += 2 * A + 4 * C, "Total_Fat"
+
+# Constraints:
+
+# Baby must eat three times as many apple servings as carrot servings
+prob += A == 3 * C, "Apple_to_Carrot_Ratio"
+
+# Folate constraint: at most 100 units
+# Each serving: apple -> 5 units folate, carrot -> 3 units folate
+prob += 5 * A + 3 * C <= 100, "Folate_Limit"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve results
+A_val = pulp.value(A)
+C_val = pulp.value(C)
+fat_intake = 2 * A_val + 4 * C_val
+
+# Print solution details (optional)
+print(f"Optimal servings of apple baby food: {A_val}")
+print(f"Optimal servings of carrot baby food: {C_val}")
+print(f"Maximum fat intake: {fat_intake}")
+
+# Final required output
+print(f"FINAL_OBJ: {fat_intake}")

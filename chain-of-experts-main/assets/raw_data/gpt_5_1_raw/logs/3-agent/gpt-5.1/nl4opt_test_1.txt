@@ -1,0 +1,249 @@
+[MODELER]:
+Here is a clean mathematical model and how you could solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of large pills (integer, \(x \ge 0\))
+- \(y\) = number of small pills (integer, \(y \ge 0\))
+
+---
+
+## 2. Objective function
+
+We want to **minimize the total amount of filler material**.
+
+- Each large pill uses 2 units of filler.
+- Each small pill uses 1 unit of filler.
+
+So the **objective** is:
+
+\[
+\min \; F = 2x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Medicinal ingredient constraint
+
+Each pill uses medicinal ingredient:
+
+- Large: 3 units
+- Small: 2 units
+
+Total available medicinal ingredient = 1000 units.
+
+So:
+
+\[
+3x + 2y \le 1000
+\]
+
+---
+
+### b) Minimum large pills
+
+The lab must make **at least 100 large pills**:
+
+\[
+x \ge 100
+\]
+
+---
+
+### c) Popularity constraint (at least 60% small)
+
+At least 60% of the total number of pills must be small:
+
+\[
+y \ge 0.6(x + y)
+\]
+
+Rearrange:
+
+\[
+y \ge 0.6x + 0.6y
+\]
+\[
+0.4y \ge 0.6x
+\]
+\[
+y \ge 1.5x
+\]
+
+So the constraint becomes:
+
+\[
+y \ge 1.5x
+\]
+
+Since we have integer pills, we will treat \(x, y\) as integers satisfying this inequality.
+
+---
+
+### d) Non-negativity and integrality
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete model
+
+Minimize:
+
+\[
+\min \; 2x + y
+\]
+
+subject to:
+
+\[
+\begin{aligned}
+3x + 2y &\le 1000 \\
+x &\ge 100 \\
+y &\ge 1.5x \\
+x, y &\in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Solving the model analytically (optional, for insight)
+
+We want to **minimize filler**: \(2x + y\).
+
+Given the constraint \(y \ge 1.5x\), using **more small pills** (increasing \(y\) at fixed \(x\)) only increases filler (coefficient of \(y\) is +1).  
+So for any fixed \(x\), we should pick the **smallest feasible \(y\)**, i.e.:
+
+\[
+y = 1.5x
+\]
+
+Then the ingredient constraint:
+
+\[
+3x + 2y \le 1000
+\Rightarrow 3x + 2(1.5x) \le 1000
+\Rightarrow 3x + 3x \le 1000
+\Rightarrow 6x \le 1000
+\Rightarrow x \le \frac{1000}{6} \approx 166.67
+\]
+
+Also \(x \ge 100\).
+
+So \(x\) can be integer between 100 and 166. With \(y = 1.5x\), we need \(y\) integer too, so \(x\) must be a multiple of 2 (since \(1.5x = \tfrac{3}{2}x\) must be integer).  
+Candidates: \(x = 100, 102, ..., 166\).
+
+Total filler:
+
+\[
+F = 2x + y = 2x + 1.5x = 3.5x
+\]
+
+To minimize \(F\), we minimize \(x\). Thus:
+
+- \(x = 100\)
+- \(y = 1.5 \cdot 100 = 150\)
+
+Check ingredient usage:
+
+\[
+3(100) + 2(150) = 300 + 300 = 600 \le 1000
+\]
+
+So the optimal solution:
+
+- Large pills: 100
+- Small pills: 150
+- Minimum filler: \(2 \cdot 100 + 150 = 350\) units
+
+---
+
+## 6. Recommended Python tools
+
+This is a small **integer linear program** (ILP). Suitable Python libraries include:
+
+- `PuLP` (simple modeling, uses CBC or other LP/MIP solvers)
+- `ortools.linear_solver` (Google OR-Tools MIP solver)
+- `Pyomo` (more general modeling, can use various MIP solvers)
+
+For a problem of this size, any of these will solve instantly.
+
+---
+
+## 7. Example in Python with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Pill_Production", pl.LpMinimize)
+
+# Decision variables (integers)
+x = pl.LpVariable('x_large', lowBound=0, cat='Integer')
+y = pl.LpVariable('y_small', lowBound=0, cat='Integer')
+
+# Objective: minimize filler = 2x + y
+prob += 2*x + y
+
+# Constraints
+prob += 3*x + 2*y <= 1000, "Medicinal_ingredient"
+prob += x >= 100,          "Min_large_pills"
+prob += y >= 1.5*x,        "Popularity_small_60pct"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Large pills (x):", pl.value(x))
+print("Small pills (y):", pl.value(y))
+print("Total filler:", 2*pl.value(x) + pl.value(y))
+```
+
+This should output approximately:
+
+- Large pills: 100
+- Small pills: 150
+- Total filler: 350
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Pill_Production", pl.LpMinimize)
+
+    # Decision variables (integers)
+    x = pl.LpVariable('x_large', lowBound=0, cat='Integer')
+    y = pl.LpVariable('y_small', lowBound=0, cat='Integer')
+
+    # Objective: minimize filler = 2x + y
+    prob += 2 * x + y
+
+    # Constraints
+    prob += 3 * x + 2 * y <= 1000          # Medicinal ingredient
+    prob += x >= 100                       # Minimum large pills
+    prob += y >= 1.5 * x                   # Popularity constraint
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute final objective value
+    x_val = pl.value(x)
+    y_val = pl.value(y)
+    final_obj = 2 * x_val + y_val
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

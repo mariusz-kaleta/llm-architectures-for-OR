@@ -1,0 +1,39 @@
+[MONOLITH]:
+import pulp
+
+# Initialize the problem
+prob = pulp.LpProblem("Printer_Selection", pulp.LpMinimize)
+
+# Decision variables: number of premium (x) and regular (y) printers
+x = pulp.LpVariable('Premium', lowBound=0, cat='Integer')
+y = pulp.LpVariable('Regular', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of printers
+prob += x + y
+
+# Constraints
+
+# At least 200 pages per minute: 30x + 20y >= 200
+prob += 30 * x + 20 * y >= 200, "PageCapacity"
+
+# At most 35 units of ink per minute: 4x + 3y <= 35
+prob += 4 * x + 3 * y <= 35, "InkUsage"
+
+# Regular printers must be less than premium printers: y <= x - 1
+prob += y <= x - 1, "RegularLessThanPremium"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+x_val = pulp.value(x)
+y_val = pulp.value(y)
+final_obj = pulp.value(prob.objective)
+
+# Print results (optional detailed prints)
+print(f"Premium printers: {x_val}")
+print(f"Regular printers: {y_val}")
+print(f"Total printers: {final_obj}")
+
+# Required final objective print
+print(f"FINAL_OBJ: {final_obj}")

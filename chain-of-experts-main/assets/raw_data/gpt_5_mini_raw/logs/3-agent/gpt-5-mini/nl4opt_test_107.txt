@@ -1,0 +1,127 @@
+[MODELER]:
+Model variables
+- x1 = number of days operating the old farm (≥ 0).
+- x2 = number of days operating the new farm (≥ 0).
+
+Objective
+- Minimize total operating cost: minimize Z = 300 x1 + 200 x2.
+
+Constraints (to meet the contract totals)
+- Raspberries: 2 x1 + 4 x2 ≥ 10
+- Blueberries: 2 x1 + 1 x2 ≥ 9
+- Strawberries: 4 x1 + 2 x2 ≥ 15
+- x1 ≥ 0, x2 ≥ 0
+
+Remarks
+- This is a linear program (LP). If days must be integer, impose x1, x2 ∈ Z≥0 and solve as an integer linear program (ILP).
+- Continuous (LP) optimal solution: x1 = 13/3 ≈ 4.3333 days, x2 = 1/3 ≈ 0.3333 days, cost Z = 1300 + 66.6667 = 1366.6667.
+- If days must be integer, the best small integer feasible solution is x1 = 4, x2 = 1 (meets all constraints) with cost Z = 300·4 + 200·1 = 1400. (You can check nearby integer combinations to verify this is minimal.)
+
+Suggested Python libraries/solvers
+- For LP: scipy.optimize.linprog, PuLP (with CBC, GLPK, or Gurobi), CVXOPT.
+- For ILP/MIP: PuLP, OR-Tools (CP-SAT or linear solver), or commercial solvers (Gurobi, CPLEX) if available.
+
+Optional minimal PuLP sketch (continuous LP)
+- Define variables x1,x2 = LpVariable(..., lowBound=0)
+- Problem = LpProblem("Berry", LpMinimize)
+- Problem += 300*x1 + 200*x2
+- Problem += 2*x1 + 4*x2 >= 10
+- Problem += 2*x1 + 1*x2 >= 9
+- Problem += 4*x1 + 2*x2 >= 15
+- Problem.solve()
+
+This fully specifies the LP/ILP to minimize cost while meeting the contract.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+import itertools
+
+# Problem data
+c1 = 300.0  # cost per day old farm (x1)
+c2 = 200.0  # cost per day new farm (x2)
+
+# Constraints: a1*x1 + a2*x2 >= b
+constraints = [
+    (2.0, 4.0, 10.0),  # Raspberries
+    (2.0, 1.0, 9.0),   # Blueberries
+    (4.0, 2.0, 15.0),  # Strawberries
+]
+
+tol = 1e-9
+
+# Helper to check feasibility
+def feasible(x1, x2):
+    if x1 < -tol or x2 < -tol:
+        return False
+    for a1, a2, b in constraints:
+        if a1 * x1 + a2 * x2 + tol < b:
+            return False
+    return True
+
+# 1) Compute continuous LP optimum by checking vertices (no external solver required)
+candidates = []
+
+# Add intersection of every pair of constraints (treat equalities)
+for (a1, a2, b), (c1c, c2c, d) in itertools.combinations(constraints, 2):
+    # Solve:
+    # a1*x1 + a2*x2 = b
+    # c1c*x1 + c2c*x2 = d
+    det = a1 * c2c - a2 * c1c
+    if abs(det) < 1e-12:
+        continue
+    x1 = (b * c2c - a2 * d) / det
+    x2 = (a1 * d - b * c1c) / det
+    candidates.append((x1, x2))
+
+# Add intersections of each constraint with x1=0 and x2=0
+for a1, a2, b in constraints:
+    # x1 = 0 -> a2*x2 = b
+    if abs(a2) > 1e-12:
+        x2 = b / a2
+        candidates.append((0.0, x2))
+    # x2 = 0 -> a1*x1 = b
+    if abs(a1) > 1e-12:
+        x1 = b / a1
+        candidates.append((x1, 0.0))
+
+# Add origin
+candidates.append((0.0, 0.0))
+
+# Filter feasible and compute objective
+best_lp_cost = float("inf")
+best_lp_x = None
+for x1_val, x2_val in candidates:
+    if feasible(x1_val, x2_val):
+        cost = 300.0 * x1_val + 200.0 * x2_val
+        if cost < best_lp_cost - 1e-9:
+            best_lp_cost = cost
+            best_lp_x = (x1_val, x2_val)
+
+# 2) Integer solution by brute-force (days must be integers >= 0)
+# Choose a reasonable search bound. Based on constraints, solutions won't require large days.
+max_days = 50
+best_ilp_cost = float("inf")
+best_ilp_x = None
+for x1_int in range(0, max_days + 1):
+    for x2_int in range(0, max_days + 1):
+        if feasible(x1_int, x2_int):
+            cost = 300 * x1_int + 200 * x2_int
+            if cost < best_ilp_cost:
+                best_ilp_cost = cost
+                best_ilp_x = (x1_int, x2_int)
+
+# Choose which objective to report. The problem's remark suggests integer days may be required.
+# We'll report the integer (ILP) optimal objective if a feasible integer solution exists; otherwise LP.
+if best_ilp_x is not None:
+    final_obj = int(best_ilp_cost) if abs(best_ilp_cost - round(best_ilp_cost)) < 1e-9 else best_ilp_cost
+else:
+    # fallback to continuous LP
+    final_obj = best_lp_cost
+
+# Final required print (must be the last line and exactly this format)
+print(f"FINAL_OBJ: {final_obj}")
+```

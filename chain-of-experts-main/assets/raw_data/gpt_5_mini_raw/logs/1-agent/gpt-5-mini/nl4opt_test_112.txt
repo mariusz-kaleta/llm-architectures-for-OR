@@ -1,0 +1,86 @@
+[MONOLITH]:
+import math
+
+# Attempt to solve using PuLP; if not available, fall back to analytic corner-check
+try:
+    import pulp
+
+    # Define problem
+    prob = pulp.LpProblem("Minimize_Time", pulp.LpMinimize)
+
+    # Variables: units of chemical A and B (continuous, non-negative)
+    A = pulp.LpVariable("A", lowBound=0)
+    B = pulp.LpVariable("B", lowBound=0)
+
+    # Objective: minimize total time = 30*A + 45*B
+    prob += 30 * A + 45 * B
+
+    # Constraints:
+    prob += A <= B / 3          # at most a third as much A as B
+    prob += A >= 300            # at least 300 units of A
+    prob += A + B >= 1500       # at least 1500 units total
+
+    # Solve
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    A_val = pulp.value(A)
+    B_val = pulp.value(B)
+    obj_val = pulp.value(prob.objective)
+
+    # Clean numerical noise: cast to int if very close
+    def clean(x):
+        if x is None:
+            return None
+        if abs(x - round(x)) < 1e-6:
+            return int(round(x))
+        return float(x)
+
+    A_val = clean(A_val)
+    B_val = clean(B_val)
+    obj_val = clean(obj_val)
+
+except Exception:
+    # Fallback analytic evaluation (check feasible corner points)
+    candidates = []
+
+    # Constraint lines intersections:
+    # 1) A = 300, with A+B >=1500 -> B = 1500 - A (minimum to satisfy)
+    A1 = 300
+    B1 = 1500 - A1
+    if B1 >= 0 and A1 <= B1 / 3 + 1e-9:
+        candidates.append((A1, B1))
+
+    # 2) Intersection of A = B/3 and A + B = 1500
+    #    B = 3A, A + 3A = 1500 -> A = 375, B = 1125
+    A2 = 375
+    B2 = 1125
+    if A2 >= 0 and A2 <= B2 / 3 + 1e-9 and A2 >= 300 - 1e-9:
+        candidates.append((A2, B2))
+
+    # Also consider A = 300 with B set by A = B/3 (but needs to meet total >=1500)
+    A3 = 300
+    B3 = 3 * A3
+    if A3 + B3 >= 1500 and A3 <= B3 / 3 + 1e-9:
+        candidates.append((A3, B3))
+
+    # Evaluate candidates
+    best = None
+    best_obj = None
+    for a, b in candidates:
+        obj = 30 * a + 45 * b
+        if best is None or obj < best_obj:
+            best = (a, b)
+            best_obj = obj
+
+    if best is None:
+        raise RuntimeError("No feasible solution found in fallback analytic method.")
+
+    A_val, B_val = best
+    obj_val = best_obj
+
+# Optionally print solution (not required). Final required print must be last.
+print(f"A = {A_val}")
+print(f"B = {B_val}")
+
+# Final objective print (must be the last line)
+print(f"FINAL_OBJ: {obj_val}")

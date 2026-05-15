@@ -1,0 +1,88 @@
+[MODELER]:
+Here is a clean optimization model of the problem.
+
+## Decision Variables
+
+Let
+
+- \(x\) = number of tractors used (integer, \(x \ge 0\))
+- \(y\) = number of cars used (integer, \(y \ge 0\))
+
+## Objective
+
+Minimize the total number of vehicles:
+
+\[
+\min\; Z = x + y
+\]
+
+## Constraints
+
+1. **Capacity (corn transport) constraint**
+
+Each tractor carries 40 kg, each car carries 20 kg, and at least 500 kg must be sent:
+
+\[
+40x + 20y \;\ge\; 500
+\]
+
+2. **Car-to-tractor ratio (cars at least twice tractors)**
+
+The number of cars must be at least twice the number of tractors:
+
+\[
+y \;\ge\; 2x
+\]
+
+3. **Non-negativity and integrality**
+
+\[
+x \ge 0,\quad y \ge 0,\quad x,y \in \mathbb{Z}
+\]
+
+---
+
+## Suitable Python Tools
+
+This is a small integer linear programming (ILP) problem. Any of the following libraries is appropriate:
+
+- `PuLP` (simple, pure Python, good for teaching and small problems)
+- Google `ortools.linear_solver` (powerful, well-maintained)
+- `Pyomo` (more general modeling framework)
+- `scipy.optimize.linprog` (only handles continuous variables; you’d need to handle integrality separately or round, so less ideal here)
+
+For an exact integer solution, `PuLP` or OR-Tools would be the most straightforward choices.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def main():
+    # Create the problem
+    prob = pulp.LpProblem("Vehicle_Minimization", pulp.LpMinimize)
+
+    # Decision variables (integers, >= 0)
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # tractors
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # cars
+
+    # Objective: minimize total number of vehicles
+    prob += x + y, "Total_Vehicles"
+
+    # Constraints
+    # Capacity: 40x + 20y >= 500
+    prob += 40 * x + 20 * y >= 500, "Capacity"
+
+    # Car-to-tractor ratio: y >= 2x
+    prob += y >= 2 * x, "Car_to_Tractor_Ratio"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

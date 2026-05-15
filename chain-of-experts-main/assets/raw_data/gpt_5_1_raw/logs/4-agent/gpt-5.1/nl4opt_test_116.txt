@@ -1,0 +1,226 @@
+[PLANNER]:
+1. **Key optimisation goal**  
+   - Goal: Minimise the **total number of trips** (sum of trips by high‑pressure tube trailers and liquefied hydrogen tankers) while satisfying volume, budget, and method‑mix constraints.
+
+2. **Suggested model type**  
+   - Model: **Integer Linear Programming (ILP)**  
+     - Justification: The number of trips by each method must be a whole number, and the relationships between trips, cost, and volume are linear.
+
+3. **Main decision variables**  
+   Define two non‑negative integer decision variables:
+   - \(x\): Number of trips using **high‑pressure tube trailers**.
+   - \(y\): Number of trips using **liquefied hydrogen tankers**.
+
+4. **Key constraints to consider**
+
+   a. **Demand (volume) constraint**  
+   - Each high‑pressure tube trailer trip transports 50 m³.  
+   - Each liquefied hydrogen tanker trip transports 30 m³.  
+   - Total transported volume must be at least 1000 m³.  
+   - Structure:  
+     - 50·(trips by trailers) + 30·(trips by tankers) ≥ 1000.
+
+   b. **Budget constraint**  
+   - Each high‑pressure tube trailer trip costs $500.  
+   - Each liquefied hydrogen tanker trip costs $200.  
+   - Total cost must not exceed $3750.  
+   - Structure:  
+     - 500·(trips by trailers) + 200·(trips by tankers) ≤ 3750.
+
+   c. **Method mix constraint**  
+   - The number of high‑pressure tube trailer trips must be **strictly less than** the number of liquefied hydrogen tanker trips.  
+   - Structure:  
+     - (trips by trailers) < (trips by tankers).  
+   - In integer form, this can be represented as:  
+     - (trips by trailers) + 1 ≤ (trips by tankers).
+
+   d. **Integrality and non‑negativity constraints**  
+   - Both decision variables must be integers and non‑negative.  
+   - Structure:  
+     - (trips by trailers) and (trips by tankers) are integers ≥ 0.
+
+5. **Objective function structure**
+
+   - Minimise total number of trips:  
+     - Objective: Minimise (trips by trailers) + (trips by tankers).
+
+6. **Additional modelling notes**
+
+   - No upper bound on the number of trips is specified other than those implied by the budget and volume constraints; no explicit capacity or fleet‑size constraint is required unless later added.  
+   - Since numbers are small, the solution could also be validated by enumeration or by solving the integer program with a standard solver.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model of the problem, followed by suggestions for how to implement and solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x \in \mathbb{Z}_{\ge 0}\): number of trips using **high‑pressure tube trailers**  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of trips using **liquefied hydrogen tankers**
+
+Both variables are non‑negative integers.
+
+---
+
+## 2. Objective
+
+Minimise the **total number of trips**:
+
+\[
+\min \; Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+1. **Volume (demand) constraint**
+
+   Each high‑pressure trailer trip: 50 m³  
+   Each liquefied tanker trip: 30 m³  
+   Need at least 1000 m³ in total:
+
+   \[
+   50x + 30y \;\ge\; 1000
+   \]
+
+2. **Budget constraint**
+
+   Each high‑pressure trailer trip: \$500  
+   Each liquefied tanker trip: \$200  
+   Budget: \$3750
+
+   \[
+   500x + 200y \;\le\; 3750
+   \]
+
+3. **Method‑mix constraint (strict inequality)**
+
+   Number of high‑pressure trips must be **strictly less** than number of liquefied tanker trips:
+
+   \[
+   x < y
+   \]
+
+   In integer linear form:
+
+   \[
+   x + 1 \le y
+   \]
+
+4. **Integrality and non‑negativity**
+
+   \[
+   x, y \in \mathbb{Z}, \quad x \ge 0,\; y \ge 0
+   \]
+
+---
+
+## 4. Model summary
+
+\[
+\begin{aligned}
+\min \quad & x + y \\
+\text{s.t.} \quad 
+& 50x + 30y \ge 1000 &\text{(volume)}\\
+& 500x + 200y \le 3750 &\text{(budget)}\\
+& x + 1 \le y &\text{(method mix)}\\
+& x, y \in \mathbb{Z}_{\ge 0} &\text{(integrality, non-negativity)}
+\end{aligned}
+\]
+
+This is an **Integer Linear Programming (ILP)** problem.
+
+---
+
+## 5. Suitable Python libraries
+
+To implement and solve this ILP, you can use any of the following:
+
+- **PuLP** (`pulp`):  
+  - Easy to use for small ILPs.  
+  - Integrates with CBC (open source) and commercial solvers.
+- **OR-Tools Linear Solver** (`ortools.linear_solver.pywraplp`):  
+  - Very good, free, fast; has MIP capabilities.
+- **Pyomo**:  
+  - More general algebraic modelling language; good if you plan to scale to more complex models.
+- **MIP / Python-MIP**:  
+  - Modern interface for MILP using CBC or other solvers.
+
+For a compact problem like this, **PuLP** or **OR‑Tools** is ideal.
+
+---
+
+## 6. Example PuLP formulation (sketch)
+
+```python
+import pulp as pl
+
+# 1. Define problem
+prob = pl.LpProblem("Hydrogen_Transport", pl.LpMinimize)
+
+# 2. Decision variables
+x = pl.LpVariable('x', lowBound=0, cat='Integer')  # high-pressure trailer trips
+y = pl.LpVariable('y', lowBound=0, cat='Integer')  # liquefied tanker trips
+
+# 3. Objective
+prob += x + y
+
+# 4. Constraints
+prob += 50*x + 30*y >= 1000        # volume
+prob += 500*x + 200*y <= 3750      # budget
+prob += x + 1 <= y                 # method mix
+
+# 5. Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("x (trailer trips) =", pl.value(x))
+print("y (tanker trips)  =", pl.value(y))
+print("Total trips       =", pl.value(x + y))
+```
+
+Replace the final part with calls to other solvers if you prefer OR‑Tools or Pyomo, but the mathematical structure remains exactly the same.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # 1. Define problem
+    prob = pl.LpProblem("Hydrogen_Transport", pl.LpMinimize)
+
+    # 2. Decision variables
+    x = pl.LpVariable('x', lowBound=0, cat='Integer')  # high-pressure trailer trips
+    y = pl.LpVariable('y', lowBound=0, cat='Integer')  # liquefied tanker trips
+
+    # 3. Objective: Minimize total trips
+    prob += x + y
+
+    # 4. Constraints
+    # Volume constraint: 50x + 30y >= 1000
+    prob += 50 * x + 30 * y >= 1000
+
+    # Budget constraint: 500x + 200y <= 3750
+    prob += 500 * x + 200 * y <= 3750
+
+    # Method-mix constraint: x + 1 <= y  (i.e., x < y)
+    prob += x + 1 <= y
+
+    # 5. Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(x + y)
+
+    # Required final print
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

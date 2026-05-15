@@ -1,0 +1,120 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Minimise the total number of trips (ferry trips plus light-rail trips) needed to send at least 500 boxes of corn.
+
+2. Suggested model type
+- Model: Integer Linear Programming (ILP) — small discrete problem (counts of trips must be integers). Because the problem is low-dimensional, a direct integer enumeration or single-variable reduction is also appropriate.
+
+3. Main decision variables
+- Number of ferry trips (integer, ≥ 0).
+- Number of light-rail trips (integer, ≥ 0).
+
+4. Key constraints to consider (described conceptually)
+- Capacity constraint: The combined capacity delivered by ferry trips and light-rail trips must be at least 500 boxes. (Each ferry trip carries 20 boxes; each light-rail trip carries 15 boxes.)
+- Ratio constraint: The number of light-rail trips must be at least four times the number of ferry trips (to meet the slow-ferry restriction).
+- Integrality and non-negativity: Both trip counts must be whole numbers and not negative.
+- Practical bounds (for solver efficiency): Ferry trips cannot exceed the number needed if only ferries were used; similarly, light-rail trips cannot exceed the number needed if only rails were used. Use these to bound the search space.
+
+5. Modelling / solution strategy suggestions
+- Single-variable reduction: Express the light-rail trips as "four times the ferry trips plus a nonnegative slack" to reduce to one integer variable, or for each feasible ferry-trip count compute the minimum required light-rail trips (whichever is larger between the ratio requirement and what capacity shortfall requires).
+- Enumeration approach: Iterate feasible ferry-trip counts within the bounded range and compute the minimal matching light-rail trips; pick the combination with smallest total trips. Because the feasible range is small, this is simple and reliable.
+- Solver approach: Formulate the ILP and solve with any integer-capable solver (branch-and-bound). Use the capacity constraint and ratio constraint directly; solver will enforce integrality.
+- Validation: Check that the chosen combination exactly meets or just exceeds 500 boxes (no unnecessary extra trips if a smaller total-trip solution exists).
+
+Deliverable expected from modeller
+- Decision variables and their domains.
+- Concise statement of the objective and the constraints (in solver-acceptable form).
+- Solution (optimal number of ferry trips and light-rail trips), with total trips and total boxes shipped, and a brief note on how bounds/enumeration were applied.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- f ∈ Z, f ≥ 0 : number of ferry trips.
+- r ∈ Z, r ≥ 0 : number of light‑rail trips.
+
+Objective
+- Minimize total trips T = f + r.
+
+Constraints
+1. Capacity: 20 f + 15 r ≥ 500.
+2. Ratio: r ≥ 4 f.
+3. Integrality: f, r ∈ Z≥0.
+(For solver efficiency add practical bounds: 0 ≤ f ≤ ceil(500/20) = 25, 0 ≤ r ≤ ceil(500/15) = 34.)
+
+Mathematical statement
+Minimize T = f + r
+subject to
+20 f + 15 r ≥ 500
+r − 4 f ≥ 0
+f, r ∈ Z≥0
+0 ≤ f ≤ 25, 0 ≤ r ≤ 34
+
+Solution approach suggestions
+- Single-variable reduction / enumeration: For each feasible integer f in [0,25], compute the minimal matching r:
+  r = max(4 f, ceil(max(0, 500 − 20 f) / 15)).
+  Then pick f that minimizes T = f + r. This is very small search (26 evaluations).
+- ILP solver: model variables and constraints above and use an integer solver (branch-and-bound / CP-SAT).
+
+Recommended Python libraries
+- pulp (with default CBC) — straightforward ILP formulation.
+- OR-Tools CP-SAT (ortools.sat.python) — robust integer solver.
+- pyomo + a solver (GLPK, CBC, Gurobi) — for more elaborate models.
+(For the tiny problem, a simple enumeration in pure Python is simplest and fastest.)
+
+Optimal solution (computed by enumeration)
+- f = 4 ferry trips
+- r = 28 light‑rail trips
+- Total trips T = 4 + 28 = 32
+- Total boxes shipped = 20·4 + 15·28 = 80 + 420 = 500
+
+Notes
+- There are other combinations that also give T = 32 (e.g., f=5,r=27 and f=6,r=26), but f=4, r=28 is the one that exactly meets 500 boxes (no excess).
+- The enumeration used the bound f ≤ 25 (all‑ferry solution) and computed r by taking the larger of the ratio requirement and the capacity shortfall, then took the minimal f+r. This guarantees global optimality for this small integer problem.
+
+---
+
+[CODER]:
+import sys
+
+# Problem data
+CAPACITY_FERRY = 20
+CAPACITY_RAIL = 15
+REQUIRED = 500
+RATIO_MULT = 4
+
+# Practical bounds
+F_MAX = 25  # ceil(500/20)
+R_MAX = 34  # ceil(500/15)
+
+best_T = None
+best_f = None
+best_r = None
+
+for f in range(F_MAX + 1):
+    # capacity shortfall after f ferries
+    shortfall = max(0, REQUIRED - CAPACITY_FERRY * f)
+    # minimal r to cover shortfall (ceiling division)
+    r_needed_capacity = (shortfall + CAPACITY_RAIL - 1) // CAPACITY_RAIL
+    # minimal r to satisfy ratio constraint
+    r_needed_ratio = RATIO_MULT * f
+    # r must satisfy both
+    r = max(r_needed_capacity, r_needed_ratio)
+    # respect r bound
+    if r > R_MAX:
+        continue
+    T = f + r
+    if best_T is None or T < best_T:
+        best_T = T
+        best_f = f
+        best_r = r
+
+if best_T is None:
+    # No feasible solution within bounds (should not happen)
+    print("No feasible solution found within bounds.", file=sys.stderr)
+    best_T = 0
+
+# Final required output line
+print(f"FINAL_OBJ: {best_T}")

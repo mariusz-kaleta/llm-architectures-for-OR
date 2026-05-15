@@ -1,0 +1,154 @@
+[MODELER]:
+Here is a clean mathematical model of the problem as an optimization problem.
+
+---
+
+### Decision variables
+
+Let
+
+- \(x\) = number of top-loading washing machines (integer, \(x \ge 0\))
+- \(y\) = number of front-loading washing machines (integer, \(y \ge 0\))
+
+---
+
+### Objective
+
+Minimize the total number of washing machines:
+
+\[
+\min \; Z = x + y
+\]
+
+---
+
+### Constraints
+
+1. **Washing capacity constraint (at least 5000 items/day)**
+
+Each top-loader washes 50 items/day and each front-loader washes 75 items/day:
+
+\[
+50x + 75y \;\ge\; 5000
+\]
+
+2. **Energy usage constraint (at most 7000 kWh/day)**
+
+Each top-loader uses 85 kWh/day and each front-loader uses 100 kWh/day:
+
+\[
+85x + 100y \;\le\; 7000
+\]
+
+3. **Top-loading proportion constraint (at most 40% top-loading)**
+
+At most 40% of all machines can be top-loading:
+
+\[
+x \;\le\; 0.4(x + y)
+\]
+
+This can be rewritten without fractions:
+
+\[
+x \le 0.4x + 0.4y \quad\Rightarrow\quad 0.6x \le 0.4y \quad\Rightarrow\quad 3x \le 2y
+\]
+
+So we use:
+
+\[
+3x \;\le\; 2y
+\]
+
+4. **Minimum number of front-loading machines**
+
+At least 10 front-loading machines:
+
+\[
+y \;\ge\; 10
+\]
+
+5. **Integrality and non-negativity**
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+### Model Summary
+
+Minimize:
+\[
+Z = x + y
+\]
+
+Subject to:
+\[
+\begin{aligned}
+50x + 75y &\ge 5000 \\
+85x + 100y &\le 7000 \\
+3x &\le 2y \\
+y &\ge 10 \\
+x, y &\in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a **mixed-integer linear programming (MILP)** problem with two integer variables (actually both are integer) and linear constraints.
+
+---
+
+### Suitable Python libraries
+
+To solve this model in Python, appropriate libraries include:
+
+- **PuLP**: Easy to use, pure Python interface, can use CBC (default) or other MILP solvers.
+- **OR-Tools (from Google)**: Has a strong MILP solver (`pywraplp` for linear solvers).
+- **Pyomo**: General algebraic modeling; good if you want to build larger models or experiment with different solvers.
+- **SciPy’s** `scipy.optimize` is *not* ideal here because it does not natively support integer variables; you’d have to relax integrality and then round, which may violate constraints.
+
+For this size of problem, **PuLP** or **OR-Tools** would be the most straightforward choices.
+
+If you want, I can provide a small PuLP or OR-Tools code snippet that sets up and solves this exact model.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the MILP problem: minimize total number of machines
+    prob = pulp.LpProblem("Washing_Machines_Optimization", pulp.LpMinimize)
+
+    # Decision variables (non-negative integers)
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # top-loading
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # front-loading
+
+    # Objective: Minimize total number of machines
+    prob += x + y, "Total_Machines"
+
+    # Constraints
+
+    # 1) Washing capacity: 50x + 75y >= 5000
+    prob += 50 * x + 75 * y >= 5000, "Capacity_Constraint"
+
+    # 2) Energy usage: 85x + 100y <= 7000
+    prob += 85 * x + 100 * y <= 7000, "Energy_Constraint"
+
+    # 3) Top-loading proportion: 3x <= 2y
+    prob += 3 * x <= 2 * y, "Top_Loading_Proportion"
+
+    # 4) Minimum number of front-loading machines: y >= 10
+    prob += y >= 10, "Min_Front_Loaders"
+
+    # Solve the problem using the default solver
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print the final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

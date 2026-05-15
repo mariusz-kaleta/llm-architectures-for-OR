@@ -1,0 +1,207 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total number of animals (cows + elephants) used to transport at least 1000 bricks.
+
+2. Suggested model type  
+Model: Small Integer Linear Programming (ILP) / Integer optimisation.  
+(Variables are naturally integer and small; can also be solved by enumeration, but ILP framing is clearer.)
+
+3. Main decision variables  
+Define integer decision variables:
+- Number of cows  
+- Number of elephants  
+
+Both variables must be non‑negative integers.
+
+4. Key constraints to consider  
+
+a) Load capacity (bricks carried)  
+- Each cow carries 20 bricks.  
+- Each elephant carries 50 bricks.  
+- Total bricks carried by all animals must be at least the requirement:  
+  - 20 × (number of cows) + 50 × (number of elephants) ≥ 1000.
+
+b) Traffic and balance between animal types  
+- Elephants must not exceed the number of cows (to avoid too much traffic from elephants):  
+  - Number of elephants ≤ Number of cows.  
+- There can be at most twice the number of cows as elephants:  
+  - Number of cows ≤ 2 × (number of elephants).
+
+These two together mean the ratio between cows and elephants must be between 1:1 and 2:1 (inclusive).
+
+c) Integrality and non-negativity  
+- Number of cows ≥ 0 and integer.  
+- Number of elephants ≥ 0 and integer.
+
+5. Objective function structure (for the Modeller)  
+- Objective: Minimise total animals  
+  - Minimise (number of cows + number of elephants).
+
+6. Modelling / solution strategy guidance  
+
+- Treat this as a 2-variable ILP with one capacity constraint and two ratio constraints.  
+- The feasible region is a small lattice of integer points; you can either:
+  - Use an ILP solver directly, or  
+  - Exploit the ratio constraints (elephants between 1/2 and 1 times cows) to bound one variable in terms of the other and then search over a small range of integer values.
+- Check the minimum value of (cows + elephants) that satisfies:
+  - Load constraint,  
+  - Ratio constraints,  
+  - Integrality.
+
+The output required to the end user: the optimal integer pair (number of cows, number of elephants) and the minimum total number of animals.
+
+---
+
+[MODELER]:
+Here is a clean optimisation model and how you’d code/solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(c \in \mathbb{Z}_{\ge 0}\) = number of cows  
+- \(e \in \mathbb{Z}_{\ge 0}\) = number of elephants  
+
+Both must be non‑negative integers.
+
+---
+
+## 2. Objective
+
+Minimise the total number of animals:
+
+\[
+\min \quad c + e
+\]
+
+---
+
+## 3. Constraints
+
+### a) Capacity (bricks)
+
+Each cow carries 20 bricks, each elephant 50 bricks. Need at least 1000 bricks:
+
+\[
+20c + 50e \;\ge\; 1000
+\]
+
+### b) Traffic / ratio constraints
+
+1. Elephants cannot exceed cows:
+
+\[
+e \;\le\; c
+\]
+
+2. At most twice as many cows as elephants:
+
+\[
+c \;\le\; 2e
+\]
+
+Together, this enforces:
+\[
+e \le c \le 2e
+\]
+or cows:elephants ratio between 1:1 and 2:1.
+
+### c) Non‑negativity and integrality
+
+\[
+c \ge 0,\quad e \ge 0,\quad c,e \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete ILP model
+
+\[
+\begin{aligned}
+\min \quad & c + e \\
+\text{s.t.} \quad
+& 20c + 50e \;\ge\; 1000 \\
+& e \;\le\; c \\
+& c \;\le\; 2e \\
+& c, e \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+Any basic MILP / ILP capable library will solve this instantly:
+
+- `PuLP` (pure Python, easy to use, works with CBC by default)
+- `ortools.linear_solver` (Google OR‑Tools, CP‑SAT or MIP)
+- `pyomo` (more general modelling framework)
+- `scipy.optimize` is *not* ideal here because this is an integer problem; you’d need a MILP wrapper/solver.
+
+---
+
+## 6. Example implementation in Python with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Cows_and_Elephants", pl.LpMinimize)
+
+# Decision variables
+c = pl.LpVariable("cows", lowBound=0, cat="Integer")
+e = pl.LpVariable("elephants", lowBound=0, cat="Integer")
+
+# Objective: minimize total animals
+prob += c + e
+
+# Constraints
+prob += 20 * c + 50 * e >= 1000     # capacity
+prob += e <= c                      # elephants <= cows
+prob += c <= 2 * e                  # cows <= 2 * elephants
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Cows:", pl.value(c))
+print("Elephants:", pl.value(e))
+print("Total animals:", pl.value(c + e))
+```
+
+This will return the optimal integer pair \((c^*, e^*)\) and the minimum total number of animals \(c^* + e^*\).
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Cows_and_Elephants", pl.LpMinimize)
+
+    # Decision variables: non-negative integers
+    c = pl.LpVariable("cows", lowBound=0, cat="Integer")
+    e = pl.LpVariable("elephants", lowBound=0, cat="Integer")
+
+    # Objective: minimize total animals
+    prob += c + e
+
+    # Constraints
+    prob += 20 * c + 50 * e >= 1000     # Capacity (bricks)
+    prob += e <= c                      # Elephants cannot exceed cows
+    prob += c <= 2 * e                  # At most twice as many cows as elephants
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(c + e)
+
+    # Required final output
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,210 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimize the total number of buses hired while transporting at least 500 students and respecting the limit on large buses.
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP) – very small scale, could also be solved via integer reasoning or enumeration, but formulate as ILP.
+
+3. Main decision variables  
+Define integer decision variables:
+- S = number of small buses hired  
+- L = number of large buses hired  
+
+Both must be non‑negative integers.
+
+4. Key constraints to consider  
+
+a) Capacity (student coverage)  
+- Each small bus carries 20 students; each large bus carries 50 students.  
+- At least 500 students must be transported.  
+- Constraint: Total seating capacity from small and large buses must be ≥ 500 students.
+
+b) Large bus proportion constraint  
+- At most 20% of all buses can be large.  
+- This links L to total buses S + L.  
+- Formulate as: L ≤ 0.2 × (S + L) (or an equivalent linear form).  
+- Ensure this is rewritten in a linear inequality suitable for ILP (move all terms to one side and clear decimals).
+
+c) Non‑negativity and integrality  
+- S ≥ 0, integer.  
+- L ≥ 0, integer.  
+
+5. Objective function structure  
+- Minimize total number of buses: S + L.  
+
+6. Modelling notes / strategy  
+
+- First, transform the proportion constraint into a linear form without fractions (e.g., multiply both sides appropriately).  
+- Because the variables are counts of buses, integrality is essential; a fractional bus is not allowed.  
+- The problem size is very small, so you can also:  
+  - Derive a lower bound on S + L from the capacity constraint alone.  
+  - Check feasible (S, L) pairs around that bound that satisfy the large‑bus proportion constraint, and pick the minimal S + L.  
+- When presenting the solution, report both the minimum total number of buses and the corresponding S and L values, and verify both constraints are met.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by implementation suggestions.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(S \in \mathbb{Z}_{\ge 0}\): number of small buses hired  
+- \(L \in \mathbb{Z}_{\ge 0}\): number of large buses hired  
+
+These are non‑negative integers.
+
+---
+
+## 2. Objective
+
+Minimize the total number of buses:
+
+\[
+\min \; S + L
+\]
+
+---
+
+## 3. Constraints
+
+### a) Capacity constraint
+
+Each small bus carries 20 students; each large bus carries 50 students. We must carry at least 500 students:
+
+\[
+20 S + 50 L \;\ge\; 500
+\]
+
+### b) Large‑bus proportion constraint
+
+At most 20% of the buses can be large:
+
+\[
+L \;\le\; 0.2 (S + L)
+\]
+
+To write this as a linear inequality without decimals, rearrange:
+
+\[
+\begin{aligned}
+L &\le 0.2 S + 0.2 L \\
+L - 0.2 L &\le 0.2 S \\
+0.8L &\le 0.2 S \\
+\end{aligned}
+\]
+
+Multiply by 5 to clear decimals:
+
+\[
+4L \;\le\; S
+\]
+
+So the proportion constraint is:
+
+\[
+S - 4L \;\ge\; 0
+\]
+
+### c) Non‑negativity and integrality
+
+\[
+S \ge 0,\quad L \ge 0,\quad S, L \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full ILP model
+
+\[
+\begin{aligned}
+\min \quad & S + L \\
+\text{s.t.} \quad
+& 20S + 50L \;\ge\; 500 \\
+& S - 4L \;\ge\; 0 \\
+& S, L \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+To solve this Integer Linear Program in Python, any of the following is appropriate:
+
+- **PuLP**: Very straightforward for small ILPs; integrates with CBC (default solver).
+- **OR-Tools (Google OR-Tools, `ortools.linear_solver`)**: Industrial‑strength, very good for linear/integer models.
+- **Pyomo**: More general modeling language; slightly heavier but flexible.
+- **SciPy** is *not* ideal here because `scipy.optimize.linprog` handles only continuous LPs, not integer constraints.
+
+For this small model, **PuLP** or **OR-Tools** is the simplest choice.
+
+---
+
+## 6. Example PuLP formulation
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("School_Bus_Problem", pl.LpMinimize)
+
+# Variables
+S = pl.LpVariable("S", lowBound=0, cat="Integer")  # small buses
+L = pl.LpVariable("L", lowBound=0, cat="Integer")  # large buses
+
+# Objective: minimize total number of buses
+prob += S + L
+
+# Capacity constraint
+prob += 20 * S + 50 * L >= 500, "Capacity"
+
+# Proportion constraint: S >= 4L
+prob += S - 4 * L >= 0, "Large_Bus_Proportion"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Small buses (S):", pl.value(S))
+print("Large buses (L):", pl.value(L))
+print("Total buses:", pl.value(S + L))
+```
+
+This code exactly implements the ILP model above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("School_Bus_Problem", pl.LpMinimize)
+
+    # Decision variables
+    S = pl.LpVariable("S", lowBound=0, cat="Integer")  # small buses
+    L = pl.LpVariable("L", lowBound=0, cat="Integer")  # large buses
+
+    # Objective: minimize total number of buses
+    prob += S + L
+
+    # Capacity constraint: 20S + 50L >= 500
+    prob += 20 * S + 50 * L >= 500, "Capacity"
+
+    # Proportion constraint: S - 4L >= 0 (i.e., S >= 4L)
+    prob += S - 4 * L >= 0, "Large_Bus_Proportion"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute final objective value
+    final_obj = pl.value(S + L)
+
+    # Required final output
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,140 @@
+[MODELER]:
+Formulate this as a linear programming (LP) problem.
+
+## Decision variables
+
+Let  
+- \(x\) = number of cups of drink A in the mix (continuous, \(x \ge 0\))  
+- \(y\) = number of cups of drink B in the mix (continuous, \(y \ge 0\))
+
+## Objective
+
+Each cup of:
+- A has 4 units of Vitamin K
+- B has 12 units of Vitamin K
+
+We want to **minimize total Vitamin K**:
+\[
+\text{Minimize } Z = 4x + 12y
+\]
+
+## Constraints
+
+Vitamin A requirement (at least 150 units):  
+Each cup:
+- A has 8 units of A
+- B has 15 units of A
+
+\[
+8x + 15y \ge 150
+\]
+
+Vitamin D requirement (at least 300 units):  
+Each cup:
+- A has 6 units of D
+- B has 2 units of D
+
+\[
+6x + 2y \ge 300
+\]
+
+Vitamin E limit (at most 400 units):  
+Each cup:
+- A has 10 units of E
+- B has 20 units of E
+
+\[
+10x + 20y \le 400
+\]
+
+Non-negativity:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+So the LP is:
+
+\[
+\begin{aligned}
+\text{Minimize} \quad & Z = 4x + 12y \\
+\text{subject to} \quad
+& 8x + 15y \ge 150 \\
+& 6x + 2y \ge 300 \\
+& 10x + 20y \le 400 \\
+& x \ge 0, \; y \ge 0
+\end{aligned}
+\]
+
+---
+
+## Solving / Recommended Python libraries
+
+You can solve this LP using any standard linear programming solver. In Python, suitable libraries include:
+
+- `PuLP` (simple modeling interface, open-source solvers like CBC)
+- `scipy.optimize.linprog` (SciPy’s LP solver)
+- `ortools.linear_solver` from Google OR-Tools (powerful and efficient)
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Vitamin_Mix_Min_K", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('x', lowBound=0)  # cups of A
+y = pl.LpVariable('y', lowBound=0)  # cups of B
+
+# Objective
+prob += 4*x + 12*y
+
+# Constraints
+prob += 8*x + 15*y >= 150    # Vitamin A
+prob += 6*x + 2*y >= 300     # Vitamin D
+prob += 10*x + 20*y <= 400   # Vitamin E
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Cups of A (x):", x.value())
+print("Cups of B (y):", y.value())
+print("Minimum Vitamin K:", pl.value(prob.objective))
+```
+
+This will yield the optimal numbers of cups of A and B and the minimum possible amount of Vitamin K.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Vitamin_Mix_Min_K", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('x', lowBound=0)  # cups of A
+    y = pl.LpVariable('y', lowBound=0)  # cups of B
+
+    # Objective: Minimize total Vitamin K
+    prob += 4 * x + 12 * y
+
+    # Constraints
+    prob += 8 * x + 15 * y >= 150    # Vitamin A requirement
+    prob += 6 * x + 2 * y >= 300     # Vitamin D requirement
+    prob += 10 * x + 20 * y <= 400   # Vitamin E limit
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print final objective as required
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

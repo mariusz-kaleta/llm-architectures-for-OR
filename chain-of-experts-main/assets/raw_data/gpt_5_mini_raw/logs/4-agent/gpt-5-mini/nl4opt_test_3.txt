@@ -1,0 +1,131 @@
+[PLANNER]:
+1) Key optimisation goal:
+- Goal: Minimise the total number of machines purchased (count of machines), while meeting the store’s daily production and heat limits.
+
+2) Suggested model type:
+- Model: Integer Linear Programming (ILP) — linear objective and linear constraints with integer (non‑negative) decision variables. Because machine counts must be whole numbers, integrality is required. For a very small integer domain, a simple enumeration/search is also practical.
+
+3) Main decision variables (description, not formal symbols):
+- Number of counter-top machines to buy (non‑negative integer).
+- Number of fridge‑sized machines to buy (non‑negative integer).
+
+4) Key constraints to include (described verbally):
+- Production constraint: Total daily cone production from both machine types must be at least the required 1000 cones (sum of each machine’s daily production times its count ≥ 1000).
+- Heat constraint: Total heat output from all purchased machines must not exceed the 500 units/day cap (sum of each machine’s heat output times its count ≤ 500).
+- Integrality and non-negativity: Machine counts must be non‑negative integers (no fractional machines).
+- Implicit bounds (practical): Upper bounds on machine counts can be set from production or heat limits to limit search space (e.g., max machines derived by dividing required production by the smaller production per machine, or heat cap by the smallest heat output).
+- Feasibility check: Ensure the constraints are jointly feasible; if infeasible, report infeasibility or relax requirements (e.g., increase heat cap or reduce production requirement).
+
+Optional modelling notes for the modeller:
+- Objective function: minimize sum of the two integer decision variables.
+- Because the problem size is tiny, you can solve by simple integer enumeration over feasible counts or use any ILP solver.
+- If multiple solutions tie on machine count, you may add a secondary objective (e.g., minimize total heat or minimize cost if machine prices are known) to choose among them.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- x ∈ Z_{\ge 0} = number of counter-top machines (each: 80 cones/day, 50 heat/day)
+- y ∈ Z_{\ge 0} = number of fridge-sized machines (each: 150 cones/day, 70 heat/day)
+
+Objective
+- Minimize total number of machines: minimize z = x + y
+
+Constraints
+1. Production requirement: 80x + 150y ≥ 1000
+2. Heat cap: 50x + 70y ≤ 500
+3. Integrality and non-negativity: x, y ∈ Z_{\ge 0}
+
+Implicit practical bounds (useful to limit search)
+- From heat cap: x ≤ floor(500/50) = 10, y ≤ floor(500/70) = 7
+- From production: x ≤ ceil(1000/80) = 13, y ≤ ceil(1000/150) = 7
+Thus search ranges: 0 ≤ x ≤ 10, 0 ≤ y ≤ 7.
+
+Remarks on feasibility and tie-breaking
+- If the system is infeasible, you must relax a constraint (increase heat cap or reduce production requirement) or allow fractional machines (not realistic).
+- If multiple (x,y) give the same minimal x+y, you can add a secondary objective (e.g., minimize total heat 50x+70y or minimize cost if known).
+
+Solving approach suggestions
+- Small problem: simple integer enumeration over x ∈ [0..10], y ∈ [0..7] and pick feasible (x,y) minimizing x+y.
+- ILP solvers: pulp (CBC), ortools CP-SAT, python-mip (CBC/Gurobi), or commercial solvers (Gurobi, CPLEX) if available.
+- For CP-SAT: ortools is fast and robust for integer problems.
+- For direct enumeration: plain Python loops are trivial and efficient here.
+
+Analytical solution (quick reasoning)
+- With only fridge machines, heat allows at most floor(500/70)=7 fridges; 7 fridges give production 7·150 = 1050 ≥ 1000 and heat 7·70 = 490 ≤ 500 → feasible with 7 machines.
+- With 6 machines, maximum possible production (if all fridges) = 6·150 = 900 < 1000, so no solution with fewer than 7 machines exists.
+- Therefore the minimum possible number of machines is 7, achieved by x = 0 counter-top machines and y = 7 fridge-sized machines.
+
+Final answer
+- Buy 0 counter-top machines and 7 fridge-sized machines (total machines = 7).
+
+Example (enumeration) Python approach (conceptual)
+- Loop x in 0..10, y in 0..7, check constraints and record minimal x+y; this is sufficient for this problem.
+- ILP formulation can be implemented with pulp or ortools if you prefer a solver-based approach.
+
+---
+
+[CODER]:
+#!/usr/bin/env python3
+import math
+
+# Data initialization
+prod_per_x = 80    # cones/day per counter-top machine (x)
+heat_per_x = 50    # heat units per counter-top machine (x)
+prod_per_y = 150   # cones/day per fridge-sized machine (y)
+heat_per_y = 70    # heat units per fridge-sized machine (y)
+
+required_production = 1000
+heat_cap = 500
+
+# Implicit practical bounds
+x_max = min(10, math.ceil(required_production / prod_per_x))  # from heat cap and production bound
+y_max = min(7, math.ceil(required_production / prod_per_y))
+
+best_z = None
+best_heat = None
+best_solution = None
+
+for x in range(0, x_max + 1):
+    for y in range(0, y_max + 1):
+        production = prod_per_x * x + prod_per_y * y
+        heat = heat_per_x * x + heat_per_y * y
+        if production >= required_production and heat <= heat_cap:
+            z = x + y
+            if best_z is None or z < best_z or (z == best_z and heat < best_heat):
+                best_z = z
+                best_heat = heat
+                best_solution = (x, y)
+
+# If no feasible solution found (shouldn't happen for this problem), attempt a simple relaxation:
+if best_solution is None:
+    # Relax heat cap slightly until a solution is found (increase by 10% steps up to double)
+    relax_factor = 1.0
+    found = False
+    while relax_factor <= 2.0 and not found:
+        cur_heat_cap = heat_cap * relax_factor
+        for x in range(0, x_max + 1):
+            for y in range(0, y_max + 1):
+                production = prod_per_x * x + prod_per_y * y
+                heat = heat_per_x * x + heat_per_y * y
+                if production >= required_production and heat <= cur_heat_cap:
+                    z = x + y
+                    if best_z is None or z < best_z or (z == best_z and heat < best_heat):
+                        best_z = z
+                        best_heat = heat
+                        best_solution = (x, y)
+                        found = True
+                        break
+            if found:
+                break
+        relax_factor += 0.1
+
+# At this point best_solution should be set for the given problem
+if best_z is None:
+    # As a last resort, set to a large number (indicates infeasible)
+    best_z = float('inf')
+
+# Final required print
+print(f"FINAL_OBJ: {int(best_z) if math.isfinite(best_z) else best_z}")

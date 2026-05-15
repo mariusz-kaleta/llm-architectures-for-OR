@@ -1,0 +1,89 @@
+[MODELER]:
+Mathematical model
+
+Decision variables
+- s ∈ Z≥0 : number of small suitcases used
+- l ∈ Z≥0 : number of large suitcases used
+
+Objective
+- Maximize total snacks: maximize Z = 50 s + 80 l
+
+Constraints
+1. Preference constraint: at least twice as many small as large
+   s ≥ 2 l
+2. Availability constraints:
+   s ≤ 70
+   l ≤ 50
+3. Minimum large suitcases:
+   l ≥ 15
+4. Total suitcase limit:
+   s + l ≤ 70
+5. Integrality:
+   s, l integers
+
+Solution reasoning (short)
+- All coefficients are positive, so use as many suitcases as allowed: s + l = 70 at optimum.
+- Substitute s = 70 − l into s ≥ 2l gives 70 − l ≥ 2l ⇒ 3l ≤ 70 ⇒ l ≤ 23 (integer).
+- l must also satisfy 15 ≤ l ≤ 23. Objective becomes Z = 50(70 − l) + 80 l = 3500 + 30 l, which increases with l.
+- Thus choose largest feasible l = 23, and s = 70 − 23 = 47.
+
+Optimal solution
+- Small suitcases s* = 47
+- Large suitcases l* = 23
+- Maximum snacks Z* = 50·47 + 80·23 = 4190 snacks
+
+Recommended solvers / Python libraries
+- pulp (easy-to-use pure-Python MILP interface)
+- ortools (CP-SAT solver, very fast for integer problems)
+- mip (python-mip, wrappers to CBC/Gurobi)
+- commercial: Gurobi, CPLEX (if available)
+
+Example (pulp) snippet
+- Define variables as integers, add constraints above, and maximize 50*s + 80*l. The solver will return s=47, l=23.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import sys
+
+# Initialize data
+S_MAX = 70  # max small suitcases
+L_MAX = 50  # max large suitcases
+L_MIN = 15  # minimum large suitcases
+
+# Objective coefficients
+COEF_S = 50
+COEF_L = 80
+
+best_Z = None
+best_s = None
+best_l = None
+
+# Enumerate feasible integer solutions
+for s in range(0, S_MAX + 1):
+    for l in range(L_MIN, L_MAX + 1):
+        if s > S_MAX:
+            continue
+        if l < L_MIN or l > L_MAX:
+            continue
+        # Constraints:
+        # 1) s >= 2l
+        if s < 2 * l:
+            continue
+        # 4) s + l <= 70
+        if s + l > 70:
+            continue
+        # feasible, compute objective
+        Z = COEF_S * s + COEF_L * l
+        if best_Z is None or Z > best_Z:
+            best_Z = Z
+            best_s = s
+            best_l = l
+
+# If no feasible solution found, exit with error
+if best_Z is None:
+    print("No feasible solution found.", file=sys.stderr)
+    sys.exit(1)
+
+# Final objective value
+print(f"FINAL_OBJ: {best_Z}")

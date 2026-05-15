@@ -1,0 +1,227 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total number of slicers purchased (manual + automatic) while meeting slicing-capacity and grease-usage requirements and respecting the manual/automatic relationship.
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP)  
+- Variables are counts of machines, so they must be nonnegative integers.
+- Objective and constraints are all linear.
+
+3. Main decision variables  
+Define:
+- Number of manual slicers  
+- Number of automatic slicers  
+
+Both should be:
+- Nonnegative
+- Integer
+
+4. Key constraints to consider  
+
+a) Slice-production capacity  
+- Each manual slicer: 5 slices per minute  
+- Each automatic slicer: 8 slices per minute  
+- Requirement: total capacity ≥ 50 slices per minute  
+So the model must enforce a minimum production-rate constraint based on the two variables.
+
+b) Grease-usage limit  
+- Each manual slicer: 3 units of grease per minute  
+- Each automatic slicer: 6 units of grease per minute  
+- Limit: total grease use ≤ 35 units per minute  
+Include a resource-capacity constraint reflecting this.
+
+c) Relationship between manual and automatic slicers  
+- “The number of manual slicers must be less than the number of automatic slicers.”  
+This is a strict inequality; in an ILP this is enforced as:
+- Number of manual slicers ≤ number of automatic slicers − 1  
+(or equivalent rearrangement ensuring strictly fewer manuals than automatics).
+
+d) Nonnegativity and integrality  
+- Both variables ≥ 0  
+- Both variables are integers (you can treat them as nonnegative integer decision variables directly).
+
+5. Objective function structure  
+- Minimise (number of manual slicers + number of automatic slicers).  
+No costs are given besides “number of slicers,” so treat each slicer as having equal “cost” of 1 unit in the objective.
+
+6. Modelling notes / solution approach for the Modeller  
+- This is a very small ILP; a manual enumeration or graphical LP with integrality check is feasible, but you should still structure it as a formal ILP.  
+- First, you might solve the relaxed LP version (allowing fractional slicers) to understand the feasible region and then search the small integer neighborhood for the optimal integer solution.  
+- Verify the final solution satisfies:
+  - Slices per minute ≥ 50  
+  - Grease per minute ≤ 35  
+  - Manual slicers < automatic slicers  
+  - Total count is minimal among all feasible integer solutions.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by implementation guidance.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x \in \mathbb{Z}_{\ge 0}\): number of manual slicers  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of automatic slicers  
+
+Both are nonnegative integers.
+
+---
+
+## 2. Objective
+
+Minimise the total number of slicers purchased:
+
+\[
+\min \; z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Slice-production capacity
+
+Each manual slicer produces 5 slices/min, each automatic 8 slices/min.  
+Total capacity must be at least 50 slices/min:
+
+\[
+5x + 8y \;\ge\; 50
+\]
+
+---
+
+### b) Grease-usage limit
+
+Each manual slicer uses 3 units of grease/min, each automatic 6 units/min.  
+Total grease usage must be at most 35 units/min:
+
+\[
+3x + 6y \;\le\; 35
+\]
+
+---
+
+### c) Relationship between manual and automatic slicers
+
+The number of manual slicers must be strictly less than the number of automatic slicers:
+
+\[
+x < y
+\]
+
+In an ILP this is enforced with a non-strict inequality:
+
+\[
+x \;\le\; y - 1
+\]
+
+or equivalently
+
+\[
+x - y \;\le\; -1
+\]
+
+---
+
+### d) Nonnegativity and integrality
+
+\[
+x \in \mathbb{Z}_{\ge 0}, \quad y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete ILP model
+
+\[
+\begin{aligned}
+\min \quad & x + y \\
+\text{s.t.} \quad 
+& 5x + 8y \;\ge\; 50 &\text{(slice requirement)}\\
+& 3x + 6y \;\le\; 35 &\text{(grease limit)}\\
+& x - y \;\le\; -1 &\text{(manual < automatic)}\\
+& x, y \in \mathbb{Z}_{\ge 0} &\text{(nonnegative integers)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+This is a small Integer Linear Program; many standard libraries will solve it instantly:
+
+- **PuLP** (`pulp`): Simple modeling interface, uses CBC by default. Good for teaching and small to medium ILPs.
+- **OR-Tools** (`ortools.linear_solver` with CBC or SCIP backend): Industrial-strength, very fast, good for scaling up.
+- **Pyomo**: More general modeling language; better if you later want to build larger/structured models.
+
+For this single small model, **PuLP** or **OR-Tools** are most straightforward.
+
+---
+
+## 6. Example PuLP code outline
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Butcher_Slicer_Problem", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('manual_slicers', lowBound=0, cat='Integer')
+y = pl.LpVariable('automatic_slicers', lowBound=0, cat='Integer')
+
+# Objective
+prob += x + y, "Total_slicers"
+
+# Constraints
+prob += 5*x + 8*y >= 50, "Slice_capacity"
+prob += 3*x + 6*y <= 35, "Grease_limit"
+prob += x - y <= -1,     "Manual_less_than_automatic"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Manual slicers (x):", pl.value(x))
+print("Automatic slicers (y):", pl.value(y))
+print("Minimum total slicers:", pl.value(x + y))
+```
+
+This fully encodes the model above and allows you to compute the optimal counts of manual and automatic slicers.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Butcher_Slicer_Problem", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('manual_slicers', lowBound=0, cat='Integer')
+    y = pl.LpVariable('automatic_slicers', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of slicers
+    prob += x + y, "Total_slicers"
+
+    # Constraints
+    prob += 5 * x + 8 * y >= 50, "Slice_capacity"
+    prob += 3 * x + 6 * y <= 35, "Grease_limit"
+    prob += x - y <= -1, "Manual_less_than_automatic"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Retrieve objective value
+    obj_value = pl.value(x + y)
+
+    # Final required output
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

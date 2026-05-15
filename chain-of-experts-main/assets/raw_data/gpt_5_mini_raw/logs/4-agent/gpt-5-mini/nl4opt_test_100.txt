@@ -1,0 +1,139 @@
+[PLANNER]:
+1) Key optimisation goal:
+- Goal: Maximise total profit from producing model trains and model planes.
+
+2) Suggested model type:
+- Model: Linear Programming (single-period production optimisation). If you require whole (integer) models only, use Integer Linear Programming (but LP relaxation will give the same integer optimum here).
+
+3) Main decision variables:
+- Number of model trains to produce.
+- Number of model planes to produce.
+
+4) Key constraints to consider (described verbally, not formal equations):
+- Wood resource limit: each train uses 3 units of wood and each plane uses 4 units; total wood used cannot exceed 120 units.
+- Paint resource limit: each train uses 3 units of paint and each plane uses 2 units; total paint used cannot exceed 90 units.
+- Non-negativity: production quantities cannot be negative.
+- Integrality (optional): production quantities should be integers if fractional models are not allowed.
+
+Recommended modelling and solution steps for the Modeller:
+- Set the objective as maximizing profit where each train contributes $8 and each plane contributes $10.
+- Represent the two resource constraints in the model verbally as above.
+- Because there are only two decision variables, solve graphically or evaluate the feasible-region corner points. Compute profit at the feasible corners: produce only trains, only planes, and the intersection where both resources bind.
+- Compare profits at those corners to identify the maximum. If integer solutions are required, ensure the optimum is an integer solution or search nearby integer points.
+- Report the optimal production plan, the maximum profit, and which constraints are binding.
+
+Quick result check (for verification): evaluate the corner where both resource limits bind — that yields 20 trains and 15 planes, giving the highest profit.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- x = number of model trains to produce (units)
+- y = number of model planes to produce (units)
+
+Objective
+- Maximise total profit: maximize z = 8x + 10y
+
+Constraints
+- Wood: 3x + 4y ≤ 120
+- Paint: 3x + 2y ≤ 90
+- Non‑negativity: x ≥ 0, y ≥ 0
+- Integrality (optional): x, y ∈ Z if fractional models are not allowed
+
+Mathematical formulation
+max z = 8x + 10y
+subject to
+3x + 4y ≤ 120
+3x + 2y ≤ 90
+x, y ≥ 0
+(x, y integers optional)
+
+Solution approach (two-variable LP)
+With only two variables you can solve graphically or evaluate the feasible-region corner points (intersections of constraints and axes). The corner points are:
+- (0,0) → z = 0
+- (30,0) (paint binds: 3x = 90) → z = 8·30 = 240
+- (0,30) (wood binds: 4y = 120) → z = 10·30 = 300
+- intersection of both resource constraints: solve
+    3x + 4y = 120
+    3x + 2y = 90
+  subtract → 2y = 30 → y = 15, then x = 20 → (20,15) → z = 8·20 + 10·15 = 310
+
+Optimal solution
+- Produce x = 20 trains and y = 15 planes.
+- Maximum profit = $310.
+- Both resource constraints are binding at optimum (3x+4y = 120 and 3x+2y = 90).
+- Since the optimum is integer, if integrality is required this solution remains valid.
+
+Recommended Python libraries for solving
+- pulp (simple LP/MIP modelling and CBC solver) — good for readability and integer variables
+- scipy.optimize.linprog — for continuous LPs (fast, built‑in)
+- ortools.linear_solver — Google OR-Tools for LPs and MIPs (industrial strength)
+- cvxpy — for convex/LP modelling with many solver backends
+
+Minimal example using pulp
+- For continuous LP:
+  from pulp import LpProblem, LpMaximize, LpVariable, value
+  prob = LpProblem("models", LpMaximize)
+  x = LpVariable('x', lowBound=0)
+  y = LpVariable('y', lowBound=0)
+  prob += 8*x + 10*y
+  prob += 3*x + 4*y <= 120
+  prob += 3*x + 2*y <= 90
+  prob.solve()
+  print(value(x), value(y), value(prob.objective))
+- For integer solution, define x and y with cat='Integer' in LpVariable.
+
+If you want, I can provide a complete runnable script (continuous and integer versions) or compute dual/shadow prices for the resources.
+
+---
+
+[CODER]:
+import math
+
+# Try to solve using pulp if available, otherwise fall back to integer enumeration
+try:
+    import pulp
+
+    # Data
+    profit_x = 8
+    profit_y = 10
+    # Constraints coefficients
+    # 3x + 4y <= 120 (wood)
+    # 3x + 2y <= 90  (paint)
+
+    # Build LP
+    prob = pulp.LpProblem("Model_Production", pulp.LpMaximize)
+    x = pulp.LpVariable("x", lowBound=0)
+    y = pulp.LpVariable("y", lowBound=0)
+
+    prob += profit_x * x + profit_y * y
+    prob += 3 * x + 4 * y <= 120
+    prob += 3 * x + 2 * y <= 90
+
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    obj_val = float(pulp.value(prob.objective))
+
+    # Clean value to integer if close
+    if abs(obj_val - round(obj_val)) < 1e-8:
+        final_obj = int(round(obj_val))
+    else:
+        final_obj = obj_val
+
+except Exception:
+    # Fallback: integer enumeration (safe because bounds are small)
+    best = None
+    best_val = -float("inf")
+    # reasonable bounds: from paint constraint 3x <= 90 -> x <= 30, from wood 3x <= 120 -> x <= 40
+    for xi in range(0, 41):
+        for yi in range(0, 31):
+            if 3 * xi + 4 * yi <= 120 and 3 * xi + 2 * yi <= 90:
+                val = 8 * xi + 10 * yi
+                if val > best_val:
+                    best_val = val
+                    best = (xi, yi)
+    final_obj = int(best_val) if best is not None else 0
+
+print(f"FINAL_OBJ: {final_obj}")

@@ -1,0 +1,177 @@
+[MODELER]:
+Here is a clean mathematical formulation of the problem and how you could solve it in Python.
+
+---
+
+## 1. Decision Variables
+
+Let  
+- \(x\) = number of washing machines to repair  
+- \(y\) = number of freezers to repair  
+
+Both must be non‑negative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+(If the problem requires whole appliances, then also \(x, y \in \mathbb{Z}\).)
+
+---
+
+## 2. Objective Function
+
+Maximize total earnings:
+
+- Each washing machine earns \$250  
+- Each freezer earns \$375  
+
+So the objective is:
+\[
+\max Z = 250x + 375y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Inspection time constraint
+
+Each job requires inspection time:
+
+- Washing machine: 30 minutes  
+- Freezer: 20 minutes  
+- Total inspection time available: 5000 minutes  
+
+Thus:
+\[
+30x + 20y \le 5000
+\]
+
+### b) Total schedule time constraint
+
+Here we interpret the 20,000 minutes as the **total working time** available, which includes both inspection and fixing time.
+
+Time per appliance:
+
+- Washing machine:  
+  - Inspection: 30 minutes  
+  - Fixing: 90 minutes  
+  - Total: \(30 + 90 = 120\) minutes
+
+- Freezer:  
+  - Inspection: 20 minutes  
+  - Fixing: 125 minutes  
+  - Total: \(20 + 125 = 145\) minutes  
+
+Total time constraint:
+\[
+120x + 145y \le 20000
+\]
+
+(If the intention was: 5000 minutes only for inspection, and *in addition* 20000 minutes only for fixing, then the fixing‑only constraint would be \(90x + 125y \le 20000\). But the usual reading is that 20000 is total time.)
+
+---
+
+## 4. Full Linear Programming Model
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 250x + 375y \\
+\text{subject to} \quad 
+& 30x + 20y \le 5000 \quad \text{(inspection time)} \\
+& 120x + 145y \le 20000 \quad \text{(total schedule time)} \\
+& x \ge 0,\ y \ge 0 \\
+& x, y \in \mathbb{Z} \quad \text{(if integer solutions are required)} 
+\end{aligned}
+\]
+
+This is a **linear programming (LP)** problem, or an **integer linear programming (ILP)** problem if you insist on integer numbers of appliances.
+
+---
+
+## 5. Appropriate Python Libraries
+
+To solve this in Python, suitable libraries include:
+
+- **PuLP**:  
+  - Very straightforward for LP/ILP.  
+  - Interfaces to CBC (default), GLPK, Gurobi, CPLEX, etc.  
+  - Good for educational and small/medium problems.
+
+- **OR-Tools (Google)**:  
+  - Strong for integer and combinatorial optimization.  
+  - Good performance and modern API (`ortools.linear_solver`).
+
+- **SciPy (`scipy.optimize.linprog`)**:  
+  - Good for continuous LPs (no integer constraints).  
+  - Does not directly support integer constraints.
+
+For this specific problem:
+- If integer solutions are needed: **PuLP** or **OR-Tools**.
+- If fractional solutions are acceptable: **SciPy** or **PuLP**.
+
+---
+
+## 6. Example with PuLP (Integer Solution)
+
+```python
+import pulp as pl
+
+# Create the problem
+prob = pl.LpProblem("Repairman_Profit_Maximization", pl.LpMaximize)
+
+# Decision variables (non-negative integers)
+x = pl.LpVariable('washing_machines', lowBound=0, cat='Integer')
+y = pl.LpVariable('freezers', lowBound=0, cat='Integer')
+
+# Objective function
+prob += 250 * x + 375 * y, "Total_Profit"
+
+# Constraints
+prob += 30 * x + 20 * y <= 5000, "Inspection_Time"
+prob += 120 * x + 145 * y <= 20000, "Total_Schedule_Time"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Results
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal number of washing machines:", pl.value(x))
+print("Optimal number of freezers:", pl.value(y))
+print("Maximum profit: $", pl.value(prob.objective))
+```
+
+This code directly implements the model above.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Repairman_Profit_Maximization", pl.LpMaximize)
+
+    # Decision variables (non-negative integers)
+    x = pl.LpVariable('washing_machines', lowBound=0, cat='Integer')
+    y = pl.LpVariable('freezers', lowBound=0, cat='Integer')
+
+    # Objective function: Maximize profit
+    prob += 250 * x + 375 * y, "Total_Profit"
+
+    # Constraints
+    # Inspection time
+    prob += 30 * x + 20 * y <= 5000, "Inspection_Time"
+    # Total schedule time (inspection + fixing)
+    prob += 120 * x + 145 * y <= 20000, "Total_Schedule_Time"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    objective_value = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {objective_value}")
+
+if __name__ == "__main__":
+    main()

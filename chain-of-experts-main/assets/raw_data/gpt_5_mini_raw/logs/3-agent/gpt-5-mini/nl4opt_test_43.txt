@@ -1,0 +1,98 @@
+[MODELER]:
+Model
+- Decision variables
+  - x = number of dual stamping machines (integer, x ≥ 0)
+  - y = number of single stamping machines (integer, y ≥ 0)
+
+- Objective
+  - Minimize the total number of machines: minimize Z = x + y
+
+- Constraints
+  1. Production requirement: 50x + 30y ≥ 300 (letters per minute)
+  2. Glue limit: 20x + 15y ≤ 135 (glue units per minute)
+  3. Single machines must be strictly more than duals: y ≥ x + 1
+  4. Integrality and nonnegativity: x, y ∈ Z≥0
+
+You can rewrite the linear constraints (divide by 5):
+- 5x + 3y ≥ 30
+- 4x + 3y ≤ 27
+- y ≥ x + 1
+
+Solution (analysis)
+- Subtracting the two production/glue inequalities gives x ≥ 3.
+- Test x = 3:
+  - From production: 5·3 + 3y ≥ 30 ⇒ y ≥ 5.
+  - From glue: 4·3 + 3y ≤ 27 ⇒ y ≤ 5.
+  - y must also satisfy y ≥ x + 1 = 4. So y = 5 is feasible.
+- For x ≥ 4 the glue constraint becomes infeasible with the y ≥ x+1 requirement, and x < 3 violates the difference between the two constraints. Therefore the unique feasible integer solution is x = 3, y = 5.
+
+Answer
+- Buy 3 dual stamping machines and 5 single stamping machines. Total machines = 8.
+
+Suggested solvers / Python libraries
+- pulp (simple integer LP)
+- ortools CP-SAT (for integer/CP formulations)
+- mip or pyomo (for more advanced modelling)
+(scikit-learn/scipy.optimize are for continuous problems; use only if you relax integrality)
+
+Example using pulp
+- pip install pulp
+- Example code:
+
+  from pulp import LpProblem, LpMinimize, LpVariable, LpInteger, lpSum, PULP_CBC_CMD
+
+  prob = LpProblem("stamping", LpMinimize)
+  x = LpVariable("dual", lowBound=0, cat=LpInteger)
+  y = LpVariable("single", lowBound=0, cat=LpInteger)
+
+  prob += x + y
+  prob += 50*x + 30*y >= 300
+  prob += 20*x + 15*y <= 135
+  prob += y >= x + 1
+
+  prob.solve(PULP_CBC_CMD(msg=0))
+  print(int(x.value()), int(y.value()))
+
+This will return 3 and 5.
+
+---
+
+[CODER]:
+```python
+# Self-contained script to solve the stamping machine integer optimization by brute force search.
+
+# Decision variables:
+# x = number of dual stamping machines (integer, x >= 0)
+# y = number of single stamping machines (integer, y >= 0)
+#
+# Objective: minimize Z = x + y
+# Constraints:
+# 50x + 30y >= 300
+# 20x + 15y <= 135
+# y >= x + 1
+
+# We perform a simple bounded integer search (small search space).
+
+def feasible(x, y):
+    return (50*x + 30*y >= 300) and (20*x + 15*y <= 135) and (y >= x + 1) and (x >= 0) and (y >= 0)
+
+best_obj = None
+best_solution = None
+
+# Upper bounds: glue constraint implies 20x <= 135 -> x <= 6 (if y>=0).
+# We'll search a small grid for safety.
+for x in range(0, 20):
+    for y in range(0, 20):
+        if feasible(x, y):
+            obj = x + y
+            if (best_obj is None) or (obj < best_obj) or (obj == best_obj and (x < best_solution[0] or (x == best_solution[0] and y < best_solution[1]))):
+                best_obj = obj
+                best_solution = (x, y)
+
+# According to analysis, expected solution is x=3, y=5, objective 8.
+if best_obj is None:
+    # No feasible solution found; set to a sentinel (could also raise).
+    best_obj = float('inf')
+
+print(f"FINAL_OBJ: {best_obj}")
+```

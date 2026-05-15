@@ -1,0 +1,147 @@
+[MODELER]:
+Here is a formal optimization model for the problem.
+
+## Decision variables
+
+Let  
+- \(x\) = number of carrier pigeons used (integer, \(x \ge 0\))  
+- \(y\) = number of owls used (integer, \(y \ge 0\))
+
+## Objective
+
+Maximize the total number of letters sent.
+
+- Each pigeon carries 2 letters → contributes \(2x\) letters  
+- Each owl carries 5 letters → contributes \(5y\) letters  
+
+**Objective function**:
+\[
+\max \; Z = 2x + 5y
+\]
+
+## Constraints
+
+1. **Owl proportion constraint**  
+   At most 40% of the birds can be owls:
+   \[
+   \frac{y}{x + y} \le 0.4 \quad \text{for } x + y > 0
+   \]
+   Multiply both sides by \(x + y\) (assuming at least one bird is used):
+   \[
+   y \le 0.4(x + y)
+   \]
+   \[
+   y \le 0.4x + 0.4y
+   \]
+   \[
+   0.6y \le 0.4x
+   \]
+   \[
+   3y \le 2x
+   \]
+
+2. **Treats (resource) constraint**  
+   Each pigeon uses 3 treats, each owl uses 5 treats, and there are at most 1000 treats:
+   \[
+   3x + 5y \le 1000
+   \]
+
+3. **Minimum pigeons constraint**  
+   At least 20 carrier pigeons must be used:
+   \[
+   x \ge 20
+   \]
+
+4. **Integrality and non-negativity**  
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+## Complete model
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 2x + 5y \\
+\text{subject to} \quad
+& 3x + 5y \le 1000 \\
+& 3y \le 2x \\
+& x \ge 20 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is an integer linear programming (ILP) problem.
+
+## Solving and tools
+
+Because the model is small and linear with integer variables, typical Python libraries that can solve it include:
+
+- `PuLP` (pure Python, easy to use)
+- `ortools.linear_solver` from Google OR-Tools
+- `pyomo` (more general modeling framework)
+- `scipy.optimize.linprog` (for the LP relaxation; integrality would need extra handling or branch-and-bound around it)
+
+The most straightforward here is `PuLP` or OR-Tools.
+
+### Example with PuLP (outline)
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Bird_Selection", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('pigeons', lowBound=20, cat='Integer')
+y = pl.LpVariable('owls', lowBound=0, cat='Integer')
+
+# Objective
+prob += 2*x + 5*y
+
+# Constraints
+prob += 3*x + 5*y <= 1000      # treats
+prob += 3*y <= 2*x             # at most 40% owls
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Optimal pigeons:", x.value())
+print("Optimal owls:", y.value())
+print("Max letters:", 2*x.value() + 5*y.value())
+```
+
+This will give the optimal number of each bird to maximize letters under the given constraints.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("Bird_Selection", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('pigeons', lowBound=20, cat='Integer')
+    y = pl.LpVariable('owls', lowBound=0, cat='Integer')
+
+    # Objective: maximize total letters
+    prob += 2 * x + 5 * y
+
+    # Constraints
+    prob += 3 * x + 5 * y <= 1000      # treats constraint
+    prob += 3 * y <= 2 * x             # at most 40% owls
+
+    # Solve problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute objective value
+    x_val = x.value()
+    y_val = y.value()
+    obj_val = 2 * x_val + 5 * y_val
+
+    # Final required print
+    print(f"FINAL_OBJ: {obj_val}")
+
+if __name__ == "__main__":
+    main()

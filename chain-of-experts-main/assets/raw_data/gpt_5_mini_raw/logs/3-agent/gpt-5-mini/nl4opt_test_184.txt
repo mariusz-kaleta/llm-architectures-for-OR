@@ -1,0 +1,87 @@
+[MODELER]:
+Model
+
+- Decision variables:
+  - M ∈ Z (number of medium carts)
+  - L ∈ Z (number of large carts)
+
+- Objective:
+  - Maximize total rice transported: maximize Z = 30M + 70L (kilograms)
+
+- Constraints:
+  1. Horse availability: 2M + 4L ≤ 60
+  2. Relationship between cart counts: M = 3L (the problem states "the number of medium sized carts must be three times the number of large sized carts")
+  3. Lower bounds: M ≥ 5, L ≥ 5
+  4. Integrality: M, L are integers (nonnegative)
+
+Simplification and solution
+
+Using constraint (2) substitute M = 3L into the horse constraint:
+2(3L) + 4L = 6L + 4L = 10L ≤ 60 ⇒ L ≤ 6.
+
+With L an integer and L ≥ 5, feasible L values are 5 or 6. Objective becomes
+Z = 30(3L) + 70L = 160L,
+which is increasing in L, so choose the largest feasible L = 6.
+
+Hence:
+- L = 6 large carts
+- M = 3L = 18 medium carts
+
+Total horses used: 2·18 + 4·6 = 36 + 24 = 60 (all horses used).
+Total rice transported: Z = 30·18 + 70·6 = 540 + 420 = 960 kg.
+
+Notes
+- If the wording instead meant "at least three times" (M ≥ 3L) the model would change; you would then solve the integer program with that inequality. With that interpretation you would also reach the same optimum here (M = 18, L = 6) because horses are the binding resource.
+- This is a small integer linear program; it can be solved by simple substitution/enumeration or by an ILP solver.
+
+Suggested Python libraries to solve/encode this:
+- pulp (easy-to-use MILP)
+- OR-Tools CP-SAT (for integer programming, fast)
+- pyomo (for larger modeling needs)
+- scipy.optimize is not ideal because it doesn’t directly handle integer constraints
+
+Example (pulp) sketch:
+- Define integer variables M, L
+- Add constraints 2*M + 4*L <= 60, M == 3*L, M >= 5, L >= 5
+- Maximize 30*M + 70*L
+- Solve and read M, L (will return M=18, L=6).
+
+---
+
+[CODER]:
+import math
+
+# Problem data
+horse_limit = 60
+M_horse_coeff = 2
+L_horse_coeff = 4
+M_min = 5
+L_min = 5
+relation_multiplier = 3  # M = 3 * L
+obj_coeff_M = 30
+obj_coeff_L = 70
+
+# Search for optimal integer solution respecting M = 3L
+best_obj = None
+best_M = None
+best_L = None
+
+# Reasonable upper bound for L: use horse_limit as safe cap
+for L in range(L_min, horse_limit + 1):
+    M = relation_multiplier * L
+    if M < M_min:
+        continue
+    # Check horse availability constraint
+    if M_horse_coeff * M + L_horse_coeff * L <= horse_limit:
+        obj = obj_coeff_M * M + obj_coeff_L * L
+        if (best_obj is None) or (obj > best_obj):
+            best_obj = obj
+            best_M = M
+            best_L = L
+
+# If no feasible solution found, set objective to 0
+if best_obj is None:
+    best_obj = 0
+
+# Final required output line
+print(f"FINAL_OBJ: {best_obj}")

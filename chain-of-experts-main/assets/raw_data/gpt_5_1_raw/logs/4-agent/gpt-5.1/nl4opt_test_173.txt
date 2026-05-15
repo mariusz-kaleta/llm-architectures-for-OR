@@ -1,0 +1,184 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximize total monthly profit from selling premium and regular desktops, given limits on production budget and total units sold.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with two decision variables (a small-scale, deterministic profit maximization problem).
+
+3. Main decision variables  
+Define nonnegative decision variables (assume fractional values allowed unless explicitly required to be integers; the modeller can later decide if integrality is needed):
+
+- \(x_P\): Number of premium desktops to make and sell in a month.  
+- \(x_R\): Number of regular desktops to make and sell in a month.
+
+4. Objective function structure  
+- Profit per premium desktop: $500  
+- Profit per regular desktop: $300  
+
+Total profit to maximize:  
+- Maximize \(500 \cdot x_P + 300 \cdot x_R\)
+
+5. Key constraints to consider  
+
+a) Total sales/production capacity  
+- The store can sell at most 200 desktops per month (combined premium and regular).  
+- Constraint: total units made and sold cannot exceed 200.  
+- Structure: \(x_P + x_R \le 200\)
+
+b) Budget (production cost) constraint  
+- Premium desktop production cost: $2000 per unit.  
+- Regular desktop production cost: $1000 per unit.  
+- Total monthly production spending must be at most $300,000.  
+- Constraint: \(2000 \cdot x_P + 1000 \cdot x_R \le 300000\)
+
+c) Non-negativity and basic feasibility  
+- Cannot produce a negative number of desktops.  
+- Constraints: \(x_P \ge 0\), \(x_R \ge 0\)
+
+d) (Optional, depending on interpretation) Integrality  
+- If the context requires whole desktops only, then add integer constraints: \(x_P, x_R\) integers.  
+- Because coefficients are small and the solution will be near the corners, relaxing integrality likely still yields integer solutions, but the modeller should verify.
+
+6. Modelling and solution strategy  
+
+- Step 1: Formulate the LP with the decision variables, objective, and constraints as above.  
+- Step 2: Solve graphically or with a standard LP solver, noting that there are two main constraints plus non-negativity, so the optimal solution will occur at a corner point of the feasible region.  
+- Step 3: Evaluate profit at all candidate corner points defined by intersections of:
+  - Sales capacity line with budget line.
+  - Each line with the axes.
+- Step 4: Select the combination of \(x_P\) and \(x_R\) with the highest feasible profit.  
+- Step 5: If required, round to integers and re-check feasibility and profit.
+
+---
+
+[MODELER]:
+Here is a clean mathematical optimization model for the problem.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_P \ge 0\): number of premium desktops to make and sell in a month  
+- \(x_R \ge 0\): number of regular desktops to make and sell in a month  
+
+(If you require whole desktops, we later add: \(x_P, x_R \in \mathbb{Z}\).)
+
+---
+
+## 2. Objective function (maximize profit)
+
+Profit per unit:
+- Premium: \$500
+- Regular: \$300
+
+Total monthly profit:
+\[
+\text{Maximize } Z = 500\,x_P + 300\,x_R
+\]
+
+---
+
+## 3. Constraints
+
+### a) Sales/production capacity
+
+At most 200 desktops can be sold per month:
+\[
+x_P + x_R \le 200
+\]
+
+### b) Production budget
+
+Production costs:
+- Premium: \$2000 per unit
+- Regular: \$1000 per unit
+
+Total monthly production spending at most \$300,000:
+\[
+2000\,x_P + 1000\,x_R \le 300000
+\]
+
+### c) Non-negativity
+
+\[
+x_P \ge 0,\quad x_R \ge 0
+\]
+
+### d) (Optional) Integrality
+
+If only whole desktops are allowed:
+\[
+x_P, x_R \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete model summary
+
+Maximize:
+\[
+Z = 500\,x_P + 300\,x_R
+\]
+
+subject to:
+\[
+\begin{aligned}
+x_P + x_R &\le 200 \\
+2000\,x_P + 1000\,x_R &\le 300000 \\
+x_P &\ge 0 \\
+x_R &\ge 0 \\
+&(\text{and optionally } x_P, x_R \in \mathbb{Z})
+\end{aligned}
+\]
+
+This is a small linear programming (LP) problem with 2 decision variables and 2 functional constraints.
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard LP / MILP solver is appropriate:
+
+- **PuLP**: Simple modeling interface in Python that can call CBC (default), GLPK, CPLEX, Gurobi, etc.
+- **OR-Tools (Google OR-Tools)**: Has linear solver (`pywraplp.Solver`) and MIP capabilities.
+- **SciPy**: `scipy.optimize.linprog` can solve the continuous (non-integer) LP version.
+- **Pyomo**: More general algebraic modeling language, good if this is part of a larger model.
+
+Given the small size and simplicity, **PuLP** or **OR-Tools** would be the most straightforward choices.
+
+---
+
+[CODER]:
+import pulp
+
+def solve_desktop_production():
+    # Create the problem: maximize profit
+    model = pulp.LpProblem("Desktop_Production_Problem", pulp.LpMaximize)
+
+    # Decision variables: integers (whole desktops)
+    x_P = pulp.LpVariable('x_P', lowBound=0, cat='Integer')  # Premium desktops
+    x_R = pulp.LpVariable('x_R', lowBound=0, cat='Integer')  # Regular desktops
+
+    # Objective function: Maximize 500 x_P + 300 x_R
+    model += 500 * x_P + 300 * x_R
+
+    # Constraints
+    # 1) Sales/production capacity: x_P + x_R <= 200
+    model += x_P + x_R <= 200
+
+    # 2) Production budget: 2000 x_P + 1000 x_R <= 300000
+    model += 2000 * x_P + 1000 * x_R <= 300000
+
+    # Solve the model using the default solver (CBC)
+    model.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract the objective value
+    final_obj = pulp.value(model.objective)
+
+    return final_obj
+
+if __name__ == "__main__":
+    value = solve_desktop_production()
+    print(f"FINAL_OBJ: {value}")

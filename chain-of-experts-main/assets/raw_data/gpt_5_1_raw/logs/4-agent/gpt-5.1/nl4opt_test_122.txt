@@ -1,0 +1,171 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximise total profit from Mrs. Watson’s real-estate investments.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP), continuous variables (dollars allocated to each option).
+
+3. Main decision variables  
+   Define continuous variables representing the dollar amounts invested in each type of property:
+   - Variable 1: Amount of money (in dollars) invested in condos.  
+   - Variable 2: Amount of money (in dollars) invested in detached houses.
+
+4. Objective function (conceptual structure)  
+   - Maximise total profit =  
+     (profit per dollar in condos) × (dollars in condos)  
+     + (profit per dollar in detached houses) × (dollars in detached houses).
+   - Use the given profit rates:  
+     - Condos: $0.50 profit per $1 invested.  
+     - Detached houses: $1 profit per $1 invested.
+
+5. Key constraints to consider  
+
+   a) Budget constraint  
+   - The total amount invested in condos plus detached houses cannot exceed $760,000.  
+   - Structure:  
+     (dollars in condos) + (dollars in detached houses) ≤ 760000.
+
+   b) Minimum proportion in condos (20% rule)  
+   - At least 20% of the total amount invested must be in condos.  
+   - Structure:  
+     (dollars in condos) ≥ 20% × (total dollars invested)  
+     where total dollars invested = (dollars in condos + dollars in detached houses).  
+   - This creates a proportional constraint binding condos to total investment.
+
+   c) Minimum amount in detached houses  
+   - At least $20,000 must be invested in detached houses.  
+   - Structure:  
+     (dollars in detached houses) ≥ 20000.
+
+   d) Non-negativity constraints  
+   - It is not possible to invest a negative amount of money.  
+   - Structure:  
+     (dollars in condos) ≥ 0,  
+     (dollars in detached houses) ≥ 0.
+
+6. Modelling notes  
+   - Only two decision variables are needed (one per property type).  
+   - All constraints are linear in these variables, so a standard LP is sufficient.  
+   - The “20% in condos” constraint should be written in a way that keeps both sides linear (expand and collect terms rather than using division in the final LP form).
+
+---
+
+[MODELER]:
+Formulate the problem as the following Linear Program (LP).
+
+**Decision variables**
+
+Let  
+- \(x_1 \ge 0\): dollars invested in condos  
+- \(x_2 \ge 0\): dollars invested in detached houses  
+
+**Objective**
+
+Maximize total profit:
+
+\[
+\max \; Z = 0.5\,x_1 + 1.0\,x_2
+\]
+
+**Constraints**
+
+1. **Budget (at most \$760,000):**
+\[
+x_1 + x_2 \le 760000
+\]
+
+2. **At least 20% of total in condos:**
+
+“Condos are at least 20% of total investment” means
+
+\[
+x_1 \;\ge\; 0.2(x_1 + x_2)
+\]
+
+Rewrite to keep it linear:
+
+\[
+x_1 \ge 0.2x_1 + 0.2x_2
+\]
+\[
+x_1 - 0.2x_1 \ge 0.2x_2
+\]
+\[
+0.8x_1 \ge 0.2x_2
+\]
+\[
+4x_1 \ge x_2
+\quad\text{(or equivalently } x_2 \le 4x_1\text{)}
+\]
+
+3. **At least \$20,000 in detached houses:**
+\[
+x_2 \ge 20000
+\]
+
+4. **Non-negativity:**
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+So a compact LP formulation is:
+
+\[
+\begin{aligned}
+\max \quad & 0.5x_1 + x_2 \\
+\text{s.t.} \quad 
+& x_1 + x_2 \le 760000, \\
+& 4x_1 \ge x_2, \\
+& x_2 \ge 20000, \\
+& x_1 \ge 0,\; x_2 \ge 0.
+\end{aligned}
+\]
+
+---
+
+**Suitable Python libraries**
+
+You can model and solve this LP with any of these:
+
+- `PuLP` (simple, pure Python, works with CBC/GLPK/COIN-OR):  
+  `pulp.LpProblem`, `pulp.LpVariable`, `pulp.LpMaximize`.
+- `scipy.optimize.linprog` (if you’re already using SciPy and want basic LP).
+- `ortools.linear_solver` from Google OR-Tools (powerful, industrial-grade).
+- `cvxpy` (convex optimization library; LP is a special case).
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the LP problem: maximization
+    prob = pulp.LpProblem("RealEstateInvestment", pulp.LpMaximize)
+
+    # Decision variables
+    x1 = pulp.LpVariable('x1', lowBound=0)  # dollars in condos
+    x2 = pulp.LpVariable('x2', lowBound=0)  # dollars in detached houses
+
+    # Objective function: Maximize 0.5 x1 + 1.0 x2
+    prob += 0.5 * x1 + 1.0 * x2
+
+    # Constraints
+    # 1. Budget constraint: x1 + x2 <= 760000
+    prob += x1 + x2 <= 760000, "Budget"
+
+    # 2. At least 20% in condos: 4 x1 >= x2  (or x2 <= 4 x1)
+    prob += x2 <= 4 * x1, "Condos_20_percent"
+
+    # 3. At least 20000 in detached houses: x2 >= 20000
+    prob += x2 >= 20000, "Min_detached"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    value = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {value}")
+
+if __name__ == "__main__":
+    main()

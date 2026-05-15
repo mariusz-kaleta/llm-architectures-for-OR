@@ -1,0 +1,37 @@
+[MONOLITH]:
+import pulp
+
+# Initialize the problem
+prob = pulp.LpProblem("Mail_Delivery_Optimization", pulp.LpMaximize)
+
+# Decision variables: number of runner trips (r) and canoe trips (c)
+r = pulp.LpVariable('r', lowBound=4, cat='Continuous')  # at least 4 runners
+c = pulp.LpVariable('c', lowBound=0, cat='Continuous')
+
+# Objective: maximize total bags of mail
+prob += 3 * r + 10 * c, "Total_Mail_Bags"
+
+# Constraints
+
+# Time constraint: each runner trip 4 hours, each canoe trip 2 hours, total ≤ 200
+prob += 4 * r + 2 * c <= 200, "Time_Constraint"
+
+# At most 33% of deliveries (trips) can be by canoe:
+# c <= (1/3)*(r + c)  ->  3c <= r + c  -> 2c <= r
+prob += 2 * c <= r, "Canoe_Proportion_Constraint"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+r_opt = pulp.value(r)
+c_opt = pulp.value(c)
+obj_value = pulp.value(prob.objective)
+
+# Print solution details
+print(f"Optimal number of runner trips: {r_opt}")
+print(f"Optimal number of canoe trips: {c_opt}")
+print(f"Maximum total bags of mail delivered: {obj_value}")
+
+# Required final objective print
+print(f"FINAL_OBJ: {obj_value}")

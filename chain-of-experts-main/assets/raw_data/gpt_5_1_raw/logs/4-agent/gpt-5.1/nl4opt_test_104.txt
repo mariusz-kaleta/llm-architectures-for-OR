@@ -1,0 +1,210 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- **Goal:** Minimize the *total number of vehicles* used (limousines + buses), while:
+  - Transporting at least 400 people.
+  - Having at least 70% of all vehicles be limousines.
+
+---
+
+2. **Suggested model type**
+
+- **Model:** Integer Linear Programming (ILP)
+  - Small-scale, 2-variable integer problem.
+  - Linear objective and linear constraints with integrality.
+
+---
+
+3. **Main decision variables**
+
+Define integer, nonnegative decision variables:
+
+- \(L\): Number of limousines to use.
+- \(B\): Number of buses to use.
+
+(Depending on notation conventions, you can use any symbols, but keep exactly these two integer variables.)
+
+---
+
+4. **Key constraints to consider**
+
+Model the problem with the following logical components:
+
+1. **Capacity (people) constraint**
+   - Each limousine carries 12 people.
+   - Each bus carries 18 people.
+   - Total transported people must be **at least 400**.
+   - Constraint form: total capacity from limousines and buses ≥ 400.
+
+2. **Limousine proportion constraint**
+   - At least 70% of the vehicles must be limousines.
+   - Express as:
+     - limousines / (limousines + buses) ≥ 0.7
+   - Rearrange this into a linear inequality in terms of L and B only (no division in final model).
+
+3. **Non-negativity and integrality**
+   - Both L and B must be:
+     - Nonnegative.
+     - Integer (you cannot have fractional vehicles).
+
+---
+
+5. **Objective function**
+
+- Objective: **Minimize total number of vehicles**
+  - Minimize (number of limousines + number of buses).
+  - i.e., minimize L + B.
+
+---
+
+6. **Modelling notes / guidance**
+
+- The model will be very small; can be solved by:
+  - Hand enumeration using inequalities.
+  - Any ILP solver.
+- After solving, check:
+  - Total people transported ≥ 400.
+  - Limousine share ≥ 70%.
+  - Total vehicles is as small as possible among all feasible (L, B) pairs.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem.
+
+---
+
+### Decision variables
+
+Let
+
+- \(L \in \mathbb{Z}_{\ge 0}\): number of limousines  
+- \(B \in \mathbb{Z}_{\ge 0}\): number of buses  
+
+Both must be nonnegative integers.
+
+---
+
+### Objective
+
+Minimize the total number of vehicles (limousines + buses):
+
+\[
+\min \; L + B
+\]
+
+---
+
+### Constraints
+
+1. **Capacity (people) constraint**
+
+Each limousine carries 12 people, each bus carries 18 people. At least 400 people must be transported:
+
+\[
+12L + 18B \;\ge\; 400
+\]
+
+2. **Limousine proportion constraint**
+
+At least 70% of the vehicles must be limousines:
+
+\[
+\frac{L}{L + B} \;\ge\; 0.7 \quad \text{for } L + B > 0
+\]
+
+To make this linear, multiply both sides by \(L + B\) and rearrange:
+
+\[
+L \;\ge\; 0.7(L + B)
+\]
+
+\[
+L \;\ge\; 0.7L + 0.7B
+\]
+
+\[
+L - 0.7L \;\ge\; 0.7B
+\]
+
+\[
+0.3L \;\ge\; 0.7B
+\]
+
+\[
+3L \;\ge\; 7B
+\]
+
+So the linear constraint is:
+
+\[
+3L - 7B \;\ge\; 0
+\]
+
+3. **Non-negativity and integrality**
+
+\[
+L \in \mathbb{Z}_{\ge 0},\quad B \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+### Full ILP model
+
+\[
+\begin{aligned}
+\min \quad & L + B \\
+\text{s.t.} \quad 
+& 12L + 18B \;\ge\; 400 \\
+& 3L - 7B \;\ge\; 0 \\
+& L, B \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+### Suitable Python libraries
+
+This is an integer linear program with only two variables, so any ILP-capable library is suitable. In Python, appropriate choices include:
+
+- **PuLP** (`pulp`): very simple modeling interface, works with CBC by default.
+- **OR-Tools** (`ortools.linear_solver`): Google’s optimization suite, supports integer programming.
+- **Pyomo**: more general algebraic modeling language, also works well for ILPs.
+- **MIP** (`mip` or `python-mip`): interface to CBC/GRB etc., focused on (mixed-)integer problems.
+
+For a problem this small, **PuLP** or **OR-Tools** is more than sufficient and very easy to set up.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem
+    prob = pulp.LpProblem("LimoBusProblem", pulp.LpMinimize)
+
+    # Decision variables
+    L = pulp.LpVariable('L', lowBound=0, cat='Integer')  # number of limousines
+    B = pulp.LpVariable('B', lowBound=0, cat='Integer')  # number of buses
+
+    # Objective: minimize total number of vehicles
+    prob += L + B
+
+    # Constraints
+    # Capacity: 12L + 18B >= 400
+    prob += 12 * L + 18 * B >= 400
+
+    # Limousine proportion: 3L - 7B >= 0
+    prob += 3 * L - 7 * B >= 0
+
+    # Solve
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    obj_value = pulp.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

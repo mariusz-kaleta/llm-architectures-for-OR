@@ -1,0 +1,188 @@
+[MODELER]:
+Let’s translate the word problem into a formal optimization model and then solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \( x \) = number of kids-size bottles produced  
+- \( y \) = number of adult-size bottles produced  
+
+Both must be nonnegative integers (bottles):
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 2. Objective
+
+We want to maximize the total number of bottles produced:
+
+\[
+\text{Maximize } Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Volume (syrup availability)
+
+Each kids bottle holds 100 ml, each adult bottle 300 ml, and there are 25,000 ml available:
+
+\[
+100x + 300y \le 25{,}000
+\]
+
+### b) Ratio of adult to kids bottles
+
+“At least 3 times as many adult size bottle must be made as kids size bottles”:
+
+\[
+y \ge 3x
+\]
+
+### c) Minimum number of kids bottles
+
+“At least 50 kids size bottles must be made”:
+
+\[
+x \ge 50
+\]
+
+---
+
+## 4. Solve the model (analytical reasoning)
+
+1. From \( y \ge 3x \), to use syrup most efficiently (to maximize total bottles), set \( y = 3x \) (any larger \( y \) uses more syrup per bottle ratio without increasing the count as effectively).
+
+2. Substitute \( y = 3x \) into the syrup constraint:
+
+\[
+100x + 300(3x) \le 25{,}000
+\Rightarrow 100x + 900x \le 25{,}000
+\Rightarrow 1000x \le 25{,}000
+\Rightarrow x \le 25
+\]
+
+3. But we also have \( x \ge 50 \), so:
+
+\[
+x \le 25 \quad \text{and} \quad x \ge 50
+\]
+
+This is infeasible. That means there is **no combination of \(x, y\)** satisfying:
+
+- 50 or more kids bottles,
+- at least 3 times as many adult bottles as kids,
+- and not exceeding 25,000 ml of syrup.
+
+So the model as stated has **no feasible solution**.
+
+Formally, the feasible region is empty.
+
+---
+
+## 5. Mathematical model summary
+
+- **Variables**:  
+  - \( x \in \mathbb{Z}_{\ge 0} \): number of kids bottles  
+  - \( y \in \mathbb{Z}_{\ge 0} \): number of adult bottles  
+
+- **Objective**:  
+  \[
+  \max Z = x + y
+  \]
+
+- **Constraints**:  
+  \[
+  \begin{aligned}
+  100x + 300y &\le 25{,}000 \quad &\text{(syrup volume)}\\
+  y &\ge 3x &\text{(adult at least 3× kids)}\\
+  x &\ge 50 &\text{(minimum kids)}\\
+  x, y &\in \mathbb{Z}_{\ge 0} &\text{(integrality, nonnegative)}
+  \end{aligned}
+  \]
+
+This system is infeasible.
+
+---
+
+## 6. Suitable Python libraries
+
+This is a small linear integer optimization (actually, even LP would show infeasibility). Good choices:
+
+- `PuLP` (simple to use, pure Python)
+- `ortools.linear_solver` from Google OR-Tools
+- `scipy.optimize.linprog` (for continuous relaxation; won’t enforce integrality but still detects infeasibility)
+
+Example skeleton with PuLP:
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("CoughSyrupBottles", pl.LpMaximize)
+
+# Variables
+x = pl.LpVariable("kids_bottles", lowBound=0, cat="Integer")
+y = pl.LpVariable("adult_bottles", lowBound=0, cat="Integer")
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 100*x + 300*y <= 25000
+prob += y >= 3*x
+prob += x >= 50
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("kids_bottles:", x.value())
+print("adult_bottles:", y.value())
+```
+
+This will report the problem status as **Infeasible**, confirming there is no valid production plan under the stated conditions.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("CoughSyrupBottles", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable("kids_bottles", lowBound=0, cat="Integer")
+    y = pl.LpVariable("adult_bottles", lowBound=0, cat="Integer")
+
+    # Objective: maximize total bottles
+    prob += x + y
+
+    # Constraints
+    prob += 100 * x + 300 * y <= 25000      # Syrup volume
+    prob += y >= 3 * x                      # Adult at least 3× kids
+    prob += x >= 50                         # Minimum kids
+
+    # Solve the model
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Determine final objective value
+    if pl.LpStatus[prob.status] != "Optimal":
+        # Infeasible or otherwise not optimal; as the model is infeasible,
+        # we can represent absence of feasible objective as None or NaN.
+        final_obj = float('nan')
+    else:
+        final_obj = pl.value(prob.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

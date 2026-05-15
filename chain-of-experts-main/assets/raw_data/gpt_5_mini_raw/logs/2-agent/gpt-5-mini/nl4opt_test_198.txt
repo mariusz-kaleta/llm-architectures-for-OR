@@ -1,0 +1,88 @@
+[MODELER]:
+Formal integer optimization model
+
+Decision variables
+- t ∈ Z≥0 = number of trains
+- r ∈ Z≥0 = number of trams
+
+Objective
+- Minimize total units: minimize Z = t + r
+
+Constraints
+1. Capacity: 120 t + 30 r ≥ 600
+2. Tram minimum: r ≥ 2 t
+3. Integrality / nonnegativity: t, r ∈ Z≥0
+
+Analytic reduction and optimal solution
+- From r ≥ 2t let r = 2t + k with k ∈ Z≥0.
+- Substitute into capacity: 120t + 30(2t + k) = 180t + 30k ≥ 600 → 6t + k ≥ 20.
+- Objective becomes Z = t + r = t + 2t + k = 3t + k, with k ≥ max(0, 20 − 6t).
+
+Evaluate small integer t:
+- t = 0 → k = 20 → Z = 20
+- t = 1 → k = 14 → Z = 17
+- t = 2 → k = 8  → Z = 14
+- t = 3 → k = 2  → Z = 11  (gives r = 2·3 + 2 = 8, capacity = 3·120 + 8·30 = 600)
+- t = 4 → k = 0  → Z = 12
+
+Minimum is at t = 3, r = 8 with Z = 11 units.
+
+Remarks
+- Continuous relaxation gives a fractional minimum at t = 20/6 ≈ 3.333, Z = 10, so integrality increases the optimum by 1.
+- This is a small integer linear program (ILP); it can be solved analytically as above or by any ILP solver.
+
+Suggested Python libraries / solvers
+- PuLP (with CBC, GLPK) — easy modelling of small ILPs.
+- OR-Tools CP-SAT or linear solver — robust and fast.
+- Pyomo (with GLPK/CBC/Gurobi) — for more complex modelling.
+(scikit-learn / scipy.optimize are not ideal for ILPs; use the above.)
+
+Example PuLP code
+from pulp import LpProblem, LpMinimize, LpVariable, LpInteger, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("trains_trams", LpMinimize)
+t = LpVariable('trains', lowBound=0, cat=LpInteger)
+r = LpVariable('trams',  lowBound=0, cat=LpInteger)
+
+prob += t + r
+prob += 120*t + 30*r >= 600
+prob += r >= 2*t
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print("trains =", int(t.value()), "trams =", int(r.value()), "total =", int(t.value()+r.value()))
+
+This prints: trains = 3, trams = 8, total = 11.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data (initialized directly)
+capacity_required = 600
+cap_per_train = 120
+cap_per_tram = 30
+
+# Decision variable bounds for brute-force search (sufficiently large)
+t_max = 20  # if t=0 then r must be 20, so t won't need to exceed 20 for optimality
+r_max = 20
+
+best_obj = None
+best_solution = None
+
+for t in range(t_max + 1):
+    for r in range(r_max + 1):
+        # Constraints
+        if cap_per_train * t + cap_per_tram * r < capacity_required:
+            continue
+        if r < 2 * t:
+            continue
+        # Objective
+        obj = t + r
+        if best_obj is None or obj < best_obj:
+            best_obj = obj
+            best_solution = (t, r)
+
+# best_solution should be (3,8) and best_obj = 11
+# Final output as required
+print(f"FINAL_OBJ: {best_obj}")

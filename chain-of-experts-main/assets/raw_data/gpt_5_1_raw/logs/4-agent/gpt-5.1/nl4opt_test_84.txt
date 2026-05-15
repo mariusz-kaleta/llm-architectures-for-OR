@@ -1,0 +1,200 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimize the total number of vehicles used (buses + personal cars) while meeting capacity and policy requirements.
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP) – two-variable integer optimization problem.
+
+3. Main decision variables  
+Define integer decision variables such as:
+- B = number of buses to schedule  
+- C = number of personal cars to schedule  
+
+(Optionally note that both must be non-negative integers.)
+
+4. Key constraints to consider  
+
+Capacity / demand:
+- Each bus carries 9 children, each personal car carries 4 children.
+- Total seats must cover at least 100 children:
+  - 9·B + 4·C ≥ 100
+
+Policy / operational constraints:
+- Pollution limitation: there must be strictly more buses than personal cars:
+  - B > C  (model as B ≥ C + 1)
+- Some children require extra attention: at least 5 personal cars:
+  - C ≥ 5
+
+Logical / integrality constraints:
+- B, C are integers:
+  - B, C ∈ {0, 1, 2, …}
+- Non-negativity:
+  - B ≥ 0, C ≥ 0
+
+5. Objective function structure  
+- Minimize total number of vehicles:
+  - Minimize B + C
+
+6. Modelling strategy notes  
+- This is a small ILP; it can be solved by enumeration or a standard ILP solver.  
+- Feasibility and minimality can be checked by scanning possible integer values of C (from 5 upward), enforcing B ≥ C + 1 and 9B + 4C ≥ 100, then selecting the feasible pair (B, C) that minimizes B + C.
+
+---
+
+[MODELER]:
+Below is a formal optimization model for the daycare transportation problem, plus guidance on how to solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(B \in \mathbb{Z}_{\ge 0}\): number of buses to schedule  
+- \(C \in \mathbb{Z}_{\ge 0}\): number of personal cars to schedule  
+
+Both are non-negative integers.
+
+---
+
+## 2. Objective
+
+Minimize the total number of vehicles:
+
+\[
+\min \; Z = B + C
+\]
+
+---
+
+## 3. Constraints
+
+### a) Capacity constraint (at least 100 children)
+
+Each bus carries 9 children, each car carries 4 children; we must cover at least 100 children:
+
+\[
+9B + 4C \;\ge\; 100
+\]
+
+### b) Pollution limitation (more buses than cars)
+
+There must be strictly more buses than personal cars. In linear form:
+
+\[
+B \;\ge\; C + 1
+\]
+
+### c) Extra attention requirement (at least 5 cars)
+
+There must be at least 5 personal cars:
+
+\[
+C \;\ge\; 5
+\]
+
+### d) Non-negativity and integrality
+
+\[
+B \in \mathbb{Z}_{\ge 0}, \quad C \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete ILP model
+
+\[
+\begin{aligned}
+\text{Minimize} \quad & Z = B + C \\
+\text{subject to} \quad
+& 9B + 4C \ge 100 \\
+& B \ge C + 1 \\
+& C \ge 5 \\
+& B, C \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+To solve this ILP, these Python libraries are well-suited:
+
+- **PuLP**  
+  - Simple modeling for linear/integer programs.  
+  - Integrates with CBC (default), GLPK, Gurobi, CPLEX, etc.  
+  - Good for educational/medium-scale problems.
+
+- **OR-Tools (Google OR-Tools)**  
+  - `ortools.linear_solver` or `ortools.sat.python.cp_model` (CP-SAT) can handle integer variables efficiently.  
+  - Very efficient for integer optimization.
+
+- **Pyomo**  
+  - More general algebraic modeling language; good if you plan to scale or extend the model significantly.  
+
+For such a small two-variable ILP, any of these will solve it instantly; **PuLP** or **OR-Tools** is probably the easiest.
+
+---
+
+## 6. Minimal PuLP example
+
+```python
+import pulp
+
+# Problem
+prob = pulp.LpProblem("Daycare_Vehicles", pulp.LpMinimize)
+
+# Decision variables
+B = pulp.LpVariable('B', lowBound=0, cat='Integer')
+C = pulp.LpVariable('C', lowBound=0, cat='Integer')
+
+# Objective
+prob += B + C, "TotalVehicles"
+
+# Constraints
+prob += 9*B + 4*C >= 100, "Capacity"
+prob += B >= C + 1,        "MoreBusesThanCars"
+prob += C >= 5,            "MinCars"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+print("Status:", pulp.LpStatus[prob.status])
+print("Buses (B):", int(B.value()))
+print("Cars (C):", int(C.value()))
+print("Total vehicles:", int(B.value() + C.value()))
+```
+
+This code directly implements the mathematical model above and finds the optimal numbers of buses and cars.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem
+    prob = pulp.LpProblem("Daycare_Vehicles", pulp.LpMinimize)
+
+    # Decision variables
+    B = pulp.LpVariable('B', lowBound=0, cat='Integer')  # Number of buses
+    C = pulp.LpVariable('C', lowBound=0, cat='Integer')  # Number of cars
+
+    # Objective: minimize total number of vehicles
+    prob += B + C, "TotalVehicles"
+
+    # Constraints
+    prob += 9 * B + 4 * C >= 100, "Capacity"
+    prob += B >= C + 1, "MoreBusesThanCars"
+    prob += C >= 5, "MinCars"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Retrieve optimal objective value
+    total_vehicles = pulp.value(prob.objective)
+
+    # Final required print
+    print(f"FINAL_OBJ: {total_vehicles}")
+
+if __name__ == "__main__":
+    main()

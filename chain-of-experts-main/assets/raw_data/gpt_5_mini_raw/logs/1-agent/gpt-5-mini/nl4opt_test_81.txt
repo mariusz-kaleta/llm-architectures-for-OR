@@ -1,0 +1,52 @@
+[MONOLITH]:
+import pulp
+
+# Define the LP problem: maximize hay processed
+prob = pulp.LpProblem("Maximize_Hay", pulp.LpMaximize)
+
+# Decision variables: acres assigned to windrower (x) and hay harvester (y)
+# They must be nonnegative and cannot exceed total land implicitly by constraints
+x = pulp.LpVariable("windrower_acres", lowBound=0)
+y = pulp.LpVariable("harvester_acres", lowBound=0)
+
+# Parameters (from the problem)
+total_acres = 200
+fuel_available = 300
+methane_limit = 800
+
+# Coefficients per acre
+hay_windrower = 10   # kg per acre
+hay_harvester = 8    # kg per acre
+methane_windrower = 5
+methane_harvester = 3
+fuel_windrower = 2
+fuel_harvester = 1
+
+# Objective: maximize hay processed
+prob += hay_windrower * x + hay_harvester * y, "Total_Hay_Processed"
+
+# Constraints
+# All acres must be processed: x + y = 200
+prob += x + y == total_acres, "Land_Availability"
+
+# Fuel constraint: 2x + 1y <= 300
+prob += fuel_windrower * x + fuel_harvester * y <= fuel_available, "Fuel_Limit"
+
+# Methane constraint: 5x + 3y <= 800
+prob += methane_windrower * x + methane_harvester * y <= methane_limit, "Methane_Limit"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve solution
+x_val = pulp.value(x)
+y_val = pulp.value(y)
+obj_val = pulp.value(prob.objective)
+
+# Print results
+print(f"Windrower acres: {x_val}")
+print(f"Harvester acres: {y_val}")
+print(f"Total hay processed (kg): {obj_val}")
+
+# Final objective print in required exact format as the last line
+print(f"FINAL_OBJ: {obj_val}")

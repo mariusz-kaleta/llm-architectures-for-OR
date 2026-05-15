@@ -1,0 +1,198 @@
+[MODELER]:
+Let’s turn the description into a clear optimization model and then solve it.
+
+## 1. Decision variables
+
+Let  
+- \( x \) = acres of apples  
+- \( y \) = acres of pears  
+
+Both are continuous and nonnegative:
+- \( x \ge 0 \)
+- \( y \ge 0 \)
+
+## 2. Objective function
+
+Profit:
+- Apples: \$2 per acre → \( 2x \)
+- Pears: \$4 per acre → \( 4y \)
+
+Maximize total profit:
+\[
+\max Z = 2x + 4y
+\]
+
+## 3. Constraints
+
+1. Total land available (50 acres):
+\[
+x + y \le 50
+\]
+
+2. Minimum acreage requirements:
+\[
+x \ge 5
+\]
+\[
+y \ge 10
+\]
+
+3. Preference/limited workforce: at most twice as many pears as apples:
+\[
+y \le 2x
+\]
+
+4. He prefers to grow more pears than apples (interpreted as strictly more, but in LP it’s modeled as \(\ge\)):
+\[
+y \ge x
+\]
+
+(If you needed a strict inequality \(y > x\), you’d typically model it as \(y \ge x + \epsilon\) for a tiny \(\epsilon\), but here \(y \ge x\) is standard.)
+
+## 4. Solve the model (by hand)
+
+We maximize \(Z = 2x + 4y\) over the feasible region given by:
+
+- \(x + y \le 50\)
+- \(x \ge 5\)
+- \(y \ge 10\)
+- \(y \le 2x\)
+- \(y \ge x\)
+
+In a linear program, the optimum occurs at a corner (intersection of constraints). Let’s find the relevant corner that hits the land constraint (since profit per acre is positive, we expect to use all the land: \(x + y = 50\)) and respects all other constraints.
+
+Consider \(x + y = 50\) together with the bounds on \(y\):
+
+- From \(y \ge x\) and \(x + y = 50\), we get \(y \ge 25\), \(x \le 25\).
+- From \(y \le 2x\) and \(x + y = 50\), substitute \(y = 50 - x\):
+  \[
+  50 - x \le 2x \Rightarrow 50 \le 3x \Rightarrow x \ge \frac{50}{3} \approx 16.67
+  \]
+  Then \(y = 50 - x \le 33.33\).
+- Also must satisfy \(x \ge 5\) and \(y \ge 10\), which are looser than the above within this region.
+
+So on the line \(x + y = 50\), the feasible segment is:
+\[
+16.67 \le x \le 25,\quad y = 50 - x
+\]
+
+On this segment, the objective is:
+\[
+Z = 2x + 4y = 2x + 4(50 - x) = 200 - 2x
+\]
+This decreases as \(x\) increases, so we want the smallest feasible \(x\):
+
+\[
+x^* = \frac{50}{3} \approx 16.67,\quad y^* = 50 - \frac{50}{3} = \frac{100}{3} \approx 33.33
+\]
+
+Check constraints:
+- \(x + y = 50\) ✓
+- \(x \ge 5\) → \(16.67 \ge 5\) ✓
+- \(y \ge 10\) → \(33.33 \ge 10\) ✓
+- \(y \le 2x\) → \(33.33 \le 2(16.67) \approx 33.33\) ✓
+- \(y \ge x\) → \(33.33 \ge 16.67\) ✓
+
+Compute profit:
+\[
+Z^* = 2x^* + 4y^* 
+= 2\left(\frac{50}{3}\right) + 4\left(\frac{100}{3}\right)
+= \frac{100}{3} + \frac{400}{3}
+= \frac{500}{3} \approx 166.67
+\]
+
+## 5. Final answer
+
+- Acres of apples:  
+  \[
+  x^* = \frac{50}{3} \approx 16.\overline{6}\ \text{acres}
+  \]
+- Acres of pears:  
+  \[
+  y^* = \frac{100}{3} \approx 33.\overline{3}\ \text{acres}
+  \]
+- Maximum profit:  
+  \[
+  Z^* = \frac{500}{3} \approx \$166.67
+  \]
+
+If Ben must plant whole acres only, you’d round to nearby integer points that satisfy all constraints and evaluate profit there.
+
+## 6. How to solve this in Python
+
+This is a linear program. Suitable Python libraries:
+
+- `pulp` (very simple for LPs)
+- `ortools.linear_solver` (Google OR-Tools)
+- `scipy.optimize.linprog` (SciPy’s LP solver)
+
+Example using PuLP:
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Orchard", pl.LpMaximize)
+
+# Variables
+x = pl.LpVariable('apples', lowBound=0)
+y = pl.LpVariable('pears', lowBound=0)
+
+# Objective
+prob += 2*x + 4*y
+
+# Constraints
+prob += x + y <= 50
+prob += x >= 5
+prob += y >= 10
+prob += y <= 2*x
+prob += y >= x
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Apples:", x.varValue)
+print("Pears:", y.varValue)
+print("Profit:", pl.value(prob.objective))
+```
+
+This will return approximately:
+- Apples ≈ 16.6667
+- Pears ≈ 33.3333
+- Profit ≈ 166.6667
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the LP problem: maximize profit
+    prob = pl.LpProblem("Orchard", pl.LpMaximize)
+
+    # Decision variables: acres of apples (x) and pears (y)
+    x = pl.LpVariable('apples', lowBound=0)
+    y = pl.LpVariable('pears', lowBound=0)
+
+    # Objective function: maximize 2x + 4y
+    prob += 2 * x + 4 * y
+
+    # Constraints
+    prob += x + y <= 50      # Total land
+    prob += x >= 5           # Minimum apples
+    prob += y >= 10          # Minimum pears
+    prob += y <= 2 * x       # At most twice as many pears as apples
+    prob += y >= x           # At least as many pears as apples
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

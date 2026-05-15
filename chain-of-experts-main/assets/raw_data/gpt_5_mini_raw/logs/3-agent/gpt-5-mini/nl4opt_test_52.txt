@@ -1,0 +1,86 @@
+[MODELER]:
+Model
+
+- Variables
+  - S ∈ Z≥0 : number of small suitcases
+  - L ∈ Z≥0 : number of large suitcases
+
+- Objective
+  - Maximize total snacks: maximize Z = 50 S + 80 L
+
+- Constraints
+  1. Preference: S ≥ 2 L
+  2. Availability small: S ≤ 70
+  3. Availability large: L ≤ 50
+  4. Minimum large: L ≥ 15
+  5. Total suitcases limit: S + L ≤ 70
+
+- Integrality: S and L must be integers.
+
+Solution (analytic)
+- From S + L ≤ 70 and S ≥ 2L we get 3L ≤ 70 ⇒ L ≤ 23. So feasible integer L are 15 ≤ L ≤ 23.
+- For fixed L the objective 50S + 80L increases with S, so pick the largest feasible S = 70 − L (because of S + L ≤ 70).
+- Substitute S = 70 − L: objective = 50(70 − L) + 80L = 3500 + 30L, which is increasing in L.
+- Choose maximal feasible L = 23. Then S = 70 − 23 = 47.
+
+Optimal solution
+- Small suitcases S = 47
+- Large suitcases L = 23
+- Total snacks = 50·47 + 80·23 = 4190
+- Total suitcases = 70 (uses the total-suitcase limit)
+
+Suitable Python libraries
+- For integer linear programs: PuLP, OR-Tools (ortools.linear_solver), Python-MIP (mip), Pyomo with a MILP solver (CBC, GLPK, Gurobi, CPLEX).
+- Not suitable for integer constraints: scipy.optimize (continuous only).
+- Example using PuLP (outline):
+  - Define Integer variables S, L
+  - Add the constraints above
+  - Maximize 50*S + 80*L
+  - Solve and read S.value(), L.value()
+
+If you want, I can provide a complete runnable PuLP or OR-Tools script.
+
+---
+
+[CODER]:
+import sys
+
+# Brute-force search over integer feasible region (small problem)
+best_obj = None
+best_S = None
+best_L = None
+
+# Problem data
+coef_S = 50
+coef_L = 80
+max_S = 70
+max_L = 50
+min_L = 15
+
+for S in range(0, max_S + 1):
+    for L in range(0, max_L + 1):
+        # Constraints
+        if S < 2 * L:
+            continue  # preference
+        if S > max_S:
+            continue  # availability small (redundant due to loop)
+        if L > max_L:
+            continue  # availability large (redundant due to loop)
+        if L < min_L:
+            continue  # minimum large
+        if S + L > 70:
+            continue  # total suitcases limit
+
+        obj = coef_S * S + coef_L * L
+        if (best_obj is None) or (obj > best_obj):
+            best_obj = obj
+            best_S = S
+            best_L = L
+
+# Ensure we found a feasible solution
+if best_obj is None:
+    print("No feasible solution found.", file=sys.stderr)
+    best_obj = 0
+
+# Final required output line
+print(f"FINAL_OBJ: {best_obj}")

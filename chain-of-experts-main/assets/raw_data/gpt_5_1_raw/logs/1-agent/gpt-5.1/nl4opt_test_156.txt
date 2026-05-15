@@ -1,0 +1,48 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Annotation_Outsourcing", pulp.LpMinimize)
+
+# Decision variables
+# x: hours allocated to specialized company
+# y: hours allocated to common company
+x = pulp.LpVariable('x', lowBound=0, cat='Continuous')
+y = pulp.LpVariable('y', lowBound=0, cat='Continuous')
+
+# Parameters
+images_required = 10000
+rate_specialized = 60  # images per hour
+rate_common = 40       # images per hour
+cost_specialized = 100
+cost_common = 72
+
+# Objective function: Minimize cost
+prob += cost_specialized * x + cost_common * y
+
+# Constraints
+
+# At least 10,000 images annotated
+prob += rate_specialized * x + rate_common * y >= images_required, "ImagesRequirement"
+
+# At least one third of the images must be annotated by the specialized company
+prob += rate_specialized * x >= (1.0/3.0) * (rate_specialized * x + rate_common * y), "SpecializedShare"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract solution
+x_value = pulp.value(x)
+y_value = pulp.value(y)
+final_obj = pulp.value(prob.objective)
+
+# Print results (optional detailed outputs)
+print(f"Hours specialized company (x): {x_value}")
+print(f"Hours common company (y): {y_value}")
+print(f"Images by specialized company: {rate_specialized * x_value}")
+print(f"Images by common company: {rate_common * y_value}")
+print(f"Total images: {rate_specialized * x_value + rate_common * y_value}")
+print(f"Total cost: {final_obj}")
+
+# Required final objective print
+print(f"FINAL_OBJ: {final_obj}")

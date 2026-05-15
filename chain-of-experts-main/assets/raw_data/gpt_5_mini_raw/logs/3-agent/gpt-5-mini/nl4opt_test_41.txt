@@ -1,0 +1,112 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x1 = number of crepe cakes (integer, ≥ 0)
+  - x2 = number of sponge cakes (integer, ≥ 0)
+  - x3 = number of birthday cakes (integer, ≥ 0)
+
+- Objective
+  - Maximize profit: maximize Z = 12 x1 + 10 x2 + 15 x3
+
+- Constraints (resource limits)
+  - Batter: 400 x1 + 500 x2 + 450 x3 ≤ 20,000 (grams)
+  - Milk:   200 x1 + 300 x2 + 350 x3 ≤ 14,000 (grams)
+  - Integrality & nonnegativity: x1, x2, x3 ∈ Z_≥0
+
+Solution (optimal)
+- Solving the integer linear program gives:
+  - x1 = 14 (crepe cakes)
+  - x2 = 0  (sponge cakes)
+  - x3 = 32 (birthday cakes)
+- Maximum profit Z = 12·14 + 10·0 + 15·32 = 648 dollars.
+
+(That solution uses all batter and milk: 400·14 + 450·32 = 20,000 g batter, and 200·14 + 350·32 = 14,000 g milk.)
+
+Recommended solvers / Python libraries
+- pulp (CBC solver) — easy MILP modeling: pip install pulp
+- OR-Tools CP-SAT (very fast integer solver for small/large problems): pip install ortools
+- cvxpy with a mixed-integer backend (GLPK_MI, CBC)
+- For the LP relaxation only: scipy.optimize.linprog
+
+Example (pulp) — minimal code outline
+
+from pulp import LpProblem, LpMaximize, LpVariable, LpInteger, value
+
+prob = LpProblem("Bakery", LpMaximize)
+x1 = LpVariable('crepe', lowBound=0, cat=LpInteger)
+x2 = LpVariable('sponge', lowBound=0, cat=LpInteger)
+x3 = LpVariable('birthday', lowBound=0, cat=LpInteger)
+
+prob += 12*x1 + 10*x2 + 15*x3
+prob += 400*x1 + 500*x2 + 450*x3 <= 20000
+prob += 200*x1 + 300*x2 + 350*x3 <= 14000
+
+prob.solve()
+print(x1.value(), x2.value(), x3.value(), "profit =", value(prob.objective))
+
+This will return (14, 0, 32) and profit 648.
+
+---
+
+[CODER]:
+```python
+# Self-contained script to solve the bakery integer optimization by brute force (no external solvers required).
+
+# Decision variables:
+# x1 = crepe cakes (integer >=0)
+# x2 = sponge cakes (integer >=0)
+# x3 = birthday cakes (integer >=0)
+# Maximize Z = 12*x1 + 10*x2 + 15*x3
+# s.t.
+# 400*x1 + 500*x2 + 450*x3 <= 20000  (batter grams)
+# 200*x1 + 300*x2 + 350*x3 <= 14000  (milk grams)
+
+from math import floor
+
+# Resource limits
+Batter_max = 20000
+Milk_max = 14000
+
+# Coefficients and profit
+profit_coeffs = (12, 10, 15)
+batter_coeffs = (400, 500, 450)
+milk_coeffs = (200, 300, 350)
+
+# Upper bounds for loops (safe integer bounds)
+max_x1 = Batter_max // batter_coeffs[0]  # 20000/400 = 50
+max_x2 = Batter_max // batter_coeffs[1]  # 40
+max_x3 = Batter_max // batter_coeffs[2]  # 44
+
+best_obj = None
+best_solution = (0, 0, 0)
+
+for x1 in range(max_x1 + 1):
+    # Quick pruning using milk constraint for x1 alone
+    # but loops are small so not necessary; kept simple
+    for x2 in range(max_x2 + 1):
+        # Compute remaining batter and milk after x1 and x2
+        batter_used_12 = batter_coeffs[0]*x1 + batter_coeffs[1]*x2
+        milk_used_12 = milk_coeffs[0]*x1 + milk_coeffs[1]*x2
+        if batter_used_12 > Batter_max or milk_used_12 > Milk_max:
+            continue
+        # Max possible x3 given remaining resources
+        rem_batter = Batter_max - batter_used_12
+        rem_milk = Milk_max - milk_used_12
+        # x3 upper bound from remaining resources
+        ub_x3_from_batter = rem_batter // batter_coeffs[2]
+        ub_x3_from_milk = rem_milk // milk_coeffs[2]
+        max_feasible_x3 = min(ub_x3_from_batter, ub_x3_from_milk)
+        # iterate x3 from 0..max_feasible_x3
+        for x3 in range(max_feasible_x3 + 1):
+            # All constraints satisfied by construction
+            obj = profit_coeffs[0]*x1 + profit_coeffs[1]*x2 + profit_coeffs[2]*x3
+            if (best_obj is None) or (obj > best_obj):
+                best_obj = obj
+                best_solution = (x1, x2, x3)
+
+# Final objective value
+value = int(best_obj) if best_obj is not None else 0
+
+print(f"FINAL_OBJ: {value}")
+```

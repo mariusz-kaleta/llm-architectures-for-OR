@@ -1,0 +1,115 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = kilograms of regular mix produced (kg), x ≥ 0
+  - y = kilograms of sour surprise mix produced (kg), y ≥ 0
+
+- Objective
+  - Maximize profit: Z = 3x + 5y  (dollars)
+
+- Constraints (ingredient availability)
+  - Regular candy: 0.8x + 0.1y ≤ 80  (kg)
+  - Sour candy:    0.2x + 0.9y ≤ 60  (kg)
+
+This is a linear program: maximize Z = 3x + 5y subject to the two linear inequalities and nonnegativity.
+
+Solve (analytically)
+- Solve both constraints as equalities (the intersection is usually a candidate vertex):
+  0.8x + 0.1y = 80
+  0.2x + 0.9y = 60
+  ⇒ x = 660/7 ≈ 94.2857 kg, y = 320/7 ≈ 45.7143 kg.
+- Objective value: Z = 3580/7 ≈ $511.43.
+
+Thus produce approximately 94.29 kg of regular mix and 45.71 kg of sour surprise mix for maximum profit $511.43.
+
+Recommended Python libraries to solve numerically
+- pulp (PuLP) — easy modeling and solver interface for linear programs
+- scipy.optimize.linprog — simple LP solver in SciPy
+- OR-Tools — Google’s combinatorial/linear optimization library (strong performance)
+Any of these will solve this small LP quickly.
+
+Example (PuLP) snippet
+  from pulp import LpProblem, LpMaximize, LpVariable, lpSum, PULP_CBC_CMD
+
+  prob = LpProblem("CandyMix", LpMaximize)
+  x = LpVariable("x", lowBound=0)  # regular mix kg
+  y = LpVariable("y", lowBound=0)  # sour surprise kg
+
+  prob += 3*x + 5*y            # objective
+  prob += 0.8*x + 0.1*y <= 80  # regular candy
+  prob += 0.2*x + 0.9*y <= 60  # sour candy
+
+  prob.solve(PULP_CBC_CMD(msg=False))
+  print(x.value(), y.value(), "profit =", (3*x.value()+5*y.value()))
+
+This will return the same solution (within floating precision).
+
+---
+
+[CODER]:
+import numpy as np
+
+# Problem data
+c = np.array([3.0, 5.0])  # objective coefficients for x and y
+A = np.array([[0.8, 0.1],
+              [0.2, 0.9]])
+b = np.array([80.0, 60.0])
+
+tol = 1e-9
+
+# Compute intersection of the two constraints (as equalities)
+intersection = np.linalg.solve(A, b)  # [x, y]
+
+# Compute axis intercepts for each constraint
+# For constraint i: A[i,0]*x + A[i,1]*y = b[i]
+# x-intercept (y=0): x = b[i]/A[i,0]  (if A[i,0] != 0)
+# y-intercept (x=0): y = b[i]/A[i,1]  (if A[i,1] != 0)
+candidates = []
+candidates.append(np.array([0.0, 0.0]))
+
+# x-axis feasible point: minimum of x-intercepts (so both constraints satisfied)
+x_intercepts = []
+for i in range(A.shape[0]):
+    if abs(A[i, 0]) > tol:
+        x_intercepts.append(b[i] / A[i, 0])
+if x_intercepts:
+    x_axis_point = min(x_intercepts)
+    candidates.append(np.array([x_axis_point, 0.0]))
+
+# y-axis feasible point: minimum of y-intercepts
+y_intercepts = []
+for i in range(A.shape[0]):
+    if abs(A[i, 1]) > tol:
+        y_intercepts.append(b[i] / A[i, 1])
+if y_intercepts:
+    y_axis_point = min(y_intercepts)
+    candidates.append(np.array([0.0, y_axis_point]))
+
+# Add the intersection if it's in the first quadrant (nonnegative) and satisfies constraints
+if (intersection >= -tol).all():
+    # verify feasibility (should hold since solved from equalities)
+    if (A.dot(intersection) <= b + 1e-7).all():
+        candidates.append(intersection)
+
+# Filter candidates to those that satisfy all constraints (within tolerance) and nonnegativity
+feasible_candidates = []
+for pt in candidates:
+    if (pt >= -tol).all() and (A.dot(pt) <= b + 1e-7).all():
+        # Clip tiny negative values to zero
+        pt_clipped = np.maximum(pt, 0.0)
+        feasible_candidates.append(pt_clipped)
+
+# Evaluate objective on feasible candidates
+best_obj = -np.inf
+best_pt = None
+for pt in feasible_candidates:
+    val = c.dot(pt)
+    if val > best_obj + tol:
+        best_obj = val
+        best_pt = pt
+
+# Format final objective to two decimals as in the problem description
+value = f"{best_obj:.2f}"
+
+print(f"FINAL_OBJ: {value}")

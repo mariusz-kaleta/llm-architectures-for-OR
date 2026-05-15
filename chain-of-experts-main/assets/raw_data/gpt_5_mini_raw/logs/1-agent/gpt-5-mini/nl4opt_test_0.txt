@@ -1,0 +1,54 @@
+[MONOLITH]:
+```python
+# Optimization for transporting ducks: minimize total time (minutes)
+# Decision variables:
+#   b = number of boat trips (integer)
+#   c = number of canoe trips (integer)
+# Data initialized directly from problem description.
+
+import pulp
+
+# Data
+boat_capacity = 10      # ducks per boat trip
+canoe_capacity = 8      # ducks per canoe trip
+boat_time = 20          # minutes per boat trip
+canoe_time = 40         # minutes per canoe trip
+max_boat_trips = 12
+min_ducks = 300
+min_canoe_fraction = 0.60  # at least 60% of trips should be by canoe
+
+# Model
+prob = pulp.LpProblem("Ducks_Transport", pulp.LpMinimize)
+
+# Decision variables (integers)
+b = pulp.LpVariable('boats', lowBound=0, cat='Integer')
+c = pulp.LpVariable('canoes', lowBound=0, cat='Integer')
+
+# Objective: minimize total time
+prob += boat_time * b + canoe_time * c, "Total_Time"
+
+# Constraints
+prob += boat_capacity * b + canoe_capacity * c >= min_ducks, "Capacity"
+prob += b <= max_boat_trips, "Max_Boat_Trips"
+# At least 60% of trips by canoe => c >= 0.6*(b+c) => 0.4*c >= 0.6*b => c >= 1.5*b
+prob += c >= (min_canoe_fraction / (1 - min_canoe_fraction)) * b, "Canoe_Percent"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+result = prob.solve(solver)
+
+# Extract results
+status = pulp.LpStatus[prob.status]
+boats_used = int(pulp.value(b)) if pulp.value(b) is not None else None
+canoes_used = int(pulp.value(c)) if pulp.value(c) is not None else None
+total_time = pulp.value(prob.objective) if pulp.value(prob.objective) is not None else None
+
+# Output results
+print(f"Status: {status}")
+print(f"Boat trips (b): {boats_used}")
+print(f"Canoe trips (c): {canoes_used}")
+print(f"Total time (minutes): {total_time}")
+
+# Final required line (must be last)
+print(f"FINAL_OBJ: {total_time}")
+```

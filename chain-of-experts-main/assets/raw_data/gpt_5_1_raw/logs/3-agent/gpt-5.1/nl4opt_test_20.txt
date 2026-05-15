@@ -1,0 +1,163 @@
+[MODELER]:
+Below is a linear programming (LP) formulation of the problem and how you would solve it.
+
+---
+
+## 1. Decision Variables
+
+Let:
+
+- \(x\) = number of packs of ramen  
+- \(y\) = number of packs of fries  
+
+We assume \(x, y \ge 0\) and can be treated as continuous if fractional packs are allowed; otherwise use integer variables.
+
+---
+
+## 2. Objective: Minimize Sodium Intake
+
+Each pack of ramen has 100 mg sodium, each pack of fries has 75 mg sodium.  
+Total sodium:
+
+\[
+\text{Sodium} = 100x + 75y
+\]
+
+**Objective function:**
+
+\[
+\min \; Z = 100x + 75y
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Calorie Requirement
+
+Each ramen: 400 calories  
+Each fries: 300 calories  
+Need at least 3000 calories:
+
+\[
+400x + 300y \;\ge\; 3000
+\]
+
+### 3.2 Protein Requirement
+
+Each ramen: 20 g protein  
+Each fries: 10 g protein  
+Need at least 80 g protein:
+
+\[
+20x + 10y \;\ge\; 80
+\]
+
+### 3.3 Ramen Proportion Constraint (At Most 30% of Meals)
+
+“At most 30% of his meals can be ramen” means:
+
+\[
+\frac{x}{x + y} \;\le\; 0.3, \quad x + y > 0
+\]
+
+Multiply both sides by \(x + y\):
+
+\[
+x \;\le\; 0.3(x + y)
+\]
+\[
+x \;\le\; 0.3x + 0.3y
+\]
+\[
+0.7x \;\le\; 0.3y
+\]
+\[
+7x \;\le\; 3y
+\]
+
+So the linear form of the proportion constraint is:
+
+\[
+7x \;\le\; 3y
+\]
+
+### 3.4 Nonnegativity
+
+\[
+x \;\ge\; 0,\quad y \;\ge\; 0
+\]
+
+If whole meals only:
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete LP Model
+
+\[
+\begin{align}
+\min \quad & 100x + 75y \\
+\text{s.t.}\quad
+& 400x + 300y \;\ge\; 3000 \\
+& 20x + 10y \;\ge\; 80 \\
+& 7x \;\le\; 3y \\
+& x \;\ge\; 0,\; y \;\ge\; 0 \\
+& \text{(optionally } x,y \in \mathbb{Z} \text{ if integer packs are required)}
+\end{align}
+\]
+
+This is a linear program; with integer constraints it becomes a mixed-integer linear program (MILP), but still easy to solve.
+
+---
+
+## 5. Suitable Python Libraries
+
+Any standard LP/MILP solver will handle this:
+
+- **PuLP**: Simple modeling layer in Python, can use CBC (bundled), GLPK, or commercial solvers.
+- **OR-Tools (Google)**: Has linear solver and MIP solver (`pywraplp`) that works well for this.
+- **SciPy**: `scipy.optimize.linprog` can solve the continuous LP (without integrality).
+- **Pyomo**: More general modeling framework, also suitable, but heavier for such a small problem.
+
+For a straightforward implementation with clear syntax, **PuLP** or **OR-Tools** are especially appropriate.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: minimize sodium
+    prob = pulp.LpProblem("Minimize_Sodium", pulp.LpMinimize)
+
+    # Decision variables: integer packs of ramen (x) and fries (y)
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')
+
+    # Objective function: 100x + 75y
+    prob += 100 * x + 75 * y
+
+    # Constraints
+    # Calorie requirement: 400x + 300y >= 3000
+    prob += 400 * x + 300 * y >= 3000
+
+    # Protein requirement: 20x + 10y >= 80
+    prob += 20 * x + 10 * y >= 80
+
+    # Ramen proportion constraint: 7x <= 3y
+    prob += 7 * x <= 3 * y
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Compute final objective value
+    final_obj = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

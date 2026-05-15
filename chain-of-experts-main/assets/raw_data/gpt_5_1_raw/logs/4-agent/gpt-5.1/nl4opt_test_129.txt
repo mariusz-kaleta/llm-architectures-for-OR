@@ -1,0 +1,221 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+   - Goal: **Minimise the total number of vehicles purchased** (sum of 4‑wheelers and 3‑wheelers) while:
+     - Meeting at least the required luggage‑moving capacity per day.
+     - Not exceeding the daily pollution limit.
+
+2. **Suggested model type**
+
+   - Model: **Integer Linear Programming (ILP)** (or pure Integer Program), because:
+     - The objective and constraints are linear.
+     - Number of vehicles must be whole numbers (no fractional vehicles).
+
+3. **Main decision variables**
+
+   Define two non‑negative integer decision variables:
+
+   - \(x\): Number of **4‑wheeler** vehicles to buy.
+   - \(y\): Number of **3‑wheeler** vehicles to buy.
+
+4. **Objective function (conceptual)**
+
+   - Minimise the **total number of vehicles**:
+     - Objective: minimise \(x + y\).
+
+5. **Key constraints to consider**
+
+   a. **Luggage capacity requirement**
+
+   - Each 4‑wheeler moves 60 pieces of luggage per day.
+   - Each 3‑wheeler moves 40 pieces of luggage per day.
+   - The airport needs to move **at least 1000** pieces of luggage per day.
+   - Capacity constraint (conceptual): 
+     - \(60x + 40y \ge 1000\).
+
+   b. **Pollution limit**
+
+   - Each 4‑wheeler produces 30 pollution units per day.
+   - Each 3‑wheeler produces 15 pollution units per day.
+   - Total pollution must be **at most 430** units per day.
+   - Pollution constraint (conceptual): 
+     - \(30x + 15y \le 430\).
+
+   c. **Non‑negativity and integrality**
+
+   - The airport cannot buy a negative number of vehicles.
+   - Vehicles must be purchased in whole units.
+   - Domain constraints:
+     - \(x \ge 0\), \(y \ge 0\).
+     - \(x, y\) are **integers**.
+
+6. **Modelling notes / strategy**
+
+   - This is a very small 2‑variable ILP; it can be:
+     - Solved graphically as a standard 2D linear program, then checking integer points.
+     - Or solved directly as an ILP with a solver.
+   - Feasible region is defined by:
+     - A half‑plane meeting the capacity requirement.
+     - A half‑plane meeting the pollution upper bound.
+     - First quadrant (non‑negative).
+   - Because the objective is to **minimise** \(x + y\), the optimal solution will lie on a **boundary** of the feasible region (likely at an intersection of two constraints or at a corner where one variable is 0), followed by enforcing integrality.
+   - If desired, you can also:
+     - Convert the pollution constraint by dividing by a common factor (e.g., divide by 15) to simplify coefficients before solving.
+     - Check a small set of integer candidate points near the LP optimum.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by how you might solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x \in \mathbb{Z}_{\ge 0}\): number of 4‑wheeler vehicles to buy  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of 3‑wheeler vehicles to buy  
+
+These are non‑negative integers.
+
+---
+
+## 2. Objective
+
+Minimise the total number of vehicles:
+
+\[
+\min\; Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Luggage capacity constraint
+
+Each 4‑wheeler can move 60 luggage/day.  
+Each 3‑wheeler can move 40 luggage/day.  
+Total luggage moved per day must be at least 1000:
+
+\[
+60x + 40y \;\ge\; 1000
+\]
+
+### b) Pollution constraint
+
+Each 4‑wheeler produces 30 pollution units/day.  
+Each 3‑wheeler produces 15 pollution units/day.  
+Total pollution cannot exceed 430 units/day:
+
+\[
+30x + 15y \;\le\; 430
+\]
+
+(You could simplify this by dividing by 15:
+
+\[
+2x + y \le 28.666\ldots
+\]
+
+but for an ILP solver, leaving integer coefficients is fine.)
+
+### c) Non‑negativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x,y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full ILP formulation
+
+\[
+\begin{aligned}
+\min\quad & x + y \\
+\text{s.t.}\quad 
+& 60x + 40y \;\ge\; 1000 \\
+& 30x + 15y \;\le\; 430 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a small 2‑variable Integer Linear Program.
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard MILP/ILP solver can handle this instantly. Common options:
+
+- **PuLP** (`pulp`): simple, pure‑Python modeling layer; can use CBC (bundled), GLPK, or commercial solvers.
+- **OR‑Tools** (`ortools.linear_solver`): from Google, supports CBC, GLOP, and others.
+- **Pyomo**: more general algebraic modeling language, slightly heavier for such a small problem.
+- **MIP** (`python-mip`) or **Gurobi** / **CPLEX**: industrial solvers (if available).
+
+For teaching or small examples, **PuLP** or **OR‑Tools** is ideal.
+
+---
+
+## 6. Example with PuLP
+
+```python
+import pulp as pl
+
+# Create the problem: minimize total vehicles
+model = pl.LpProblem("Airport_Vehicles", pl.LpMinimize)
+
+# Decision variables (non-negative integers)
+x = pl.LpVariable("x_4wheelers", lowBound=0, cat=pl.LpInteger)
+y = pl.LpVariable("y_3wheelers", lowBound=0, cat=pl.LpInteger)
+
+# Objective: minimize total number of vehicles
+model += x + y, "Total_Vehicles"
+
+# Constraints
+model += 60 * x + 40 * y >= 1000, "Luggage_Capacity"
+model += 30 * x + 15 * y <= 430,  "Pollution_Limit"
+
+# Solve
+model.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[model.status])
+print("Optimal number of 4-wheelers (x):", pl.value(x))
+print("Optimal number of 3-wheelers (y):", pl.value(y))
+print("Minimum total vehicles:", pl.value(x + y))
+```
+
+This code directly encodes the mathematical model above and finds the optimal \(x\) and \(y\).
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem: minimize total vehicles
+    model = pl.LpProblem("Airport_Vehicles", pl.LpMinimize)
+
+    # Decision variables (non-negative integers)
+    x = pl.LpVariable("x_4wheelers", lowBound=0, cat=pl.LpInteger)
+    y = pl.LpVariable("y_3wheelers", lowBound=0, cat=pl.LpInteger)
+
+    # Objective: minimize total number of vehicles
+    model += x + y, "Total_Vehicles"
+
+    # Constraints
+    model += 60 * x + 40 * y >= 1000, "Luggage_Capacity"
+    model += 30 * x + 15 * y <= 430,  "Pollution_Limit"
+
+    # Solve
+    model.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    obj_value = pl.value(x + y)
+
+    # Final required print
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

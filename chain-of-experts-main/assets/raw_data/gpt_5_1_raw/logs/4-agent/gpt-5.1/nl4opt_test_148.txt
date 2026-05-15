@@ -1,0 +1,246 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total operating time (hours) of the two factories while meeting product and plastic constraints.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with two decision variables (one for each factory’s operating time).
+
+3. Main decision variables  
+Define decision variables as operating hours in each factory over the planning horizon:
+
+- \(x_N\): Number of hours to operate the northern factory.  
+- \(x_W\): Number of hours to operate the western factory.
+
+(Non‑negativity: both must be ≥ 0.)
+
+4. Objective function (conceptually)  
+Minimise total time:
+
+- Objective: minimise \(x_N + x_W\).
+
+You do not need to monetise time; simply sum the hours of operation since all hours are “equally costly.”
+
+5. Key constraints to consider  
+
+a) Anti‑itch injections production requirement  
+- Northern factory: 800 g/hour.  
+- Western factory: 650 g/hour.  
+- Requirement: at least 800,000 g total.
+
+Constraint structure:
+- Total injections produced by both factories ≥ 800,000 g.
+
+b) Topical cream production requirement  
+- Northern factory: 700 g/hour.  
+- Western factory: 750 g/hour.  
+- Requirement: at least 700,000 g total.
+
+Constraint structure:
+- Total topical cream produced by both factories ≥ 700,000 g.
+
+c) Plastic availability (packaging material)  
+- Northern factory: 40 units of plastic per hour.  
+- Western factory: 35 units of plastic per hour.  
+- Total available plastic: 60,000 units.
+
+Constraint structure:
+- Total plastic used by both factories ≤ 60,000 units.
+
+d) Non‑negativity  
+- \(x_N ≥ 0\).  
+- \(x_W ≥ 0\).
+
+6. Modelling / solution strategy  
+
+- Use two‑variable LP:
+  - Objective: minimise hours.
+  - Three main linear constraints (injections, cream, plastic), plus non‑negativity.
+- This is a textbook 2D LP: can be solved graphically or via any standard LP solver.
+- Check which constraints are binding at the optimum:
+  - It is plausible that at least the product requirements will bind; verify whether plastic is actually limiting or slack at the optimum.
+- After solving, report:
+  - Optimal hours for northern and western factories.
+  - Total injections and cream produced (to show requirements are met).
+  - Total plastic used (to show it does not exceed 60,000 units).
+  - Minimum total operating time \(x_N + x_W\).
+
+---
+
+[MODELER]:
+Below is a full mathematical model of the problem, plus guidance on how to solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_N \ge 0\): hours the northern factory operates  
+- \(x_W \ge 0\): hours the western factory operates
+
+These are the only decision variables.
+
+---
+
+## 2. Objective function
+
+Minimise the total operating time of both factories:
+
+\[
+\min \; Z = x_N + x_W
+\]
+
+---
+
+## 3. Constraints
+
+### a) Anti‑itch injections production requirement
+
+Per hour:
+
+- Northern: 800 g/hour  
+- Western: 650 g/hour  
+
+Requirement: at least 800,000 g total.
+
+\[
+800\,x_N + 650\,x_W \;\ge\; 800{,}000
+\]
+
+---
+
+### b) Topical cream production requirement
+
+Per hour:
+
+- Northern: 700 g/hour  
+- Western: 750 g/hour  
+
+Requirement: at least 700,000 g total.
+
+\[
+700\,x_N + 750\,x_W \;\ge\; 700{,}000
+\]
+
+---
+
+### c) Plastic availability
+
+Per hour:
+
+- Northern: 40 units/hour  
+- Western: 35 units/hour  
+
+Available plastic: at most 60,000 units.
+
+\[
+40\,x_N + 35\,x_W \;\le\; 60{,}000
+\]
+
+---
+
+### d) Non‑negativity
+
+\[
+x_N \ge 0,\quad x_W \ge 0
+\]
+
+---
+
+## 4. Complete LP formulation
+
+\[
+\begin{aligned}
+\min \quad & x_N + x_W \\
+\text{s.t.}\quad 
+& 800\,x_N + 650\,x_W \;\ge\; 800{,}000 \quad &\text{(anti‑itch injections)}\\
+& 700\,x_N + 750\,x_W \;\ge\; 700{,}000 \quad &\text{(topical cream)}\\
+& 40\,x_N + 35\,x_W \;\le\; 60{,}000 \quad &\text{(plastic)}\\[4pt]
+& x_N \ge 0,\; x_W \ge 0 \quad &\text{(non‑negativity)}
+\end{aligned}
+\]
+
+This is a linear programming (LP) problem with two variables and three main constraints.
+
+---
+
+## 5. Suitable Python libraries
+
+To solve this LP programmatically in Python, any of the following is appropriate:
+
+- **PuLP** (`pulp`) – very straightforward for educational LP models, integrates with CBC/GLPK.
+- **OR-Tools Linear Solver** (`ortools.linear_solver`) – robust, from Google, good for LP/MIP.
+- **SciPy** (`scipy.optimize.linprog`) – basic LP solver, good if you’re already using SciPy.
+
+For a clean, readable model, **PuLP** or **OR-Tools** are excellent choices.
+
+Example (using PuLP, sketch only):
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("FactoryTimeMinimization", pl.LpMinimize)
+
+# Decision variables
+x_N = pl.LpVariable('x_N', lowBound=0)
+x_W = pl.LpVariable('x_W', lowBound=0)
+
+# Objective
+prob += x_N + x_W
+
+# Constraints
+prob += 800*x_N + 650*x_W >= 800000     # injections
+prob += 700*x_N + 750*x_W >= 700000     # cream
+prob += 40*x_N + 35*x_W <= 60000        # plastic
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Hours north:", x_N.value())
+print("Hours west:", x_W.value())
+print("Min total hours:", x_N.value() + x_W.value())
+```
+
+This directly implements the mathematical model above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the LP problem
+    prob = pl.LpProblem("FactoryTimeMinimization", pl.LpMinimize)
+
+    # Decision variables: hours of operation for Northern and Western factories
+    x_N = pl.LpVariable('x_N', lowBound=0)
+    x_W = pl.LpVariable('x_W', lowBound=0)
+
+    # Objective function: minimize total operating time
+    prob += x_N + x_W, "Total_Operating_Time"
+
+    # Constraints
+    # Anti-itch injections requirement
+    prob += 800 * x_N + 650 * x_W >= 800000, "Injections_Requirement"
+
+    # Topical cream requirement
+    prob += 700 * x_N + 750 * x_W >= 700000, "Cream_Requirement"
+
+    # Plastic availability constraint
+    prob += 40 * x_N + 35 * x_W <= 60000, "Plastic_Limit"
+
+    # Solve the problem
+    prob.solve()
+
+    # Compute final objective value
+    xN_val = pl.value(x_N)
+    xW_val = pl.value(x_W)
+    final_obj = xN_val + xW_val
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

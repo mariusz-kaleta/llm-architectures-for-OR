@@ -1,0 +1,219 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Minimise the number of cars used, while still transporting at least 200 voters and respecting the van-percentage limit.
+
+2. Suggested model type  
+   - Model: Integer Linear Programming (ILP), but in this small case it reduces to a simple integer optimisation problem in two variables.
+
+3. Main decision variables  
+   - Let:
+     - Number of vans used.
+     - Number of cars used.
+   - Both variables must be non‑negative integers.
+
+4. Key constraints to consider  
+
+   a) Capacity (voter transport) requirement  
+   - Each van carries 6 voters; each car carries 3 voters.  
+   - Total transported voters by all vehicles must be at least 200.  
+   - Structure: (capacity per van × number of vans) + (capacity per car × number of cars) ≥ 200.
+
+   b) Van proportion constraint  
+   - At most 30% of the vehicles can be vans.  
+   - Structure: number of vans ≤ 0.30 × (number of vans + number of cars).  
+   - This is a ratio constraint that links both decision variables. When modelling as ILP, keep it in linear form by multiplying out to eliminate the fraction.
+
+   c) Non-negativity and integrality  
+   - Number of vans ≥ 0, integer.  
+   - Number of cars ≥ 0, integer.  
+
+5. Objective structure  
+
+   - Minimise: number of cars.  
+   - Since there is no explicit penalty/cost for vans in the statement, the model should seek any feasible combination that:
+     - Satisfies the capacity constraint.
+     - Respects the “at most 30% vans” constraint.
+     - Uses the smallest possible number of cars, even if that implies more vans (subject to the 30% limit).
+
+6. Modelling / solution strategy hints for the Modeller  
+
+   - Use the ratio constraint to express an upper bound on vans in terms of total vehicles, keeping the constraint linear.
+   - Because there are only two variables and they are integer, feasible solutions lie on a small grid; you can cross-check logical reasoning (e.g., lower bound on total vehicles needed from capacity, then apply the 30% vans limit) with the ILP solver’s outcome.
+   - After formulating, you may explore whether the solution is unique or if there is a range of feasible car/van combinations that achieve the same minimal number of cars.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model and how you’d implement/solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(v \in \mathbb{Z}_{\ge 0}\): number of vans used  
+- \(c \in \mathbb{Z}_{\ge 0}\): number of cars used  
+
+Both are non‑negative integers.
+
+---
+
+## 2. Objective
+
+Minimize the number of cars used:
+
+\[
+\min \; c
+\]
+
+(There is no explicit cost on vans, so the model only minimizes cars, subject to feasibility.)
+
+---
+
+## 3. Constraints
+
+### a) Capacity (voter transport) requirement
+
+Each van carries 6 voters; each car carries 3 voters. At least 200 voters must be transported:
+
+\[
+6v + 3c \;\ge\; 200
+\]
+
+### b) Van proportion (at most 30% of vehicles are vans)
+
+At most 30% of the vehicles can be vans:
+
+\[
+v \;\le\; 0.30\,(v + c)
+\]
+
+Make it linear (no decimals/fractions in the optimization model):
+
+\[
+v \le 0.3v + 0.3c
+\]
+
+\[
+v - 0.3v \le 0.3c
+\]
+
+\[
+0.7v \le 0.3c
+\]
+
+Multiply by 10 to clear decimals:
+
+\[
+7v \le 3c
+\]
+
+That is the linear constraint linking vans and cars.
+
+### c) Non‑negativity and integrality
+
+\[
+v \ge 0,\; c \ge 0,\quad v, c \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete ILP formulation
+
+\[
+\begin{aligned}
+\text{Minimize} \quad & c \\
+\text{subject to} \quad
+& 6v + 3c \;\ge\; 200, \\
+& 7v \;\le\; 3c, \\
+& v, c \in \mathbb{Z}_{\ge 0}.
+\end{aligned}
+\]
+
+This is an Integer Linear Programming (ILP) problem in two variables.
+
+---
+
+## 5. Suitable Python libraries
+
+Any ILP-capable library will solve this quickly:
+
+- `PuLP` – very simple to model small ILPs; good for teaching and quick scripting.
+- `OR-Tools` (Google) – powerful CP-SAT solver for integer problems.
+- `Pyomo` – general modeling language for optimization.
+- `scipy.optimize` – less convenient for integer variables; not ideal here unless you relax to continuous and then round, which may break feasibility.
+
+For this problem, `pulp` or `ortools` are the most straightforward.
+
+---
+
+## 6. Example in PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("VoterTransport", pl.LpMinimize)
+
+# Decision variables
+v = pl.LpVariable("vans", lowBound=0, cat="Integer")
+c = pl.LpVariable("cars", lowBound=0, cat="Integer")
+
+# Objective: minimize number of cars
+prob += c
+
+# Capacity constraint
+prob += 6 * v + 3 * c >= 200, "Capacity"
+
+# Van proportion constraint (linearised)
+prob += 7 * v <= 3 * c, "VanProportion"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Vans:", pl.value(v))
+print("Cars:", pl.value(c))
+print("Minimum cars used:", pl.value(c))
+```
+
+You can analogously build the same model in OR-Tools CP-SAT if you prefer.
+
+---
+
+If you’d like, I can also show a hand-solution/derivation of the optimal integer pair \((v, c)\) from this model.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the ILP problem
+    prob = pl.LpProblem("VoterTransport", pl.LpMinimize)
+
+    # Decision variables: number of vans and cars (non-negative integers)
+    v = pl.LpVariable("vans", lowBound=0, cat="Integer")
+    c = pl.LpVariable("cars", lowBound=0, cat="Integer")
+
+    # Objective: minimize number of cars
+    prob += c
+
+    # Capacity constraint: each van carries 6, each car 3, need at least 200 voters
+    prob += 6 * v + 3 * c >= 200, "Capacity"
+
+    # Van proportion constraint: at most 30% of vehicles are vans -> 7v <= 3c
+    prob += 7 * v <= 3 * c, "VanProportion"
+
+    # Solve the ILP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value (minimum number of cars)
+    min_cars = pl.value(c)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {min_cars}")
+
+if __name__ == "__main__":
+    main()

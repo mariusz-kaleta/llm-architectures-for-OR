@@ -1,0 +1,119 @@
+[MODELER]:
+Here is a clean mathematical formulation of the problem as a linear program.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of loaves of bread produced per year  
+- \(y\) = number of cookie batches produced per year  
+
+Both must be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+(If they must be integer, we can later treat them as integers, but as stated this is a continuous LP.)
+
+## 2. Objective function
+
+Maximize total profit:
+
+- Profit per loaf of bread = \$5  
+- Profit per batch of cookies = \$3  
+
+So the objective is:
+\[
+\max \; Z = 5x + 3y
+\]
+
+## 3. Constraints
+
+Each machine can run for at most 3000 hours per year.
+
+### Mixer time constraint
+
+- Bread: 1 hour of mixer per loaf  
+- Cookies: 0.5 hours of mixer per batch  
+
+Mixer capacity: at most 3000 hours:
+
+\[
+1x + 0.5y \le 3000
+\]
+
+### Oven time constraint
+
+- Bread: 3 hours of oven per loaf  
+- Cookies: 1 hour of oven per batch  
+
+Oven capacity: at most 3000 hours:
+
+\[
+3x + 1y \le 3000
+\]
+
+### Nonnegativity
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+## 4. Complete mathematical model
+
+\[
+\begin{aligned}
+\max \quad & Z = 5x + 3y \\
+\text{s.t.} \quad 
+& x + 0.5y \le 3000 \quad &\text{(Mixer hours)} \\
+& 3x + y \le 3000 \quad &\text{(Oven hours)} \\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+This is a linear programming (LP) problem.
+
+## 5. Suitable Python libraries
+
+To solve this LP in Python, any of the following libraries is appropriate:
+
+- **PuLP**: user-friendly for defining LPs and MILPs.
+- **SciPy (`scipy.optimize.linprog`)**: good for continuous LPs.
+- **OR-Tools (Google OR-Tools, `ortools.linear_solver`)**: powerful for LP/MIP and larger optimization problems.
+- **Pyomo**: more general modeling framework for algebraic optimization.
+
+For this specific, small LP, **PuLP** or **SciPy’s `linprog`** are the simplest choices.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the LP maximization problem
+    prob = pulp.LpProblem("Bakery_Production_Problem", pulp.LpMaximize)
+
+    # Decision variables: x = loaves of bread, y = cookie batches (both continuous and nonnegative)
+    x = pulp.LpVariable('x', lowBound=0, cat='Continuous')
+    y = pulp.LpVariable('y', lowBound=0, cat='Continuous')
+
+    # Objective function: Maximize profit 5x + 3y
+    prob += 5 * x + 3 * y
+
+    # Constraints
+    # Mixer time: x + 0.5y <= 3000
+    prob += x + 0.5 * y <= 3000, "Mixer_Time"
+
+    # Oven time: 3x + y <= 3000
+    prob += 3 * x + y <= 3000, "Oven_Time"
+
+    # Solve the LP
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print the final objective value in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,49 @@
+[MONOLITH]:
+import pulp
+
+# Data (from problem statement)
+process_high = 50   # gems per high intensity drill per day
+process_low  = 30   # gems per low intensity drill per day
+water_high   = 50   # water units per high intensity drill per day
+water_low    = 20   # water units per low intensity drill per day
+
+required_gems = 800
+available_water = 700
+
+# Constraints from text:
+# - At most 40% of the drills can be high intensity:
+#   x <= 0.4*(x + y)  ->  3x <= 2y  (after multiplying both sides by 3)
+# - At least 10 low intensity drills: y >= 10
+
+# Create MILP
+prob = pulp.LpProblem("Minimize_Number_of_Drills", pulp.LpMinimize)
+
+# Decision variables: number of high (x) and low (y) intensity drills (integers)
+x = pulp.LpVariable("high_drills", lowBound=0, cat="Integer")
+y = pulp.LpVariable("low_drills",  lowBound=0, cat="Integer")
+
+# Objective: minimize total number of drills
+prob += x + y, "Total_drills"
+
+# Constraints
+prob += process_high * x + process_low * y >= required_gems, "Processing_capacity"
+prob += water_high * x + water_low * y <= available_water, "Water_limit"
+prob += 3 * x <= 2 * y, "High_drill_fraction"   # equivalent to x <= (2/3) y
+prob += y >= 10, "Min_low_drills"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract solution
+x_val = int(pulp.value(x))
+y_val = int(pulp.value(y))
+obj_val = int(pulp.value(prob.objective))
+
+# Print solution details
+print(f"High intensity drills (x): {x_val}")
+print(f"Low intensity drills  (y): {y_val}")
+print(f"Total drills (objective): {obj_val}")
+
+# Final required line:
+print(f"FINAL_OBJ: {obj_val}")

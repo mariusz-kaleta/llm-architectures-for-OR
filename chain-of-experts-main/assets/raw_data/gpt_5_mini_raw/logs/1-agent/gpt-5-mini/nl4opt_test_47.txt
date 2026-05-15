@@ -1,0 +1,42 @@
+[MONOLITH]:
+import pulp
+
+# Decision variables: x = number of LED fixtures, y = number of fluorescence fixtures
+# Data from problem:
+# LED: electricity 5 units/hour, changes 3 times/decade
+# Fluorescent: electricity 8 units/hour, changes 4 times/decade
+# At least 30% of implemented lights must be fluorescence: y >= 0.3*(x+y) -> 7y - 3x >= 0
+# At least 300 fixtures: x + y >= 300
+# At most 2000 units of electricity: 5x + 8y <= 2000
+# Minimize total number of changes per decade: 3x + 4y
+
+# Create the problem
+prob = pulp.LpProblem("Minimize_Light_Changes", pulp.LpMinimize)
+
+# Variables (integer)
+x = pulp.LpVariable("LED_count", lowBound=0, cat='Integer')
+y = pulp.LpVariable("Fluorescent_count", lowBound=0, cat='Integer')
+
+# Objective
+prob += 3 * x + 4 * y
+
+# Constraints
+prob += x + y >= 300
+prob += 5 * x + 8 * y <= 2000
+prob += 7 * y - 3 * x >= 0  # enforces y >= 0.3*(x+y)
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+# Retrieve results
+x_val = int(pulp.value(x))
+y_val = int(pulp.value(y))
+obj_val = int(pulp.value(prob.objective))
+
+# Print results
+print(f"LED fixtures (x): {x_val}")
+print(f"Fluorescent fixtures (y): {y_val}")
+print(f"Total fixtures: {x_val + y_val}")
+print(f"Total electricity used: {5*x_val + 8*y_val}")
+print(f"Total light changes per decade: {obj_val}")
+print(f"FINAL_OBJ: {obj_val}")

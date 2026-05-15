@@ -1,0 +1,152 @@
+[MODELER]:
+Here is a full mathematical optimization model for the problem.
+
+---
+
+### 1. Decision Variables
+
+Let  
+- \(x_A \ge 0\): number of doses of medicine A to produce  
+- \(x_B \ge 0\): number of doses of medicine B to produce  
+
+Given the real-world context (“doses”), \(x_A\) and \(x_B\) should be **integers**. So:
+
+\[
+x_A, x_B \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+### 2. Objective Function
+
+Each dose of:
+- Medicine A treats 12 people  
+- Medicine B treats 8 people  
+
+We want to **maximize the total number of people treated**:
+
+\[
+\max Z = 12x_A + 8x_B
+\]
+
+---
+
+### 3. Constraints
+
+#### a) Imported material constraint
+
+Per dose:
+- A uses 30 units
+- B uses 40 units
+
+Total available imported material: at most 300 units.
+
+\[
+30x_A + 40x_B \le 300
+\]
+
+#### b) mRNA constraint
+
+Per dose:
+- A uses 50 units
+- B uses 30 units
+
+Total available mRNA: at most 400 units.
+
+\[
+50x_A + 30x_B \le 400
+\]
+
+#### c) Production limit on medicine A
+
+The lab can make at most 5 doses of medicine A:
+
+\[
+x_A \le 5
+\]
+
+#### d) Relationship between A and B
+
+The number of doses of medicine B must be **larger than** the number of doses of medicine A:
+
+\[
+x_B \ge x_A + 1
+\]
+
+(“Larger than” → strict \(x_B > x_A\); in integer programming we can write it as \(x_B \ge x_A + 1\).)
+
+#### e) Non-negativity and integrality
+
+\[
+x_A, x_B \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+### 4. Complete Model
+
+\[
+\begin{aligned}
+\max\quad & Z = 12x_A + 8x_B \\
+\text{s.t.}\quad 
+& 30x_A + 40x_B \le 300 \\
+& 50x_A + 30x_B \le 400 \\
+& x_A \le 5 \\
+& x_B \ge x_A + 1 \\
+& x_A, x_B \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+### 5. Suitable Python Libraries
+
+This is a small **integer linear programming (ILP)** problem. All of the following libraries can solve it:
+
+- **PuLP**: user-friendly, pure Python, good for teaching and small problems.
+- **OR-Tools (Google)**: very fast, industrial-strength MILP solver.
+- **Pyomo**: more general modeling framework, good for larger projects.
+- **SciPy’s `scipy.optimize.linprog`**: only handles linear programming; you’d have to relax integrality or handle integer solutions manually, so less ideal here.
+
+For a direct and simple implementation, **PuLP** or **OR-Tools** are the best choices.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem
+    prob = pulp.LpProblem("Medicine_Production", pulp.LpMaximize)
+
+    # Decision variables: integer, non-negative
+    x_A = pulp.LpVariable('x_A', lowBound=0, cat='Integer')
+    x_B = pulp.LpVariable('x_B', lowBound=0, cat='Integer')
+
+    # Objective function: maximize people treated
+    prob += 12 * x_A + 8 * x_B
+
+    # Constraints
+    # Imported material constraint
+    prob += 30 * x_A + 40 * x_B <= 300
+
+    # mRNA constraint
+    prob += 50 * x_A + 30 * x_B <= 400
+
+    # Production limit on medicine A
+    prob += x_A <= 5
+
+    # Relationship between A and B: x_B >= x_A + 1
+    prob += x_B >= x_A + 1
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,219 @@
+[MODELER]:
+Here is a clean mathematical model of the problem and how to solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(T\): number of truck trips (integer, \(T \ge 0\))
+- \(V\): number of van trips (integer, \(V \ge 0\))
+
+---
+
+## 2. Objective
+
+They want to **minimize the total number of trips**:
+
+\[
+\min \; T + V
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Capacity (patties shipped)
+
+Each truck carries 1000 patties, each van 500. They must ship at least 50,000 patties:
+
+\[
+1000T + 500V \;\ge\; 50{,}000
+\]
+
+Divide both sides by 500 to simplify:
+
+\[
+2T + V \;\ge\; 100
+\]
+
+---
+
+### 3.2 Budget
+
+Each truck trip costs \$300, each van trip \$100. Total cost must not exceed \$12,500:
+
+\[
+300T + 100V \;\le\; 12{,}500
+\]
+
+Divide by 100:
+
+\[
+3T + V \;\le\; 125
+\]
+
+---
+
+### 3.3 Truck–van relation
+
+The number of trucks must not exceed the number of vans:
+
+\[
+T \;\le\; V
+\]
+
+---
+
+### 3.4 Integrality and non-negativity
+
+\[
+T, V \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete optimization model
+
+\[
+\begin{aligned}
+\min\ & T + V \\
+\text{s.t. } & 2T + V \ge 100 \quad\text{(capacity)}\\
+            & 3T + V \le 125 \quad\text{(budget)}\\
+            & T \le V \quad\text{(trucks not more than vans)}\\
+            & T, V \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a small **integer linear program (ILP)**.
+
+---
+
+## 5. Solving by reasoning (optional check)
+
+Use the two “sandwiching” inequalities on \(V\):
+
+From capacity:  
+\(2T + V \ge 100 \Rightarrow V \ge 100 - 2T\)
+
+From budget:  
+\(3T + V \le 125 \Rightarrow V \le 125 - 3T\)
+
+Also \(V \ge T\).
+
+So:
+
+\[
+V \;\ge\; \max\{100 - 2T,\ T,\ 0\}, \quad V \;\le\; 125 - 3T
+\]
+
+Feasible \(T\) must satisfy:
+
+\[
+\max\{100 - 2T,\ T\} \le 125 - 3T
+\]
+
+We can search integer pairs; checking around the region where both constraints are tight:
+
+- Try \(T = 8\):
+
+  - Capacity: \(2(8) + V \ge 100 \Rightarrow V \ge 84\)
+  - Budget: \(3(8) + V \le 125 \Rightarrow V \le 101\)
+  - Truck–van: \(V \ge 8\)
+
+  So \(84 \le V \le 101\). Minimize trips by taking smallest feasible \(V\): \(V = 84\).
+
+  - Patties shipped: \(1000\cdot 8 + 500\cdot 84 = 8{,}000 + 42{,}000 = 50{,}000\) ✓  
+  - Cost: \(300\cdot 8 + 100\cdot 84 = 2{,}400 + 8{,}400 = 10{,}800 \le 12{,}500\) ✓  
+  - Total trips: \(8 + 84 = 92\).
+
+Testing nearby \(T\) values gives totals ≥ 92, so optimum is:
+
+\[
+T^* = 8,\quad V^* = 84,\quad \text{total trips} = 92
+\]
+
+---
+
+## 6. Recommended shipment plan
+
+- Use **8 truck trips**.
+- Use **84 van trips**.
+- Total patties shipped: 50,000.
+- Total cost: \$10,800 (within the \$12,500 budget).
+- Total trips: **92**, which is minimized.
+
+---
+
+## 7. Python libraries to solve this
+
+This is a small ILP; any standard MILP solver will work well:
+
+- **PuLP** (`pulp`) – pure Python, easy to use, interfaces to CBC/GLPK.
+- **OR-Tools** (`ortools.linear_solver`) – from Google, very fast MILP solver.
+- **Pyomo** – more general algebraic modeling language.
+
+For this scale, **PuLP** or **OR-Tools** is ideal.
+
+### Example outline using PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Burger_Shipping", pl.LpMinimize)
+
+# Variables
+T = pl.LpVariable("Trucks", lowBound=0, cat="Integer")
+V = pl.LpVariable("Vans",   lowBound=0, cat="Integer")
+
+# Objective
+prob += T + V
+
+# Constraints
+prob += 2*T + V >= 100     # capacity
+prob += 3*T + V <= 125     # budget
+prob += T <= V             # trucks not more than vans
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Trucks =", pl.value(T))
+print("Vans   =", pl.value(V))
+print("Total trips =", pl.value(T + V))
+```
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Burger_Shipping", pl.LpMinimize)
+
+    # Decision variables
+    T = pl.LpVariable("Trucks", lowBound=0, cat="Integer")
+    V = pl.LpVariable("Vans", lowBound=0, cat="Integer")
+
+    # Objective: minimize total number of trips
+    prob += T + V
+
+    # Constraints
+    prob += 2 * T + V >= 100      # capacity
+    prob += 3 * T + V <= 125      # budget
+    prob += T <= V                # trucks not more than vans
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    total_trips = pl.value(T + V)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {int(total_trips)}")
+
+if __name__ == "__main__":
+    main()

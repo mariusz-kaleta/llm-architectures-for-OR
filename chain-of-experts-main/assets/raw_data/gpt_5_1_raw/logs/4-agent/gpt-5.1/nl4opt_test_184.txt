@@ -1,0 +1,231 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximise the total amount of rice transported to the city (in kg).
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP), or even simpler: Integer optimisation with two decision variables and linear constraints.
+
+3. Main decision variables  
+Define integer variables representing the number of carts of each type:
+- Variable 1: Number of medium-sized carts used.
+- Variable 2: Number of large-sized carts used.
+
+(You can later denote them with symbols like M and L, but keep the concept clear: counts of each cart type.)
+
+4. Objective function (conceptual structure)  
+Maximise:
+- Total rice transported = (rice per medium cart) × (number of medium carts) + (rice per large cart) × (number of large carts).
+- Data: medium cart = 30 kg; large cart = 70 kg.
+
+5. Key constraints to consider  
+
+a) Horse availability constraint  
+- Each medium cart uses 2 horses.
+- Each large cart uses 4 horses.
+- Total horses used by all carts cannot exceed the 60 horses available.
+- Build one inequality linking the total horses used to the horse capacity.
+
+b) Cart-number relationship (compatibility) constraint  
+- The number of medium carts must be exactly three times the number of large carts.
+- This is an equality constraint: “medium = 3 × large”.
+
+c) Minimum number of carts constraints  
+- At least 5 medium carts.
+- At least 5 large carts.
+- Two lower-bound constraints on the decision variables.
+
+d) Non-negativity and integrality  
+- The number of carts of each type must be non-negative integers.
+- Explicitly enforce integrality (this is crucial here).
+
+6. Modelling / solution strategy  
+
+- Replace the relationship constraint (medium = 3 × large) into the horse constraint to reduce the system to one integer variable if you want a simpler analytic treatment.  
+- Check feasible integer values for the remaining variable, respecting:
+  - Horse constraint,
+  - Minimum cart requirements,
+  - Derived lower bounds after substitution.
+- For each feasible integer solution, compute the total rice transported via the objective function and choose the one with the maximum value.
+
+7. Extra notes for the Modeller  
+
+- Because there are just two variables and a strong linking equality (medium = 3 × large), this problem is very small; a direct enumeration over the feasible integer values of the large carts is straightforward once constraints are simplified.
+- A formal ILP solver would find the same solution, but for didactic purposes, manual integer checking is sufficient.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, plus how you’d solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(M \in \mathbb{Z}_{\ge 0}\): number of medium-sized carts used  
+- \(L \in \mathbb{Z}_{\ge 0}\): number of large-sized carts used
+
+We require \(M, L\) to be integers since you cannot use fractional carts.
+
+---
+
+## 2. Objective function
+
+Each medium cart carries 30 kg of rice.  
+Each large cart carries 70 kg of rice.
+
+Maximise total rice transported:
+
+\[
+\max \; Z = 30M + 70L
+\]
+
+---
+
+## 3. Constraints
+
+### a) Horse availability
+
+Each medium cart uses 2 horses; each large cart uses 4 horses. Total horses available: 60.
+
+\[
+2M + 4L \le 60
+\]
+
+### b) Cart-number relationship
+
+The number of medium carts must be 3 times the number of large carts:
+
+\[
+M = 3L
+\]
+
+### c) Minimum number of carts
+
+At least 5 medium carts and at least 5 large carts:
+
+\[
+M \ge 5
+\]
+\[
+L \ge 5
+\]
+
+### d) Non-negativity and integrality
+
+\[
+M, L \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Reduced single-variable form (optional analytic simplification)
+
+Using \(M = 3L\) in the horse constraint:
+
+\[
+2(3L) + 4L \le 60 \quad \Rightarrow \quad 6L + 4L \le 60 \quad \Rightarrow \quad 10L \le 60 \quad \Rightarrow \quad L \le 6
+\]
+
+Minimums:
+- From \(L \ge 5\)
+- From \(M = 3L\) and \(M \ge 5\): \(3L \ge 5 \Rightarrow L \ge \frac{5}{3}\), so the binding lower bound is \(L \ge 5\).
+
+So feasible integer \(L\) values:
+\[
+L \in \{5, 6\}
+\]
+
+Compute \(M\) and objective:
+- If \(L = 5\): \(M = 3 \cdot 5 = 15\), rice \(Z = 30 \cdot 15 + 70 \cdot 5 = 450 + 350 = 800\) kg  
+- If \(L = 6\): \(M = 3 \cdot 6 = 18\), check horses: \(2 \cdot 18 + 4 \cdot 6 = 36 + 24 = 60\), rice \(Z = 30 \cdot 18 + 70 \cdot 6 = 540 + 420 = 960\) kg
+
+Best solution:
+- \(M^\* = 18\) medium carts  
+- \(L^\* = 6\) large carts  
+- Maximum rice: 960 kg
+
+---
+
+## 5. Suitable Python libraries
+
+Because this is a small integer linear program, any standard MILP/LP library will work:
+
+- `PuLP` (pure Python, easy for teaching / modelling)
+- `ortools.linear_solver` (Google OR-Tools, strong MILP capabilities)
+- `scipy.optimize.linprog` (LP only; here you’d need integer handling externally, so less ideal)
+- `mip` or `pymprog` (also possible)
+
+For clarity and ease of use, `PuLP` or OR-Tools are recommended.
+
+---
+
+## 6. Example PuLP model
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Rice_Transportation", pl.LpMaximize)
+
+# Decision variables
+M = pl.LpVariable("MediumCarts", lowBound=0, cat="Integer")
+L = pl.LpVariable("LargeCarts",  lowBound=0, cat="Integer")
+
+# Objective
+prob += 30 * M + 70 * L, "TotalRiceKg"
+
+# Constraints
+prob += 2 * M + 4 * L <= 60, "HorseLimit"
+prob += M == 3 * L,          "CartRatio"
+prob += M >= 5,              "MinMedium"
+prob += L >= 5,              "MinLarge"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal Medium carts:", M.value())
+print("Optimal Large carts:", L.value())
+print("Max rice (kg):", pl.value(prob.objective))
+```
+
+This will yield:
+- Medium carts: 18  
+- Large carts: 6  
+- Max rice: 960 kg
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Rice_Transportation", pl.LpMaximize)
+
+    # Decision variables
+    M = pl.LpVariable("MediumCarts", lowBound=0, cat="Integer")
+    L = pl.LpVariable("LargeCarts", lowBound=0, cat="Integer")
+
+    # Objective function: Maximize total rice transported
+    prob += 30 * M + 70 * L, "TotalRiceKg"
+
+    # Constraints
+    prob += 2 * M + 4 * L <= 60, "HorseLimit"
+    prob += M == 3 * L,          "CartRatio"
+    prob += M >= 5,              "MinMedium"
+    prob += L >= 5,              "MinLarge"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Retrieve the objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

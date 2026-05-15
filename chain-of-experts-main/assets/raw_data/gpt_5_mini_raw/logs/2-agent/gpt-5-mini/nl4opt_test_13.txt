@@ -1,0 +1,96 @@
+[MODELER]:
+Model
+
+Decision variables
+- x1 = minutes of Beam 1 (>= 0)
+- x2 = minutes of Beam 2 (>= 0)
+
+Objective
+- Minimize the pancreas dose: minimize P = 0.3 x1 + 0.2 x2
+
+Constraints
+- Tumor must receive at least 3 units: 0.6 x1 + 0.4 x2 >= 3
+- Skin must receive at most 4 units: 0.2 x1 + 0.1 x2 <= 4
+- Nonnegativity: x1 >= 0, x2 >= 0
+
+Rewrite (useful integer-free form)
+- Tumor: 3 x1 + 2 x2 >= 15  (multiply tumor constraint by 5)
+- Skin: 2 x1 + x2 <= 40     (multiply skin constraint by 10)
+- Objective (scaled): minimize 0.1*(3 x1 + 2 x2)
+
+Analysis / solution
+- The objective is proportional to 3 x1 + 2 x2, and the tumor constraint requires 3 x1 + 2 x2 >= 15. Thus the minimum possible value of 3 x1 + 2 x2 is 15, and the corresponding minimal pancreas dose is 0.1 * 15 = 1.5 units.
+- Any (x1, x2) satisfying 3 x1 + 2 x2 = 15, x1 >= 0, x2 >= 0 and 2 x1 + x2 <= 40 is optimal. The line segment of optimal feasible solutions is:
+  - x2 = (15 - 3 x1)/2 with 0 <= x1 <= 5 (equivalently 0 <= x2 <= 7.5).
+- Examples of optimal schedules:
+  - x1 = 5 min, x2 = 0 min (pancreas dose = 1.5 units)
+  - x1 = 0 min, x2 = 7.5 min (pancreas dose = 1.5 units)
+  - Any convex combination between these endpoints (e.g., x1 = 2.5, x2 = 3.75)
+
+If you want a single recommended schedule with the smallest total treatment time among the optimal solutions, minimize x1 + x2 subject to the same constraints; that gives x1 = 5, x2 = 0 (total time 5 min).
+
+Suggested solvers / Python libraries
+- pulp (linear programming)
+- scipy.optimize.linprog
+- OR-Tools linear solver (ortools.linear_solver)
+All can solve this small LP directly. Example with scipy.optimize.linprog:
+
+- Objective c = [0.3, 0.2], constraints as above (use > constraint converted to <= by multiplying by -1).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+import numpy as np
+from scipy.optimize import linprog
+
+# Problem data
+# Decision variables: x = [x1, x2]
+# Objective: minimize P = 0.3 x1 + 0.2 x2
+c = np.array([0.3, 0.2])
+
+# Constraints:
+# 0.6 x1 + 0.4 x2 >= 3    ->  -0.6 x1 - 0.4 x2 <= -3
+# 0.2 x1 + 0.1 x2 <= 4
+A_ub = np.array([
+    [-0.6, -0.4],
+    [ 0.2,  0.1]
+])
+b_ub = np.array([-3.0, 4.0])
+
+bounds = [(0, None), (0, None)]
+
+# Solve primary LP: minimize pancreas dose
+res = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method='highs')
+
+if not res.success:
+    # If solver failed, raise an error
+    raise RuntimeError(f"Primary LP failed: {res.message}")
+
+obj_value = res.fun
+x_opt = res.x
+
+# Secondary LP: among all solutions with minimum pancreas dose, minimize total time x1 + x2
+# Add equality constraint c @ x = obj_value
+A_eq = np.array([c])
+b_eq = np.array([obj_value])
+
+res2 = linprog([1.0, 1.0], A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method='highs')
+
+if res2.success:
+    x_min_time = res2.x
+    total_time = res2.fun
+else:
+    # Fallback: pick a known optimal point (x1=5, x2=0) which satisfies constraints and optimal pancreas dose
+    x_min_time = np.array([5.0, 0.0])
+    total_time = x_min_time.sum()
+
+# Print intermediate results (optional)
+print("Optimal pancreas dose (computed):", obj_value)
+print("One optimal solution (x1, x2):", x_opt)
+print("Minimum-total-time optimal solution (x1, x2):", x_min_time)
+print("Total time for that schedule:", total_time)
+
+# FINAL required print line (must be the last line)
+print(f"FINAL_OBJ: {obj_value}")
+```

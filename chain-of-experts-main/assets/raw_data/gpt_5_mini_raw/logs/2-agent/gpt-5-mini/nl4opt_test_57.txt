@@ -1,0 +1,101 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - L = number of liquid sanitizers produced (integer, ≥ 0)
+  - F = number of foam sanitizers produced (integer, ≥ 0)
+
+- Objective
+  - Maximize total hands cleaned: maximize Z = 30·L + 20·F
+
+- Constraints (resource and business)
+  1. Water: 40L + 60F ≤ 2000
+  2. Alcohol: 50L + 40F ≤ 2100
+  3. Foam must exceed liquid: F ≥ L + 1
+  4. At most 30 liquids: 0 ≤ L ≤ 30
+  5. Nonnegativity and integrality: F ≥ 0, L integer, F integer
+
+Remarks: If you relaxed integrality (continuous LP), you get the vertex where water and F = L+1 meet: L = 19.4, F = 20.4 with Z = 990 (not practical because you can’t make fractional units). Enforcing integer solutions, enumerate feasible integer L (0..30) and take the maximum feasible F given the resource bounds; that yields the optimum:
+
+Solution (integer)
+- L = 19 liquid sanitizers
+- F = 20 foam sanitizers
+- Hands cleaned = 30·19 + 20·20 = 970
+
+Suggested Python libraries for solving
+- For integer LP: PuLP (with CBC) or OR-Tools CP-SAT (fast integer solver)
+- For continuous LP: scipy.optimize.linprog or CVXPY
+- For modeling larger/more complex variants: Pyomo or mip
+
+Minimal PuLP example
+
+- Use pulp with integer variables (LpInteger) to solve the model above.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the integer production problem by enumeration
+
+import math
+
+# Problem data (initialized directly)
+# Decision variables:
+# L: number of liquid sanitizers produced (integer, 0..30)
+# F: number of foam sanitizers produced (integer, >= 0)
+# Objective: maximize Z = 30*L + 20*F
+# Constraints:
+# 1) Water: 40L + 60F <= 2000
+# 2) Alcohol: 50L + 40F <= 2100
+# 3) F >= L + 1
+# 4) 0 <= L <= 30
+WATER_CAP = 2000
+ALCOHOL_CAP = 2100
+MAX_L = 30
+
+best_L = None
+best_F = None
+best_Z = None
+
+for L in range(0, MAX_L + 1):
+    # Remaining capacity for F from each resource
+    rem_water = WATER_CAP - 40 * L
+    rem_alcohol = ALCOHOL_CAP - 50 * L
+
+    # If remaining is negative, no feasible F >= 0 (and since F >= L+1 > 0, skip)
+    if rem_water < 0 or rem_alcohol < 0:
+        continue
+
+    # Max F allowed by each resource (floor division)
+    maxF_by_water = rem_water // 60
+    maxF_by_alcohol = rem_alcohol // 40
+    F_max = min(maxF_by_water, maxF_by_alcohol)
+
+    # Enforce foam must exceed liquid by at least 1
+    minF_required = L + 1
+
+    if F_max < minF_required:
+        continue
+
+    # Choose the largest feasible F to maximize objective (since coefficient for F is positive)
+    F = F_max
+    Z = 30 * L + 20 * F
+
+    if best_Z is None or Z > best_Z:
+        best_Z = Z
+        best_L = L
+        best_F = F
+
+# If no feasible solution found (shouldn't happen here), set zeros
+if best_Z is None:
+    best_L = 0
+    best_F = 0
+    best_Z = 0
+
+# Print solution summary (optional)
+print(f"Optimal integer solution found: L = {best_L}, F = {best_F}, Z = {best_Z}")
+
+# Final required output line (must be the last printed line in this exact format)
+print(f"FINAL_OBJ: {best_Z}")
+```

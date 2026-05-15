@@ -1,0 +1,43 @@
+[MONOLITH]:
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Gorilla_Diet_Problem", pl.LpMinimize)
+
+# Decision variables: number of bananas (b) and mangoes (m)
+b = pl.LpVariable('bananas', lowBound=0)
+m = pl.LpVariable('mangoes', lowBound=0)
+
+# Objective: minimize sugar intake
+# Sugar: 10g per banana, 8g per mango
+prob += 10 * b + 8 * m, "Total_Sugar"
+
+# Constraints
+
+# Calorie constraint: at least 4000 calories
+# 80 calories per banana, 100 calories per mango
+prob += 80 * b + 100 * m >= 4000, "Calorie_Requirement"
+
+# Potassium constraint: at least 150g
+# 20g per banana, 15g per mango
+prob += 20 * b + 15 * m >= 150, "Potassium_Requirement"
+
+# Preference constraint: at most 33% of fruits can be mangoes
+# m <= 0.33 * (b + m)
+# Equivalent form to avoid division: (1 - 0.33) * m <= 0.33 * b
+# 0.67 m <= 0.33 b
+prob += 0.67 * m <= 0.33 * b, "Mango_Fraction_Limit"
+
+# Solve the problem
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Extract results
+bananas_opt = pl.value(b)
+mangoes_opt = pl.value(m)
+objective_value = pl.value(prob.objective)
+
+# Print solution
+print(f"Optimal number of bananas: {bananas_opt}")
+print(f"Optimal number of mangoes: {mangoes_opt}")
+print(f"Minimum total sugar intake: {objective_value}")
+print(f"FINAL_OBJ: {objective_value}")

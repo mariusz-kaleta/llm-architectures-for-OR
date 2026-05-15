@@ -1,0 +1,105 @@
+[MODELER]:
+Problem type
+- Integer linear programming (maximize number of bottles subject to volume and ratio constraints).
+
+Decision variables
+- G = number of glass bottles (integer, G ≥ 0)
+- P = number of plastic bottles (integer, P ≥ 0)
+
+Parameters
+- volume per glass bottle = 500 ml
+- volume per plastic bottle = 750 ml
+- total available water = 250000 ml
+- ratio constraint: P ≥ 3 G
+- minimum glass bottles: G ≥ 20
+
+Objective
+- Maximize total number of bottles: maximize Z = G + P
+
+Constraints
+1. Volume: 500 G + 750 P ≤ 250000
+2. Ratio: P − 3 G ≥ 0
+3. Minimum glass: G − 20 ≥ 0
+4. Integrality and nonnegativity: G, P ∈ Z≥0
+
+Remarks / analytical solution
+- Plastic bottles use more water per bottle than glass (750 ml vs 500 ml). To maximize count given the constraint P ≥ 3G, it is optimal to take P at its minimum permitted value for any chosen G, i.e. P = 3G.
+- Substitute P = 3G into the volume constraint:
+  500 G + 750(3G) = 2750 G ≤ 250000 ⇒ G ≤ 250000 / 2750 ≈ 90.909.
+- With integrality and G ≥ 20, the largest feasible integer G is G = 90, giving P = 270.
+- Check volume: 500·90 + 750·270 = 247500 ml ≤ 250000 ml (2500 ml leftover, not enough for any additional bottle).
+- Total bottles = 90 + 270 = 360.
+
+Solution
+- Make 90 glass bottles and 270 plastic bottles. This maximizes the number of bottles (360 total).
+
+Suggested Python libraries to solve / verify
+- pulp (easy LP/MIP modeling with CBC solver)
+- ortools CP-SAT (Google OR-Tools) for integer/CP-style solving
+- python-mip (MIP with CBC/Gurobi)
+- If only continuous relaxation: scipy.optimize.linprog
+
+Small example using PuLP (conceptual)
+- Model variables G and P as LpInteger, add the constraints and maximize G+P, then call the solver to get the same result (G=90, P=270).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+# Integer linear programming brute-force solver for the bottle problem
+# Decision variables: G (glass), P (plastic)
+# Objective: maximize Z = G + P
+# Constraints:
+#   500 G + 750 P <= 250000
+#   P >= 3 G
+#   G >= 20
+#   G, P integers >= 0
+
+def solve_bottles():
+    vol_glass = 500
+    vol_plastic = 750
+    total_volume = 250000
+    min_G = 20
+
+    best_obj = -1
+    best_G = None
+    best_P = None
+    best_vol = None
+
+    # Upper bound for G: cannot exceed total_volume/vol_glass, but ratio P>=3G often tighter.
+    max_G_possible = total_volume // vol_glass
+
+    for G in range(min_G, max_G_possible + 1):
+        # P must be at least 3G
+        P_min = 3 * G
+        # Max P by volume given G
+        remaining_vol = total_volume - vol_glass * G
+        if remaining_vol < 0:
+            break
+        P_max = remaining_vol // vol_plastic
+        if P_min > P_max:
+            # No feasible P for this G
+            continue
+        # For each feasible P in [P_min, P_max], check objective
+        # Since each extra P adds 1 bottle but consumes 750ml, it's possible extra P increases objective,
+        # so we must check all P in the range.
+        for P in range(P_min, P_max + 1):
+            vol = vol_glass * G + vol_plastic * P
+            if vol <= total_volume and P >= 3 * G:
+                obj = G + P
+                if obj > best_obj:
+                    best_obj = obj
+                    best_G = G
+                    best_P = P
+                    best_vol = vol
+
+    return best_G, best_P, best_vol, best_obj
+
+if __name__ == "__main__":
+    G, P, vol, obj = solve_bottles()
+    # Print solution summary
+    print(f"Optimal G (glass): {G}")
+    print(f"Optimal P (plastic): {P}")
+    print(f"Total volume used (ml): {vol}")
+    print(f"Total bottles (objective): {obj}")
+    # Final required line (must be the last printed line)
+    print(f"FINAL_OBJ: {obj}")

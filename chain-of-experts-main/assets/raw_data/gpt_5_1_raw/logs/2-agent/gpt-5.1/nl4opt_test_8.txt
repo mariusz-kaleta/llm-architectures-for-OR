@@ -1,0 +1,169 @@
+[MODELER]:
+Let’s translate the problem into a mathematical optimization model and then solve it.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of scooters produced per month  
+- \(y\) = number of bikes produced per month  
+
+Both must be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+## 2. Objective function (maximize profit)
+
+Profit per scooter = \$200  
+Profit per bike = \$300  
+
+Total monthly profit:
+\[
+\text{Maximize } Z = 200x + 300y
+\]
+
+## 3. Constraints
+
+### Design team time
+- Each scooter uses 2 hours
+- Each bike uses 4 hours  
+- Total available design hours = 5000
+
+\[
+2x + 4y \le 5000
+\]
+
+### Engineering team time
+- Each scooter uses 3 hours
+- Each bike uses 5 hours  
+- Total available engineering hours = 6000
+
+\[
+3x + 5y \le 6000
+\]
+
+### Nonnegativity
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+This is a linear programming (LP) problem.
+
+## 4. Solve analytically
+
+We expect the optimal solution at a corner point of the feasible region. Check the intersection of the two binding constraints:
+
+\[
+\begin{cases}
+2x + 4y = 5000 \\
+3x + 5y = 6000
+\end{cases}
+\]
+
+From the first:
+\[
+x = 2500 - 2y
+\]
+
+Substitute into the second:
+\[
+3(2500 - 2y) + 5y = 6000 \\
+7500 - 6y + 5y = 6000 \\
+7500 - y = 6000 \\
+y = 1500
+\]
+Then
+\[
+x = 2500 - 2 \cdot 1500 = 2500 - 3000 = -500 \quad (\text{not feasible})
+\]
+
+So the intersection is outside the nonnegative region; it’s not feasible. Check corner points from constraints and nonnegativity:
+
+1. Intersection with \(x\)-axis (set \(y = 0\)):
+
+   - Design: \(2x \le 5000 \Rightarrow x \le 2500\)  
+   - Engineering: \(3x \le 6000 \Rightarrow x \le 2000\)  
+
+   So the feasible point along the \(x\)-axis is \(x = 2000, y = 0\).  
+   Profit: \(Z = 200(2000) + 300(0) = 400{,}000\).
+
+2. Intersection with \(y\)-axis (set \(x = 0\)):
+
+   - Design: \(4y \le 5000 \Rightarrow y \le 1250\)  
+   - Engineering: \(5y \le 6000 \Rightarrow y \le 1200\)
+
+   So the feasible point is \(x = 0, y = 1200\).  
+   Profit: \(Z = 200(0) + 300(1200) = 360{,}000\).
+
+There are no other relevant extreme points because the intersection of the two resource lines is infeasible (negative \(x\)).
+
+So the best feasible corner is:
+- \(x = 2000\) scooters
+- \(y = 0\) bikes
+- Maximum profit = \$400,000 per month
+
+**Answer:** Produce 2,000 scooters and 0 bikes per month to maximize profit.
+
+## 5. Suitable Python tools
+
+To solve or confirm this programmatically, you can use:
+
+- `PuLP` – very convenient for linear programming:
+  ```python
+  import pulp as pl
+
+  # Define problem
+  prob = pl.LpProblem("Scooters_Bikes", pl.LpMaximize)
+
+  # Variables
+  x = pl.LpVariable('scooters', lowBound=0)
+  y = pl.LpVariable('bikes', lowBound=0)
+
+  # Objective
+  prob += 200*x + 300*y
+
+  # Constraints
+  prob += 2*x + 4*y <= 5000   # design
+  prob += 3*x + 5*y <= 6000   # engineering
+
+  # Solve
+  prob.solve()
+  print("Scooters:", x.value())
+  print("Bikes:", y.value())
+  print("Profit:", pl.value(prob.objective))
+  ```
+
+- `scipy.optimize.linprog` – more general scientific stack.
+- `ortools.linear_solver.pywraplp` from Google OR-Tools – powerful and scalable for larger LP/MIP problems.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Scooters_Bikes", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('scooters', lowBound=0)
+    y = pl.LpVariable('bikes', lowBound=0)
+
+    # Objective function
+    prob += 200 * x + 300 * y
+
+    # Constraints
+    prob += 2 * x + 4 * y <= 5000   # Design team time
+    prob += 3 * x + 5 * y <= 6000   # Engineering team time
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    objective_value = pl.value(prob.objective)
+
+    # Print the final objective in the required format
+    print(f"FINAL_OBJ: {objective_value}")
+
+if __name__ == "__main__":
+    main()

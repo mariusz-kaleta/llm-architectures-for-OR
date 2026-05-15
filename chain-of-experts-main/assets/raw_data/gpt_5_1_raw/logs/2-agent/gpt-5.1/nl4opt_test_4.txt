@@ -1,0 +1,114 @@
+[MODELER]:
+Formulate this as a **linear programming (LP)** problem.
+
+### Decision variables
+Let  
+- \(x \ge 0\): kilograms of Feed A in the mixture  
+- \(y \ge 0\): kilograms of Feed B in the mixture  
+
+### Objective (minimize cost)
+Feed A costs \$100/kg and Feed B costs \$80/kg, so total cost is:
+\[
+\text{Minimize } Z = 100x + 80y
+\]
+
+### Constraints
+
+1. **Protein requirement (at least 30 units)**  
+   - Feed A: 10 units/kg  
+   - Feed B: 7 units/kg  
+   \[
+   10x + 7y \;\ge\; 30
+   \]
+
+2. **Fat requirement (at least 50 units)**  
+   - Feed A: 8 units/kg  
+   - Feed B: 15 units/kg  
+   \[
+   8x + 15y \;\ge\; 50
+   \]
+
+3. **Non-negativity**  
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+
+This fully defines the LP model.
+
+---
+
+### Suitable Python libraries
+
+You can solve this LP using any of:
+
+- `pulp` (very straightforward for LPs)  
+- `ortools.linear_solver` (Google OR-Tools)  
+- `scipy.optimize.linprog` (SciPy)
+
+#### Example model in PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Feed_Mix", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('FeedA_kg', lowBound=0)
+y = pl.LpVariable('FeedB_kg', lowBound=0)
+
+# Objective
+prob += 100 * x + 80 * y
+
+# Constraints
+prob += 10 * x + 7 * y >= 30    # Protein
+prob += 8 * x + 15 * y >= 50    # Fat
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Feed A (kg):", x.value())
+print("Feed B (kg):", y.value())
+print("Minimum Cost:", pl.value(prob.objective))
+```
+
+This will compute the minimum-cost combination of Feed A and Feed B that meets the protein and fat requirements.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the LP problem
+    prob = pl.LpProblem("Feed_Mix", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('FeedA_kg', lowBound=0)  # kilograms of Feed A
+    y = pl.LpVariable('FeedB_kg', lowBound=0)  # kilograms of Feed B
+
+    # Objective function: Minimize cost
+    prob += 100 * x + 80 * y
+
+    # Constraints
+    prob += 10 * x + 7 * y >= 30   # Protein constraint
+    prob += 8 * x + 15 * y >= 50   # Fat constraint
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract the objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print additional information (not required but useful)
+    print("Status:", pl.LpStatus[prob.status])
+    print("Feed A (kg):", x.value())
+    print("Feed B (kg):", y.value())
+    print("Minimum Cost:", final_obj)
+
+    # Required final line
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

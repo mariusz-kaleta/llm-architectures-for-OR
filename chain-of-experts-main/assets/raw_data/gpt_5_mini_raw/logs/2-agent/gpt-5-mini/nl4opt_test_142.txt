@@ -1,0 +1,232 @@
+[MODELER]:
+Model
+
+Variables
+- L = number of large art pieces produced (≥ 5)
+- S = number of small art pieces produced (≥ 5)
+
+Objective
+- Maximize profit: maximize Z = 30L + 15S
+
+Constraints (resource limits)
+- Paint: 4L + 2S ≤ 100
+- Glitter: 3L + 1S ≤ 50
+- Glue: 5L + 2S ≤ 70
+
+Bounds
+- L ≥ 5, S ≥ 5
+- (If pieces must be whole, add L, S integer.)
+
+Remarks and solution
+
+Continuous (LP) solution:
+- Solve the LP maximize 30L + 15S subject to the constraints above.
+- The optimal continuous solution is L = 5, S = 22.5, giving profit Z = 30·5 + 15·22.5 = 487.5.
+
+Integer (realistic discrete) solution:
+- If L and S must be integers, the best feasible integer choice is L = 5, S = 22 (since S ≤ 22.5, the largest integer ≤ 22.5 is 22), giving profit Z = 30·5 + 15·22 = 480.
+
+Recommended Python libraries
+- For continuous LP: scipy.optimize.linprog, PuLP
+- For integer (MILP): PuLP (CBC), OR-Tools (CP-SAT or linear solver), or commercial solvers (Gurobi, CPLEX)
+- For small two-variable problems you can also solve analytically (as above).
+
+Example (PuLP) code snippets
+
+Continuous LP (PuLP, solver default):
+from pulp import LpProblem, LpMaximize, LpVariable, lpSum, value
+
+prob = LpProblem("ArtStore", LpMaximize)
+L = LpVariable("L", lowBound=5)
+S = LpVariable("S", lowBound=5)
+prob += 30*L + 15*S  # objective
+prob += 4*L + 2*S <= 100
+prob += 3*L + 1*S <= 50
+prob += 5*L + 2*S <= 70
+prob.solve()
+print(value(L), value(S), value(prob.objective))
+
+Integer (MILP):
+from pulp import LpInteger
+L = LpVariable("L", lowBound=5, cat=LpInteger)
+S = LpVariable("S", lowBound=5, cat=LpInteger)
+# same objective and constraints, then solve
+
+If you want, I can run through the PuLP/OR-Tools formulation and show solver output or produce plots of the feasible region and objective contours.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the Art pieces production LP and integer version.
+# Initializes data directly, computes continuous (LP) optimum by vertex enumeration,
+# and computes integer (MILP) optimum by direct enumeration.
+# Final printed line must be exactly: print(f"FINAL_OBJ: {value}")
+
+from math import isclose
+
+# Problem data
+# Maximize Z = 30 L + 15 S
+# Constraints:
+# 4L + 2S <= 100   (paint)
+# 3L + 1S <= 50    (glitter)
+# 5L + 2S <= 70    (glue)
+# Bounds: L >= 5, S >= 5
+
+# Helper to check feasibility (with small tolerance)
+EPS = 1e-9
+def feasible(L, S):
+    if L + EPS < 5 or S + EPS < 5:
+        return False
+    if 4*L + 2*S > 100 + EPS:
+        return False
+    if 3*L + 1*S > 50 + EPS:
+        return False
+    if 5*L + 2*S > 70 + EPS:
+        return False
+    return True
+
+# Solve continuous LP by enumerating intersection points (vertices)
+# Lines to consider (as tuples a,b,c representing a*L + b*S = c)
+lines = [
+    (4.0, 2.0, 100.0),  # paint
+    (3.0, 1.0, 50.0),   # glitter
+    (5.0, 2.0, 70.0)    # glue
+]
+# Also include bounds L=5 and S=5 as "lines"
+# We'll compute intersections of all pairs among these 5 "lines"
+points = []
+
+# Intersection helper for two linear equations a1 L + b1 S = c1 and a2 L + b2 S = c2
+def intersect(a1,b1,c1, a2,b2,c2):
+    det = a1*b2 - a2*b1
+    if abs(det) < 1e-12:
+        return None
+    L = (c1*b2 - c2*b1) / det
+    S = (a1*c2 - a2*c1) / det
+    return (L, S)
+
+# Add intersections among the three resource lines
+for i in range(len(lines)):
+    for j in range(i+1, len(lines)):
+        p = intersect(lines[i][0], lines[i][1], lines[i][2], lines[j][0], lines[j][1], lines[j][2])
+        if p:
+            points.append(p)
+
+# Intersections of each resource line with L=5 (i.e., L=5 => solve for S)
+for (a,b,c) in lines:
+    L = 5.0
+    # a*5 + b*S = c => S = (c - a*5)/b if b != 0
+    if abs(b) > 1e-12:
+        S = (c - a*L) / b
+        points.append((L, S))
+# Intersections of each resource line with S=5
+for (a,b,c) in lines:
+    S = 5.0
+    if abs(a) > 1e-12:
+        L = (c - b*S) / a
+        points.append((L, S))
+
+# Also include the corner point (5,5)
+points.append((5.0, 5.0))
+
+# Filter unique points (within tolerance) and feasible ones
+unique = []
+def add_unique(pt):
+    L,S = pt
+    for (uL,uS) in unique:
+        if isclose(L,uL,rel_tol=1e-9,abs_tol=1e-9) and isclose(S,uS,rel_tol=1e-9,abs_tol=1e-9):
+            return
+    unique.append((L,S))
+
+for p in points:
+    add_unique(p)
+
+feasible_vertices = []
+for (L,S) in unique:
+    if feasible(L,S):
+        feasible_vertices.append((L,S))
+
+# Evaluate objective at feasible vertices
+def objective(L,S):
+    return 30.0*L + 15.0*S
+
+best_cont = None
+best_cont_val = -1e18
+for (L,S) in feasible_vertices:
+    val = objective(L,S)
+    if val > best_cont_val + 1e-9:
+        best_cont_val = val
+        best_cont = (L,S,val)
+
+# As a safety, also check boundaries along L=5 and S=5 (continuous) using simple 1D optimization
+# For L=5, find max S s.t. constraints hold: S <= min((100-4*5)/2, 50-3*5, (70-5*5)/2)
+L_fixed = 5.0
+S_upper_L5 = min((100-4*L_fixed)/2.0, 50-3*L_fixed, (70-5*L_fixed)/2.0)
+if S_upper_L5 >= 5.0 - 1e-9:
+    val = objective(L_fixed, S_upper_L5)
+    if val > best_cont_val + 1e-9 and feasible(L_fixed,S_upper_L5):
+        best_cont_val = val
+        best_cont = (L_fixed, S_upper_L5, val)
+
+# For S=5, find max L s.t. constraints hold: L <= min((100-2*5)/4, (50-5)/3, (70-2*5)/5)
+S_fixed = 5.0
+L_upper_S5 = min((100-2*S_fixed)/4.0, (50-S_fixed)/3.0, (70-2*S_fixed)/5.0)
+if L_upper_S5 >= 5.0 - 1e-9:
+    val = objective(L_upper_S5, S_fixed)
+    if val > best_cont_val + 1e-9 and feasible(L_upper_S5,S_fixed):
+        best_cont_val = val
+        best_cont = (L_upper_S5, S_fixed, val)
+
+# Print continuous solution found
+if best_cont is not None:
+    Lc, Sc, Zc = best_cont
+    # Print intermediate results (allowed). Final line must be the FINAL_OBJ line.
+    print("Continuous LP optimum (vertex enumeration):")
+    print(f"L = {Lc:.6f}, S = {Sc:.6f}, Z = {Zc:.6f}")
+else:
+    print("No feasible continuous solution found.")
+
+# Now solve integer (MILP) by simple enumeration over plausible integer ranges.
+# Determine bounds for integer search:
+# From paint: 4L + 2S <= 100 => L <= 25 (if S=0), but L>=5 so start 5..25
+# From glue: 5L + 2S <= 70 => L <= 14 (if S=0)
+# From glitter: 3L + S <= 50 => L <= 16 (if S=0)
+# So upper bound for L is min(25,14,16) = 14
+L_min = 5
+L_max = 14
+
+best_int = None
+best_int_val = -1e18
+for L in range(L_min, L_max+1):
+    # Determine S bounds for this L
+    S_upper1 = (100 - 4*L) // 2  # from paint
+    S_upper2 = 50 - 3*L         # from glitter
+    # from glue: 5L + 2S <= 70 => 2S <= 70 -5L => S <= floor((70-5L)/2)
+    S_upper3 = (70 - 5*L) // 2
+    S_upper = int(min(S_upper1, S_upper2, S_upper3))
+    if S_upper < 5:
+        continue
+    for S in range(5, S_upper+1):
+        if feasible(L, S):
+            val = objective(L,S)
+            if val > best_int_val + 1e-9:
+                best_int_val = val
+                best_int = (L,S,val)
+
+if best_int is not None:
+    Li, Si, Zi = best_int
+    print("\nInteger (MILP) optimum by enumeration:")
+    print(f"L = {Li}, S = {Si}, Z = {Zi}")
+else:
+    print("No feasible integer solution found.")
+
+# According to enumeration and the user's remark, continuous optimum should be L=5, S=22.5 -> Z=487.5
+# and best integer feasible L=5, S=22 -> Z=480. Our computations should match that.
+# Set final objective to the integer optimum value (realistic discrete solution).
+final_obj = int(best_int_val) if (best_int_val is not None and abs(round(best_int_val)-best_int_val) < 1e-9) else best_int_val
+
+# CRITICAL final output line (must be exactly this format)
+print(f"FINAL_OBJ: {final_obj}")
+```

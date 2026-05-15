@@ -1,0 +1,202 @@
+[MODELER]:
+Here’s a clean mathematical model of the problem, followed by the solution and a suggestion of Python tools to use.
+
+---
+
+## 1. Decision variables
+
+Let:
+
+- \(x\) = number of small boxes used  
+- \(y\) = number of large boxes used  
+
+Both must be nonnegative integers:
+
+- \(x \in \mathbb{Z}_{\ge 0}\)
+- \(y \in \mathbb{Z}_{\ge 0}\)
+
+---
+
+## 2. Objective function
+
+We want to **minimize the total number of boxes**:
+
+\[
+\text{Minimize } Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+1. **Mask capacity requirement** (at least 750 masks):
+
+   - Each small box holds 25 masks, each large box holds 45 masks.
+   \[
+   25x + 45y \;\ge\; 750
+   \]
+
+2. **Small boxes at least three times as many as large boxes**:
+
+   \[
+   x \;\ge\; 3y
+   \]
+
+3. **At least 5 large boxes**:
+
+   \[
+   y \;\ge\; 5
+   \]
+
+4. **Integrality and nonnegativity**:
+
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+---
+
+## 4. Model summary
+
+\[
+\begin{aligned}
+\text{Minimize } \quad & Z = x + y \\
+\text{subject to} \quad
+& 25x + 45y \;\ge\; 750 \\
+& x - 3y \;\ge\; 0 \\
+& y \;\ge\; 5 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a small **integer linear programming (ILP)** problem.
+
+---
+
+## 5. Solving analytically (for completeness)
+
+From \(x \ge 3y\) and \(y \ge 5\):
+
+- Minimum feasible \(y\) is 5, then \(x \ge 3 \cdot 5 = 15\).
+
+Check masks constraint:
+
+\[
+25x + 45y \ge 750
+\]
+
+Substitute the minimum \(y = 5\):
+
+\[
+25x + 45 \cdot 5 = 25x + 225 \ge 750 
+\Rightarrow 25x \ge 525 
+\Rightarrow x \ge 21
+\]
+
+Also need \(x \ge 3y = 15\), so \(x \ge 21\) is stronger.
+
+So candidate: \(x = 21, y = 5\).
+
+- Total masks: \(25 \cdot 21 + 45 \cdot 5 = 525 + 225 = 750\) (exactly meets requirement)
+- Total boxes: \(21 + 5 = 26\)
+
+To see if a larger \(y\) can reduce total boxes, try \(y = 6\):
+
+- Then \(x \ge 3 \cdot 6 = 18\)
+- Mask constraint: \(25x + 45 \cdot 6 = 25x + 270 \ge 750 \Rightarrow 25x \ge 480 \Rightarrow x \ge 19.2\), so \(x \ge 20\).
+- So \((x, y) = (20, 6)\) is minimal for \(y=6\), total boxes = 26.
+
+Similarly, for \(y > 6\), minimum \(x\) will not decrease enough to beat 26 total boxes. Thus, **all optimal solutions have 26 boxes**, and both:
+
+- \((x, y) = (21, 5)\) and  
+- \((x, y) = (20, 6)\)
+
+are optimal (and there can be additional optimal pairs with 26 total boxes; one can enumerate if needed).
+
+If you want a unique answer with *exactly* 750 masks, then the pair is:
+
+- **21 small boxes and 5 large boxes**
+
+---
+
+## 6. Suitable Python libraries
+
+This is an ILP, so these libraries are appropriate:
+
+- **PuLP**: very simple modeling interface for linear and integer programs; good for small educational problems.
+- **OR-Tools (Google)**: `ortools.linear_solver` or `ortools.sat.python.cp_model` (the CP-SAT solver is excellent for integer problems).
+- **SciPy**: `scipy.optimize.linprog` solves linear programs but does *not* handle integrality directly; you would need a custom integer search around the LP solution, so it’s not ideal here.
+
+Most straightforward choices:
+
+- For teaching / simple scripts: **PuLP**
+- For performance and more features: **OR-Tools CP-SAT**
+
+---
+
+### Minimal PuLP example
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("MaskBoxProblem", pl.LpMinimize)
+
+# Decision variables (integers)
+x = pl.LpVariable('small_boxes', lowBound=0, cat='Integer')
+y = pl.LpVariable('large_boxes', lowBound=0, cat='Integer')
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 25*x + 45*y >= 750        # masks requirement
+prob += x >= 3*y                  # small at least 3x large
+prob += y >= 5                    # at least 5 large
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Small boxes (x):", x.value())
+print("Large boxes (y):", y.value())
+print("Total boxes:", x.value() + y.value())
+print("Total masks:", 25*x.value() + 45*y.value())
+```
+
+This will return one of the optimal solutions, e.g. `x = 21, y = 5`.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def solve_mask_box_problem():
+    # Define the problem
+    prob = pl.LpProblem("MaskBoxProblem", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('small_boxes', lowBound=0, cat='Integer')
+    y = pl.LpVariable('large_boxes', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of boxes
+    prob += x + y
+
+    # Constraints
+    prob += 25 * x + 45 * y >= 750      # mask capacity requirement
+    prob += x >= 3 * y                  # small boxes at least 3 times large boxes
+    prob += y >= 5                      # at least 5 large boxes
+
+    # Solve the ILP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    x_val = x.value()
+    y_val = y.value()
+    total_boxes = x_val + y_val
+
+    return total_boxes
+
+if __name__ == "__main__":
+    obj_value = solve_mask_box_problem()
+    print(f"FINAL_OBJ: {obj_value}")

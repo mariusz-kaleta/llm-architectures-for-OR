@@ -1,0 +1,281 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the **total number of light changes over a decade** for the installation, while satisfying lighting quantity, electricity usage, and composition requirements.
+
+2. Suggested model type  
+Model: **Linear Programming (LP)** with **integer decision variables** (Integer Linear Programming, ILP), because the number of fixtures must be whole numbers but the objective and constraints are all linear.
+
+3. Main decision variables  
+Define two primary decision variables:
+- \(x_L\): Number of **LED fixtures** installed.
+- \(x_F\): Number of **fluorescent lamps** installed.
+
+No need for additional variables; the number of changes is captured in the objective using coefficients.
+
+4. Objective function (conceptual)  
+Minimise:
+- Total light changes over a decade =  
+  (number of LED fixtures) × (changes per LED per decade)  
+  + (number of fluorescent fixtures) × (changes per fluorescent per decade).
+
+Numerical interpretation:
+- LEDs: 3 changes per decade per fixture.
+- Fluorescents: 4 changes per decade per fixture.
+
+Objective: Minimise \(3 \cdot x_L + 4 \cdot x_F\).
+
+5. Key constraints to consider  
+
+a) Fixture quantity requirement  
+- The customer requires **at least 300 light fixtures** in total:
+  - Total fixtures = LED + fluorescent.
+  - Constraint: \(x_L + x_F \ge \text{required fixtures}\) (i.e., ≥ 300).
+
+b) Electricity usage limit  
+- Each LED uses **5 units of electricity per hour**.  
+- Each fluorescent uses **8 units of electricity per hour**.  
+- Total electricity usage must be **at most 2000 units per hour**:
+  - 5 units × number of LEDs + 8 units × number of fluorescents ≤ 2000.
+
+c) Composition (fluorescent share) requirement  
+- At least **30% of the implemented lights must be fluorescents**:
+  - Share of fluorescents = \(x_F / (x_L + x_F)\).
+  - This fraction must be ≥ 0.3.
+  - Rearranged into linear form: \(x_F \ge 0.3 (x_L + x_F)\).
+
+d) Non-negativity and integrality  
+- Both decision variables must be:
+  - Non-negative: \(x_L \ge 0\), \(x_F \ge 0\).
+  - Integer: cannot install fractional fixtures.
+
+6. Modelling strategy / checks  
+
+- Ensure the fractional “at least 30% fluorescents” requirement is properly linearised (multiply both sides to remove the denominator).
+- Confirm that the electricity usage constraint is per-hour and constant across all operating hours; time does not need to be explicitly modelled because the objective is changes per decade, independent of hours used.
+- Verify that the “changes per decade” interpretation is per fixture and constant; no additional constraints are needed for replacement timing.
+- Use an ILP solver; the model is small (2 variables, few constraints), so exact optimisation is straightforward.
+
+---
+
+[MODELER]:
+Below is a clean formalisation of the problem as an Integer Linear Program, followed by solver suggestions in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_L \in \mathbb{Z}_{\ge 0}\): number of LED fixtures to install  
+- \(x_F \in \mathbb{Z}_{\ge 0}\): number of fluorescent lamps to install  
+
+Both must be non‑negative integers.
+
+---
+
+## 2. Objective function
+
+Each fixture has an expected number of changes per decade:
+
+- LED: 3 changes per decade per fixture  
+- Fluorescent: 4 changes per decade per fixture  
+
+Total changes over a decade:
+
+\[
+\text{TotalChanges} = 3 x_L + 4 x_F
+\]
+
+Objective:
+
+\[
+\min \; Z = 3 x_L + 4 x_F
+\]
+
+---
+
+## 3. Constraints
+
+### a) Minimum number of fixtures
+
+Customer requires at least 300 fixtures:
+
+\[
+x_L + x_F \;\ge\; 300
+\]
+
+---
+
+### b) Electricity usage constraint
+
+Per-hour consumption:
+
+- LED: 5 units/hour  
+- Fluorescent: 8 units/hour  
+
+Total per-hour usage must be at most 2000 units:
+
+\[
+5 x_L + 8 x_F \;\le\; 2000
+\]
+
+---
+
+### c) Composition requirement (≥ 30% fluorescents)
+
+At least 30% of installed lights must be fluorescent:
+
+\[
+\frac{x_F}{x_L + x_F} \;\ge\; 0.3
+\]
+
+Linearisation (for \(x_L + x_F > 0\), which is ensured by the ≥300 constraint):
+
+\[
+x_F \;\ge\; 0.3 (x_L + x_F)
+\]
+
+\[
+x_F \;\ge\; 0.3 x_L + 0.3 x_F
+\]
+
+\[
+x_F - 0.3 x_F \;\ge\; 0.3 x_L
+\]
+
+\[
+0.7 x_F \;\ge\; 0.3 x_L
+\]
+
+Equivalently, in purely integer/linear form (multiplying by 10):
+
+\[
+7 x_F \;\ge\; 3 x_L
+\]
+
+This avoids fractional coefficients and is numerically cleaner.
+
+---
+
+### d) Non-negativity and integrality
+
+\[
+x_L \ge 0,\quad x_F \ge 0, \quad x_L, x_F \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete ILP model
+
+\[
+\begin{aligned}
+\min\; & Z = 3 x_L + 4 x_F \\
+\text{s.t. } 
+& x_L + x_F \;\ge\; 300 \\
+& 5 x_L + 8 x_F \;\le\; 2000 \\
+& 7 x_F - 3 x_L \;\ge\; 0 \\
+& x_L, x_F \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries and solver setup
+
+Because this is a small Integer Linear Program (2 variables, 3 constraints), many libraries will solve it instantly.
+
+Recommended options:
+
+1. **PuLP**  
+   - Easy modelling syntax, integrates with CBC (open source) and commercial solvers.
+   - Good for teaching / quick prototypes.
+
+2. **OR-Tools (Google)**  
+   - CP-SAT or linear solver interface; robust and free.
+   - Excellent for integer and combinatorial problems.
+
+3. **Pyomo**  
+   - General algebraic modelling language; can use a variety of solvers.
+   - Suitable for larger projects and more complex models.
+
+4. **scipy.optimize** (less ideal here)  
+   - Focused on continuous problems; integer programming needs custom handling or is not directly supported.
+   - For this discrete ILP, PuLP or OR-Tools is preferable.
+
+---
+
+## 6. Example implementation in Python with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Lighting_Optimization", pl.LpMinimize)
+
+# Decision variables
+x_L = pl.LpVariable('x_L', lowBound=0, cat='Integer')  # LEDs
+x_F = pl.LpVariable('x_F', lowBound=0, cat='Integer')  # Fluorescents
+
+# Objective: minimize total changes per decade
+prob += 3 * x_L + 4 * x_F, "TotalChanges"
+
+# Constraints
+
+# 1) At least 300 fixtures
+prob += x_L + x_F >= 300, "MinFixtures"
+
+# 2) Electricity usage limit
+prob += 5 * x_L + 8 * x_F <= 2000, "PowerLimit"
+
+# 3) At least 30% fluorescents: 7 x_F >= 3 x_L
+prob += 7 * x_F >= 3 * x_L, "FluorescentShare"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal x_L (LEDs):", int(pl.value(x_L)))
+print("Optimal x_F (Fluorescents):", int(pl.value(x_F)))
+print("Min total changes/decade:", pl.value(prob.objective))
+```
+
+OR-Tools CP-SAT would be similarly straightforward if you prefer that framework.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the optimization problem
+    prob = pl.LpProblem("Lighting_Optimization", pl.LpMinimize)
+
+    # Decision variables
+    x_L = pl.LpVariable('x_L', lowBound=0, cat='Integer')  # LEDs
+    x_F = pl.LpVariable('x_F', lowBound=0, cat='Integer')  # Fluorescents
+
+    # Objective: minimize total changes per decade
+    prob += 3 * x_L + 4 * x_F, "TotalChanges"
+
+    # Constraints
+
+    # 1) At least 300 fixtures
+    prob += x_L + x_F >= 300, "MinFixtures"
+
+    # 2) Electricity usage limit
+    prob += 5 * x_L + 8 * x_F <= 2000, "PowerLimit"
+
+    # 3) At least 30% fluorescents: 7 x_F >= 3 x_L
+    prob += 7 * x_F >= 3 * x_L, "FluorescentShare"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

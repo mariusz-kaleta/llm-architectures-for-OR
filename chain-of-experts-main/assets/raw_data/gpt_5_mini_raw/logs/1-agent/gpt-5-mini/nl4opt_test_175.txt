@@ -1,0 +1,53 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Chocolate_Transport_Min_Trips", pulp.LpMinimize)
+
+# Decision variables: number of van trips (x) and truck trips (y), integers
+x = pulp.LpVariable('vans_trips', lowBound=0, cat='Integer')
+y = pulp.LpVariable('truck_trips', lowBound=0, cat='Integer')
+
+# Parameters (initialized directly from the problem statement)
+van_capacity = 50
+truck_capacity = 80
+van_cost = 30
+truck_cost = 50
+required_boxes = 1500
+budget = 1000
+
+# Objective: minimize total number of trips
+prob += x + y, "Total_Trips"
+
+# Constraints
+prob += van_capacity * x + truck_capacity * y >= required_boxes, "Capacity_Constraint"
+prob += van_cost * x + truck_cost * y <= budget, "Budget_Constraint"
+prob += x - y >= 1, "Vans_more_than_trucks"  # x > y as integer constraint
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract solution
+if pulp.LpStatus[prob.status] != 'Optimal':
+    # If not optimal, still attempt to read values (or indicate infeasible)
+    try:
+        x_val = int(pulp.value(x))
+        y_val = int(pulp.value(y))
+        obj_val = int(pulp.value(prob.objective))
+    except:
+        x_val = None
+        y_val = None
+        obj_val = None
+else:
+    x_val = int(pulp.value(x))
+    y_val = int(pulp.value(y))
+    obj_val = int(pulp.value(prob.objective))
+
+# Print solution details
+print(f"Vans trips = {x_val}")
+print(f"Truck trips = {y_val}")
+print(f"Total boxes transported = {van_capacity * x_val + truck_capacity * y_val}")
+print(f"Total cost = ${van_cost * x_val + truck_cost * y_val}")
+
+# Final required output line (must be the last line)
+print(f"FINAL_OBJ: {obj_val}")

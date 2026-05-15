@@ -1,0 +1,191 @@
+[MODELER]:
+Below is a clean optimization model for your problem.
+
+---
+
+## 1. Decision Variables
+
+Let  
+- \(x\) = number of units of cleansing chemical used  
+- \(y\) = number of units of odor-removing chemical used  
+
+We assume \(x, y \ge 0\), and they can be continuous (not necessarily integers) unless otherwise specified.
+
+---
+
+## 2. Objective Function
+
+Each unit of cleansing chemical takes 4 minutes to be effective.  
+Each unit of odor-removing chemical takes 6 minutes to be effective.
+
+If the total time is additive over units, then the total “time cost” is:
+
+\[
+\text{Total time} = 4x + 6y
+\]
+
+**Objective**: Minimize the total time
+
+\[
+\min\; Z = 4x + 6y
+\]
+
+---
+
+## 3. Constraints
+
+1. **Minimum cleansing chemical**  
+   At least 100 units of cleansing chemical:
+   \[
+   x \ge 100
+   \]
+
+2. **Total chemical use lower bound**  
+   The text says: “In total, at least 300 units of chemicals can be used per house.”  
+   This is slightly ambiguous. The natural operational interpretation is:
+
+   > The process requires at least 300 total units.
+
+   So we model:
+   \[
+   x + y \ge 300
+   \]
+
+3. **Cleansing chemical cannot exceed twice odor-removing**  
+   At most twice the amount of cleansing chemical as odor-removing:
+   \[
+   x \le 2y
+   \]
+
+4. **Non-negativity**
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+
+---
+
+## 4. Complete Linear Program
+
+\[
+\begin{aligned}
+\min \quad & Z = 4x + 6y \\
+\text{s.t.} \quad
+& x \ge 100, \\
+& x + y \ge 300, \\
+& x \le 2y, \\
+& x \ge 0, \ y \ge 0.
+\end{aligned}
+\]
+
+---
+
+## 5. Solving (Analytical Insight)
+
+To reduce cost, we try to use more of the cheaper chemical (cleansing, 4 min/unit) and less of the more expensive one (odor-removing, 6 min/unit), as long as constraints are satisfied.
+
+From \(x \le 2y\), we have \(y \ge \frac{x}{2}\).
+
+From \(x + y \ge 300\), we have \(y \ge 300 - x\).
+
+For given \(x\), we must choose
+\[
+y \ge \max\left(\frac{x}{2},\, 300 - x\right).
+\]
+
+To minimize cost, we choose the **smallest feasible** \(y\) for each \(x\), and then choose the best \(x\).
+
+The curves \(\frac{x}{2}\) and \(300 - x\) intersect when:
+\[
+\frac{x}{2} = 300 - x \;\Rightarrow\; \frac{3x}{2} = 300 \;\Rightarrow\; x = 200,\ y = 100.
+\]
+
+At that point:
+- \(x \ge 100\): satisfied
+- \(x + y = 200 + 100 = 300\): satisfied
+- \(x \le 2y \Rightarrow 200 \le 200\): satisfied
+
+Objective value:
+\[
+Z = 4(200) + 6(100) = 800 + 600 = 1400.
+\]
+
+Given the structure of the problem (linear program with convex feasible region and we are at an intersection of binding constraints), \((x, y) = (200, 100)\) is the optimal solution.
+
+**Optimal solution**  
+- Cleansing chemical: \(x^* = 200\) units  
+- Odor-removing chemical: \(y^* = 100\) units  
+- Minimum total time: \(Z^* = 1400\) (time-units = “minutes·unit”, the linear cost measure defined)
+
+---
+
+## 6. Python Libraries Suitable for This Problem
+
+You can solve this linear program using:
+
+- **PuLP**: Simple modeling interface for linear programming.
+- **SciPy** (`scipy.optimize.linprog`): Basic LP solver.
+- **OR-Tools** (Google OR-Tools, `ortools.linear_solver`): Industrial-strength optimization.
+
+Example with PuLP:
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Cleaning_Chemicals", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('x', lowBound=0)
+y = pl.LpVariable('y', lowBound=0)
+
+# Objective
+prob += 4*x + 6*y
+
+# Constraints
+prob += x >= 100
+prob += x + y >= 300
+prob += x <= 2*y
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal x (cleansing):", x.value())
+print("Optimal y (odor-removing):", y.value())
+print("Min total time:", pl.value(prob.objective))
+```
+
+This will return approximately \(x = 200\), \(y = 100\), objective \(= 1400\).
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Cleaning_Chemicals", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('x', lowBound=0)
+    y = pl.LpVariable('y', lowBound=0)
+
+    # Objective function: Minimize total time
+    prob += 4 * x + 6 * y
+
+    # Constraints
+    prob += x >= 100          # Minimum cleansing chemical
+    prob += x + y >= 300      # Total chemical use lower bound
+    prob += x <= 2 * y        # Cleansing cannot exceed twice odor-removing
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,178 @@
+[MODELER]:
+Let’s model this as a (small) integer linear optimization problem.
+
+---
+
+### Decision variables
+
+Let  
+- \(x\) = number of regular boat trips  
+- \(y\) = number of speed boat trips  
+
+Both must be nonnegative integers:
+\[
+x \ge 0,\quad y \ge 0,\quad x,y \in \mathbb{Z}
+\]
+
+---
+
+### Objective: minimize total gas used
+
+- Each regular trip uses 10 liters.  
+- Each speed trip uses 20 liters.
+
+Total gas used:
+\[
+\text{Gas} = 10x + 20y
+\]
+
+Objective:
+\[
+\min 10x + 20y
+\]
+
+---
+
+### Constraints
+
+1. **Mail demand constraint (capacity):**
+
+Each regular trip carries 20 pieces of mail; each speed trip carries 30.
+
+Total mail carried must be at least 1000:
+\[
+20x + 30y \;\ge\; 1000
+\]
+
+2. **Maximum regular trips:**
+\[
+x \;\le\; 20
+\]
+
+3. **At least 50% of trips by speed boats:**
+
+“At least 50% of the trips must be made by speed boats” means:
+\[
+\frac{y}{x + y} \;\ge\; 0.5
+\]
+Multiply both sides by \(x + y\) (nonnegative):
+\[
+y \;\ge\; 0.5(x + y)
+\]
+\[
+y \;\ge\; 0.5x + 0.5y
+\]
+\[
+0.5y \;\ge\; 0.5x
+\]
+\[
+y \;\ge\; x
+\]
+
+So the constraint is simply:
+\[
+y \;\ge\; x
+\]
+
+---
+
+### Complete model
+
+Minimize
+\[
+\min\; 10x + 20y
+\]
+
+subject to
+\[
+20x + 30y \;\ge\; 1000
+\]
+\[
+x \;\le\; 20
+\]
+\[
+y \;\ge\; x
+\]
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+### Solving analytically (brief)
+
+From \(y \ge x\), to keep gas minimal we generally avoid unnecessary extra trips. Try increasing \(x\) as allowed (since regular trips are more gas-efficient per mail):
+
+- Regular: 10 L / 20 mail = 0.5 L/mail  
+- Speed: 20 L / 30 mail ≈ 0.667 L/mail  
+
+Regular trips are cheaper per piece, but cannot exceed 20 and must be no more than speed trips.
+
+Use the max \(x = 20\). Then we must have \(y \ge 20\).
+
+Mail constraint:
+\[
+20(20) + 30y \ge 1000 \Rightarrow 400 + 30y \ge 1000 \Rightarrow 30y \ge 600 \Rightarrow y \ge 20
+\]
+
+So the minimum feasible \(y\) is 20. Check trips and mail:
+
+- Trips: \(x + y = 20 + 20 = 40\); 50% are speed (actually exactly 50%).  
+- Mail: \(20\cdot 20 + 30\cdot 20 = 400 + 600 = 1000\).  
+- Gas: \(10\cdot 20 + 20\cdot 20 = 200 + 400 = 600\) liters.
+
+Any smaller \(x\) would force a larger \(y\) to still satisfy the mail constraint and the 50% rule, which increases gas.
+
+So the optimal solution is:
+- Regular trips: \(x^* = 20\)  
+- Speed trips: \(y^* = 20\)  
+- Minimum gas: 600 liters.
+
+---
+
+### Suitable Python libraries
+
+This is a mixed-integer linear program (MILP) but tiny in size. Any standard MILP or LP library works:
+
+- `PuLP` (pure Python, easy syntax, works with CBC by default)
+- `ortools.linear_solver` (Google OR-Tools)
+- `scipy.optimize.linprog` if you relax integrality (solution here is integer anyway)
+
+For a clean integer programming formulation, `PuLP` or OR-Tools is recommended.
+
+---
+
+[CODER]:
+import pulp
+
+def solve_boat_problem():
+    # Create the problem: minimization
+    prob = pulp.LpProblem("BoatTripsGasMinimization", pulp.LpMinimize)
+
+    # Decision variables: nonnegative integers
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # regular trips
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # speed trips
+
+    # Objective: minimize total gas used
+    prob += 10 * x + 20 * y, "TotalGas"
+
+    # Constraints
+    # Mail demand: 20x + 30y >= 1000
+    prob += 20 * x + 30 * y >= 1000, "MailDemand"
+
+    # Maximum regular trips: x <= 20
+    prob += x <= 20, "MaxRegularTrips"
+
+    # At least 50% of trips by speed boats: y >= x
+    prob += y >= x, "SpeedTripShare"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pulp.value(prob.objective)
+    return final_obj
+
+if __name__ == "__main__":
+    value = solve_boat_problem()
+    print(f"FINAL_OBJ: {value}")

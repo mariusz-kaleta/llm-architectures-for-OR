@@ -1,0 +1,231 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximize the total number of gifts delivered by choosing how many seasonal and full-time volunteers to use, subject to point and composition limits.
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP)  
+(Volunteers must be counted in whole numbers; otherwise the structure is linear.)
+
+3. Main decision variables  
+Define integer, nonnegative variables:
+
+- S = number of seasonal volunteers hired  
+- F = number of full-time volunteers hired  
+
+4. Objective function (informal description)  
+- Maximize total gifts delivered:  
+  Total gifts = 5·S (from seasonal) + 8·F (from full-time)
+
+5. Key constraints to consider  
+
+a) Points budget constraint  
+- Each seasonal volunteer uses 2 points.  
+- Each full-time volunteer uses 5 points.  
+- The total available points is 200.  
+  → Total points used = 2·S + 5·F ≤ 200  
+
+b) Composition cap on seasonal volunteers (maximum 30%)  
+- At most 30% of all volunteers may be seasonal.  
+- Seasonal fraction = S / (S + F).  
+- Constraint: S / (S + F) ≤ 0.30, with S + F > 0.  
+- This is nonlinear as written; to keep it linear, rearrange:  
+  S ≤ 0.30·(S + F)  
+  ⇒ 0.70·S ≤ 0.30·F  
+  ⇒ 7·S ≤ 3·F (after clearing decimals)  
+- Use 7·S ≤ 3·F as the linear form.
+
+c) Minimum number of full-time volunteers  
+- At least 10 must be full-time:  
+  F ≥ 10  
+
+d) Nonnegativity and integrality  
+- S ≥ 0, F ≥ 0  
+- S and F are integers.
+
+6. Modelling strategy notes  
+
+- Treat this as a small ILP; a solver can easily handle the integer restriction directly.  
+- If a linear programming relaxation is used first, enforce integrality later or round and check feasibility, since the number of volunteers must be whole.  
+- No upper bound on number of volunteers is explicitly given besides the point budget and composition constraints, so these implicitly limit S and F.  
+
+7. Output / solution interpretation  
+
+- After solving, report:  
+  - Optimal S* (integer) = number of seasonal volunteers  
+  - Optimal F* (integer) = number of full-time volunteers  
+  - Corresponding maximum gifts = 5·S* + 8·F*  
+- Optionally also report:  
+  - Total points used = 2·S* + 5·F*  
+  - Share of seasonal volunteers = S*/(S* + F*) to confirm it is ≤ 30%.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, plus notes on how to implement and solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(S \in \mathbb{Z}_{\ge 0}\): number of seasonal volunteers  
+- \(F \in \mathbb{Z}_{\ge 0}\): number of full-time volunteers  
+
+Both must be integers and nonnegative.
+
+---
+
+## 2. Objective function
+
+Each seasonal volunteer delivers 5 gifts, each full-time volunteer delivers 8 gifts.
+
+Maximize total gifts delivered:
+
+\[
+\max\; Z = 5S + 8F
+\]
+
+---
+
+## 3. Constraints
+
+1. **Points budget (max 200 points)**  
+   Each seasonal volunteer uses 2 points; each full-time volunteer uses 5 points:
+
+   \[
+   2S + 5F \le 200
+   \]
+
+2. **Seasonal volunteers capped at 30% of all volunteers**
+
+   At most 30% of volunteers can be seasonal:
+
+   \[
+   \frac{S}{S+F} \le 0.30, \quad \text{with } S+F > 0
+   \]
+
+   To make this linear:
+
+   \[
+   S \le 0.30(S+F)
+   \]
+   \[
+   S \le 0.30S + 0.30F
+   \]
+   \[
+   0.70S \le 0.30F
+   \]
+   \[
+   7S \le 3F
+   \]
+
+   So we use:
+
+   \[
+   7S \le 3F
+   \]
+
+3. **Minimum full-time volunteers**
+
+   At least 10 full-time volunteers:
+
+   \[
+   F \ge 10
+   \]
+
+4. **Nonnegativity and integrality**
+
+   \[
+   S \ge 0,\quad F \ge 0,\quad S, F \in \mathbb{Z}
+   \]
+
+---
+
+## 4. Complete ILP model
+
+\[
+\begin{aligned}
+\text{Maximize}\quad & Z = 5S + 8F \\
+\text{subject to}\quad 
+& 2S + 5F \le 200 \\
+& 7S \le 3F \\
+& F \ge 10 \\
+& S \ge 0,\; F \ge 0 \\
+& S, F \in \mathbb{Z}.
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+For this small Integer Linear Program, any standard MILP/LP library is fine:
+
+- **PuLP** (pure Python, easy to use; works with CBC by default)
+- **OR-Tools** (Google’s optimization suite; `pywraplp` for MILP)
+- **Pyomo** (more general modeling language; can call various solvers)
+- **scipy.optimize** is *not* ideal here because it does not natively handle integer variables; MILP-specific libraries are preferable.
+
+A concise PuLP-style implementation outline:
+
+```python
+import pulp as pl
+
+# Create model
+model = pl.LpProblem("Gift_Delivery", pl.LpMaximize)
+
+# Decision variables
+S = pl.LpVariable("Seasonal", lowBound=0, cat="Integer")
+F = pl.LpVariable("FullTime", lowBound=10, cat="Integer")  # enforce F >= 10 directly
+
+# Objective
+model += 5*S + 8*F
+
+# Constraints
+model += 2*S + 5*F <= 200          # points budget
+model += 7*S <= 3*F                # seasonal <= 30% of total
+
+# Solve
+model.solve()
+
+# Extract solution
+S_opt = pl.value(S)
+F_opt = pl.value(F)
+gifts_opt = 5*S_opt + 8*F_opt
+```
+
+This model directly corresponds to the formal formulation above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create model
+    model = pl.LpProblem("Gift_Delivery", pl.LpMaximize)
+
+    # Decision variables
+    S = pl.LpVariable("Seasonal", lowBound=0, cat="Integer")
+    F = pl.LpVariable("FullTime", lowBound=10, cat="Integer")  # F >= 10
+
+    # Objective: maximize gifts delivered
+    model += 5 * S + 8 * F
+
+    # Constraints
+    model += 2 * S + 5 * F <= 200        # Points budget
+    model += 7 * S <= 3 * F             # Seasonal cap 30%
+
+    # Solve
+    model.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract optimal objective value
+    S_opt = pl.value(S)
+    F_opt = pl.value(F)
+    final_obj = 5 * S_opt + 8 * F_opt
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

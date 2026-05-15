@@ -1,0 +1,147 @@
+[MODELER]:
+Let’s turn this into an optimization model.
+
+### 1. Decision variables
+
+Let  
+- \(T\) = number of throat swabs  
+- \(N\) = number of nasal swabs  
+
+Both are nonnegative integers:
+\[
+T \ge 0,\quad N \ge 0,\quad T, N \in \mathbb{Z}
+\]
+
+### 2. Objective function
+
+Each patient gets exactly one swab (either throat or nasal), so the total number of patients is:
+\[
+\text{Patients} = T + N
+\]
+
+We want to **maximize** the number of patients seen:
+\[
+\max \; Z = T + N
+\]
+
+### 3. Constraints
+
+1. **Time constraint**:  
+   - Throat swab: 5 minutes each  
+   - Nasal swab: 3 minutes each  
+   Total time available: 20000 minutes  
+   \[
+   5T + 3N \le 20000
+   \]
+
+2. **Minimum nasal swabs**:  
+   At least 30 nasal swabs:
+   \[
+   N \ge 30
+   \]
+
+3. **Relative discomfort constraint**:  
+   At least 4 times as many throat swabs as nasal swabs:
+   \[
+   T \ge 4N
+   \]
+
+### 4. Solve the model analytically
+
+Use \(T = 4N\) at optimum (because making \(T\) smaller relative to \(N\) would reduce the objective given the time constraint while still obeying \(T \ge 4N\)).
+
+Plug into time constraint:
+\[
+5T + 3N \le 20000
+\]
+\[
+5(4N) + 3N \le 20000 \Rightarrow 20N + 3N \le 20000 \Rightarrow 23N \le 20000
+\]
+\[
+N \le \frac{20000}{23} \approx 869.565
+\]
+
+Since \(N\) must be integer and \(N \ge 30\), the largest feasible value is:
+\[
+N = 869
+\]
+Then:
+\[
+T = 4N = 4 \times 869 = 3476
+\]
+
+Check time:
+\[
+5T + 3N = 5(3476) + 3(869) = 17380 + 2607 = 19987 \le 20000
+\]
+
+Total patients:
+\[
+T + N = 3476 + 869 = 4345
+\]
+
+Trying \(N = 870\) would exceed time:
+\[
+5(4 \cdot 870) + 3(870) = 5(3480) + 2610 = 17400 + 2610 = 20010 > 20000
+\]
+so it’s infeasible.
+
+### 5. Final answer
+
+- Throat swabs: \(T = 3476\)  
+- Nasal swabs: \(N = 869\)  
+- Maximum patients: \(3476 + 869 = 4345\)
+
+### 6. Suitable Python libraries
+
+This is a small integer linear program. Any linear/integer solver will handle it easily:
+
+- `PuLP` (very simple for LP/ILP modeling in Python)
+- `ortools.linear_solver` from Google OR-Tools (powerful, supports MIP)
+- `scipy.optimize.linprog` (for LP; here you’d relax integrality or round, but integrality is trivial in this case)
+
+For exact integer modeling and educational purposes, `PuLP` or OR-Tools are ideal.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: maximize T + N
+    prob = pulp.LpProblem("Swab_Allocation", pulp.LpMaximize)
+
+    # Decision variables: T, N >= 0, integer
+    T = pulp.LpVariable('T', lowBound=0, cat=pulp.LpInteger)
+    N = pulp.LpVariable('N', lowBound=0, cat=pulp.LpInteger)
+
+    # Objective: maximize T + N
+    prob += T + N, "Total_Patients"
+
+    # Constraints
+    # Time: 5T + 3N <= 20000
+    prob += 5 * T + 3 * N <= 20000, "Time_Constraint"
+
+    # Minimum nasal swabs: N >= 30
+    prob += N >= 30, "Min_Nasal"
+
+    # Relative discomfort: T >= 4N
+    prob += T >= 4 * N, "Throat_at_least_4_times_Nasal"
+
+    # Solve
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    T_opt = int(pulp.value(T))
+    N_opt = int(pulp.value(N))
+    obj_val = int(pulp.value(prob.objective))
+
+    # Print results (the problem only requires final objective in strict format)
+    # But intermediate prints are allowed; they won't affect the required final line.
+    print(f"Optimal T (throat swabs): {T_opt}")
+    print(f"Optimal N (nasal swabs): {N_opt}")
+    print(f"Maximum patients: {obj_val}")
+
+    print(f"FINAL_OBJ: {obj_val}")
+
+if __name__ == "__main__":
+    main()

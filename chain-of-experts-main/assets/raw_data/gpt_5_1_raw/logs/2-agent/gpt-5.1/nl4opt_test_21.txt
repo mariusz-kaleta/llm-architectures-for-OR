@@ -1,0 +1,132 @@
+[MODELER]:
+Formulate this as a linear programming (LP) problem.
+
+## 1. Decision variables
+
+Let  
+- \(x \ge 0\): number of batches of bagels to bake per day  
+- \(y \ge 0\): number of batches of croissants to bake per day  
+
+## 2. Objective function
+
+Profit per batch:  
+- Bagels: \$20 per batch  
+- Croissants: \$40 per batch  
+
+Maximize total daily profit:
+\[
+\max \; Z = 20x + 40y
+\]
+
+## 3. Constraints
+
+### Oven time constraint
+- Each batch of bagels uses 2 hours of oven time.
+- Each batch of croissants uses 1 hour of oven time.
+- At most 70 hours of oven time available per day.
+
+\[
+2x + y \le 70
+\]
+
+### Pastry chef time constraint
+- Each batch of bagels uses 0.25 hours of pastry chef time.
+- Each batch of croissants uses 2 hours of pastry chef time.
+- At most 32 hours of pastry chef time available per day.
+
+\[
+0.25x + 2y \le 32
+\]
+
+### Non-negativity constraints
+
+\[
+x \ge 0, \quad y \ge 0
+\]
+
+This fully defines the LP:
+
+\[
+\begin{aligned}
+\max\quad & Z = 20x + 40y \\
+\text{s.t.}\quad
+& 2x + y \le 70 \\
+& 0.25x + 2y \le 32 \\
+& x \ge 0,\ y \ge 0
+\end{aligned}
+\]
+
+To honor “using all the available capacity” in interpretation: at the optimal solution, at least one of the two resource constraints will be binding (used up). The LP solver will determine which.
+
+## 4. Suitable Python libraries
+
+You can solve this LP using any of the following:
+
+- `PuLP` (very simple for LPs; open source)
+- `scipy.optimize.linprog` (part of SciPy, good for continuous LPs)
+- `ortools.linear_solver` from Google OR-Tools (powerful; works with several solvers)
+
+### Example model in PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Bakery_Profit_Maximization", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('bagel_batches', lowBound=0)       # x
+y = pl.LpVariable('croissant_batches', lowBound=0)   # y
+
+# Objective
+prob += 20 * x + 40 * y
+
+# Constraints
+prob += 2 * x + 1 * y <= 70        # Oven time
+prob += 0.25 * x + 2 * y <= 32     # Pastry chef time
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal bagel batches (x):", x.varValue)
+print("Optimal croissant batches (y):", y.varValue)
+print("Maximum profit:", pl.value(prob.objective))
+```
+
+This will compute the maximum profit and the optimal numbers of bagel and croissant batches.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the LP problem: maximize profit
+    prob = pl.LpProblem("Bakery_Profit_Maximization", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('bagel_batches', lowBound=0)       # x ≥ 0
+    y = pl.LpVariable('croissant_batches', lowBound=0)   # y ≥ 0
+
+    # Objective function: Maximize Z = 20x + 40y
+    prob += 20 * x + 40 * y
+
+    # Constraints
+    # Oven time: 2x + y ≤ 70
+    prob += 2 * x + 1 * y <= 70
+
+    # Pastry chef time: 0.25x + 2y ≤ 32
+    prob += 0.25 * x + 2 * y <= 32
+
+    # Solve the LP
+    prob.solve()
+
+    # Get the optimal objective value
+    optimal_value = pl.value(prob.objective)
+
+    # Print the final objective value in the required format
+    print(f"FINAL_OBJ: {optimal_value}")
+
+if __name__ == "__main__":
+    main()

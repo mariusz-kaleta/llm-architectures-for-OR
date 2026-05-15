@@ -1,0 +1,111 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x = number of palladium‑heavy catalyst units produced (≥ 0).
+- y = number of platinum‑heavy catalyst units produced (≥ 0).
+
+(If catalysts must be whole units, add integrality x,y ∈ Z≥0. Otherwise treat as continuous.)
+
+Parameters
+- platinum available: 450 units.
+- palladium available: 390 units.
+- palladium‑heavy uses 15 units Pt and 25 units Pd, converts at 5 units/s.
+- platinum‑heavy uses 20 units Pt and 14 units Pd, converts at 4 units/s.
+
+Constraints
+- Platinum constraint: 15x + 20y ≤ 450.
+- Palladium constraint: 25x + 14y ≤ 390.
+- Nonnegativity: x ≥ 0, y ≥ 0.
+- (Optional integrality: x, y integers.)
+
+Objective
+- Maximize conversion rate: maximize Z = 5x + 4y (units of CO2 converted per second).
+
+Analytic solution (continuous LP)
+Solve the LP by checking corner points. The intersection of the two resource constraints solves
+3x + 4y = 90 (from dividing platinum constraint by 5) and 25x + 14y = 390.
+Solving gives x = 150/29 ≈ 5.1724 and y = 540/29 ≈ 18.6207, with objective Z = 2910/29 ≈ 100.345 units/s.
+Thus the continuous optimum is x ≈ 5.172, y ≈ 18.621 (use fractional catalysts only if allowed).
+
+Integer (practical) solution
+If catalysts must be whole units, solving the integer program (or checking nearby integer points) gives the best feasible integer solution x = 6, y = 17 with objective Z = 5·6 + 4·17 = 98 units/s.
+
+Recommended libraries and solvers
+- pulp (Python) — easy modeling; default CBC solver for LP/MIP.
+- OR-Tools (Google) — fast MIP solver.
+- scipy.optimize.linprog — for continuous LPs (simplex/HiGHS).
+- cvxpy — higher-level convex modeling (continuous).
+Use pulp or OR-Tools if you need integer solutions.
+
+Example (outline) using pulp
+- Continuous LP: define variables as LpVariable(..., lowBound=0, cat='Continuous') and maximize 5*x + 4*y subject to the two resource constraints.
+- Integer MIP: define variables with cat='Integer' and solve; the solver will return x=6, y=17.
+
+If you want, I can provide working Python code (pulp or OR-Tools) to solve both the continuous and integer versions.
+
+---
+
+[CODER]:
+```python
+import math
+from scipy.optimize import linprog
+
+# Data
+pt_available = 450.0  # platinum units
+pd_available = 390.0  # palladium units
+
+# Resource coefficients
+# For x (palladium-heavy): Pt 15, Pd 25, value 5
+# For y (platinum-heavy): Pt 20, Pd 14, value 4
+A_ub = [
+    [15.0, 20.0],  # platinum constraint: 15x + 20y <= 450
+    [25.0, 14.0],  # palladium constraint: 25x + 14y <= 390
+]
+b_ub = [pt_available, pd_available]
+
+# Continuous LP (maximize 5x + 4y) using scipy.optimize.linprog (which minimizes)
+c = [-5.0, -4.0]  # minimize -5x -4y => maximize 5x + 4y
+bounds = [(0, None), (0, None)]
+
+res = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method="highs")
+
+if not res.success:
+    raise RuntimeError("Continuous LP solver failed: " + (res.message if hasattr(res, "message") else str(res)))
+
+x_cont, y_cont = res.x
+z_cont = 5.0 * x_cont + 4.0 * y_cont
+
+print(f"Continuous solution: x = {x_cont:.6f}, y = {y_cont:.6f}, Z = {z_cont:.6f}")
+
+# Integer solution (brute-force search over reasonable bounds)
+# Determine safe upper bounds for search
+x_max_by_pt = int(math.floor(pt_available / 15.0))
+x_max_by_pd = int(math.floor(pd_available / 25.0))
+x_max = max(x_max_by_pt, x_max_by_pd, 0)  # safe upper bound for x
+
+y_max_by_pt = int(math.floor(pt_available / 20.0))
+y_max_by_pd = int(math.floor(pd_available / 14.0))
+y_max = max(y_max_by_pt, y_max_by_pd, 0)  # safe upper bound for y
+
+best_obj_int = -math.inf
+best_x_int = None
+best_y_int = None
+
+for xi in range(0, x_max + 1):
+    for yi in range(0, y_max + 1):
+        if 15 * xi + 20 * yi <= pt_available and 25 * xi + 14 * yi <= pd_available:
+            obj = 5 * xi + 4 * yi
+            if obj > best_obj_int:
+                best_obj_int = obj
+                best_x_int = xi
+                best_y_int = yi
+
+if best_x_int is None:
+    raise RuntimeError("No feasible integer solution found.")
+
+print(f"Integer solution: x = {best_x_int}, y = {best_y_int}, Z = {best_obj_int}")
+
+# Final required print line (must be the very last line)
+print(f"FINAL_OBJ: {best_obj_int}")
+```

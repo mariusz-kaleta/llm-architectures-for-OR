@@ -1,0 +1,178 @@
+[MODELER]:
+Define decision variables:
+
+- \(x\): number of desks to produce  
+- \(y\): number of drawers to produce  
+
+Both must be nonnegative:
+- \(x \ge 0\)
+- \(y \ge 0\)
+
+### Objective
+
+Maximize total profit:
+
+\[
+\max Z = 100x + 90y
+\]
+
+### Constraints
+
+1. **Assembly time constraint**  
+   - Each desk: 40 minutes  
+   - Each drawer: 30 minutes  
+   - Total assembly time available: 4000 minutes  
+
+   \[
+   40x + 30y \le 4000
+   \]
+
+2. **Sanding time constraint**  
+   - Each desk: 20 minutes  
+   - Each drawer: 10 minutes  
+   - Total sanding time available: 3500 minutes  
+
+   \[
+   20x + 10y \le 3500
+   \]
+
+3. **Nonnegativity**  
+
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+
+### Solve analytically
+
+Simplify the constraints:
+
+1. Assembly:
+   \[
+   40x + 30y \le 4000 \;\Rightarrow\; 4x + 3y \le 400
+   \]
+
+2. Sanding:
+   \[
+   20x + 10y \le 3500 \;\Rightarrow\; 2x + y \le 350
+   \]
+
+The feasible region is defined by:
+- \(4x + 3y \le 400\)
+- \(2x + y \le 350\)
+- \(x \ge 0\), \(y \ge 0\)
+
+Check corner points:
+
+1. \((0,0)\): \(Z = 0\)
+
+2. Intersections with axes:
+
+   - When \(x = 0\):  
+     From \(4(0) + 3y \le 400 \Rightarrow y \le \frac{400}{3} \approx 133.33\)  
+     From \(2(0) + y \le 350 \Rightarrow y \le 350\)  
+     So the binding constraint is assembly: \(y = \frac{400}{3}\).  
+     Profit there:  
+     \[
+     Z = 100(0) + 90\left(\frac{400}{3}\right) = 90 \cdot \frac{400}{3} = 12000
+     \]
+
+   - When \(y = 0\):  
+     From \(4x + 3(0) \le 400 \Rightarrow x \le 100\)  
+     From \(2x + 0 \le 350 \Rightarrow x \le 175\)  
+     So the binding constraint is assembly: \(x = 100\).  
+     Profit there:  
+     \[
+     Z = 100(100) + 90(0) = 10000
+     \]
+
+3. Intersection of the two resource constraints:
+
+   Solve:
+   \[
+   \begin{cases}
+   4x + 3y = 400 \\
+   2x + y = 350
+   \end{cases}
+   \]
+
+   From the second: \(y = 350 - 2x\). Substitute into the first:
+
+   \[
+   4x + 3(350 - 2x) = 400 \\
+   4x + 1050 - 6x = 400 \\
+   -2x = -650 \Rightarrow x = 325
+   \]
+
+   Then \(y = 350 - 2(325) = 350 - 650 = -300\), which is infeasible (\(y < 0\)).  
+   So the intersection is outside the nonnegative region, and thus not a feasible corner.
+
+So the feasible corners are:
+- \((0,0)\) with \(Z = 0\)
+- \((100,0)\) with \(Z = 10000\)
+- \((0,400/3)\) with \(Z = 12000\)
+
+Highest profit: \(Z = 12000\) at \((x, y) = \left(0, \frac{400}{3}\right)\).
+
+If we require integer numbers of products, the best integer point near \(y=133.33\) is typically \(y=133\) or \(y=134\):
+
+- For \((x,y)=(0,133)\):  
+  - Assembly: \(40(0) + 30(133) = 3990 \le 4000\)  
+  - Sanding: \(20(0) + 10(133) = 1330 \le 3500\)  
+  - Profit: \(Z = 90 \cdot 133 = 11970\)
+
+- For \((x,y)=(0,134)\):  
+  - Assembly: \(30(134) = 4020 > 4000\) → infeasible.
+
+So with integrality, optimal is \(x=0, y=133\).
+
+### Final answer
+
+- Continuous model (allowing fractional products):  
+  - Desks: \(x = 0\)  
+  - Drawers: \(y = \frac{400}{3} \approx 133.33\)  
+  - Maximum profit: \(Z = \$12{,}000\)
+
+- Integer model (whole units only):  
+  - Desks: \(x = 0\)  
+  - Drawers: \(y = 133\)  
+  - Profit: \(Z = \$11{,}970\)
+
+### Suitable Python libraries
+
+To model and solve this as a linear (or integer) program you can use:
+
+- `PuLP` (simple LP/MILP modeling in pure Python)
+- `ortools.linear_solver` (Google OR-Tools; very good for LP/MIP)
+- `Pyomo` (more general algebraic modeling)
+- `scipy.optimize.linprog` (for continuous LP, not integer by default)
+
+---
+
+[CODER]:
+import pulp
+
+# Create the problem instance (maximize profit)
+model = pulp.LpProblem("Desk_Drawer_Production", pulp.LpMaximize)
+
+# Decision variables: number of desks (x) and drawers (y), non-negative and integer
+x = pulp.LpVariable('x', lowBound=0, cat='Integer')
+y = pulp.LpVariable('y', lowBound=0, cat='Integer')
+
+# Objective function: Maximize 100x + 90y
+model += 100 * x + 90 * y
+
+# Constraints
+# Assembly time: 40x + 30y <= 4000
+model += 40 * x + 30 * y <= 4000
+
+# Sanding time: 20x + 10y <= 3500
+model += 20 * x + 10 * y <= 3500
+
+# Solve the model
+model.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Get the objective value
+final_obj = pulp.value(model.objective)
+
+# Print final objective in required format
+print(f"FINAL_OBJ: {final_obj}")

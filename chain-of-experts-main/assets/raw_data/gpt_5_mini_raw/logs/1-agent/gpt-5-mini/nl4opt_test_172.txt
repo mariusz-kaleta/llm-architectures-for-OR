@@ -1,0 +1,38 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+hours_required = 1000
+budget = 40000
+
+staff_hours = 6     # hours per staff teacher per shift
+staff_cost = 300    # cost per staff teacher per shift
+
+sub_hours = 3       # hours per substitute teacher per shift
+sub_cost = 100      # cost per substitute teacher per shift
+
+# Decision variables: number of staff teachers (x) and substitutes (y)
+prob = pulp.LpProblem("Teacher_Hiring", pulp.LpMinimize)
+x = pulp.LpVariable('staff_teachers', lowBound=0, cat='Integer')
+y = pulp.LpVariable('substitute_teachers', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of teachers
+prob += x + y
+
+# Constraints
+prob += staff_hours * x + sub_hours * y >= hours_required, "HoursRequirement"
+prob += staff_cost * x + sub_cost * y <= budget, "BudgetConstraint"
+
+# Solve
+prob.solve()
+
+# Retrieve integer results (round to avoid floating tiny errors)
+staff_count = int(round(pulp.value(x)))
+sub_count = int(round(pulp.value(y)))
+total_teachers = staff_count + sub_count
+
+# Output results (final line must be the FINAL_OBJ line)
+print(f"Staff teachers: {staff_count}")
+print(f"Substitute teachers: {sub_count}")
+print(f"Total teachers: {total_teachers}")
+print(f"FINAL_OBJ: {total_teachers}")

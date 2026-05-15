@@ -1,0 +1,186 @@
+[MODELER]:
+Here is a clear mathematical model of the problem.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of staff teachers hired  
+- \(y\) = number of substitute teachers hired  
+
+We assume \(x, y\) are **nonnegative integers**:
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 2. Parameters
+
+- Staff teacher:
+  - Hours per shift: 6  
+  - Pay per shift: \$300  
+
+- Substitute teacher:
+  - Hours per shift: 3  
+  - Pay per shift: \$100  
+
+- Required total teaching hours: \(H = 1000\)  
+- Budget: \(B = 40000\)
+
+(We interpret “per shift” as the amount of work each hired teacher contributes over the summer, consistent with the question’s structure; otherwise the problem is under‑specified in time units. The model uses those numbers directly.)
+
+---
+
+## 3. Objective: Minimize total number of teachers
+
+We want to minimize the total number of teachers hired:
+\[
+\min \; z = x + y
+\]
+
+---
+
+## 4. Constraints
+
+### (a) Hours requirement
+
+Total teaching hours provided by staff and substitutes must be at least 1000 hours:
+
+- Each staff teacher provides 6 hours.
+- Each substitute provides 3 hours.
+
+\[
+6x + 3y \;\ge\; 1000
+\]
+
+### (b) Budget constraint
+
+Total pay must not exceed the \$40000 budget:
+
+- Each staff teacher costs \$300.
+- Each substitute costs \$100.
+
+\[
+300x + 100y \;\le\; 40000
+\]
+
+### (c) Nonnegativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 5. Complete mathematical model
+
+\[
+\begin{aligned}
+\text{Minimize} \quad & z = x + y \\
+\text{subject to} \quad 
+& 6x + 3y \ge 1000 \\
+& 300x + 100y \le 40000 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a **mixed-integer linear programming** problem (in fact, a pure integer linear program with two variables).
+
+---
+
+## 6. Suitable Python libraries
+
+You can model and solve this optimization problem with:
+
+- **PuLP**  
+  - Simple modeling syntax, uses CBC solver by default.
+  - Good for small to medium-size linear/integer programs.
+
+- **OR-Tools (Google OR-Tools)**  
+  - `pywraplp` linear solver or CP-SAT for integer programming.
+  - Very efficient for integer programming problems.
+
+- **Pyomo**  
+  - More general modeling framework, integrates with many solvers (CBC, GLPK, Gurobi, CPLEX, etc.)
+
+For this small problem, **PuLP** or **OR-Tools** are more than sufficient.
+
+---
+
+## 7. Example: PuLP formulation (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Teacher_Staffing", pl.LpMinimize)
+
+# Variables
+x = pl.LpVariable('staff_teachers', lowBound=0, cat='Integer')
+y = pl.LpVariable('sub_teachers', lowBound=0, cat='Integer')
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 6*x + 3*y >= 1000          # hours requirement
+prob += 300*x + 100*y <= 40000     # budget
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Staff teachers (x):", pl.value(x))
+print("Substitute teachers (y):", pl.value(y))
+print("Total teachers:", pl.value(x + y))
+```
+
+This will find the combination of staff and substitute teachers that satisfies hours and budget constraints while minimizing the total number of teachers.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Parameters
+    H = 1000   # required hours
+    B = 40000  # budget
+    staff_hours = 6
+    sub_hours = 3
+    staff_cost = 300
+    sub_cost = 100
+
+    # Problem definition
+    prob = pl.LpProblem("Teacher_Staffing", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('staff_teachers', lowBound=0, cat='Integer')
+    y = pl.LpVariable('sub_teachers', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of teachers
+    prob += x + y
+
+    # Constraints
+    prob += staff_hours * x + sub_hours * y >= H          # hours requirement
+    prob += staff_cost * x + sub_cost * y <= B            # budget constraint
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(x + y)
+
+    # Optionally compute and print solution details (not required by spec)
+    # print("Status:", pl.LpStatus[prob.status])
+    # print("Staff teachers (x):", pl.value(x))
+    # print("Substitute teachers (y):", pl.value(y))
+    # print("Total teachers:", final_obj)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

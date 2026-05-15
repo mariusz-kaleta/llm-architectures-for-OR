@@ -1,0 +1,104 @@
+[MODELER]:
+Model
+
+Decision variables
+- m = number of mangos sold (units, m >= 0)
+- g = number of guavas sold (units, g >= 0)
+(Optionally impose integrality: m,g integers.)
+
+Objective
+- Maximize total monthly profit: maximize P = 3m + 4g.
+
+Constraints
+1. Budget: 5m + 3g <= 20000
+2. Mango sales bounds: 100 <= m <= 150
+3. Guava relative bound: g <= m/3
+4. Nonnegativity: g >= 0
+
+Mathematical formulation
+Maximize: P = 3m + 4g
+subject to:
+5m + 3g <= 20000
+100 <= m <= 150
+g <= m/3
+g >= 0
+
+Solution (analysis)
+- For m in [100,150], the budget constraint is loose: at m = 150 the budget allows g <= (20000 - 5·150)/3 = 6416.67, which is much larger than the relative cap m/3 = 50. Thus for all feasible m in [100,150] the effective upper bound for g is g <= m/3.
+- Given g <= m/3, profit becomes P = 3m + 4(m/3) = (13/3) m, which increases with m. So maximize m by taking m = 150.
+- Then g = m/3 = 50.
+
+Optimal solution
+- Mangos m* = 150
+- Guavas g* = 50
+- Maximum profit P* = 3·150 + 4·50 = 450 + 200 = 650
+
+Suggested Python solvers
+- pulp (easy-to-use LP/MIP)
+- scipy.optimize.linprog (continuous LP)
+- ortools.linear_solver (Google OR-Tools; good for MIP)
+- cvxpy (convex optimization modeling)
+
+Example (pulp)
+from pulp import LpProblem, LpMaximize, LpVariable, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("food_truck", LpMaximize)
+m = LpVariable('m', lowBound=100, upBound=150, cat='Integer')   # or cat='Continuous'
+g = LpVariable('g', lowBound=0, cat='Integer')
+prob += 3*m + 4*g
+prob += 5*m + 3*g <= 20000
+prob += g <= m/3
+prob.solve(PULP_CBC_CMD(msg=False))
+print(m.value(), g.value(), "profit", 3*m.value() + 4*g.value())
+
+This will return m=150, g=50, profit=650.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+# Complete, self-contained Python script to solve the LP described.
+# Decision variables: m (mangos), g (guavas)
+# Maximize P = 3m + 4g
+# Constraints:
+# 5m + 3g <= 20000
+# 100 <= m <= 150
+# g <= m/3
+# g >= 0
+
+# Compute solution analytically/robustly.
+
+# Bounds
+m_min = 100.0
+m_max = 150.0
+
+# Helper: for a given m, feasible upper bound for g
+def g_upper(m):
+    return max(0.0, min(m/3.0, (20000.0 - 5.0*m)/3.0))
+
+# Because the upper bound for g is the minimum of two linear functions,
+# the objective P(m) = 3m + 4*g_upper(m) is piecewise-linear.
+# We evaluate at critical points: m_min, m_max, and any kink where the two bounds are equal.
+# Solve m/3 = (20000 - 5m)/3  =>  m = 20000 - 5m  => 6m = 20000 => m = 3333.333..., outside [100,150].
+# So no kink inside the interval; maximum will be at an endpoint. Evaluate both endpoints.
+
+def objective(m):
+    g = g_upper(m)
+    return 3.0*m + 4.0*g
+
+# Evaluate endpoints
+P_at_min = objective(m_min)
+P_at_max = objective(m_max)
+
+if P_at_max >= P_at_min:
+    m_star = m_max
+    g_star = g_upper(m_star)
+    P_star = P_at_max
+else:
+    m_star = m_min
+    g_star = g_upper(m_star)
+    P_star = P_at_min
+
+# For clarity, round g_star to exact rational when it is m/3
+# Here g_star should be 50.0
+# Print final objective in required format
+print(f"FINAL_OBJ: {int(round(P_star))}")

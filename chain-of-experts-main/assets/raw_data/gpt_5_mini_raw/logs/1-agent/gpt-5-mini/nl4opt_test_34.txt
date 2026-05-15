@@ -1,0 +1,46 @@
+[MONOLITH]:
+import math
+
+# Brute-force integer search for optimal number of carts and trolleys
+best_workers = None
+best_C = None
+best_T = None
+
+# Trolleys must be at least 12
+T_min = 12
+T_max = 200  # generous upper bound; objective will increase before this
+
+for T in range(T_min, T_max + 1):
+    # Constraint: C >= ceil(2.1 * T) -> avoid floating by using integers: ceil(21*T/10)
+    C_needed1 = (21 * T + 9) // 10  # ceil(21*T/10)
+    # Capacity constraint: 5*C + 7*T >= 100 -> C >= ceil((100 - 7*T)/5) if positive else 0
+    rem = 100 - 7 * T
+    if rem <= 0:
+        C_needed2 = 0
+    else:
+        C_needed2 = (rem + 4) // 5  # ceil(rem/5)
+    C = max(C_needed1, C_needed2)
+    # Ensure non-negative
+    if C < 0:
+        C = 0
+    # Check constraints explicitly (safety)
+    if 5 * C + 7 * T < 100:
+        continue
+    if 7 * T > 0.4 * (5 * C + 7 * T) + 1e-9:
+        continue
+    # Objective: minimize total workers = 2*C + 4*T
+    workers = 2 * C + 4 * T
+    if best_workers is None or workers < best_workers:
+        best_workers = workers
+        best_C = C
+        best_T = T
+
+if best_workers is None:
+    print("No feasible solution found.")
+else:
+    print(f"Optimal carts: {best_C}")
+    print(f"Optimal trolleys: {best_T}")
+    print(f"Minimum workers: {best_workers}")
+
+# Final required output line (must be last)
+print(f"FINAL_OBJ: {best_workers}")

@@ -1,0 +1,80 @@
+[MODELER]:
+Summary (optimal production)
+- Make 20 color printers and 15 black-and-white printers.
+- Maximum daily profit = $200*20 + $70*15 = $5,050.
+
+Mathematical model
+- Decision variables:
+  - x = number of color printers produced per day (units, x ≥ 0; integer if required)
+  - y = number of black-and-white printers produced per day (units, y ≥ 0; integer if required)
+
+- Objective (maximize profit):
+  maximize Z = 200 x + 70 y
+
+- Constraints:
+  1. Color team capacity: x ≤ 20
+  2. B/W team capacity: y ≤ 30
+  3. Shared tray machine capacity: x + y ≤ 35
+  4. Nonnegativity: x ≥ 0, y ≥ 0
+  (Optionally add integrality: x, y integer)
+
+Reasoning / solution outline
+- Because color printers give higher profit per unit ($200 > $70) you should produce as many color printers as possible subject to constraints. The color team limits x to 20. With x = 20 the shared machine allows at most y = 35 − 20 = 15. That y = 15 is within the B/W team limit (30), so the feasible point (x,y) = (20,15) satisfies all constraints and yields the maximum profit of $5,050. Checking corner points confirms this is optimal.
+
+Suggested Python libraries to solve
+- pulp (easy modeling, uses CBC by default)
+- OR-Tools (MPSolver) for LP/MIP
+- scipy.optimize.linprog (LP; objective is minimization so negate coefficients)
+- CVXPY (convex optimization; can enforce integer with external solvers)
+All can solve this small LP quickly; if integer variables are required, use pulp or OR-Tools with an MILP solver.
+
+Example (pulp)
+```
+import pulp
+
+x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # color
+y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # b/w
+
+prob = pulp.LpProblem('PrinterProfit', pulp.LpMaximize)
+prob += 200*x + 70*y
+prob += x <= 20
+prob += y <= 30
+prob += x + y <= 35
+
+prob.solve()
+print(x.value(), y.value(), pulp.value(prob.objective))
+```
+This returns x=20, y=15, objective=5050.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+# Simple exhaustive search over feasible integer solutions
+# Problem data
+profit_color = 200  # profit per color printer (x)
+profit_bw = 70      # profit per black-and-white printer (y)
+
+# Capacity constraints
+max_x = 20   # color team capacity
+max_y = 30   # b/w team capacity
+shared_max = 35  # shared tray machine capacity
+
+# Search over all integer feasible (x,y)
+best_obj = None
+best_x = None
+best_y = None
+
+for x in range(0, max_x + 1):
+    for y in range(0, max_y + 1):
+        if x + y <= shared_max:
+            obj = profit_color * x + profit_bw * y
+            if (best_obj is None) or (obj > best_obj):
+                best_obj = obj
+                best_x = x
+                best_y = y
+
+# Optionally print the optimal production plan (not required by final line)
+print(f"Optimal production: color printers x = {best_x}, b/w printers y = {best_y}")
+
+# Final required output line (must be exactly this format)
+print(f"FINAL_OBJ: {best_obj}")

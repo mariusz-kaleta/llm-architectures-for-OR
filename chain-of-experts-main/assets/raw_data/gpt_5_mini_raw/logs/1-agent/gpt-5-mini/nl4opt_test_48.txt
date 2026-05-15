@@ -1,0 +1,64 @@
+[MONOLITH]:
+import itertools
+
+# Parameters (initialized directly from the problem statement)
+cap_motorcycle = 30      # people per motorcycle
+cap_sedan = 70           # people per sedan
+pollution_motorcycle = 4
+pollution_sedan = 15
+revenue_motorcycle = 100
+revenue_sedan = 225
+
+# Constraints
+max_motorcycle_fraction = 0.25  # at most 25% of vehicles can be motorcycles
+pollution_limit_strict = 200    # "less than 200 units of pollution" -> strict < 200
+
+# Demand
+required_people = 1200
+
+# We'll perform an integer (enumeration) search for the best feasible (x, y).
+# Set reasonable search bounds. Upper bounds chosen large enough for feasibility checks.
+max_vehicles = 200  # safe upper bound for search
+
+best_solution = None
+best_revenue = None
+
+for x in range(0, max_vehicles + 1):       # motorcycles
+    for y in range(0, max_vehicles + 1):   # sedans
+        total_vehicles = x + y
+        # Skip zero vehicles (can't meet demand)
+        if total_vehicles == 0:
+            continue
+
+        # Constraint: at most 25% motorcycles -> x <= 0.25*(x+y)  <=> 3x <= y
+        if not (3 * x <= y):
+            continue
+
+        # Pollution constraint: "less than 200" -> strict inequality
+        if not (pollution_motorcycle * x + pollution_sedan * y < pollution_limit_strict):
+            continue
+
+        # Capacity constraint: need to transport at least required_people
+        if not (cap_motorcycle * x + cap_sedan * y >= required_people):
+            continue
+
+        # If all constraints satisfied, compute revenue
+        revenue = revenue_motorcycle * x + revenue_sedan * y
+
+        if (best_revenue is None) or (revenue > best_revenue):
+            best_revenue = revenue
+            best_solution = (x, y)
+
+# Output results
+if best_solution is None:
+    print("No feasible solution found under the given constraints.")
+    final_obj = "Infeasible"
+else:
+    x_opt, y_opt = best_solution
+    print(f"Optimal number of motorcycles: {x_opt}")
+    print(f"Optimal number of sedans: {y_opt}")
+    print(f"Total revenue per shift: ${best_revenue}")
+    final_obj = best_revenue
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {final_obj}")

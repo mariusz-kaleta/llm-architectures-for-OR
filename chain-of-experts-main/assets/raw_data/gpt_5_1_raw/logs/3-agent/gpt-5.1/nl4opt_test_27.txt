@@ -1,0 +1,145 @@
+[MODELER]:
+Here is a formal optimization model for this problem.
+
+---
+
+### 1. Decision variables
+
+Let
+
+- \(x\) = number of low-power air conditioners to buy (integer, \(x \ge 0\))
+- \(y\) = number of high-power air conditioners to buy (integer, \(y \ge 0\))
+
+---
+
+### 2. Objective
+
+Minimize the total number of air conditioners purchased:
+
+\[
+\min \; z = x + y
+\]
+
+---
+
+### 3. Constraints
+
+1. **Cooling capacity requirement (at least 250 housing units):**
+
+   - Each low-power unit cools 12 housing units.
+   - Each high-power unit cools 17 housing units.
+
+   \[
+   12x + 17y \;\ge\; 250
+   \]
+
+2. **Electricity usage limit (at most 3400 units):**
+
+   - Each low-power unit uses 150 electricity units/day.
+   - Each high-power unit uses 250 electricity units/day.
+
+   \[
+   150x + 250y \;\le\; 3400
+   \]
+
+3. **Aesthetic limit on low-power units (at most 30% of all units):**
+
+   - Low-power models can be at most 30% of the *total* number of air conditioners.
+
+   \[
+   x \;\le\; 0.3(x + y)
+   \]
+
+   This can be rewritten in linear form:
+
+   \[
+   x \le 0.3x + 0.3y
+   \quad\Rightarrow\quad
+   0.7x \le 0.3y
+   \quad\Rightarrow\quad
+   7x \le 3y
+   \]
+
+4. **Minimum number of high-power units (at least 7):**
+
+   \[
+   y \;\ge\; 7
+   \]
+
+5. **Integrality and nonnegativity:**
+
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+---
+
+### 4. Final mathematical model
+
+\[
+\begin{aligned}
+\min\quad & x + y \\
+\text{s.t.}\quad
+& 12x + 17y \;\ge\; 250, \\
+& 150x + 250y \;\le\; 3400, \\
+& 7x \;\le\; 3y, \\
+& y \;\ge\; 7, \\
+& x, y \in \mathbb{Z}_{\ge 0}.
+\end{aligned}
+\]
+
+This is a small mixed-integer linear program (MILP) with integer variables that are in fact simple nonnegative integers (pure integer linear program).
+
+---
+
+### 5. Suitable Python libraries
+
+Any MILP-capable library will handle this problem easily:
+
+- **PuLP** (`pulp`): Very suitable for teaching and small models; easy syntax.
+- **OR-Tools** (`ortools.linear_solver` or `ortools.sat.python.cp_solver`): Fast and industrial-strength; free.
+- **Pyomo**: More general modeling framework; good for both LP/MILP and nonlinear models.
+- **SciPy** is *not* ideal here because its standard LP solvers do not handle integrality directly without extra work.
+
+A simple choice for this type of problem in Python is PuLP or OR-Tools.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: minimize total number of AC units
+    prob = pulp.LpProblem("AC_Optimization", pulp.LpMinimize)
+
+    # Decision variables: non-negative integers
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # low-power units
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # high-power units
+
+    # Objective: minimize x + y
+    prob += x + y
+
+    # Constraints
+    # 1) Cooling capacity: 12x + 17y >= 250
+    prob += 12 * x + 17 * y >= 250
+
+    # 2) Electricity usage: 150x + 250y <= 3400
+    prob += 150 * x + 250 * y <= 3400
+
+    # 3) Aesthetic limit: 7x <= 3y
+    prob += 7 * x <= 3 * y
+
+    # 4) Minimum high-power units: y >= 7
+    prob += y >= 7
+
+    # Solve the MILP
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

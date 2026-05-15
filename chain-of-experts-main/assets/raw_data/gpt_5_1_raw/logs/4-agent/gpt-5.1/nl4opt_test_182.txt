@@ -1,0 +1,241 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Minimize total fuel consumption needed to transport the required containers.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with integer (or pure integer) decision variables, since the number of trips must be whole numbers.
+
+3. Main decision variables  
+   - Let:
+     - Number of ship trips.
+     - Number of plane trips.
+
+4. Key constraints to consider  
+
+   a) Capacity / demand constraint  
+   - Each ship trip carries 40 containers; each plane trip carries 20 containers.  
+   - Total containers transported by ships and planes must be at least 500.
+
+   b) Maximum plane trips constraint  
+   - There can be at most 10 plane trips.
+
+   c) Minimum proportion of ship trips  
+   - At least 50% of all trips (ship + plane) must be ship trips.  
+   - This is a ratio constraint: ship trips ≥ 0.5 × (ship trips + plane trips).  
+   - Convert this ratio into a linear form for the LP.
+
+   d) Non-negativity and integrality  
+   - Both ship and plane trips must be non-negative integers.  
+   - Consider whether to enforce integrality directly (integer programming) or solve as LP and then check nearest integers; but the intended model is an IP.
+
+5. Objective function structure  
+   - Each ship trip uses 500 liters of fuel.  
+   - Each plane trip uses 300 liters of fuel.  
+   - Total fuel = 500 × (ship trips) + 300 × (plane trips).  
+   - Objective: Minimize this linear expression subject to the constraints above.
+
+6. Additional modelling notes for the Modeller  
+   - Ensure the “at least 50% ship trips” constraint is rearranged into a linear inequality suitable for the solver.  
+   - Check feasibility given all constraints (especially high container demand vs. trip limits/ratios).  
+   - After solving, verify that the container requirement (≥ 500) is satisfied exactly or with some surplus; surplus is allowed but may increase fuel.  
+   - If multiple optimal integer solutions exist, any one satisfying all constraints and minimizing fuel is acceptable.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, plus guidance on solving it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x \in \mathbb{Z}_{\ge 0}\): number of ship trips  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of plane trips  
+
+Both must be non-negative integers.
+
+---
+
+## 2. Objective: minimize total fuel consumption
+
+Each ship trip uses 500 liters; each plane trip uses 300 liters.
+
+\[
+\min \; Z = 500x + 300y
+\]
+
+---
+
+## 3. Constraints
+
+### (a) Capacity / demand (containers)
+
+Each ship trip: 40 containers  
+Each plane trip: 20 containers  
+At least 500 containers must be transported.
+
+\[
+40x + 20y \;\ge\; 500
+\]
+
+You can also simplify (optional):
+
+\[
+2x + y \;\ge\; 25
+\]
+
+(both forms are linear and equivalent.)
+
+---
+
+### (b) Maximum number of plane trips
+
+There are at most 10 plane trips:
+
+\[
+y \;\le\; 10
+\]
+
+---
+
+### (c) Minimum proportion of ship trips (at least 50%)
+
+“At least 50% of the trips (ship + plane) must be by ship”:
+
+\[
+\frac{x}{x + y} \;\ge\; 0.5 \quad \text{whenever } x + y > 0
+\]
+
+Multiply both sides by \(x + y\) and rearrange to make it linear:
+
+\[
+x \;\ge\; 0.5(x + y)
+\]
+
+\[
+x \;\ge\; 0.5x + 0.5y
+\]
+
+\[
+0.5x \;\ge\; 0.5y
+\]
+
+\[
+x \;\ge\; y
+\]
+
+So the linear form of the proportion constraint is:
+
+\[
+x \;\ge\; y
+\]
+
+(This automatically enforces that at least half the trips are ship trips, except in the trivial 0-trip case, which is anyway ruled out by the container-demand constraint.)
+
+---
+
+### (d) Non-negativity and integrality
+
+\[
+x \in \mathbb{Z}_{\ge 0}, \quad y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Full integer programming model
+
+\[
+\begin{aligned}
+\min \quad & 500x + 300y \\
+\text{s.t.} \quad 
+& 40x + 20y \ge 500 \\
+& y \le 10 \\
+& x \ge y \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a small mixed-integer (actually pure integer) linear program.
+
+---
+
+## 5. Suitable Python libraries
+
+To implement and solve this model in Python, suitable libraries include:
+
+- **PuLP**  
+  - Easy modeling syntax for LP/MIP.  
+  - Integrates with CBC (default), GLPK, Gurobi, CPLEX, etc.
+- **OR-Tools (Google OR-Tools)**  
+  - `ortools.linear_solver.pywraplp` or CP-SAT (`ortools.sat.python.cp_model`) for integer programs.
+- **Pyomo**  
+  - More general algebraic modeling language, supports many solvers.
+- **SciPy’s `scipy.optimize.linprog`** is not ideal here because it natively supports continuous variables only; you’d need a separate integer-handling layer. For this problem, use an MILP-capable tool like PuLP or OR-Tools.
+
+---
+
+## 6. Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Transport_Optimization", pl.LpMinimize)
+
+# Decision variables (non-negative integers)
+x = pl.LpVariable("ship_trips", lowBound=0, cat="Integer")
+y = pl.LpVariable("plane_trips", lowBound=0, cat="Integer")
+
+# Objective: minimize fuel
+prob += 500 * x + 300 * y
+
+# Constraints
+prob += 40 * x + 20 * y >= 500, "Container_demand"
+prob += y <= 10, "Max_plane_trips"
+prob += x >= y, "Min_50_percent_ship"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Ship trips =", x.value())
+print("Plane trips =", y.value())
+print("Minimum fuel =", pl.value(prob.objective))
+```
+
+This code implements exactly the formulated model and will give you the optimal numbers of ship and plane trips that minimize fuel while satisfying all constraints.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Transport_Optimization", pl.LpMinimize)
+
+    # Decision variables (non-negative integers)
+    x = pl.LpVariable("ship_trips", lowBound=0, cat="Integer")
+    y = pl.LpVariable("plane_trips", lowBound=0, cat="Integer")
+
+    # Objective: minimize total fuel consumption
+    prob += 500 * x + 300 * y
+
+    # Constraints
+    prob += 40 * x + 20 * y >= 500, "Container_demand"
+    prob += y <= 10, "Max_plane_trips"
+    prob += x >= y, "Min_50_percent_ship"
+
+    # Solve using CBC (default solver)
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

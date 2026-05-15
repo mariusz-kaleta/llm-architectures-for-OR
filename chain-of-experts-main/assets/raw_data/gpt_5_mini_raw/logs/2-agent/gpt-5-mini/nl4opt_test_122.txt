@@ -1,0 +1,91 @@
+[MODELER]:
+Variables
+- C = dollars invested in condos (>= 0)
+- D = dollars invested in detached houses (>= 0)
+
+Objective
+- Maximize total profit: maximize 0.5 C + 1.0 D
+
+Constraints
+1. Budget constraint: C + D ≤ 760000
+2. At least 20% of invested money in condos:
+   C ≥ 0.2 (C + D) 
+   This is linearized to 4C ≥ D (equivalently D ≤ 4C).
+3. At least $20,000 in detached houses: D ≥ 20000
+4. Nonnegativity: C ≥ 0, D ≥ 0
+
+Full LP (standard form)
+Maximize:
+  Z = 0.5 C + 1.0 D
+
+Subject to:
+  C + D ≤ 760000
+  −4 C + D ≤ 0      (this enforces D ≤ 4C)
+  −D ≤ −20000       (this enforces D ≥ 20000)
+  C, D ≥ 0
+
+Notes
+- If Mrs. Watson must invest the entire budget, replace C + D ≤ 760000 with C + D = 760000.
+- To avoid decimals multiply objective by 2 (or scale variables) if desired; scaling does not change the optimal solution.
+
+Suggested Python solvers/libraries
+- pulp (simple, Pythonic LP modeling + CBC solver)
+- scipy.optimize.linprog (good for straightforward LPs)
+- ortools.linear_solver (Google OR-Tools, fast solvers)
+- cvxpy (higher-level convex optimization modeling)
+
+Any of these can directly solve the LP above.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data
+budget = 760000.0
+min_D = 20000.0
+
+# Objective function
+def objective(C, D):
+    return 0.5 * C + 1.0 * D
+
+# Candidate vertices from intersections of constraints:
+candidates = []
+
+# 1) Intersection of D = 4C and C + D = budget
+C1 = budget / 5.0
+D1 = 4.0 * C1
+candidates.append((C1, D1))
+
+# 2) Intersection of D = min_D and C + D = budget
+D2 = min_D
+C2 = budget - D2
+candidates.append((C2, D2))
+
+# 3) Intersection of D = 4C and D = min_D
+D3 = min_D
+C3 = D3 / 4.0
+candidates.append((C3, D3))
+
+# Filter feasible points (respect constraints: C>=0, D>=min_D, C+D<=budget, D<=4C)
+feasible = []
+eps = 1e-8
+for C, D in candidates:
+    if C + eps >= 0 and D + eps >= 0 and (C + D) <= budget + eps and D >= min_D - eps and D <= 4.0 * C + eps:
+        feasible.append((C, D))
+
+# In case numerical issues removed all, fallback to a safe feasible point
+if not feasible:
+    feasible.append((max(min_D / 4.0, 0.0), min_D))
+
+# Evaluate objective and pick best
+best_point = None
+best_obj = -math.inf
+for C, D in feasible:
+    val = objective(C, D)
+    if val > best_obj:
+        best_obj = val
+        best_point = (C, D)
+
+# Print final objective value in required format
+print(f"FINAL_OBJ: {best_obj}")

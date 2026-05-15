@@ -1,0 +1,190 @@
+[MODELER]:
+Formulate this as an **integer linear optimization** problem: the hospital wants to minimize the total number of workers (shifts) while meeting hour, budget, and regulation constraints.
+
+---
+
+### Decision variables
+
+Let  
+- \( x \) = number of **ultrasound technician shifts**  
+- \( y \) = number of **graduate researcher shifts**
+
+Both are nonnegative integers:
+\[
+x \ge 0,\quad y \ge 0,\quad x,y \in \mathbb{Z}
+\]
+
+---
+
+### Parameters
+
+- Technician hours per shift: \(h_T = 8\)  
+- Researcher hours per shift: \(h_R = 5\)  
+- Technician cost per shift: \(c_T = 300\)  
+- Researcher cost per shift: \(c_R = 100\)  
+- Minimum required hours: \(H = 500\)  
+- Budget: \(B = 14000\)
+
+Regulation: there must be **twice as many technician shifts as researcher shifts**:
+\[
+x = 2y
+\]
+
+---
+
+### Constraints
+
+1. **Hours requirement**  
+Total hours from all shifts must be at least 500:
+\[
+8x + 5y \;\ge\; 500
+\]
+
+2. **Budget constraint**  
+Total cost of all shifts must not exceed $14,000:
+\[
+300x + 100y \;\le\; 14000
+\]
+
+3. **Regulation constraint**  
+Twice as many technician shifts as researcher shifts:
+\[
+x = 2y
+\]
+
+4. **Integrality and non-negativity**  
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+### Objective function
+
+Minimize the **total number of workers (shifts)**:
+\[
+\min \; x + y
+\]
+
+So the full model is:
+
+\[
+\begin{aligned}
+\min_{x,y} \quad & x + y \\
+\text{s.t.} \quad & 8x + 5y \ge 500 \\
+& 300x + 100y \le 14000 \\
+& x = 2y \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+### Simplified model (using the regulation \(x = 2y\))
+
+Substitute \(x = 2y\):
+
+Hours:
+\[
+8(2y) + 5y = 16y + 5y = 21y \ge 500 \;\Rightarrow\; y \ge \frac{500}{21}
+\]
+
+Budget:
+\[
+300(2y) + 100y = 600y + 100y = 700y \le 14000 \;\Rightarrow\; y \le 20
+\]
+
+Objective:
+\[
+\min (x + y) = \min (2y + y) = \min 3y
+\]
+
+Since we minimize \(3y\) subject to \(y \ge 500/21 \approx 23.81\) and \(y \le 20\), the constraints are **infeasible**: no integer (or even real) \(y\) can satisfy both bounds.
+
+**Conclusion of the model**:  
+The problem as stated has **no feasible solution**: you cannot satisfy the hour requirement, the budget limit, and the “twice as many technician shifts” regulation simultaneously.
+
+---
+
+### Suitable Python libraries
+
+To implement and check feasibility programmatically, you can use any mixed-integer linear programming (MILP) library:
+
+- **PuLP** (`pulp`) – simple, pure Python modeling interface.
+- **OR-Tools** (`ortools.linear_solver.pywraplp`) – Google’s optimization suite with MILP support.
+- **Pyomo** – more advanced algebraic modeling language, useful if the model grows complex.
+
+For this scale, PuLP or OR-Tools are ideal.
+
+---
+
+### Example with PuLP (to verify infeasibility)
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("HospitalStaffing", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('tech_shifts', lowBound=0, cat='Integer')
+y = pl.LpVariable('grad_shifts', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of workers
+prob += x + y
+
+# Constraints
+prob += 8*x + 5*y >= 500        # hours
+prob += 300*x + 100*y <= 14000  # budget
+prob += x == 2*y                # regulation
+
+# Solve
+status = prob.solve()
+print("Status:", pl.LpStatus[status])
+print("x =", x.value(), "y =", y.value())
+```
+
+This will report an **Infeasible** status, confirming the mathematical analysis.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Parameters
+    h_T = 8
+    h_R = 5
+    c_T = 300
+    c_R = 100
+    H = 500
+    B = 14000
+
+    # Define problem
+    prob = pl.LpProblem("HospitalStaffing", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('tech_shifts', lowBound=0, cat='Integer')
+    y = pl.LpVariable('grad_shifts', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of workers (shifts)
+    prob += x + y
+
+    # Constraints
+    prob += h_T * x + h_R * y >= H          # Hours requirement
+    prob += c_T * x + c_R * y <= B          # Budget constraint
+    prob += x == 2 * y                      # Regulation: twice as many technicians
+
+    # Solve
+    status = prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # If infeasible, define objective as None or a convention (e.g. large number or NaN).
+    if pl.LpStatus[status] != 'Optimal':
+        value = float('nan')
+    else:
+        value = pl.value(prob.objective)
+
+    print(f"FINAL_OBJ: {value}")
+
+if __name__ == "__main__":
+    main()

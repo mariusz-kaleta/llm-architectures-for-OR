@@ -1,0 +1,87 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x ∈ Z_{\ge 0} = number of counter-top machines
+  - y ∈ Z_{\ge 0} = number of fridge-sized machines
+
+- Objective
+  - Minimise the total number of machines: minimize z = x + y
+
+- Constraints
+  1. Production requirement: 80 x + 150 y ≥ 1000  (cones per day)
+  2. Heat limit: 50 x + 70 y ≤ 500             (heat units per day)
+  3. Integrality and nonnegativity: x, y ∈ Z_{\ge 0}
+
+This is an integer linear program (ILP):
+minimize x + y
+subject to 80x + 150y ≥ 1000
+           50x + 70y ≤ 500
+           x, y ∈ Z_{\ge 0}
+
+Solution (short reasoning)
+- From the heat constraint y ≤ floor(500/70) = 7.
+- For y = 7, production = 7·150 = 1050 ≥ 1000 and heat = 7·70 = 490 ≤ 500 → feasible with x = 0 and total machines 7.
+- All y < 7 require positive x to reach 1000 cones; checking those combinations violates the heat bound.
+Therefore the optimal integer solution is x = 0, y = 7 (buy seven fridge-sized machines, zero counter-top machines), giving the minimal total machines = 7.
+
+Recommended Python solvers/libraries
+- pulp (easy ILP modeling with CBC or other solvers)
+- OR-Tools CP-SAT (fast, robust integer solver)
+- mip (python-mip) or pyomo (with a suitable MILP solver)
+- (Note: scipy.optimize is for continuous problems and not appropriate for integer constraints.)
+
+Example (pulp) sketch
+- Define LpVariable x, y as integers ≥ 0
+- Add constraints 80*x + 150*y >= 1000 and 50*x + 70*y <= 500
+- Objective: minimize x + y
+- Solve and read x.value(), y.value()
+
+If you want, I can provide a ready-to-run pulp or OR-Tools script.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data (initialized directly)
+prod_req = 1000      # production requirement (cones per day)
+heat_limit = 500     # heat limit (heat units per day)
+
+# Coefficients
+prod_x = 80
+prod_y = 150
+heat_x = 50
+heat_y = 70
+
+# Search over feasible integer y values (bounded by heat constraint)
+y_max = heat_limit // heat_y
+
+best_solution = None  # tuple (objective, x, y)
+
+for y in range(y_max + 1):
+    # Given y, compute maximum x allowed by heat constraint
+    remaining_heat = heat_limit - heat_y * y
+    x_max = remaining_heat // heat_x
+    # Given y, compute minimum x required to meet production
+    remaining_prod = prod_req - prod_y * y
+    if remaining_prod <= 0:
+        x_min = 0
+    else:
+        x_min = math.ceil(remaining_prod / prod_x)
+    # Check feasibility
+    if x_min <= x_max and x_min >= 0:
+        obj = x_min + y
+        candidate = (obj, x_min, y)
+        if best_solution is None or candidate < best_solution:
+            best_solution = candidate
+
+if best_solution is None:
+    print("No feasible integer solution found.")
+    final_obj = None
+else:
+    final_obj, best_x, best_y = best_solution
+    print(f"Optimal integer solution: x = {best_x}, y = {best_y}, objective = {final_obj}")
+
+# Final required output line (must be the very last printed line)
+print(f"FINAL_OBJ: {final_obj}")

@@ -1,0 +1,122 @@
+[MODELER]:
+Here is a mathematical optimization model of the problem.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of trains to build (integer, \(x \ge 0\))  
+- \(y\) = number of trams to build (integer, \(y \ge 0\))
+
+## 2. Objective
+
+Minimize the total number of transportation units (trains + trams):
+
+\[
+\min \; Z = x + y
+\]
+
+## 3. Constraints
+
+1. **Capacity requirement (at least 600 people per hour)**  
+   Each train carries 120 people/hour, each tram 30 people/hour:
+
+   \[
+   120x + 30y \;\ge\; 600
+   \]
+
+2. **Trams at least twice the number of trains**
+
+   \[
+   y \;\ge\; 2x
+   \]
+
+3. **Non-negativity and integrality**
+
+   \[
+   x \in \mathbb{Z}_{\ge 0}, \quad y \in \mathbb{Z}_{\ge 0}
+   \]
+
+This is an **integer linear programming (ILP)** problem: linear objective, linear constraints, integer decision variables.
+
+---
+
+## 4. Suitable Python libraries
+
+You can solve this ILP with any standard MILP solver. In Python, convenient choices are:
+
+- **PuLP**  
+  – Easy modeling of linear and integer programs  
+  – Can use open-source solvers like CBC (bundled), GLPK, etc.
+
+- **OR-Tools (Google OR-Tools, `pywraplp`)**  
+  – Very efficient for integer/linear programming  
+  – Good for larger or more complex models
+
+- **Pyomo**  
+  – General algebraic modeling language in Python  
+  – Works with many external solvers (CBC, GLPK, CPLEX, Gurobi, etc.)
+
+For a problem of this size, **PuLP** or **OR-Tools** is perfectly sufficient and very straightforward.
+
+---
+
+## 5. Example PuLP formulation (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("TrainTramPlanning", pl.LpMinimize)
+
+# Decision variables (integers)
+x = pl.LpVariable("trains", lowBound=0, cat="Integer")
+y = pl.LpVariable("trams",  lowBound=0, cat="Integer")
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 120 * x + 30 * y >= 600      # capacity
+prob += y >= 2 * x                   # trams at least twice trains
+
+# Solve
+prob.solve()
+print("Status:", pl.LpStatus[prob.status])
+print("trains =", x.value())
+print("trams  =", y.value())
+print("total units =", x.value() + y.value())
+```
+
+This code directly encodes the mathematical model above and finds the minimum number of transportation units satisfying all constraints.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("TrainTramPlanning", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable("trains", lowBound=0, cat="Integer")
+    y = pl.LpVariable("trams", lowBound=0, cat="Integer")
+
+    # Objective function: minimize total number of units
+    prob += x + y
+
+    # Constraints
+    prob += 120 * x + 30 * y >= 600    # Capacity requirement
+    prob += y >= 2 * x                 # Trams at least twice trains
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    value = pl.value(prob.objective)
+
+    # Final required output
+    print(f"FINAL_OBJ: {value}")
+
+if __name__ == "__main__":
+    main()

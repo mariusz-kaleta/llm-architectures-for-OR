@@ -1,0 +1,117 @@
+[MODELER]:
+Let’s turn the description into an optimization model.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of salinity tests to perform  
+- \(y\) = number of pH tests to perform  
+
+Both are nonnegative and, in practice, integers:
+\[
+x \ge 0,\quad y \ge 0,\quad x,y \in \mathbb{Z}
+\]
+
+## 2. Objective function
+
+Each salinity test uses 3 probes; each pH test uses 2 probes.  
+We want to minimize the total number of probes:
+
+\[
+\min \; Z = 3x + 2y
+\]
+
+## 3. Constraints
+
+1. At least 250 pH tests:
+   \[
+   y \ge 250
+   \]
+
+2. At least 400 tests in total:
+   \[
+   x + y \ge 400
+   \]
+
+3. At most 1.5 times more pH tests than salinity tests:  
+   “at most 1.5 times more pH tests than salinity tests” means
+   \[
+   y \le 1.5x
+   \]
+   or equivalently
+   \[
+   2y \le 3x
+   \]
+
+4. Nonnegativity:
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+
+This is a linear integer optimization problem (but also solvable as a linear program, since an optimal solution will lie at a corner).
+
+## 4. Model summary
+
+**Decision variables**  
+- \(x\): number of salinity tests  
+- \(y\): number of pH tests  
+
+**Objective**  
+\[
+\min 3x + 2y
+\]
+
+**Subject to**  
+\[
+\begin{aligned}
+y &\ge 250 \\
+x + y &\ge 400 \\
+y &\le 1.5x \\
+x, y &\ge 0 \quad (\text{and integer if required})
+\end{aligned}
+\]
+
+## 5. Suitable Python libraries
+
+This is a linear program (with possible integer requirements), so the following libraries are appropriate:
+
+- `PuLP` (simple for teaching and small LP/MIP problems)
+- `ortools.linear_solver` from Google OR-Tools (very good MILP solver interface)
+- `scipy.optimize.linprog` (for the continuous LP version, without integrality)
+
+For integer solutions, prefer:
+- `PuLP` (with CBC, GLPK, or other backends)
+- `ortools` (CP-SAT or linear solver with MIP support)
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: minimize total number of probes
+    prob = pulp.LpProblem("Salinity_pH_Optimization", pulp.LpMinimize)
+
+    # Decision variables (integer, non-negative)
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # salinity tests
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # pH tests
+
+    # Objective function: minimize 3x + 2y
+    prob += 3 * x + 2 * y, "Total_Probes"
+
+    # Constraints
+    prob += y >= 250, "Min_pH_Tests"
+    prob += x + y >= 400, "Min_Total_Tests"
+    prob += y <= 1.5 * x, "pH_at_most_1_5_times_salinity"
+
+    # Solve the problem using CBC (default solver in PuLP if available)
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Retrieve the objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print the final objective value as required
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,164 @@
+[MODELER]:
+Let’s model this as a linear programming problem.
+
+### Decision variables
+Let  
+- \(x\) = number of carrots sold per month  
+- \(y\) = number of cucumbers sold per month  
+
+Both must be non‑negative:
+- \(x \ge 0\)
+- \(y \ge 0\)
+
+### Parameters
+- Cost to store owner:
+  - Carrot: \$0.30
+  - Cucumber: \$0.50  
+- Monthly budget: \$500  
+- Profit per unit:
+  - Carrot: \$0.75
+  - Cucumber: \$0.80  
+
+### Objective function (maximize profit)
+Total monthly profit:
+\[
+\text{Profit} = 0.75x + 0.80y
+\]
+We want to:
+\[
+\max \; Z = 0.75x + 0.80y
+\]
+
+### Constraints
+
+1. **Budget constraint (spending at most \$500):**
+   \[
+   0.30x + 0.50y \le 500
+   \]
+
+2. **Cucumber-to-carrot sales ratio**  
+   “Number of cucumbers sold is at most a third of the number of carrots sold”:
+   \[
+   y \le \frac{1}{3}x
+   \]
+
+3. **Carrot sales bounds**  
+   “At least 300 carrots but at most 500 carrots are sold each month”:
+   \[
+   300 \le x \le 500
+   \]
+
+4. **Non-negativity:**
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+
+This fully defines a linear programming (LP) model.
+
+---
+
+### Solving the model analytically
+
+Because the profit per carrot per dollar spent is higher than for cucumbers, the model naturally pushes cucumbers down to the minimum allowed by constraints:
+
+- Profit per dollar of cost:
+  - Carrot: \(0.75 / 0.30 = 2.5\) profit per \$1 cost
+  - Cucumber: \(0.80 / 0.50 = 1.6\) profit per \$1 cost
+
+Cucumbers are less efficient in profit per cost, so to maximize profit under a *cost* limit, we would normally prefer only carrots, subject to the constraint \(y \le \frac{1}{3}x\); note that this does **not** force us to buy any cucumbers (it’s an upper bound, not a lower bound). So the optimal is:
+
+- Use the carrot bound \(x\) as high as possible: \(x = 500\)
+- Set \(y\) as low as allowed: \(y = 0\)
+
+Check budget:
+\[
+0.30 \cdot 500 + 0.50 \cdot 0 = 150 \le 500
+\]
+All constraints are satisfied.
+
+Profit:
+\[
+Z = 0.75 \cdot 500 + 0.80 \cdot 0 = 375
+\]
+
+Therefore, the optimal solution is:
+- Carrots: \(x^* = 500\)
+- Cucumbers: \(y^* = 0\)
+- Maximum monthly profit: \$375
+
+---
+
+### Suitable Python libraries
+
+This is a straightforward linear program. Recommended libraries:
+
+- **PuLP** (`pulp`): very simple LP modeling in Python, good for teaching and small problems.
+- **SciPy**: `scipy.optimize.linprog` can solve this LP, though modeling is more manual.
+- **OR-Tools** (`ortools.linear_solver.pywraplp`): Google’s optimization library, good for LP/MIP.
+
+---
+
+### Example PuLP formulation (for implementation)
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Carrots_Cucumbers_Profit_Max", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('carrots', lowBound=300, upBound=500)  # 300 ≤ x ≤ 500
+y = pl.LpVariable('cucumbers', lowBound=0)               # y ≥ 0
+
+# Objective function
+prob += 0.75 * x + 0.80 * y
+
+# Constraints
+prob += 0.30 * x + 0.50 * y <= 500       # budget
+prob += y <= (1.0/3.0) * x               # cucumbers at most a third of carrots
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal carrots:", x.value())
+print("Optimal cucumbers:", y.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This will return:
+- Optimal carrots ≈ 500
+- Optimal cucumbers ≈ 0
+- Max profit ≈ 375
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Carrots_Cucumbers_Profit_Max", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('carrots', lowBound=300, upBound=500)  # 300 ≤ x ≤ 500
+    y = pl.LpVariable('cucumbers', lowBound=0)               # y ≥ 0
+
+    # Objective function: maximize profit
+    prob += 0.75 * x + 0.80 * y
+
+    # Constraints
+    prob += 0.30 * x + 0.50 * y <= 500       # Budget constraint
+    prob += y <= (1.0 / 3.0) * x             # Cucumber-to-carrot ratio
+
+    # Solve the problem
+    prob.solve()
+
+    # Extract the objective value
+    objective_value = pl.value(prob.objective)
+
+    # Print only the final objective as required
+    print(f"FINAL_OBJ: {objective_value}")
+
+if __name__ == "__main__":
+    main()

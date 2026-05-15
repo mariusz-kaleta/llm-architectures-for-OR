@@ -1,0 +1,194 @@
+[MODELER]:
+Here is a clean mathematical formulation and modeling approach.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of motion-activated machines  
+- \(y\) = number of manual machines  
+
+Both must be nonnegative integers:
+- \(x \in \mathbb{Z}_{\ge 0}\)
+- \(y \in \mathbb{Z}_{\ge 0}\)
+
+---
+
+## 2. Objective
+
+Minimize the total number of machines:
+\[
+\min \; Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Drops per minute (capacity) constraint
+
+Each motion-activated machine delivers 50 drops/min; each manual machine 75 drops/min.  
+The mall needs at least 1000 drops/min:
+
+\[
+50x + 75y \;\ge\; 1000
+\]
+
+---
+
+### b) Energy consumption constraint
+
+Each motion-activated machine consumes 30 kWh; each manual machine 20 kWh.  
+The mall can use at most 500 kWh:
+
+\[
+30x + 20y \;\le\; 500
+\]
+
+---
+
+### c) Hygiene constraint: at most 40% manual
+
+“At most 40% of the machines can be manual” means:
+
+\[
+\frac{y}{x + y} \;\le\; 0.4
+\]
+
+Assuming \(x + y > 0\), this is equivalent to a linear constraint:
+
+\[
+y \;\le\; 0.4(x + y) \\
+y \;\le\; 0.4x + 0.4y \\
+0.6y \;\le\; 0.4x \\
+3y \;\le\; 2x
+\]
+
+So we use:
+\[
+3y \;\le\; 2x
+\]
+
+---
+
+### d) Minimum number of motion-activated machines
+
+“At least 3 should be motion activated”:
+
+\[
+x \;\ge\; 3
+\]
+
+---
+
+### e) Nonnegativity and integrality
+
+\[
+x, y \;\ge\; 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full model (Integer Linear Program)
+
+\[
+\begin{aligned}
+\min \quad & x + y \\
+\text{s.t.} \quad
+& 50x + 75y \;\ge\; 1000 \\
+& 30x + 20y \;\le\; 500 \\
+& 3y \;\le\; 2x \\
+& x \;\ge\; 3 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+This is a small integer linear programming (ILP) problem. Good Python libraries:
+
+- `PuLP` – simple modeling of LP/ILP, open-source solvers built in.
+- `OR-Tools` (Google) – very good MILP and CP-SAT solvers; efficient and free.
+- `Pyomo` – more general algebraic modeling language; works with many solvers.
+- `scipy.optimize` is **not** ideal for integrality; you’d need an MILP library.
+
+For a problem of this size, `PuLP` or `OR-Tools` is perfectly adequate and very easy to use.
+
+---
+
+## 6. Example `PuLP` model skeleton
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Sanitizer_Machine_Selection", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('x_motion', lowBound=0, cat='Integer')
+y = pl.LpVariable('y_manual', lowBound=0, cat='Integer')
+
+# Objective
+prob += x + y, "Total_Machines"
+
+# Constraints
+prob += 50*x + 75*y >= 1000, "DropsRequirement"
+prob += 30*x + 20*y <= 500,  "EnergyLimit"
+prob += 3*y <= 2*x,          "ManualFractionLimit"
+prob += x >= 3,              "MinMotion"
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal x (motion):", x.value())
+print("Optimal y (manual):", y.value())
+print("Minimum total machines:", x.value() + y.value())
+```
+
+You can plug this into Python, and the solver will give the optimal numbers of motion-activated and manual machines.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Sanitizer_Machine_Selection", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('x_motion', lowBound=0, cat='Integer')
+    y = pl.LpVariable('y_manual', lowBound=0, cat='Integer')
+
+    # Objective: minimize total machines
+    prob += x + y, "Total_Machines"
+
+    # Constraints
+    prob += 50 * x + 75 * y >= 1000, "DropsRequirement"
+    prob += 30 * x + 20 * y <= 500, "EnergyLimit"
+    prob += 3 * y <= 2 * x, "ManualFractionLimit"
+    prob += x >= 3, "MinMotion"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute final objective value
+    x_val = x.value()
+    y_val = y.value()
+    final_obj = x_val + y_val
+
+    # Print details (optional, but allowed)
+    print(f"Status: {pl.LpStatus[prob.status]}")
+    print(f"Optimal x (motion-activated): {x_val}")
+    print(f"Optimal y (manual): {y_val}")
+    print(f"Minimum total machines: {final_obj}")
+
+    # Required final line
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

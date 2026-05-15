@@ -1,0 +1,207 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximise the total number of bottles produced (glass + plastic) subject to water availability and market preference constraints.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with two decision variables and linear constraints.  
+(There is a natural integer interpretation—bottles must be whole numbers—but it can first be modelled as a continuous LP and, if required, later restricted to integers.)
+
+3. Main decision variables  
+Define decision variables as:
+
+- \(G\): Number of glass bottles to produce.  
+- \(P\): Number of plastic bottles to produce.
+
+(If needed, specify that both are non-negative and, in an integer extension, integer-valued.)
+
+4. Key constraints to consider  
+
+a) Water availability (resource constraint)  
+- Each glass bottle uses 500 ml.  
+- Each plastic bottle uses 750 ml.  
+- Total available water is 250,000 ml.  
+So the combined water used by all bottles must not exceed the available amount.
+
+b) Market preference/ratio constraint  
+- The number of plastic bottles must be at least 3 times the number of glass bottles.  
+This is a lower-bound ratio constraint linking P and G.
+
+c) Minimum glass bottles requirement  
+- There must be at least 20 glass bottles.  
+This is a simple lower bound on G.
+
+d) Non-negativity (and integrality if required)  
+- Number of bottles cannot be negative.  
+- If a more realistic model is desired, enforce that G and P are integers, converting the LP to an Integer Linear Programming (ILP) problem.
+
+5. Objective function structure  
+
+Objective: Maximise total number of bottles:  
+- Maximise (G + P).
+
+6. Modelling strategy / steps for the Modeller  
+
+- Formulate the LP with the two variables G and P.  
+- Express the water constraint as a linear inequality in G and P.  
+- Express the plastic-at-least-3×glass requirement as a linear inequality.  
+- Add the minimum-glass constraint as a simple bound on G.  
+- Add non-negativity constraints on G and P.  
+- (Optional) Add integrality constraints to ensure whole bottles.  
+- Solve the LP (or ILP); then interpret the optimal (G, P) in terms of bottle counts and verify it respects all constraints and uses at most the available water.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, and how you could solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+
+- \(G \ge 0\): number of glass bottles to produce  
+- \(P \ge 0\): number of plastic bottles to produce  
+
+(Optionally, \(G, P \in \mathbb{Z}_{\ge 0}\) to enforce whole bottles.)
+
+---
+
+## 2. Objective
+
+Maximise the total number of bottles:
+
+\[
+\text{Maximise } Z = G + P
+\]
+
+---
+
+## 3. Constraints
+
+1. **Water availability**
+
+Each glass bottle: 500 ml  
+Each plastic bottle: 750 ml  
+Total available: 250000 ml  
+
+\[
+500G + 750P \le 250000
+\]
+
+2. **Market preference: plastic at least 3× glass**
+
+\[
+P \ge 3G
+\]
+
+3. **Minimum glass bottles**
+
+\[
+G \ge 20
+\]
+
+4. **Non-negativity**
+
+\[
+G \ge 0,\quad P \ge 0
+\]
+
+5. **(Optional) Integrality**
+
+\[
+G, P \in \mathbb{Z}
+\]
+
+---
+
+So the full LP model is:
+
+\[
+\begin{aligned}
+\max \quad & G + P \\
+\text{s.t.} \quad
+& 500G + 750P \le 250000 \\
+& P - 3G \ge 0 \\
+& G \ge 20 \\
+& G, P \ge 0 \\
+& \text{(optionally) } G, P \in \mathbb{Z}
+\end{aligned}
+\]
+
+---
+
+## 4. Suitable Python libraries
+
+Any standard LP / MILP library works well here:
+
+- `PuLP` – very simple to model LP/ILP problems in Python.
+- `ortools.linear_solver` (Google OR-Tools) – fast and robust for LP/MIP.
+- `Pyomo` – more general modelling language; good for larger or more complex models.
+
+For this small problem, `PuLP` or `ortools` are ideal.
+
+---
+
+## 5. Example using PuLP (LP with optional integrality)
+
+```python
+import pulp as pl
+
+# Problem: maximise total number of bottles
+model = pl.LpProblem("Bottle_Production", pl.LpMaximize)
+
+# Decision variables (uncomment cat='Integer' for integrality)
+G = pl.LpVariable('G', lowBound=20, cat='Continuous')  # or 'Integer'
+P = pl.LpVariable('P', lowBound=0, cat='Continuous')   # or 'Integer'
+
+# Objective: maximise G + P
+model += G + P, "Total_Bottles"
+
+# Constraints
+model += 500*G + 750*P <= 250000, "Water_Constraint"
+model += P >= 3*G,                "Plastic_At_Least_3x_Glass"
+
+# Solve
+model.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[model.status])
+print("Glass bottles (G):", pl.value(G))
+print("Plastic bottles (P):", pl.value(P))
+print("Total bottles:", pl.value(G + P))
+print("Water used:", 500*pl.value(G) + 750*pl.value(P))
+```
+
+This code directly implements the model as specified.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the LP problem: maximise total number of bottles
+    model = pl.LpProblem("Bottle_Production", pl.LpMaximize)
+
+    # Decision variables (integer bottles)
+    G = pl.LpVariable('G', lowBound=20, cat='Integer')
+    P = pl.LpVariable('P', lowBound=0, cat='Integer')
+
+    # Objective: maximise G + P
+    model += G + P, "Total_Bottles"
+
+    # Constraints
+    model += 500 * G + 750 * P <= 250000, "Water_Constraint"
+    model += P >= 3 * G, "Plastic_At_Least_3x_Glass"
+
+    # Solve the model
+    model.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pl.value(G + P)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

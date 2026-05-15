@@ -1,0 +1,121 @@
+[MODELER]:
+Model
+
+Variables
+- a = number of almond servings (>= 0)
+- c = number of cashew servings (>= 0)
+
+Objective
+- Minimize total fat F = 15a + 12c  (grams of fat)
+
+Constraints
+- Calories: 200a + 300c ≥ 10000
+- Protein: 20a + 25c ≥ 800
+- Ratio (at least twice as many almonds): a ≥ 2c
+- If servings must be whole: a, c ∈ Z≥0. Otherwise treat a,c ≥ 0 as continuous.
+
+Mathematical program
+minimize 15a + 12c
+subject to
+200a + 300c ≥ 10000
+20a + 25c ≥ 800
+a − 2c ≥ 0
+a, c ≥ 0
+(and a,c integers if required)
+
+Analytic solution (continuous relaxation)
+Because almonds must be at least twice cashews and adding almonds increases fat faster than cashews, the continuous optimum occurs on the ratio boundary a = 2c. Substitute a = 2c:
+
+Calories → 200(2c) + 300c = 700c ≥ 10000 ⇒ c ≥ 100/7
+Protein → 65c ≥ 800 ⇒ c ≥ 160/13
+
+The larger bound is c = 100/7 ≈ 14.2857, so
+c* = 100/7, a* = 200/7 ≈ 28.5714.
+Minimum fat (continuous) F* = 15(200/7) + 12(100/7) = 4200/7 = 600 grams.
+
+Integer-servings case
+If servings must be integers, solve the integer program. Searching feasible integer pairs (or solve with an MILP solver) gives the minimal integer solution:
+a = 29 almonds, c = 14 cashews,
+which yields fat F = 15·29 + 12·14 = 603 grams,
+and satisfies calories: 200·29 + 300·14 = 10000 and protein: 20·29 + 25·14 = 930.
+
+Recommendations for solving in Python
+- Continuous LP (real-valued servings): scipy.optimize.linprog or pulp (LP).
+- Integer (whole servings): pulp (CBC/GUROBI), OR-Tools CP-SAT, or mip/pyomo with a MILP solver.
+- Example: use pulp for an MILP (easy to express integrality) or OR-Tools CP-SAT for more robust integer solving.
+
+If you want, I can provide a short Python example (continuous or integer) using pulp or OR-Tools to compute the integer-optimal solution.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data (initialized directly)
+# Variables: a = almonds (servings), c = cashews (servings)
+# Objective: minimize F = 15*a + 12*c
+# Constraints:
+#   200a + 300c >= 10000      (calories)
+#   20a  + 25c  >= 800        (protein)
+#   a >= 2c                   (ratio)
+# a, c >= 0. We'll compute both continuous optimum and integer (whole-serving) optimum.
+
+# Continuous relaxation (analytic)
+# On the ratio boundary a = 2c
+c1 = 10000.0 / 700.0  # from calories: 200*(2c)+300c >= 10000 -> 700c >=10000
+c2 = 800.0 / 65.0     # from protein: 20*(2c)+25c >= 800 -> 65c >=800
+c_cont = max(c1, c2)
+a_cont = 2.0 * c_cont
+fat_cont = 15.0 * a_cont + 12.0 * c_cont
+
+# Integer solution search (efficient)
+best_fat = None
+best_a = None
+best_c = None
+
+# We can bound c reasonably; we'll search c from 0..1000 for safety (fast).
+for c in range(0, 1001):
+    # minimal a to satisfy calories: 200a >= 10000 - 300c
+    rem_cal = 10000 - 300 * c
+    if rem_cal <= 0:
+        a_cal = 0
+    else:
+        a_cal = math.ceil(rem_cal / 200.0)
+
+    # minimal a to satisfy protein: 20a >= 800 - 25c
+    rem_prot = 800 - 25 * c
+    if rem_prot <= 0:
+        a_prot = 0
+    else:
+        a_prot = math.ceil(rem_prot / 20.0)
+
+    # ratio constraint
+    a_ratio = 2 * c
+
+    a_req = max(a_cal, a_prot, a_ratio)
+
+    # ensure nonnegative integer
+    if a_req < 0:
+        a_req = 0
+
+    # compute fat
+    fat = 15 * a_req + 12 * c
+
+    # check feasibility explicitly (should be satisfied by construction)
+    if 200 * a_req + 300 * c < 10000:
+        continue
+    if 20 * a_req + 25 * c < 800:
+        continue
+    if a_req < 2 * c:
+        continue
+
+    if (best_fat is None) or (fat < best_fat) or (fat == best_fat and (a_req + c) < (best_a + best_c)):
+        best_fat = fat
+        best_a = a_req
+        best_c = c
+
+# Print computed solutions (continuous and integer), then the required final line with final objective value.
+print(f"Continuous relaxation solution: a = {a_cont:.6f}, c = {c_cont:.6f}, fat = {fat_cont:.6f}")
+print(f"Integer (whole servings) optimal solution found: a = {best_a}, c = {best_c}, fat = {best_fat}")
+# Final required output line (must be the very last line and exactly this format)
+print(f"FINAL_OBJ: {best_fat}")

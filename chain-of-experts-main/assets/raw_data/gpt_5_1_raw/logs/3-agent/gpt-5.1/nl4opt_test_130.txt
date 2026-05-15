@@ -1,0 +1,204 @@
+[MODELER]:
+Here is a clean mathematical formulation and how you could solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x_A \in \mathbb{Z}_{\ge 0}\): number of machine A used per day  
+- \(x_B \in \mathbb{Z}_{\ge 0}\): number of machine B used per day  
+
+(We treat "how many of each machine should be used" as integer counts.)
+
+---
+
+## 2. Objective
+
+Minimize the total number of machines used:
+
+\[
+\min \; x_A + x_B
+\]
+
+---
+
+## 3. Constraints
+
+### a) Production requirement
+
+Each A produces 30 items/day, each B produces 50 items/day. The factory must produce at least 1000 items/day:
+
+\[
+30x_A + 50x_B \;\ge\; 1000
+\]
+
+### b) Energy limit
+
+Each A uses 100 kWh/day, each B uses 120 kWh/day. At most 3000 kWh are available:
+
+\[
+100x_A + 120x_B \;\le\; 3000
+\]
+
+### c) Worker constraint: at most 30% type B
+
+“At most 30% of the machines must be of type B” means:
+
+\[
+\frac{x_B}{x_A + x_B} \;\le\; 0.3, \quad \text{for } x_A + x_B > 0
+\]
+
+Multiply both sides by \(x_A + x_B\):
+
+\[
+x_B \;\le\; 0.3(x_A + x_B)
+\]
+
+\[
+x_B \;\le\; 0.3x_A + 0.3x_B
+\]
+
+\[
+x_B - 0.3x_B \;\le\; 0.3x_A
+\]
+
+\[
+0.7x_B \;\le\; 0.3x_A
+\]
+
+\[
+7x_B \;\le\; 3x_A
+\]
+
+This is linear:
+
+\[
+7x_B \;\le\; 3x_A
+\]
+
+(And implicitly excludes the trivial \(x_A = x_B = 0\) solution, because production and min-A constraints will rule that out anyway.)
+
+### d) Minimum number of A machines
+
+“At least 5 machines of type A should be used”:
+
+\[
+x_A \;\ge\; 5
+\]
+
+### e) Integrality and non-negativity
+
+\[
+x_A, x_B \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete model
+
+\[
+\begin{aligned}
+\min\ & x_A + x_B \\
+\text{s.t. } & 30x_A + 50x_B \;\ge\; 1000, \\
+& 100x_A + 120x_B \;\le\; 3000, \\
+& 7x_B \;\le\; 3x_A, \\
+& x_A \;\ge\; 5, \\
+& x_A, x_B \in \mathbb{Z}_{\ge 0}.
+\end{aligned}
+\]
+
+This is a small integer linear program (ILP).
+
+---
+
+## 5. Suitable Python libraries
+
+Any mixed‑integer linear programming (MILP) solver is appropriate:
+
+- `PuLP` (pure Python interface, can use CBC, GLPK, etc.)
+- `ortools.linear_solver` (Google OR-Tools, includes CBC)
+- `mip` (Python-MIP)
+- `gurobipy` (Gurobi, commercial but free for some users)
+- `docplex` (CP Optimizer / CPLEX, commercial)
+
+For simplicity and open-source availability, `PuLP` or OR-Tools are good choices.
+
+---
+
+## 6. Example using PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Machine_Selection", pl.LpMinimize)
+
+# Variables
+xA = pl.LpVariable("xA", lowBound=5, cat="Integer")  # x_A >= 5
+xB = pl.LpVariable("xB", lowBound=0, cat="Integer")
+
+# Objective: minimize total machines
+prob += xA + xB
+
+# Constraints
+prob += 30 * xA + 50 * xB >= 1000      # production
+prob += 100 * xA + 120 * xB <= 3000    # energy
+prob += 7 * xB <= 3 * xA               # at most 30% B
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("xA =", xA.value())
+print("xB =", xB.value())
+print("Total machines =", xA.value() + xB.value())
+```
+
+Running this will give you the optimal counts \(x_A\) and \(x_B\) that minimize the total number of machines while satisfying all constraints.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Machine_Selection", pl.LpMinimize)
+
+    # Decision variables
+    xA = pl.LpVariable("xA", lowBound=5, cat="Integer")  # x_A >= 5
+    xB = pl.LpVariable("xB", lowBound=0, cat="Integer")  # x_B >= 0
+
+    # Objective: minimize total machines
+    prob += xA + xB
+
+    # Constraints
+    # Production requirement: 30xA + 50xB >= 1000
+    prob += 30 * xA + 50 * xB >= 1000
+
+    # Energy limit: 100xA + 120xB <= 3000
+    prob += 100 * xA + 120 * xB <= 3000
+
+    # Worker constraint: 7xB <= 3xA
+    prob += 7 * xB <= 3 * xA
+
+    # Solve the problem
+    solver = pl.PULP_CBC_CMD(msg=False)
+    prob.solve(solver)
+
+    # Extract solution
+    xA_val = xA.value()
+    xB_val = xB.value()
+    objective_value = pl.value(prob.objective)
+
+    # Optionally print solution details (not required by instructions)
+    # print("xA =", xA_val)
+    # print("xB =", xB_val)
+    # print("Total machines =", objective_value)
+
+    # Final required output
+    print(f"FINAL_OBJ: {objective_value}")
+
+if __name__ == "__main__":
+    main()

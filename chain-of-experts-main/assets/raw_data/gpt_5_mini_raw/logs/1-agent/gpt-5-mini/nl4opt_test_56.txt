@@ -1,0 +1,46 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization (from problem statement)
+capacity_hv = 10000   # gallons per day for high-volume pipe
+capacity_lv = 5000    # gallons per day for low-volume pipe
+tech_hv = 12          # technicians required per high-volume pipe
+tech_lv = 5           # technicians required per low-volume pipe
+demand = 150000       # required gallons per day
+tech_available = 160  # total technicians available
+min_low_pipes = 8     # minimum low-volume pipes
+# Proportion constraint: at most 35% of the pipes can be high-volume:
+# H/(H+L) <= 0.35  ->  0.65 H <= 0.35 L  ->  65 H <= 35 L
+
+# Define the MILP
+prob = pulp.LpProblem("Minimize_Number_of_Pipes", pulp.LpMinimize)
+
+# Decision variables: number of high-volume (H) and low-volume (L) pipes (integers)
+H = pulp.LpVariable('H', lowBound=0, cat='Integer')
+L = pulp.LpVariable('L', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of pipes
+prob += H + L, "Total_Pipes"
+
+# Constraints
+prob += capacity_hv * H + capacity_lv * L >= demand, "CapacityRequirement"
+prob += tech_hv * H + tech_lv * L <= tech_available, "TechnicianLimit"
+prob += L >= min_low_pipes, "MinimumLowVolumePipes"
+prob += 65 * H <= 35 * L, "HighVolumeProportion"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract solution
+H_val = int(pulp.value(H))
+L_val = int(pulp.value(L))
+final_obj = int(pulp.value(prob.objective))
+
+# Print results (decision variables) and final objective (final line must match required format)
+print(f"High-volume pipes (H): {H_val}")
+print(f"Low-volume pipes  (L): {L_val}")
+print(f"Total capacity (gallons): {capacity_hv * H_val + capacity_lv * L_val}")
+print(f"Total technicians used: {tech_hv * H_val + tech_lv * L_val}")
+print(f"Proportion high-volume: {H_val / (H_val + L_val) if (H_val + L_val) > 0 else 0:.4f}")
+print(f"FINAL_OBJ: {final_obj}")

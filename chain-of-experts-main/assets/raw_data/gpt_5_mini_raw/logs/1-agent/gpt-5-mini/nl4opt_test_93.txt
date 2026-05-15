@@ -1,0 +1,60 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Science_Fair_Tables", pulp.LpMaximize)
+
+# Decision variables: number of circular (x) and rectangular (y) tables (integers, >=0)
+x = pulp.LpVariable("circular_tables", lowBound=0, cat=pulp.LpInteger)
+y = pulp.LpVariable("rectangular_tables", lowBound=0, cat=pulp.LpInteger)
+
+# Parameters (from the problem statement)
+# Circular: 4 poster boards, 5 participants, caters to 8 guests, takes 15 units of space
+# Rectangular: 4 poster boards, 4 participants, caters to 12 guests, takes 20 units of space
+poster_circ = 4
+participants_circ = 5
+guests_circ = 8
+space_circ = 15
+
+poster_rect = 4
+participants_rect = 4
+guests_rect = 12
+space_rect = 20
+
+# Requirements and limits
+min_participants = 500
+min_posters = 300
+max_space = 1900
+
+# Objective: maximize number of catered guests
+prob += guests_circ * x + guests_rect * y, "Maximize_Catered_Guests"
+
+# Constraints
+prob += participants_circ * x + participants_rect * y >= min_participants, "Participant_Capacity"
+prob += poster_circ * x + poster_rect * y >= min_posters, "Poster_Boards"
+prob += space_circ * x + space_rect * y <= max_space, "Space_Limit"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+x_val = int(pulp.value(x))
+y_val = int(pulp.value(y))
+objective_value = pulp.value(prob.objective)
+
+# Compute derived quantities
+total_participants_capacity = participants_circ * x_val + participants_rect * y_val
+total_posters = poster_circ * x_val + poster_rect * y_val
+total_space_used = space_circ * x_val + space_rect * y_val
+total_catered_guests = guests_circ * x_val + guests_rect * y_val
+
+# Print solution summary
+print(f"Circular tables (x): {x_val}")
+print(f"Rectangular tables (y): {y_val}")
+print(f"Total participants capacity: {total_participants_capacity}")
+print(f"Total poster boards capacity: {total_posters}")
+print(f"Total space used: {total_space_used} / {max_space}")
+print(f"Total catered guests (objective): {total_catered_guests}")
+
+# Final required print
+print(f"FINAL_OBJ: {objective_value}")

@@ -1,0 +1,43 @@
+[MONOLITH]:
+import pulp
+
+# Problem data (initialized directly)
+# Manual slicer: 5 slices/min, 3 grease units/min
+# Automatic slicer: 8 slices/min, 6 grease units/min
+# Constraints:
+#   - manual < automatic  -> implement as manual <= automatic - 1
+#   - slices: 5*m + 8*a >= 50
+#   - grease: 3*m + 6*a <= 35
+# Minimize total slicers: m + a
+problem = pulp.LpProblem("Butcher_Slicers", pulp.LpMinimize)
+
+# Decision variables: integer nonnegative numbers of slicers
+m = pulp.LpVariable("manual_slicers", lowBound=0, cat="Integer")
+a = pulp.LpVariable("automatic_slicers", lowBound=0, cat="Integer")
+
+# Objective: minimize total number of slicers
+problem += m + a, "Total_Slicers"
+
+# Constraints
+problem += 5 * m + 8 * a >= 50, "SliceRequirement"
+problem += 3 * m + 6 * a <= 35, "GreaseLimit"
+problem += m <= a - 1, "ManualLessThanAutomatic"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+result_status = problem.solve(solver)
+
+status_str = pulp.LpStatus[problem.status]
+
+if status_str == "Optimal":
+    m_val = int(pulp.value(m))
+    a_val = int(pulp.value(a))
+    obj_val = int(pulp.value(problem.objective))
+    print(f"Optimal solution found: manual_slicers = {m_val}, automatic_slicers = {a_val}")
+    # Final required print (must be last)
+    print(f"FINAL_OBJ: {obj_val}")
+else:
+    # No feasible integer solution found
+    print("No feasible integer solution exists for the given constraints.")
+    # Final required print (must be last)
+    print(f"FINAL_OBJ: infeasible")

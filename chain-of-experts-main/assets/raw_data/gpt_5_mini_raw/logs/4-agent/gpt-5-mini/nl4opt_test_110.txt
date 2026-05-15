@@ -1,0 +1,113 @@
+[PLANNER]:
+1) Key optimisation goal
+- Maximise the total number of patients vaccinated (count of pill vaccinations plus shot vaccinations) during the clinic's available operating time.
+
+2) Suggested model type
+- Integer Linear Program (ILP). Decision variables are whole numbers (numbers of patients). If you only need a quick bound, a continuous LP relaxation can be used first.
+
+3) Main decision variables
+- Number of pill vaccinations to administer (integer, >= 0).
+- Number of shot vaccinations to administer (integer, >= 0).
+
+4) Key constraints to include (described verbally)
+- Total time used by all vaccinations cannot exceed the clinic operating time (10000 minutes). Account for the fact a pill takes 10 minutes and a shot takes 20 minutes.
+- The number of shots must be at least three times the number of pills.
+- At least 30 pill vaccinations must be administered.
+- Non-negativity and integrality of the two decision variables.
+
+5) Modelling/solution notes and recommended approach
+- Because shots take more time per patient than pills, for any given pill count it is time-optimal to choose the minimum allowed number of shots (i.e., set shots equal to three times pills). Use that structural insight to reduce the search dimension: treat the pill count as the main variable and set shots to the required minimum multiple.
+- Use the time constraint to find the maximum feasible pill count (apply integer floor after relaxation). Verify the pill minimum constraint is satisfied.
+- Implement as a small ILP and solve with any standard solver (CBC, Gurobi, CPLEX, etc.). Alternatively, after the reduction to one variable, a simple integer arithmetic check will produce the optimal integer solution directly.
+
+6) Quick solution hint (for modeller verification)
+- With shots set to their minimum multiple of pills, compute the largest integer pill count that fits within total time; then set shots to three times that pill count. Check that the pill count is at least 30. This gives the optimal vaccination counts.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- p ∈ Z>=0 : number of pill vaccinations administered.
+- s ∈ Z>=0 : number of shot vaccinations administered.
+
+Objective
+- Maximise total patients vaccinated: maximize Z = p + s.
+
+Constraints
+1. Time constraint: 10 p + 20 s ≤ 10000.
+2. Shot-to-pill ratio: s ≥ 3 p.
+3. Minimum pills: p ≥ 30.
+4. Integrality and non-negativity: p, s integers ≥ 0.
+
+Mathematical formulation
+maximize   Z = p + s
+subject to 10p + 20s ≤ 10000
+           s − 3p ≥ 0
+           p ≥ 30
+           p, s ∈ Z>=0
+
+Structural simplification (recommended)
+- Because shots take more time per patient (20 min) than pills (10 min), for any given p it is time-optimal to choose the minimum allowed s, i.e. s = 3p. Substitute s = 3p into the time constraint:
+  10p + 20(3p) = 70p ≤ 10000 → p ≤ 10000 / 70 = 142.857...
+- With p integer, maximum feasible p = floor(142.857...) = 142, and this satisfies p ≥ 30.
+- Then s = 3·142 = 426.
+- Objective value Z = p + s = 142 + 426 = 568.
+
+Optimal solution
+- p* = 142 pills, s* = 426 shots, total vaccinated = 568.
+
+Solution methods / libraries
+- Integer linear programming solvers: pulp (CBC default), OR-Tools (CP-SAT for integer), Pyomo (with CBC/Gurobi/CPLEX), mip (Coin-MIP), Gurobi, CPLEX.
+- For this tiny problem you can:
+  - Solve analytically as above (one integer arithmetic step).
+  - Implement as an ILP with pulp or OR-Tools if you want code verification.
+
+Example (brief pulp outline)
+- Define LP problem, IntVar p, s, add constraints 10*p+20*s<=10000, s>=3*p, p>=30, objective p+s maximize, solve. Solver will return p=142, s=426.
+
+Implementation note
+- If you only need a quick bound, relax integrality (LP relaxation) and then floor p; but check feasibility with the p ≥ 30 constraint. The integer solution here equals the LP-derived floor.
+
+---
+
+[CODER]:
+#!/usr/bin/env python3
+# Self-contained solver for the presented ILP
+# Decision variables: p (pills), s (shots)
+# Maximise Z = p + s
+# Constraints:
+#   10p + 20s <= 10000
+#   s >= 3p
+#   p >= 30
+#   p, s integers >= 0
+
+# Analytical solution: for fixed p, minimal s is s = 3p (to satisfy s >= 3p and minimize time).
+# Substitute into time constraint: 10p + 20(3p) = 70p <= 10000 -> p <= floor(10000/70)
+
+# Compute solution
+p_max_by_time = 10000 // 70  # floor division
+p = p_max_by_time
+if p < 30:
+    # If the max allowed by time is less than 30, then p must be at least 30 but might be infeasible.
+    # Check feasibility for p = 30 with minimal s = 3*30
+    if 10*30 + 20*(3*30) <= 10000:
+        p = 30
+    else:
+        # No feasible solution with p >= 30; but according to the model this won't happen.
+        raise ValueError("No feasible integer p >= 30 satisfies the time constraint.")
+# Set s to minimal allowed (s = 3p) to maximize total patients for given p
+s = 3 * p
+
+# Compute objective
+objective = p + s
+
+# Sanity checks (will raise if model violated)
+assert isinstance(p, int) and isinstance(s, int)
+assert p >= 30 and p >= 0 and s >= 0
+assert 10 * p + 20 * s <= 10000
+assert s >= 3 * p
+
+# Final required print (only this line must be the final output line)
+print(f"FINAL_OBJ: {objective}")

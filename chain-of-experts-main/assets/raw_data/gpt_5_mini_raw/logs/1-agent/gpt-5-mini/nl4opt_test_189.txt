@@ -1,0 +1,52 @@
+[MONOLITH]:
+```python
+# Optimization of juice boxes to maximize vitamin D subject to constraints
+import pulp
+
+# Data (directly from the problem statement)
+# Vitamins per box
+D_orange = 10
+C_orange = 8
+
+D_apple = 12
+C_apple = 6
+
+# Constraints
+C_max = 300
+min_orange = 3  # at least 3 orange juice boxes
+# preference: at least 3 times as many apple boxes as orange boxes
+# i.e., A >= 3 * O
+
+# Define the problem
+prob = pulp.LpProblem("Maximize_Vitamin_D", pulp.LpMaximize)
+
+# Decision variables: number of boxes (integers, non-negative)
+O = pulp.LpVariable("Orange_boxes", lowBound=0, cat="Integer")
+A = pulp.LpVariable("Apple_boxes",  lowBound=0, cat="Integer")
+
+# Objective: maximize total vitamin D
+prob += D_orange * O + D_apple * A, "Total_Vitamin_D"
+
+# Constraints
+prob += C_orange * O + C_apple * A <= C_max, "Vitamin_C_limit"
+prob += A - 3 * O >= 0, "Preference_apple_at_least_3x_orange"  # A >= 3O
+prob += O >= min_orange, "Minimum_orange_boxes"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract solution
+O_val = int(pulp.value(O))
+A_val = int(pulp.value(A))
+obj_val = int(pulp.value(prob.objective))
+
+# Print solution details
+print(f"Orange boxes: {O_val}")
+print(f"Apple boxes: {A_val}")
+print(f"Total vitamin C consumed: {C_orange * O_val + C_apple * A_val}")
+print(f"Total vitamin D (objective): {obj_val}")
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {obj_val}")
+```

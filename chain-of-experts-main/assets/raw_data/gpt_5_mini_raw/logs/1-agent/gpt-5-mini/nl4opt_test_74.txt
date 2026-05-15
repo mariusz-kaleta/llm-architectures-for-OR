@@ -1,0 +1,43 @@
+[MONOLITH]:
+import pulp
+
+# Data (directly from problem statement)
+total_morphine_mg = 3000
+morphine_per_painkiller = 10
+morphine_per_sleeping = 6
+digestive_per_painkiller = 3
+digestive_per_sleeping = 5
+min_painkillers = 50
+# "At least 70% of the pills should be sleeping pills" -> y >= 0.7*(x+y)
+# equivalent linear form: 0.3*y >= 0.7*x -> 3*y >= 7*x
+
+# Define problem
+prob = pulp.LpProblem("Pharmacy_Minimize_Digestive_Medicine", pulp.LpMinimize)
+
+# Decision variables: integer number of pills
+x = pulp.LpVariable("painkillers", lowBound=0, cat="Integer")  # x
+y = pulp.LpVariable("sleeping_pills", lowBound=0, cat="Integer")  # y
+
+# Objective: minimize total digestive medicine
+prob += digestive_per_painkiller * x + digestive_per_sleeping * y
+
+# Constraints
+prob += morphine_per_painkiller * x + morphine_per_sleeping * y <= total_morphine_mg
+prob += x >= min_painkillers
+prob += 3 * y >= 7 * x  # enforces y >= 0.7*(x+y)
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve solution
+x_val = int(pulp.value(x))
+y_val = int(pulp.value(y))
+objective_value = pulp.value(prob.objective)
+
+# Print results
+print(f"Painkillers (x): {x_val}")
+print(f"Sleeping pills (y): {y_val}")
+print(f"Total digestive medicine used: {digestive_per_painkiller * x_val + digestive_per_sleeping * y_val}")
+
+# Final required line (must be the last printed line)
+print(f"FINAL_OBJ: {objective_value}")

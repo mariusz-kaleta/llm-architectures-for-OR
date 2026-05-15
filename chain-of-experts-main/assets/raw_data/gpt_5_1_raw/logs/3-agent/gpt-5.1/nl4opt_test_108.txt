@@ -1,0 +1,167 @@
+[MODELER]:
+Below is a clean mathematical model of the problem as an optimization problem, followed by suggestions for how to solve it in Python.
+
+---
+
+## 1. Decision Variables
+
+Let  
+- \( x \) = number of manual slicers (integer, \(x \ge 0\))  
+- \( y \) = number of automatic slicers (integer, \(y \ge 0\))
+
+Both are counts of slicers, so they must be **nonnegative integers**.
+
+---
+
+## 2. Objective Function
+
+We want to minimize the **total number of slicers**:
+\[
+\text{Minimize } Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### (a) Slicing capacity (at least 50 slices per minute)
+
+Each manual slicer cuts 5 slices/min, each automatic slicer cuts 8 slices/min. The shop needs at least 50 slices/min:
+
+\[
+5x + 8y \;\ge\; 50
+\]
+
+---
+
+### (b) Grease usage (at most 35 units per minute)
+
+Each manual slicer uses 3 units/min, each automatic slicer uses 6 units/min. The shop can use at most 35 units/min:
+
+\[
+3x + 6y \;\le\; 35
+\]
+
+---
+
+### (c) Relationship between manual and automatic slicers
+
+“The number of manual slicers must be less than the number of automatic slicers”:
+
+\[
+x < y
+\]
+
+In an integer model, this can be written as:
+
+\[
+x \le y - 1
+\]
+
+---
+
+### (d) Nonnegativity and integrality
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Full Mathematical Model
+
+\[
+\begin{aligned}
+\text{Minimize} \quad & Z = x + y \\
+\text{subject to} \quad
+& 5x + 8y \;\ge\; 50 \quad &\text{(slicing capacity)}\\
+& 3x + 6y \;\le\; 35 \quad &\text{(grease limit)}\\
+& x \le y - 1 \quad &\text{(more automatic than manual)}\\
+& x, y \in \mathbb{Z}_{\ge 0} \quad &\text{(integer counts)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python Libraries
+
+This is a small **integer linear programming (ILP)** problem. Any MILP solver will handle it easily. Good Python options:
+
+- **PuLP**  
+  - Simple modeling interface, pure Python, can use CBC solver (bundled) or others (GLPK, CPLEX, Gurobi).  
+  - Great for teaching and small ILPs like this.
+
+- **OR-Tools (Google OR-Tools, `ortools.linear_solver`)**  
+  - Industrial-strength open-source solver; supports integer linear programming.  
+  - Very fast and straightforward for models like this.
+
+- **Pyomo**  
+  - More general modeling language; good if you plan to scale to more complex models later.
+
+For this specific problem, **PuLP** or **OR-Tools** are the most straightforward.
+
+---
+
+## 6. Example with PuLP (outline code)
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Butcher_Slicer_Problem", pl.LpMinimize)
+
+# Decision variables (nonnegative integers)
+x = pl.LpVariable('manual', lowBound=0, cat=pl.LpInteger)
+y = pl.LpVariable('automatic', lowBound=0, cat=pl.LpInteger)
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 5*x + 8*y >= 50      # slicing capacity
+prob += 3*x + 6*y <= 35      # grease limit
+prob += x <= y - 1           # x < y
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Manual slicers (x):", x.value())
+print("Automatic slicers (y):", y.value())
+print("Min total slicers:", pl.value(x + y))
+```
+
+This code directly encodes the above mathematical model and finds the optimal number of manual and automatic slicers.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Butcher_Slicer_Problem", pl.LpMinimize)
+
+    # Decision variables (nonnegative integers)
+    x = pl.LpVariable('manual', lowBound=0, cat=pl.LpInteger)
+    y = pl.LpVariable('automatic', lowBound=0, cat=pl.LpInteger)
+
+    # Objective: minimize total number of slicers
+    prob += x + y
+
+    # Constraints
+    prob += 5 * x + 8 * y >= 50      # slicing capacity
+    prob += 3 * x + 6 * y <= 35      # grease limit
+    prob += x <= y - 1               # x < y (more automatic than manual)
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute final objective value
+    final_obj = pl.value(x + y)
+
+    # Print in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

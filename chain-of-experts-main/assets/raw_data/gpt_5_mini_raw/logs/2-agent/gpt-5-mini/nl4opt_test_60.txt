@@ -1,0 +1,85 @@
+[MODELER]:
+Model type
+- Integer linear program (ILP), small mixed-integer problem.
+
+Decision variables
+- x ∈ Z≥0 : number of densely-seated ski lifts (45 guests/min, 30 electricity units each).
+- y ∈ Z≥0 : number of loosely-seated ski lifts (20 guests/min, 22 electricity units each).
+
+Objective
+- Minimize total number of ski lifts: minimize Z = x + y.
+
+Constraints
+1. Guest throughput requirement: 45x + 20y ≥ 1000.
+2. Electricity limit: 30x + 22y ≤ 940.
+3. Beginner lift requirement: y ≥ 5.
+4. Integrality and non-negativity: x, y integer and ≥ 0.
+
+Complete mathematical formulation
+- minimize Z = x + y
+- subject to
+  - 45x + 20y ≥ 1000
+  - 30x + 22y ≤ 940
+  - y ≥ 5
+  - x, y ∈ Z≥0
+
+Analytic observation / solution
+- Because densely-seated lifts deliver more guests per lift (45 vs 20) and more guests per unit electricity (45/30 = 1.5 vs 20/22 ≈ 0.91), you want as many dense lifts as possible given the constraint y ≥ 5.
+- Set y = 5 (the minimum). Then 45x + 20·5 ≥ 1000 → 45x ≥ 900 → x ≥ 20. Electricity: 30·20 + 22·5 = 710 ≤ 940, so feasible.
+- Any solution with fewer than 25 lifts (x + y ≤ 24) fails the guest constraint. Therefore the optimal integer solution is x = 20, y = 5 with total lifts = 25.
+
+Recommended software/libraries
+- Python:
+  - pulp (open-source, CBC solver) — simple ILP modeling and solving.
+  - OR-Tools CP-SAT (Google OR-Tools) — fast MIP/CP solver for integer problems.
+  - mip or Pyomo — alternative modeling tools; use commercial solvers (Gurobi/CPLEX) if available for larger problems.
+- Note: scipy.optimize is for continuous problems and does not handle integer constraints directly.
+
+Example (pulp) Python sketch
+- Define integer variables x,y, objective x+y, add constraints as above, solve with the default CBC solver; solution will be x=20, y=5.
+
+Final answer
+- Install 20 densely-seated lifts and 5 loosely-seated lifts (total 25 lifts).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+#!/usr/bin/env python3
+import math
+
+# Problem data
+# x: densely-seated lifts (45 guests/min, 30 electricity units)
+# y: loosely-seated lifts (20 guests/min, 22 electricity units)
+guest_req = 1000
+elec_limit = 940
+y_min = 5
+
+# Upper bounds from electricity capacity (safe search limits)
+y_max = elec_limit // 22  # floor
+x_max = elec_limit // 30  # floor
+
+best_obj = None
+best_x = None
+best_y = None
+
+for y in range(y_min, y_max + 1):
+    # minimal x to meet guest requirement given y
+    # x >= ceil((guest_req - 20*y) / 45)
+    need = guest_req - 20 * y
+    x_lower = 0
+    if need > 0:
+        x_lower = math.ceil(need / 45)
+    for x in range(x_lower, x_max + 1):
+        if 45 * x + 20 * y >= guest_req and 30 * x + 22 * y <= elec_limit:
+            obj = x + y
+            if best_obj is None or obj < best_obj:
+                best_obj = obj
+                best_x = x
+                best_y = y
+
+# Sanity check: we should have found a solution
+if best_obj is None:
+    # No feasible solution found; choose a large sentinel value
+    best_obj = float('inf')
+
+print(f"FINAL_OBJ: {best_obj}")

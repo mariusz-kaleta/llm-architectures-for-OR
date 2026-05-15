@@ -1,0 +1,136 @@
+[MODELER]:
+Let’s turn this into a linear programming (LP) model.
+
+### 1. Decision variables
+
+Let  
+- \(x\) = number of regular sandwiches to make  
+- \(y\) = number of special sandwiches to make  
+
+Both must be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+(If sandwiches must be whole, we later add \(x, y \in \mathbb{Z}\).)
+
+---
+
+### 2. Objective function
+
+Profit:
+- Regular: \$3 per sandwich  
+- Special: \$4 per sandwich  
+
+Maximize total profit:
+\[
+\max\; Z = 3x + 4y
+\]
+
+---
+
+### 3. Constraints
+
+**Eggs constraint**  
+- Regular uses 2 eggs each  
+- Special uses 3 eggs each  
+- Total eggs available: 40  
+
+\[
+2x + 3y \le 40
+\]
+
+**Bacon constraint**  
+- Regular uses 3 slices each  
+- Special uses 5 slices each  
+- Total bacon available: 70  
+
+\[
+3x + 5y \le 70
+\]
+
+**Nonnegativity (and integrality if needed)**  
+\[
+x \ge 0,\quad y \ge 0\quad (\text{and optionally } x,y \in \mathbb{Z})
+\]
+
+---
+
+### 4. Complete mathematical model
+
+\[
+\begin{aligned}
+\text{Maximize } & Z = 3x + 4y \\
+\text{subject to } 
+& 2x + 3y \le 40 \quad (\text{eggs})\\
+& 3x + 5y \le 70 \quad (\text{bacon})\\
+& x \ge 0,\; y \ge 0 \quad (\text{and optionally } x,y \in \mathbb{Z})
+\end{aligned}
+\]
+
+---
+
+### 5. Solving with Python (recommended libraries)
+
+For a problem this size, any LP/MIP solver will work:
+
+- **PuLP** (simple, pure Python wrapper to many solvers):
+  ```python
+  import pulp as pl
+
+  # Define problem
+  prob = pl.LpProblem("Sandwich_Profit_Max", pl.LpMaximize)
+
+  # Decision variables
+  x = pl.LpVariable('regular', lowBound=0, cat='Integer')
+  y = pl.LpVariable('special', lowBound=0, cat='Integer')
+
+  # Objective
+  prob += 3*x + 4*y
+
+  # Constraints
+  prob += 2*x + 3*y <= 40   # eggs
+  prob += 3*x + 5*y <= 70   # bacon
+
+  # Solve
+  prob.solve()
+  print("Regular:", x.value())
+  print("Special:", y.value())
+  print("Max profit:", pl.value(prob.objective))
+  ```
+
+- Alternatives:
+  - **OR-Tools** (`ortools.linear_solver.pywraplp`) for LP/MIP.
+  - **SciPy** (`scipy.optimize.linprog`) for continuous LP (no integer restriction).
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("Sandwich_Profit_Max", pl.LpMaximize)
+
+    # Decision variables (integer as suggested)
+    x = pl.LpVariable('regular', lowBound=0, cat='Integer')
+    y = pl.LpVariable('special', lowBound=0, cat='Integer')
+
+    # Objective function: Maximize profit 3x + 4y
+    prob += 3 * x + 4 * y
+
+    # Constraints
+    prob += 2 * x + 3 * y <= 40   # Eggs constraint
+    prob += 3 * x + 5 * y <= 70   # Bacon constraint
+
+    # Solve problem
+    prob.solve()
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

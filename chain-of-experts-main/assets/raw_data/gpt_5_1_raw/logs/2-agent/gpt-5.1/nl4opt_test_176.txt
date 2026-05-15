@@ -1,0 +1,216 @@
+[MODELER]:
+Here is a clean mathematical model of the problem and how you could solve it with Python.
+
+---
+
+## 1. Decision variables
+
+Let:
+
+- \( x \) = number of freight trips (integer, \(x \ge 0\))  
+- \( y \) = number of air trips (integer, \(y \ge 0\))
+
+Both must be nonnegative integers.
+
+---
+
+## 2. Objective
+
+Minimize the total number of trips:
+
+\[
+\min \; T = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Capacity constraint (must transport at least 200 tons)
+
+- Freight carries 5 tons/trip  
+- Air carries 3 tons/trip  
+
+So:
+
+\[
+5x + 3y \;\ge\; 200
+\]
+
+---
+
+### b) Budget constraint (total transport cost ≤ \$20,000)
+
+- Freight trip cost: \$300/trip  
+- Air trip cost: \$550/trip  
+
+So:
+
+\[
+300x + 550y \;\le\; 20000
+\]
+
+---
+
+### c) Urgency constraint (at least 30% of tons via air)
+
+Let total tons transported be \( Q = 5x + 3y \).  
+Tons via air = \(3y\).  
+We require:
+
+\[
+3y \;\ge\; 0.30 \cdot (5x + 3y)
+\]
+
+Simplify:
+
+\[
+3y \;\ge\; 1.5x + 0.9y
+\]
+\[
+3y - 0.9y \;\ge\; 1.5x
+\]
+\[
+2.1y \;\ge\; 1.5x
+\]
+
+Divide both sides by 0.3:
+
+\[
+7y \;\ge\; 5x
+\]
+
+So the urgency constraint is:
+
+\[
+7y \;\ge\; 5x
+\]
+
+---
+
+### d) Minimum number of freight trips
+
+\[
+x \;\ge\; 5
+\]
+
+---
+
+### e) Integrality
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Full model
+
+\[
+\begin{aligned}
+\min\;\; & x + y \\
+\text{s.t.}\;\; 
+& 5x + 3y \;\ge\; 200 \\
+& 300x + 550y \;\le\; 20000 \\
+& 7y \;\ge\; 5x \\
+& x \;\ge\; 5 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a **mixed-integer linear program** (MILP) with a purely linear objective and linear constraints.
+
+---
+
+## 5. Suitable Python libraries
+
+To solve this optimization model in Python, you can use:
+
+- **PuLP**  
+  - Simple, pure-Python interface, works well for small/medium MILPs.  
+  - Can use CBC (bundled), GLPK, or commercial solvers (CPLEX, Gurobi).
+
+- **OR-Tools (Google OR-Tools)**  
+  - `ortools.linear_solver` supports MIPs; very good performance and flexible interface.
+
+- **Pyomo**  
+  - More general modeling framework; good if you plan to build larger or more complex models.
+
+For this small problem, **PuLP** or **OR-Tools** is ideal.
+
+---
+
+## 6. Example PuLP implementation
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Candle_Transport", pl.LpMinimize)
+
+# Decision variables (non-negative integers)
+x = pl.LpVariable('freight_trips', lowBound=0, cat='Integer')
+y = pl.LpVariable('air_trips', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of trips
+prob += x + y, "Total_Trips"
+
+# Constraints
+prob += 5*x + 3*y >= 200, "Demand"
+prob += 300*x + 550*y <= 20000, "Budget"
+prob += 7*y >= 5*x, "Air_Tonnage_30pct"
+prob += x >= 5, "Min_Freight_Trips"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Freight trips (x):", pl.value(x))
+print("Air trips (y):", pl.value(y))
+print("Total trips:", pl.value(x + y))
+print("Total tons:", 5*pl.value(x) + 3*pl.value(y))
+print("Total cost:", 300*pl.value(x) + 550*pl.value(y))
+```
+
+This code directly encodes the mathematical model above and finds the optimal number of freight and air trips minimizing total trips under all constraints.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Transport_Optimization", pl.LpMinimize)
+
+    # Decision variables (non-negative integers)
+    x = pl.LpVariable('freight_trips', lowBound=0, cat='Integer')
+    y = pl.LpVariable('air_trips', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of trips
+    prob += x + y, "Total_Trips"
+
+    # Constraints
+    prob += 5 * x + 3 * y >= 200, "Capacity"
+    prob += 300 * x + 550 * y <= 20000, "Budget"
+    prob += 7 * y >= 5 * x, "Urgency_30pct_air"
+    prob += x >= 5, "Min_Freight_Trips"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(x + y)
+
+    # Print results (optional detail)
+    # Uncomment if you want to see details when running locally
+    # print("Status:", pl.LpStatus[prob.status])
+    # print("Freight trips (x):", pl.value(x))
+    # print("Air trips (y):", pl.value(y))
+    # print("Total tons:", 5 * pl.value(x) + 3 * pl.value(y))
+    # print("Total cost:", 300 * pl.value(x) + 550 * pl.value(y))
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

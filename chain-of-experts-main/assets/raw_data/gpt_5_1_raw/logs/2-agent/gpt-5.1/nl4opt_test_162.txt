@@ -1,0 +1,165 @@
+[MODELER]:
+Here is a clear optimization model for the problem.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \( x \) = number of ultrasound technician shifts  
+- \( y \) = number of graduate researcher shifts  
+
+Both are nonnegative integers:
+- \( x \ge 0,\ y \ge 0 \)
+- \( x, y \in \mathbb{Z} \)
+
+---
+
+## 2. Objective
+
+The hospital wants to **reduce the total number of workers**, i.e. the total number of shifts:
+
+\[
+\min \; Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Hour requirement (at least 500 hours)
+
+Each technician shift provides 8 hours; each researcher shift provides 5 hours.
+
+\[
+8x + 5y \;\ge\; 500
+\]
+
+### b) Budget constraint
+
+Each technician shift costs \$300; each researcher shift costs \$100. Total budget is \$14{,}000.
+
+\[
+300x + 100y \;\le\; 14000
+\]
+
+### c) Regulation: twice as many technician shifts as researcher shifts
+
+\[
+x = 2y
+\]
+
+### d) Nonnegativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Model simplification
+
+Using \( x = 2y \), substitute into the other constraints.
+
+### Hours:
+
+\[
+8(2y) + 5y = 16y + 5y = 21y \;\ge\; 500 
+\quad\Rightarrow\quad
+y \;\ge\; \frac{500}{21} \approx 23.81
+\]
+
+Since \( y \) must be an integer,  
+\[
+y \ge 24
+\]
+
+### Budget:
+
+\[
+300(2y) + 100y = 600y + 100y = 700y \;\le\; 14000
+\quad\Rightarrow\quad
+y \;\le\; \frac{14000}{700} = 20
+\]
+
+So we need:
+\[
+y \ge 24 \quad\text{and}\quad y \le 20
+\]
+
+This is **infeasible**: there is no integer (or even real) \( y \) satisfying both. Therefore, **no combination of technician and researcher shifts satisfies all three conditions simultaneously**:
+
+- at least 500 hours
+- within \$14,000 budget
+- exactly twice as many technician shifts as researcher shifts
+
+So the model has **no feasible solution** as stated.
+
+---
+
+## 5. Suitable Python tools
+
+To formulate and check this kind of optimization problem in Python, you can use:
+
+- `PuLP` — very convenient for small linear/integer programs
+- `ortools.linear_solver` (Google OR-Tools) — powerful, supports integer/mixed-integer programming
+- `scipy.optimize.linprog` — for linear programs (continuous variables only; would need relaxation or manual integer search)
+
+Example with PuLP (to see infeasibility):
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Staffing", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('tech_shifts', lowBound=0, cat='Integer')
+y = pl.LpVariable('grad_shifts', lowBound=0, cat='Integer')
+
+# Objective: minimize number of workers
+prob += x + y
+
+# Constraints
+prob += 8*x + 5*y >= 500        # hours
+prob += 300*x + 100*y <= 14000  # budget
+prob += x == 2*y                # regulation
+
+# Solve
+prob.solve()
+print("Status:", pl.LpStatus[prob.status])
+```
+
+This will report the problem as infeasible under the stated constraints.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+# Define the optimization problem
+prob = pl.LpProblem("HospitalStaffing", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('tech_shifts', lowBound=0, cat='Integer')
+y = pl.LpVariable('grad_shifts', lowBound=0, cat='Integer')
+
+# Objective: minimize total shifts
+prob += x + y
+
+# Constraints
+prob += 8 * x + 5 * y >= 500          # Hour requirement
+prob += 300 * x + 100 * y <= 14000    # Budget constraint
+prob += x == 2 * y                    # Regulation constraint
+
+# Solve the model
+prob.solve()
+
+# Determine objective value: use a convention for infeasibility
+if pl.LpStatus[prob.status] != 'Optimal':
+    # No feasible solution; represent objective as None (or a sentinel value)
+    final_obj = None
+else:
+    final_obj = pl.value(prob.objective)
+
+print(f"FINAL_OBJ: {final_obj}")

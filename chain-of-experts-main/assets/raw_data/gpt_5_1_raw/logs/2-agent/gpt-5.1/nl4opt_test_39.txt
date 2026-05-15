@@ -1,0 +1,197 @@
+[MODELER]:
+Here is a linear programming model of the problem.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of gallons of chocolate ice cream produced in a week  
+- \(y\) = number of gallons of vanilla ice cream produced in a week  
+
+Assume \(x, y \ge 0\) and continuous (gallons can be fractional). If gallons must be whole numbers, add integrality constraints \(x, y \in \mathbb{Z}\).
+
+## 2. Objective function
+
+Maximize total weekly profit:
+
+\[
+\text{Maximize } Z = 200x + 300y
+\]
+
+where  
+- 200 is the profit per gallon of chocolate,  
+- 300 is the profit per gallon of vanilla.
+
+## 3. Constraints
+
+### Production bounds
+
+From “at least 5 gallons of each type” and upper limits:
+
+\[
+\begin{aligned}
+x &\ge 5 \quad &\text{(minimum chocolate)} \\
+y &\ge 5 \quad &\text{(minimum vanilla)} \\
+x &\le 10 \quad &\text{(maximum chocolate)} \\
+y &\le 8 \quad &\text{(maximum vanilla)}
+\end{aligned}
+\]
+
+### Time (hours) constraint
+
+Each gallon of chocolate: 1 hour  
+Each gallon of vanilla: 2 hours  
+At most 30 hours per week:
+
+\[
+1x + 2y \le 30
+\]
+
+### Worker requirement
+
+“At least 6 workers are needed with 1 working on chocolate and 2 on vanilla at any time.”
+
+A standard way to interpret this in a static weekly LP is as a *per-unit* worker demand:
+
+- 1 worker per gallon of chocolate (capacity unit)
+- 2 workers per gallon of vanilla
+- At least 6 workers “used” in total
+
+So we model:
+
+\[
+x + 2y \ge 6
+\]
+
+(Note: As written, this inequality is almost certainly nonbinding given the minimum production requirements; you can check feasibility and see that other constraints dominate it.)
+
+### Nonnegativity
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+(Implicit given earlier bounds.)
+
+## 4. Solve analytically (optional reasoning)
+
+Given bounds and time:
+
+- From minimums: \(x \ge 5\), \(y \ge 5\) → at least \(x + 2y = 5 + 10 = 15 \ge 6\), so the worker constraint is automatically satisfied and never active.
+- The profit per hour:
+  - Chocolate: \(200 / 1 = 200\) profit per hour
+  - Vanilla: \(300 / 2 = 150\) profit per hour  
+  So chocolate uses time more profitably.
+
+Given time is the main resource, we try to use the maximum allowed chocolate and minimum vanilla:
+
+- Try \(x = 10\) (max), \(y = 5\) (min):
+  - Time used: \(1\cdot10 + 2\cdot5 = 10 + 10 = 20 \le 30\) → feasible.
+- We still have 10 hours unused. Adding 1 gallon of chocolate uses 1 hour and adds \$200; adding 1 gallon of vanilla uses 2 hours and adds \$300 (= \$150/hour). So we should spend all remaining time on chocolate, but we are already at its upper limit \(x \le 10\). We can only increase \(y\).
+
+To use all 30 hours:
+
+\[
+x + 2y = 30,\; x = 10 \Rightarrow 10 + 2y = 30 \Rightarrow y = 10
+\]
+
+But we have \(y \le 8\), so we can’t reach 30 hours; time won’t be fully used. The best feasible vanilla is \(y = 8\):
+
+- Check \(x = 10, y = 8\):
+  - Time: \(1\cdot10 + 2\cdot8 = 10 + 16 = 26 \le 30\)
+  - All other bounds satisfied.
+
+Try lowering \(x\) to increase \(y\)? We are already at \(y\)’s maximum (8), so no. Any reduction of \(x\) would lower profit.
+
+Thus the optimal solution:
+
+\[
+x^* = 10,\quad y^* = 8
+\]
+
+Profit:
+
+\[
+Z^* = 200\cdot10 + 300\cdot8 = 2000 + 2400 = \$4400
+\]
+
+## 5. Final answer
+
+- Produce **10 gallons of chocolate** and **8 gallons of vanilla** per week.  
+- Maximum weekly profit: **\$4,400**.
+
+## 6. Suitable Python libraries
+
+To model and solve this linear program in Python, you can use:
+
+- `PuLP` – very straightforward for LPs:
+  - `from pulp import LpProblem, LpVariable, LpMaximize, value`
+- `scipy.optimize.linprog` – good for LPs with continuous variables.
+- `ortools.linear_solver` (Google OR-Tools) – industrial-grade solver, supports LP/MIP.
+
+`PuLP` example sketch:
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("IceCreamProfitMax", pl.LpMaximize)
+
+# Variables
+x = pl.LpVariable('chocolate', lowBound=0)
+y = pl.LpVariable('vanilla', lowBound=0)
+
+# Objective
+prob += 200*x + 300*y
+
+# Constraints
+prob += x >= 5
+prob += y >= 5
+prob += x <= 10
+prob += y <= 8
+prob += x + 2*y <= 30   # time
+prob += x + 2*y >= 6    # workers (redundant here but included)
+
+# Solve
+prob.solve()
+print("Chocolate:", x.value())
+print("Vanilla:", y.value())
+print("Profit:", pl.value(prob.objective))
+```
+
+This will return \(x = 10\), \(y = 8\).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Create the problem: maximize profit
+    prob = pl.LpProblem("IceCreamProfitMax", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('chocolate', lowBound=0)  # gallons of chocolate
+    y = pl.LpVariable('vanilla', lowBound=0)    # gallons of vanilla
+
+    # Objective function
+    prob += 200 * x + 300 * y
+
+    # Constraints
+    prob += x >= 5          # minimum chocolate
+    prob += y >= 5          # minimum vanilla
+    prob += x <= 10         # maximum chocolate
+    prob += y <= 8          # maximum vanilla
+    prob += x + 2 * y <= 30 # time constraint
+    prob += x + 2 * y >= 6  # worker requirement (redundant but included)
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract the final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

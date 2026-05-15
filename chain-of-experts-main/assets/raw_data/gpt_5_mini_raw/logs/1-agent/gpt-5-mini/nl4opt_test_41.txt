@@ -1,0 +1,46 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization (from problem statement)
+available_batter = 20000  # grams
+available_milk = 14000    # grams
+
+# Resource usage per cake (grams)
+# crepe cake, sponge cake, birthday cake
+batter_usage = {'crepe': 400, 'sponge': 500, 'birthday': 450}
+milk_usage   = {'crepe': 200, 'sponge': 300, 'birthday': 350}
+
+# Profit per cake ($)
+profit = {'crepe': 12, 'sponge': 10, 'birthday': 15}
+
+# Define the problem
+prob = pulp.LpProblem("Bakery_Profit_Maximization", pulp.LpMaximize)
+
+# Decision variables: number of each cake (integer, non-negative)
+x = {k: pulp.LpVariable(f"x_{k}", lowBound=0, cat='Integer') for k in profit.keys()}
+
+# Objective: maximize total profit
+prob += pulp.lpSum(profit[k] * x[k] for k in profit.keys()), "Total_Profit"
+
+# Constraints: batter and milk availability
+prob += pulp.lpSum(batter_usage[k] * x[k] for k in batter_usage.keys()) <= available_batter, "Batter_Limit"
+prob += pulp.lpSum(milk_usage[k] * x[k] for k in milk_usage.keys()) <= available_milk, "Milk_Limit"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract solution
+crepe_count = int(pulp.value(x['crepe']))
+sponge_count = int(pulp.value(x['sponge']))
+birthday_count = int(pulp.value(x['birthday']))
+total_profit = pulp.value(prob.objective)
+
+# Print results
+print(f"Crepe cakes: {crepe_count}")
+print(f"Sponge cakes: {sponge_count}")
+print(f"Birthday cakes: {birthday_count}")
+print(f"Total profit: ${total_profit:.2f}")
+
+# Final required print (must be last)
+print(f"FINAL_OBJ: {total_profit}")

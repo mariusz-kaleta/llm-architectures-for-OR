@@ -1,0 +1,87 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Minimise total pollution produced while transporting at least  required number of employees.
+
+2) Suggested model type
+- Model: Integer Linear Program (ILP). The objective and constraints are linear and variables must be integer (numbers of vehicles).
+
+3) Main decision variables
+- Number of cars used (integer, ≥ 0).
+- Number of buses used (integer, ≥ 0, with an upper bound).
+
+4) Key constraints to include
+- Capacity constraint: total passenger capacity provided by chosen vehicles must be at least 300 employees (each car seats 4, each bus seats 20).
+- Bus availability constraint: at most 4 buses can be used.
+- Integrality and non-negativity: both decision variables must be non‑negative integers.
+- (Optional) Practical upper bound on cars: if a realistic fleet limit exists, include a maximum number of cars; otherwise leave cars unbounded above except by the capacity requirement.
+
+5) Objective function (description, not a formal equation)
+- Minimise total pollution, computed as pollution per vehicle times number of that vehicle (cars produce 10 units each, buses produce 30 units each).
+
+6) Modeling/solution notes for the Modeller
+- The model is small and easily solved by any ILP solver; alternatively a quick greedy reasoning can be used because pollution per passenger is lower for buses (30/20 = 1.5) than for cars (10/4 = 2.5), so use the maximum allowed buses and satisfy the remaining demand with cars. Ensure final vehicle counts are integers and that the capacity constraint is satisfied (at least 300 employees).
+
+---
+
+[MODELER]:
+Formal ILP model
+
+Decision variables
+- c ∈ Z, c ≥ 0 : number of cars used.
+- b ∈ Z, 0 ≤ b ≤ 4 : number of buses used (upper bound 4).
+
+Objective
+- Minimise total pollution: minimize Z = 10·c + 30·b.
+
+Constraints
+- Capacity: 4·c + 20·b ≥ 300 (at least 300 employees transported).
+- Integrality and bounds: c, b integers; b ≤ 4; c ≥ 0.
+
+Notes / reasoning
+- Pollution per seat: car = 10/4 = 2.5 units/employee; bus = 30/20 = 1.5 units/employee. Because buses are strictly more pollution-efficient per passenger, use as many buses as allowed (b = 4), then satisfy remaining demand with cars.
+- With b = 4, capacity from buses = 80 employees. Remaining employees = 300 − 80 = 220. Cars needed: c = ceil(220/4) = 55.
+- Optimal solution: b = 4 buses, c = 55 cars. Total pollution Z = 30·4 + 10·55 = 120 + 550 = 670 units.
+
+Suggested solver libraries
+- pulp (simple Python LP/ILP interface with CBC solver)
+- OR-Tools (CP-SAT for integer programs)
+- gurobi / CPLEX (commercial solvers) if available
+- scipy.optimize is not ideal because this is an integer problem (useable only for continuous relaxations)
+
+Example (pseudocode / Python using pulp)
+- Create integer variables c, b (b bounded by 4).
+- Add constraint 4*c + 20*b >= 300.
+- Set objective minimize 10*c + 30*b.
+- Solve and read c, b (expect c=55, b=4).
+
+If you want, I can provide a ready-to-run pulp or OR-Tools script.
+
+---
+
+[CODER]:
+import math
+
+# Problem data
+demand = 300
+car_capacity = 4
+bus_capacity = 20
+car_cost = 10
+bus_cost = 30
+max_buses = 4
+
+best_obj = None
+best_solution = None
+
+for b in range(0, max_buses + 1):
+    remaining = max(0, demand - b * bus_capacity)
+    c = math.ceil(remaining / car_capacity)
+    if c < 0:
+        c = 0
+    obj = car_cost * c + bus_cost * b
+    if best_obj is None or obj < best_obj:
+        best_obj = obj
+        best_solution = (c, b)
+
+# best_solution contains (c, b), best_obj is the minimal pollution
+# Print final objective in required format
+print(f"FINAL_OBJ: {best_obj}")

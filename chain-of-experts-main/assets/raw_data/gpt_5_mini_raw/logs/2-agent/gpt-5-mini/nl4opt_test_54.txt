@@ -1,0 +1,143 @@
+[MODELER]:
+Model (linear program)
+
+- Decision variables
+  x = number of glasses of milk (≥ 0)
+  y = number of plates of vegetables (≥ 0)
+
+- Objective
+  Minimize cost: minimize z = 1*x + 2*y
+
+- Constraints (daily nutrient requirements)
+  40x + 15y ≥ 100  (calcium)
+  25x + 30y ≥ 50   (iron)
+
+- Domain
+  x ≥ 0, y ≥ 0
+
+Solution (continuous variables)
+You can solve this LP by inspecting the constraints. To meet both requirements using only milk you need
+x = max(100/40, 50/25) = max(2.5, 2) = 2.5, with y = 0.
+Cost = 1*(2.5) + 2*0 = $2.50.
+
+So the minimum-cost diet (allowing fractional portions) is 2.5 glasses of milk and 0 plates of vegetables, cost $2.50.
+
+If x and y must be integers (whole glasses/plates), the cheapest feasible integer solution is x = 3, y = 0, cost = $3.00.
+
+Recommended solvers / libraries
+- pulp (pure-Python LP/MIP)
+- scipy.optimize.linprog (continuous LP)
+- ortools.linear_solver (Google OR-Tools; supports LP and MIP)
+
+Example (Python, continuous LP with scipy)
+- Convert ≥ constraints to the form A_ub x ≤ b_ub by multiplying by −1:
+  minimize c^T x subject to A_ub x ≤ b_ub, x ≥ 0
+  c = [1, 2]
+  A_ub = [[-40, -15], [-25, -30]]
+  b_ub = [-100, -50]
+
+Use scipy.optimize.linprog to solve.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Complete, self-contained Python script to solve the LP described.
+# Decision variables:
+#   x >= 0 (glasses of milk)
+#   y >= 0 (plates of vegetables)
+# Objective:
+#   minimize z = 1*x + 2*y
+# Constraints:
+#   40x + 15y >= 100
+#   25x + 30y >= 50
+
+# We'll compute the continuous LP optimum analytically by checking candidate vertices,
+# and also compute the best integer (x,y) by brute force for verification.
+
+from math import ceil
+
+# Problem data
+c_x = 1.0
+c_y = 2.0
+
+# Nutrient RHS
+b_calcium = 100.0
+b_iron = 50.0
+
+# Coefficients
+a_cal_x = 40.0
+a_cal_y = 15.0
+a_fe_x = 25.0
+a_fe_y = 30.0
+
+# Candidate 1: use y = 0, find minimal x satisfying both constraints
+# 40x >= 100 -> x >= 100/40
+# 25x >= 50  -> x >= 50/25
+x_y0 = max(b_calcium / a_cal_x, b_iron / a_fe_x)
+y_y0 = 0.0
+cost_y0 = c_x * x_y0 + c_y * y_y0
+
+# Candidate 2: use x = 0, find minimal y satisfying both constraints
+# 15y >= 100 -> y >= 100/15
+# 30y >= 50  -> y >= 50/30
+x_x0 = 0.0
+y_x0 = max(b_calcium / a_cal_y, b_iron / a_fe_y)
+cost_x0 = c_x * x_x0 + c_y * y_x0
+
+# Candidate 3: intersection of the two lines (equality)
+# Solve:
+#   a_cal_x * x + a_cal_y * y = b_calcium
+#   a_fe_x  * x + a_fe_y  * y = b_iron
+det = a_cal_x * a_fe_y - a_cal_y * a_fe_x
+intersection_feasible = False
+cost_intersection = float('inf')
+x_int = y_int = None
+if abs(det) > 1e-12:
+    x_int = (b_calcium * a_fe_y - a_cal_y * b_iron) / det
+    y_int = (a_cal_x * b_iron - b_calcium * a_fe_x) / det
+    # Include only if x>=0 and y>=0 (domain restriction) and satisfies >= constraints (numerical tolerance)
+    if x_int >= -1e-12 and y_int >= -1e-12:
+        # Check >= constraints numerically
+        if (a_cal_x * x_int + a_cal_y * y_int >= b_calcium - 1e-8 and
+            a_fe_x * x_int  + a_fe_y * y_int  >= b_iron - 1e-8):
+            intersection_feasible = True
+            cost_intersection = c_x * x_int + c_y * y_int
+
+# Choose best continuous candidate
+candidates = [
+    (x_y0, y_y0, cost_y0),
+    (x_x0, y_x0, cost_x0)
+]
+if intersection_feasible:
+    candidates.append((x_int, y_int, cost_intersection))
+
+# Get minimal cost and corresponding point
+best_cont = min(candidates, key=lambda t: t[2])
+x_cont, y_cont, cost_cont = best_cont
+
+# Now compute best integer solution by brute force search over a reasonable range.
+# Determine reasonable upper bounds: if using only x, x must be at most ceil(b_calcium / a_cal_x) or more,
+# but to be safe we search a bit wider.
+max_x = ceil(b_calcium / a_cal_x) + 10  # small margin
+max_y = ceil(b_calcium / a_cal_y) + 10
+
+best_int_cost = float('inf')
+best_int_xy = (None, None)
+for xi in range(0, max_x + 1):
+    for yi in range(0, max_y + 1):
+        if (a_cal_x * xi + a_cal_y * yi >= b_calcium - 1e-9 and
+            a_fe_x  * xi + a_fe_y  * yi >= b_iron - 1e-9):
+            cost_i = c_x * xi + c_y * yi
+            if cost_i < best_int_cost - 1e-12:
+                best_int_cost = cost_i
+                best_int_xy = (xi, yi)
+
+# At this point:
+#   Continuous optimal (x_cont, y_cont) with cost cost_cont
+#   Best integer solution best_int_xy with cost best_int_cost
+
+# Final required print statement (must be the very last output line)
+# Print the continuous LP optimal objective value
+print(f"FINAL_OBJ: {cost_cont}")
+```

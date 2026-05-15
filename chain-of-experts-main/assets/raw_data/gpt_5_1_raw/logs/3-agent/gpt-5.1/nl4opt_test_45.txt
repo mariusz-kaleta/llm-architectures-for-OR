@@ -1,0 +1,127 @@
+[MODELER]:
+Formulate this as a linear programming (LP) problem.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of containers of Oil Max to produce  
+- \(y\) = number of containers of Oil Max Pro to produce  
+
+Both must be non-negative:
+\[
+x \ge 0, \quad y \ge 0
+\]
+
+(If only whole containers are allowed, then \(x, y\) should be integers.)
+
+## 2. Objective function
+
+Profit per container:
+- Oil Max: \$10
+- Oil Max Pro: \$15
+
+Maximize total profit:
+\[
+\max\; Z = 10x + 15y
+\]
+
+## 3. Constraints
+
+Each container uses some amount of each substance; total use cannot exceed available stock.
+
+### Substance A
+- Oil Max: 46 g per container  
+- Oil Max Pro: 13 g per container  
+- Available: 1345 g  
+
+Constraint:
+\[
+46x + 13y \le 1345
+\]
+
+### Substance B
+- Oil Max: 43 g per container  
+- Oil Max Pro: 4 g per container  
+- Available: 346 g  
+
+Constraint:
+\[
+43x + 4y \le 346
+\]
+
+### Substance C
+- Oil Max: 56 g per container  
+- Oil Max Pro: 45 g per container  
+- Available: 1643 g  
+
+Constraint:
+\[
+56x + 45y \le 1643
+\]
+
+## 4. Full mathematical model
+
+\[
+\begin{aligned}
+\max\quad & Z = 10x + 15y \\
+\text{s.t.}\quad 
+& 46x + 13y \le 1345 \quad \text{(Substance A)}\\
+& 43x + 4y \le 346 \quad \text{(Substance B)}\\
+& 56x + 45y \le 1643 \quad \text{(Substance C)}\\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+If integer solutions are required:
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+## 5. Suitable Python libraries
+
+You can solve this LP using:
+
+- **PuLP** (`pulp`) – simple, pure-Python LP modeling; uses CBC by default.
+- **SciPy** (`scipy.optimize.linprog`) – for continuous LP (no integer constraints).
+- **OR-Tools** (`ortools.linear_solver`) – from Google, supports LP and MIP (integer/binary).
+- **Pyomo** – more general algebraic modeling language, works with various solvers.
+
+For a straightforward teaching/learning implementation, **PuLP** or **SciPy** is easiest.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the LP problem: maximize profit
+    model = pulp.LpProblem("Oil_Production_Problem", pulp.LpMaximize)
+
+    # Decision variables: x = Oil Max, y = Oil Max Pro
+    x = pulp.LpVariable('x', lowBound=0, cat='Continuous')
+    y = pulp.LpVariable('y', lowBound=0, cat='Continuous')
+
+    # Objective function: Maximize 10x + 15y
+    model += 10 * x + 15 * y, "Total_Profit"
+
+    # Constraints
+    # Substance A: 46x + 13y <= 1345
+    model += 46 * x + 13 * y <= 1345, "Substance_A"
+
+    # Substance B: 43x + 4y <= 346
+    model += 43 * x + 4 * y <= 346, "Substance_B"
+
+    # Substance C: 56x + 45y <= 1643
+    model += 56 * x + 45 * y <= 1643, "Substance_C"
+
+    # Solve the LP
+    model.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the optimal objective value
+    final_obj = pulp.value(model.objective)
+
+    # Print in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,117 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Minimise the number of taxi rides required while transporting at least 500 employees.
+
+2. Suggested model type
+- Model: Integer Linear Programming (ILP). Decision variables are integer counts of rides.
+
+3. Main decision variables
+- T = number of taxi rides (integer, >= 0).
+- C = number of company car rides (integer, >= 0).
+- (Optional auxiliary variable) R = total rides = T + C (useful for expressing the 60% constraint).
+
+4. Key constraints to include (description, not formal equations)
+- Capacity constraint: The rides must transport at least 500 employees. Each taxi carries 2 employees and each company car carries 3, so the combined capacity from T and C must be >= 500.
+- Company-car share limit: At most 60% of the rides may be company car rides. Express this as a linear relation between C and total rides (e.g., C <= 0.6 * R). For modelling convenience this can be algebraically rearranged to a linear inequality in C and T (equivalently C <= 1.5 * T).
+- Minimum company cars: There must be at least 30 company car rides (C >= 30).
+- Non-negativity and integrality: T and C must be nonnegative integers (rides are whole numbers).
+- (Optional tie-breakers) If multiple solutions give the same minimal T, you may choose a secondary objective such as minimising total rides R or minimising company car rides (if operational cost trade-offs matter).
+
+5. Practical modelling/solution strategy for the Modeller
+- Use variables T and C and set objective to minimise T.
+- Implement the three linear constraints above (capacity, share limit, min C) and integrality.
+- To simplify: replace the 60% constraint C <= 0.6*(T+C) with the equivalent linear form C <= 1.5*T before coding.
+- Provide reasonable bounds for C when searching (e.g., C between 30 and floor(500/3) ≈ 166) to limit search space.
+- Solve with an ILP solver. Alternatively, a small manual enumeration over feasible C (30…166): for each C compute the minimum feasible T required by capacity and by the share relation, take the maximum of those lower bounds, then choose the C that yields the smallest T.
+- Return the integer (T, C) pair that minimises T and verify all constraints are satisfied.
+
+Notes for the Modeller
+- All constraints and objective are linear; integrality is required because rides are discrete.
+- The derived form C <= 1.5*T is convenient and numerically stable.
+- Check feasibility (some combinations of C may force large T or be infeasible).
+
+---
+
+[MODELER]:
+Below is a formal ILP model, a short solution strategy, and the optimal integer solution.
+
+1) Decision variables
+- T ∈ Z, T ≥ 0 : number of taxi rides (each carries 2 employees).
+- C ∈ Z, C ≥ 0 : number of company-car rides (each carries 3 employees).
+
+2) Objective
+- Minimise T (the number of taxi rides).
+
+3) Constraints (linear)
+- Capacity: 2T + 3C ≥ 500
+- Company-car share limit (at most 60% of rides are company cars):
+  C ≤ 0.6 (T + C)  — equivalently rearranged to a linear form:
+  C ≤ 1.5 T
+- Minimum company cars: C ≥ 30
+- Integrality and non-negativity: T, C ∈ Z, T ≥ 0, C ≥ 0
+
+4) Complete mathematical formulation
+Minimise: T
+subject to:
+  2T + 3C ≥ 500
+  C ≤ 1.5 T
+  C ≥ 30
+  T, C ∈ Z, T ≥ 0, C ≥ 0
+
+5) Practical solution remarks (fast method)
+- For a given T, feasible C must satisfy:
+    C ≥ max(30, ceil((500 − 2T)/3))
+    C ≤ floor(1.5 T)
+  Feasibility requires the lower bound ≤ upper bound.
+- Lower bound on T from the max possible capacity (when C is at its maximum 1.5T) is:
+    6.5 T ≥ 500 ⇒ T ≥ 500/6.5 ≈ 76.923 ⇒ T ≥ 77
+  Test T values from 77 upward until feasibility is achieved.
+
+6) Solution (computed)
+- The smallest feasible T is 78.
+- Corresponding feasible C is 115 (one feasible choice; any C in [115,117] would satisfy constraints for T=78, but C must be integer and at least 30).
+- Check: 2·78 + 3·115 = 156 + 345 = 501 ≥ 500; C = 115 ≤ 1.5·78 = 117; C ≥ 30 holds.
+
+Thus the optimal solution minimizing taxi rides is:
+- Taxi rides T = 78
+- Company-car rides C = 115
+
+7) Recommended solvers / libraries
+- Python pulp (PuLP) — easy to model and solve with CBC or other solvers.
+- OR-Tools (CP-SAT) — very fast for small ILPs.
+- Pyomo or CVXPY with an integer solver backend (if integrated) are also options.
+- For this very small problem a simple enumeration loop in pure Python is also trivial and reliable.
+
+If you want, I can provide a short PuLP or OR-Tools code snippet to solve this ILP and verify the result.
+
+---
+
+[CODER]:
+import math
+
+# Parameters
+total_employees = 500
+min_company_cars = 30
+
+# Search for minimal T (taxi rides) with feasible C (company-car rides)
+best_T = None
+best_C = None
+
+# Upper bound for search: 1000 is more than sufficient for this small problem
+for T in range(0, 1000):
+    # Minimum C required to meet capacity (and minimum company cars)
+    C_min_capacity = math.ceil((total_employees - 2 * T) / 3)
+    C_min = max(min_company_cars, C_min_capacity)
+    # Maximum C allowed by company-car share limit: C <= 1.5 T
+    C_max = math.floor(1.5 * T)
+    if C_min <= C_max:
+        best_T = T
+        best_C = C_min
+        break
+
+if best_T is None:
+    raise RuntimeError("No feasible solution found within search bounds.")
+
+# Final objective value (minimized number of taxi rides)
+value = best_T
+print(f"FINAL_OBJ: {value}")

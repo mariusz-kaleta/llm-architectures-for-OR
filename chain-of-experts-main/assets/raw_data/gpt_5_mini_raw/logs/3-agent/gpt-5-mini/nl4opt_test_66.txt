@@ -1,0 +1,87 @@
+[MODELER]:
+Model
+
+Variables
+- T ∈ Z≥0 : number of tractors
+- C ∈ Z≥0 : number of cars
+
+(You can simplify capacities by dividing by 20: one tractor = 2 units, one car = 1 unit, requirement = 25 units. Then 2T + C ≥ 25.)
+
+Objective
+- Minimize total vehicles: minimize z = T + C
+
+Constraints
+- capacity: 40T + 20C ≥ 500  (equivalently 2T + C ≥ 25)
+- car/tractor ratio: C ≥ 2T
+- integrality and nonnegativity: T, C ∈ Z≥0
+
+Optimal solution (by simple enumeration or MILP)
+- T = 6 tractors, C = 13 cars
+- capacity: 40·6 + 20·13 = 240 + 260 = 500 kg
+- total vehicles = 6 + 13 = 19 (this is minimal)
+
+Suitable Python libraries
+- pulp (LP/MILP with CBC solver)
+- ortools (CP-SAT for integer problems)
+- python-mip (mip) or pyomo (with a solver like CBC/Gurobi)
+- cvxpy (with integer flags and an integer solver backend)  
+
+Example quick solves
+
+1) pulp (MILP)
+```python
+import pulp
+
+model = pulp.LpProblem('corn', pulp.LpMinimize)
+T = pulp.LpVariable('T', lowBound=0, cat='Integer')
+C = pulp.LpVariable('C', lowBound=0, cat='Integer')
+
+model += T + C                       # objective
+model += 40*T + 20*C >= 500         # capacity
+model += C - 2*T >= 0               # ratio
+
+model.solve()
+print(int(T.value()), int(C.value()), 'total=', int(T.value())+int(C.value()))
+```
+
+2) ortools CP-SAT
+```python
+from ortools.sat.python import cp_model
+
+m = cp_model.CpModel()
+T = m.NewIntVar(0, 100, 'T')
+C = m.NewIntVar(0, 100, 'C')
+
+m.Add(40*T + 20*C >= 500)
+m.Add(C >= 2*T)
+m.Minimize(T + C)
+
+solver = cp_model.CpSolver()
+solver.Solve(m)
+print(solver.Value(T), solver.Value(C), 'total=', solver.Value(T)+solver.Value(C))
+```
+
+Both will return T=6, C=13, total = 19.
+
+---
+
+[CODER]:
+import math
+
+# Brute-force search (no external solver required)
+best_obj = None
+best_solution = None
+
+for T in range(0, 501):  # search over a safe range for tractors
+    # capacity constraint: 40*T + 20*C >= 500  ->  C >= ceil((500 - 40*T)/20) if positive
+    remaining = 500 - 40 * T
+    min_C_capacity = 0 if remaining <= 0 else math.ceil(remaining / 20)
+    # ratio constraint: C >= 2*T
+    C = max(0, 2 * T, min_C_capacity)
+    obj = T + C
+    if best_obj is None or obj < best_obj:
+        best_obj = obj
+        best_solution = (T, C)
+
+# best_obj should be 19 with (T=6, C=13)
+print(f"FINAL_OBJ: {best_obj}")

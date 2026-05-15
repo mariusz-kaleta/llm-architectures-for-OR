@@ -1,0 +1,85 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- W ∈ Z, W ≥ 5 : number of wide pipes
+- N ∈ Z, N ≥ 0 : number of narrow pipes
+
+Constraints
+- Capacity: 25W + 15N ≥ 900
+- Logistic limit: W ≤ N/3  (equivalently 3W ≤ N)
+- Integrality: W, N integers
+
+Objective
+- Minimize total pipes: minimize P = W + N
+
+Remarks: Because 3W ≤ N, for any candidate W the minimal feasible N is N = max( ceil((900 − 25W)/15), 3W ). So you can either solve the MILP or enumerate integer W ≥ 5 and pick N as above.
+
+Analytic solution (short)
+- Evaluate possible W ≥ 5:
+  - For W = 12: required N ≥ ceil((900−25·12)/15) = ceil(600/15) = 40 and 3W = 36 ⇒ N = 40 ⇒ P = 52.
+  - For W = 13: required N ≥ ceil((900−25·13)/15) = ceil(575/15) = 39 and 3W = 39 ⇒ N = 39 ⇒ P = 52.
+- All other feasible (W,N) give P ≥ 53.
+- Therefore the minimum total number of pipes is 52, attained by (W,N) = (12,40) or (W,N) = (13,39).
+
+Recommended solvers/libraries
+- pulp (uses CBC by default) — simple MILP interface in Python
+- ortools (CP-SAT) — fast integer programming solver
+- gurobi / cplex — commercial MILP solvers if available
+- For small problem you can also do direct enumeration in pure Python (no solver).
+
+Example Python (pulp)
+```
+import math
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpInteger, PULP_CBC_CMD
+
+prob = LpProblem("pipes", LpMinimize)
+W = LpVariable("W", lowBound=5, cat=LpInteger)
+N = LpVariable("N", lowBound=0, cat=LpInteger)
+
+prob += W + N
+prob += 25*W + 15*N >= 900
+prob += 3*W <= N
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print("Status:", prob.status)
+print("W =", int(W.value()), "N =", int(N.value()), "Total =", int(W.value()+N.value()))
+```
+
+Alternative simple enumeration (no solver)
+```
+import math
+best = None
+for W in range(5, 100):  # 100 is safe upper bound
+    N_req = max(math.ceil(max(0, 900 - 25*W)/15), 3*W)
+    P = W + N_req
+    if best is None or P < best[0]:
+        best = (P, W, N_req)
+print("Best total pipes:", best[0], "at W =", best[1], "N =", best[2])
+```
+
+If you want, I can provide a full runnable script for a chosen solver or show the step-by-step enumeration table.
+
+---
+
+[CODER]:
+import math
+
+# Enumerate integer values for W (wide pipes) and compute minimal N (narrow pipes)
+best = None  # tuple (P, W, N)
+
+for W in range(5, 501):  # 500 is a safe upper bound
+    # minimal N to satisfy capacity (may be negative if W alone suffices)
+    capacity_need = max(0, 900 - 25 * W)
+    N_capacity = math.ceil(capacity_need / 15)
+    N_logistic = 3 * W
+    N_req = max(N_capacity, N_logistic)
+    P = W + N_req
+    if best is None or P < best[0]:
+        best = (P, W, N_req)
+
+# Extract best solution
+best_P, best_W, best_N = best
+
+# Final required print (exact format)
+print(f"FINAL_OBJ: {best_P}")

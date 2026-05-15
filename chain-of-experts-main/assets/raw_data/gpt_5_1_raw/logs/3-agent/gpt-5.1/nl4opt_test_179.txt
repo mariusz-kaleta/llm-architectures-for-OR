@@ -1,0 +1,198 @@
+[MODELER]:
+Let’s turn this into a small optimization model and then solve it.
+
+---
+
+## 1. Define decision variables
+
+Let
+
+- \( x \) = amount of money (in dollars) invested in apartments  
+- \( y \) = amount of money (in dollars) invested in townhouses  
+
+Both must be nonnegative:
+
+- \( x \ge 0 \)
+- \( y \ge 0 \)
+
+---
+
+## 2. Constraints
+
+1. **Total available capital**
+
+They have \$600,000 in total:
+
+\[
+x + y = 600{,}000
+\]
+
+(You can also model this as \( \le 600{,}000\), but at optimum it will be tight.)
+
+2. **Upper bound on apartments investment**
+
+Money in apartments must not be greater than \$200,000:
+
+\[
+x \le 200{,}000
+\]
+
+3. **Apartments at least half of townhouses**
+
+Money in apartments must be at least half as much as in townhouses:
+
+\[
+x \ge \tfrac{1}{2} y
+\]
+
+equivalently,
+
+\[
+2x \ge y
+\]
+
+---
+
+## 3. Objective function
+
+Profit per period is:
+
+- Apartments: 10% of \(x\) → \(0.10x\)
+- Townhouses: 15% of \(y\) → \(0.15y\)
+
+We want to **maximize total profit**:
+
+\[
+\max \; Z = 0.10x + 0.15y
+\]
+
+---
+
+## 4. Solve analytically
+
+Use the constraints to reduce variables.
+
+From total capital:
+
+\[
+y = 600{,}000 - x
+\]
+
+Substitute into the “at least half” constraint:
+
+\[
+x \ge \tfrac{1}{2}(600{,}000 - x) \\
+x \ge 300{,}000 - 0.5x \\
+1.5x \ge 300{,}000 \\
+x \ge 200{,}000
+\]
+
+We already have \(x \le 200{,}000\), so both together force:
+
+\[
+x = 200{,}000
+\]
+
+Then:
+
+\[
+y = 600{,}000 - 200{,}000 = 400{,}000
+\]
+
+Check constraints:
+
+- Total: \(200{,}000 + 400{,}000 = 600{,}000\) ✓  
+- Apartments cap: \(x = 200{,}000 \le 200{,}000\) ✓  
+- Apartments at least half townhouses:  
+  \(x = 200{,}000 \ge \tfrac{1}{2} \cdot 400{,}000 = 200{,}000\) ✓
+
+Profit:
+
+\[
+Z = 0.10 \cdot 200{,}000 + 0.15 \cdot 400{,}000
+  = 20{,}000 + 60{,}000
+  = 80{,}000
+\]
+
+So the optimal allocation is:
+
+- Invest **\$200,000 in apartments**  
+- Invest **\$400,000 in townhouses**  
+
+---
+
+## 5. Suitable Python libraries
+
+This is a **linear programming** problem. Appropriate Python libraries include:
+
+- `PuLP` – simple for educational LP modeling
+- `scipy.optimize.linprog` – general LP solver in SciPy
+- `ortools.linear_solver` (from Google OR-Tools) – powerful LP/MIP framework
+- `cvxpy` – general convex optimization modeling library
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("RealEstateInvestment", pl.LpMaximize)
+
+# Variables
+x = pl.LpVariable("Apartments", lowBound=0)
+y = pl.LpVariable("Townhouses", lowBound=0)
+
+# Objective
+prob += 0.10 * x + 0.15 * y
+
+# Constraints
+prob += x + y == 600000
+prob += x <= 200000
+prob += x >= 0.5 * y
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Invest in apartments:", x.value())
+print("Invest in townhouses:", y.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This model reproduces the analytical solution:
+- Apartments: 200000  
+- Townhouses: 400000  
+- Max profit: 80000
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("RealEstateInvestment", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable("Apartments", lowBound=0)
+    y = pl.LpVariable("Townhouses", lowBound=0)
+
+    # Objective function: maximize profit
+    prob += 0.10 * x + 0.15 * y
+
+    # Constraints
+    prob += x + y == 600000          # Total available capital
+    prob += x <= 200000              # Upper bound on apartments investment
+    prob += x >= 0.5 * y             # Apartments at least half of townhouses
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

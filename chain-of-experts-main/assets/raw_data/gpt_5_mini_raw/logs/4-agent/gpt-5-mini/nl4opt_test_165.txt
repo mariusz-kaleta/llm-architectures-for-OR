@@ -1,0 +1,111 @@
+[PLANNER]:
+1. Key optimisation goal:
+- Goal: Maximise total profit from selling tacos.
+
+2. Suggested model type:
+- Model: Linear Programming (continuous LP). (If tacos must be integer, use an Integer LP; integer constraint here will not change the solution since optimal values are integers.)
+
+3. Main decision variables:
+- x1 = number of regular tacos to make (≥ 0).
+- x2 = number of deluxe tacos to make (≥ 0).
+
+4. Key constraints to consider:
+- Demand limits: x1 cannot exceed the maximum demand for regular tacos.
+- Demand limits: x2 cannot exceed the maximum demand for deluxe tacos.
+- Supply/capacity limit: the total number of tacos (regular + deluxe) cannot exceed available supplies.
+- Non-negativity: x1 ≥ 0, x2 ≥ 0.
+- Optional: integrality constraint if you require integer counts.
+
+5. Additional modelling notes and recommended solution approach:
+- Objective function: maximise profit = (profit per regular) * x1 + (profit per deluxe) * x2.
+- Profit rates: regular = $2.50 each, deluxe = $3.55 each. Because deluxe has higher profit per unit, allocate capacity to deluxe first up to its demand limit, then use remaining capacity for regular tacos.
+- Solve by examining LP corner points (or use simplex/solver). The relevant binding constraints will be the deluxe demand and the total supply.
+
+6. Expected optimal production (for quick verification):
+- Produce maximum deluxe tacos first: x2 = 40 (deluxe demand cap).
+- Remaining capacity = 70 − 40 = 30 → produce x1 = 30 regular tacos.
+- Total profit = 30 * $2.50 + 40 * $3.55 = $217.00.
+
+Deliverable for the Modeller:
+- Formulate the LP with variables x1, x2, the objective as above, and the three constraints (regular demand, deluxe demand, total supply) plus non-negativity. Solve with an LP solver or by checking corner points; verify the solution x1=30, x2=40 and report profit.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- x1 ≥ 0 : number of regular tacos to produce.
+- x2 ≥ 0 : number of deluxe tacos to produce.
+
+Objective
+- Maximise total profit: maximize Z = 2.50 x1 + 3.55 x2.
+
+Constraints
+1. Demand limit for regular tacos: x1 ≤ 50.
+2. Demand limit for deluxe tacos: x2 ≤ 40.
+3. Supply/capacity limit: x1 + x2 ≤ 70.
+4. Non-negativity: x1 ≥ 0, x2 ≥ 0.
+(If you require integer counts, add x1, x2 ∈ Z≥0 — integer constraint will not change the optimal solution here.)
+
+LP formulation
+Maximise Z = 2.50 x1 + 3.55 x2
+subject to
+- x1 ≤ 50
+- x2 ≤ 40
+- x1 + x2 ≤ 70
+- x1, x2 ≥ 0
+
+Solution (analytic reasoning)
+Compare unit profits: deluxe = 3.55 > regular = 2.50, so allocate capacity to deluxe tacos first up to its demand. Produce x2 = 40 (deluxe demand cap). Remaining capacity = 70 − 40 = 30 → produce x1 = 30.
+
+Verify by checking corner-point candidates:
+- (0,0): Z = 0
+- (50,0): Z = 50·2.50 = 125
+- (0,40): Z = 40·3.55 = 142
+- (50,20) [intersection x1=50 and x1+x2=70]: Z = 50·2.50 + 20·3.55 = 196
+- (30,40) [intersection x2=40 and x1+x2=70]: Z = 30·2.50 + 40·3.55 = 217 ← maximum
+
+Optimal solution
+- x1 = 30 regular tacos
+- x2 = 40 deluxe tacos
+- Maximum profit Z* = $217.00
+
+Recommended Python libraries for solving
+- pulp (simple LP/MIP modelling and solvers)
+- scipy.optimize.linprog (continuous LP)
+- cvxpy (convex optimisation)
+- OR-Tools linear solver or OR-Tools CP-SAT (for integer variants or larger MIP)
+All of these will readily solve this 2-variable LP; use pulp or linprog for the simplest coding.
+
+---
+
+[CODER]:
+```python
+import pulp
+
+# Define the LP problem: maximize profit
+prob = pulp.LpProblem("Taco_Profit_Maximization", pulp.LpMaximize)
+
+# Decision variables
+x1 = pulp.LpVariable("x1_regular", lowBound=0)  # regular tacos
+x2 = pulp.LpVariable("x2_deluxe", lowBound=0)   # deluxe tacos
+
+# Objective: maximize 2.50*x1 + 3.55*x2
+prob += 2.50 * x1 + 3.55 * x2, "Total_Profit"
+
+# Constraints
+prob += x1 <= 50, "Demand_limit_regular"
+prob += x2 <= 40, "Demand_limit_deluxe"
+prob += x1 + x2 <= 70, "Capacity_limit"
+
+# Solve quietly
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Get objective value
+value = pulp.value(prob.objective)
+
+# Print final objective value in required format
+print(f"FINAL_OBJ: {value:.2f}")
+```

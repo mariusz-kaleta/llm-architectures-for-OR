@@ -1,0 +1,41 @@
+[MONOLITH]:
+import pulp
+
+# Data (initialized directly)
+small_capacity = 25
+large_capacity = 45
+min_masks = 750
+min_large_boxes = 5
+
+# Define problem
+prob = pulp.LpProblem("Minimize_Number_of_Boxes", pulp.LpMinimize)
+
+# Decision variables: number of small and large boxes (integer, >=0)
+s = pulp.LpVariable('small_boxes', lowBound=0, cat='Integer')
+L = pulp.LpVariable('large_boxes', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of boxes
+prob += s + L, "TotalBoxes"
+
+# Constraints
+prob += small_capacity * s + large_capacity * L >= min_masks, "MaskRequirement"
+prob += s >= 3 * L, "AtLeastThreeTimesSmall"
+prob += L >= min_large_boxes, "MinLargeBoxes"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Retrieve solution
+small_val = int(pulp.value(s))
+large_val = int(pulp.value(L))
+total_boxes = int(round(pulp.value(prob.objective)))
+
+# Output results
+print(f"Small boxes: {small_val}")
+print(f"Large boxes: {large_val}")
+print(f"Total masks delivered: {small_capacity*small_val + large_capacity*large_val}")
+print(f"Total boxes used: {total_boxes}")
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {total_boxes}")

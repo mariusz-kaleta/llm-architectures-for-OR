@@ -1,0 +1,184 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximise total advertising exposure (total expected number of viewers reached) subject to the budget and policy limits on numbers of ads.
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP) – variables are counts of ads, so they must be non‑negative integers.
+
+3. Main decision variables  
+Define two primary decision variables:
+
+- Number of radio ads to purchase.  
+- Number of social media ads to purchase.
+
+Both must be integer and non‑negative.
+
+4. Objective function (conceptual)  
+Maximise:  
+- Total exposure = (exposure per radio ad) × (number of radio ads)  
+  + (exposure per social media ad) × (number of social media ads).
+
+Numerical components for the modeller to use:  
+- Radio ad exposure = 60,500 viewers/ad.  
+- Social media ad exposure = 50,000 viewers/ad.
+
+5. Key constraints to consider  
+
+a) Budget constraint  
+- Total spending on radio ads plus total spending on social media ads cannot exceed $250,000.  
+- Radio ad cost = $5,000 per ad.  
+- Social media ad cost = $9,150 per ad.  
+- Formulate:  
+  (cost per radio ad × number of radio ads)  
+  + (cost per social media ad × number of social media ads)  
+  ≤ total budget ($250,000).
+
+b) Radio ads quantity constraints  
+- Minimum number of radio ads: at least 15.  
+- Maximum number of radio ads: no more than 40.  
+- Represent as lower and upper bounds on the radio-ad variable.
+
+c) Social media ads quantity constraints  
+- Minimum number of social media ads: at least 35.  
+- No explicit upper bound beyond what the budget implies, but you can treat the budget as implicitly constraining the maximum feasible number of social media ads.  
+- Represent as a lower bound on the social-media-ad variable.
+
+d) Integrality constraints  
+- Both decision variables must be integers (you can’t buy fractional ads).
+
+6. Modelling strategy notes  
+
+- This is a small two-variable ILP; it can be solved via:  
+  - Any standard ILP solver, or  
+  - Enumeration of feasible integer points satisfying all constraints and selecting the one with maximum exposure (for pedagogical or manual solution).  
+- You may optionally first solve the LP relaxation (ignoring integrality) to identify the region and then search around the optimal fractional solution for nearby integer points.  
+- Check corner points where the budget is binding and bounds on radio ads (min or max) are binding, since these are likely candidates for the optimum in such a simple linear model.
+
+---
+
+[MODELER]:
+Here is a clear mathematical model of the problem.
+
+## 1. Decision variables
+
+Let  
+- \(x \in \mathbb{Z}_{\ge 0}\): number of radio ads to purchase  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of social media ads to purchase  
+
+Both are non‑negative integers.
+
+## 2. Objective function
+
+Maximise total expected exposure (number of viewers reached):
+
+\[
+\text{Maximise } Z = 60500\,x + 50000\,y
+\]
+
+where  
+- 60,500 = expected viewers per radio ad  
+- 50,000 = expected viewers per social media ad  
+
+## 3. Constraints
+
+### a) Budget constraint
+
+Total spending cannot exceed \$250,000:
+
+\[
+5000\,x + 9150\,y \;\le\; 250000
+\]
+
+where  
+- \$5,000 = cost per radio ad  
+- \$9,150 = cost per social media ad  
+
+### b) Radio ads quantity constraints
+
+At least 15 and no more than 40 radio ads:
+
+\[
+15 \;\le\; x \;\le\; 40
+\]
+
+### c) Social media ads quantity constraint
+
+At least 35 social media ads:
+
+\[
+y \;\ge\; 35
+\]
+
+(There is no explicit upper bound on \(y\); the budget and non‑negativity implicitly bound it.)
+
+### d) Integrality and non‑negativity
+
+\[
+x, y \in \mathbb{Z}, \quad x \ge 0, \; y \ge 0
+\]
+
+Putting it together, this is a small Integer Linear Program (ILP).
+
+---
+
+## 4. Compact ILP formulation
+
+\[
+\begin{aligned}
+\text{Maximise} \quad & Z = 60500x + 50000y \\
+\text{subject to} \quad
+& 5000x + 9150y \le 250000 \\
+& 15 \le x \le 40 \\
+& y \ge 35 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard MILP/ILP solver works. For this problem, all of these are suitable and very easy to use:
+
+- `PuLP` (pure Python, can use CBC solver; good for teaching and small models)
+- `ortools.linear_solver` (Google OR-Tools; efficient and well-documented)
+- `Pyomo` (more general modelling framework; good if integrating into larger optimisation workflows)
+- `scipy.optimize` is **not** ideal here because it does not handle integer decision variables natively; you’d need a custom enumeration for integrality.
+
+For a straightforward educational implementation, I recommend:
+
+- **First choice:** `PuLP`
+- **Alternative:** OR-Tools’ `pywraplp.Solver` with `CBC_MIXED_INTEGER_PROGRAMMING` or `SCIP_MIXED_INTEGER_PROGRAMMING`.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem
+    prob = pulp.LpProblem("Ad_Selection_Problem", pulp.LpMaximize)
+
+    # Decision variables (non-negative integers)
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # radio ads
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # social media ads
+
+    # Objective function: Maximise exposure
+    prob += 60500 * x + 50000 * y
+
+    # Constraints
+    prob += 5000 * x + 9150 * y <= 250000          # Budget
+    prob += x >= 15                                # Min radio ads
+    prob += x <= 40                                # Max radio ads
+    prob += y >= 35                                # Min social media ads
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    objective_value = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {objective_value}")
+
+if __name__ == "__main__":
+    main()

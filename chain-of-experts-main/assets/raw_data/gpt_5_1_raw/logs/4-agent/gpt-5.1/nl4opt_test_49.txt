@@ -1,0 +1,217 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximise the total number of bottles produced (kids + adult), given limited syrup and production mix restrictions.
+
+2. Suggested model type  
+Model: Small Linear Programming (LP) / Integer Linear Programming (ILP).  
+- Continuous LP is enough to get the structure; integrality can be added since we need whole bottles.
+
+3. Main decision variables  
+Define two decision variables:
+- K = number of kids-size bottles produced (100 ml each)
+- A = number of adult-size bottles produced (300 ml each)
+
+Both are non-negative integers.
+
+4. Key constraints to consider  
+
+a) Syrup availability (resource capacity)  
+- Each kids bottle uses 100 ml, each adult bottle uses 300 ml.  
+- Total syrup used cannot exceed 25,000 ml.  
+
+b) Adult-to-kids production ratio  
+- “At least 3 times as many adult size bottles must be made as kids size bottles”  
+  → The number of adult bottles must be at least three times the number of kids bottles.  
+
+c) Minimum kids production requirement  
+- “At least 50 kids size bottles must be made”  
+  → Lower bound on K.
+
+d) Non-negativity and integrality  
+- K ≥ 0, A ≥ 0  
+- K and A must be integers (whole bottles).
+
+5. Objective function structure  
+- Objective: Maximise total number of bottles = K + A.
+
+6. Modelling strategy / checks for the Modeller  
+- Set up LP/ILP with variables K, A.  
+- Implement the three main constraints: syrup capacity, adult ≥ 3 × kids, kids ≥ 50.  
+- Solve the LP to get (possibly fractional) solution; then ensure integer feasibility if using ILP or by checking nearby integer points.  
+- Verify that the optimal solution uses all or nearly all of the syrup (capacity will likely be binding).  
+- Confirm that the solution respects the adult-to-kids ratio and the minimum kids requirement simultaneously.
+
+---
+
+[MODELER]:
+Here’s a clean mathematical model of the problem and how you could implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(K \in \mathbb{Z}_{\ge 0}\): number of kids-size bottles produced  
+- \(A \in \mathbb{Z}_{\ge 0}\): number of adult-size bottles produced  
+
+(We will later enforce them to be integers.)
+
+---
+
+## 2. Objective function
+
+Maximise total number of bottles:
+
+\[
+\max \; Z = K + A
+\]
+
+---
+
+## 3. Constraints
+
+1. **Syrup capacity (25000 ml total):**
+
+Each kids bottle = 100 ml, each adult bottle = 300 ml:
+
+\[
+100K + 300A \le 25000
+\]
+
+2. **Adult-to-kids production ratio:**
+
+“At least 3 times as many adult size bottles must be made as kids size bottles”:
+
+\[
+A \ge 3K
+\]
+
+3. **Minimum kids production:**
+
+“At least 50 kids size bottles must be made”:
+
+\[
+K \ge 50
+\]
+
+4. **Non-negativity and integrality:**
+
+\[
+K \ge 0,\quad A \ge 0,\quad K, A \in \mathbb{Z}
+\]
+
+---
+
+## 4. Model type
+
+This is a **small Integer Linear Programming (ILP)** problem:
+
+- Linear objective \(K + A\)
+- Linear constraints
+- Integer decision variables
+
+You can first solve it as an LP (relaxing integrality) to understand structure and then enforce integrality for the final answer.
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard MILP/LP library will handle this very easily:
+
+- **PuLP**  
+  - Simple, pure-Python interface; can use CBC (bundled), GLPK, or commercial solvers.
+  - Good for teaching and small to medium-sized models.
+
+- **OR-Tools (Google OR-Tools)**  
+  - `ortools.linear_solver.pywraplp` for LP/MIP.
+  - Very fast CBC-based MIP solver, easy to install and use.
+
+- **Pyomo**  
+  - More general modeling framework; good if you anticipate larger or more complex models later.
+
+- **scipy.optimize**  
+  - Can solve the LP relaxation (continuous only) via `linprog`, but not integer constraints directly.  
+  - You’d need an external MIP solver if you require integrality.
+
+---
+
+## 6. Example formulation in PuLP
+
+```python
+import pulp as pl
+
+# Create the problem: maximize
+model = pl.LpProblem("Cough_Syrup_Production", pl.LpMaximize)
+
+# Decision variables (integer, >= 0)
+K = pl.LpVariable("Kids_Bottles", lowBound=0, cat="Integer")
+A = pl.LpVariable("Adult_Bottles", lowBound=0, cat="Integer")
+
+# Objective: maximize total number of bottles
+model += K + A, "Total_Bottles"
+
+# Constraints
+
+# Syrup capacity: 100K + 300A ≤ 25000
+model += 100*K + 300*A <= 25000, "Syrup_Capacity"
+
+# Adult ≥ 3 * Kids
+model += A >= 3*K, "Adult_to_Kids_Ratio"
+
+# Kids ≥ 50
+model += K >= 50, "Min_Kids"
+
+# Solve
+model.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Get results
+K_opt = pl.value(K)
+A_opt = pl.value(A)
+Z_opt = pl.value(model.objective)
+
+print(f"Optimal Kids bottles:  {K_opt}")
+print(f"Optimal Adult bottles: {A_opt}")
+print(f"Max total bottles:     {Z_opt}")
+```
+
+This code directly implements the mathematical model given above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem: maximize
+    model = pl.LpProblem("Cough_Syrup_Production", pl.LpMaximize)
+
+    # Decision variables (integer, >= 0)
+    K = pl.LpVariable("Kids_Bottles", lowBound=0, cat="Integer")
+    A = pl.LpVariable("Adult_Bottles", lowBound=0, cat="Integer")
+
+    # Objective: maximize total number of bottles
+    model += K + A, "Total_Bottles"
+
+    # Constraints
+
+    # Syrup capacity: 100K + 300A ≤ 25000
+    model += 100 * K + 300 * A <= 25000, "Syrup_Capacity"
+
+    # Adult ≥ 3 * Kids
+    model += A >= 3 * K, "Adult_to_Kids_Ratio"
+
+    # Kids ≥ 50
+    model += K >= 50, "Min_Kids"
+
+    # Solve
+    model.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    Z_opt = pl.value(model.objective)
+
+    # Final required print
+    print(f"FINAL_OBJ: {Z_opt}")
+
+if __name__ == "__main__":
+    main()

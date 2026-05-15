@@ -1,0 +1,36 @@
+[MONOLITH]:
+import pulp
+
+# Data (initialized directly from problem statement)
+budget = 760000.0
+profit_condo = 0.5   # profit per dollar in condos
+profit_detached = 1.0  # profit per dollar in detached houses
+min_detached = 20000.0  # at least $20,000 in detached houses
+min_condo_fraction = 0.2  # at least 20% of all money invested must be in condos
+
+# Define LP
+prob = pulp.LpProblem("Watson_Investment", pulp.LpMaximize)
+
+# Decision variables: dollars invested in condos (x_c) and detached houses (x_d)
+x_c = pulp.LpVariable("x_condo", lowBound=0, cat="Continuous")
+x_d = pulp.LpVariable("x_detached", lowBound=0, cat="Continuous")
+
+# Objective: maximize total profit
+prob += profit_condo * x_c + profit_detached * x_d, "Total_Profit"
+
+# Constraints
+prob += x_c + x_d <= budget, "Budget"
+# Minimum 20% of all money invested must be in condos:
+# x_c >= 0.2*(x_c + x_d)  -> 0.8*x_c - 0.2*x_d >= 0
+prob += 0.8 * x_c - 0.2 * x_d >= 0, "Min_Condo_Fraction"
+# At least $20,000 in detached houses
+prob += x_d >= min_detached, "Min_Detached"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Get final objective value
+final_obj = pulp.value(prob.objective)
+
+# Print final objective in required format
+print(f"FINAL_OBJ: {final_obj}")

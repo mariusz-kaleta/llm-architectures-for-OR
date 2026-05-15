@@ -1,0 +1,200 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Maximise weekly profit from producing wooden elephants and tigers.
+
+2. Suggested model type
+- Model: Linear Programming (LP). Because profit is linear in quantities and resource limits are linear. You may enforce integrality (Integer LP) if you require whole items.
+
+3. Main decision variables
+- Number of elephants produced in the week.
+- Number of tigers produced in the week.
+
+(Record resource use and profit per unit for the modeller:)
+- Elephant uses: 50 g wood, 20 g plastic, profit $5.
+- Tiger uses: 40 g wood, 30 g plastic, profit $4.
+
+4. Key constraints to consider
+- Wood availability: total wood used by elephants and tigers cannot exceed 5000 g.
+- Plastic availability: total plastic used by elephants and tigers cannot exceed 4000 g.
+- Non-negativity: production quantities must be zero or positive.
+- Integrality (optional): quantities should be integers if fractional items are not allowed.
+
+5. Modelling / solution guidance for the modeller
+- Formulate the LP using the two decision variables and the two resource constraints above.
+- Solve by a standard LP method (simplex) or graphically (two variables). Critical feasible corner cases to evaluate are: produce only elephants, produce only tigers, and the point where the wood and plastic constraints are both binding.
+- After solving, check integrality; if the LP solution yields fractional items and integrality is required, solve the Integer LP or round carefully and verify resource feasibility and optimality.
+- Optionally run sensitivity checks: how result changes if resource amounts or unit profits change, or if there are demand or capacity limits not given in the statement.
+
+Deliverable expected from modeller: numeric optimal production quantities for elephants and tigers, total profit, and a short sensitivity note (integer check and any alternate scenarios).
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- x = number of elephants produced (units/week), x ≥ 0.
+- y = number of tigers produced (units/week), y ≥ 0.
+(If fractional items are not allowed, x,y ∈ Z≥0.)
+
+Parameters (given)
+- Wood per elephant = 50 g
+- Plastic per elephant = 20 g
+- Profit per elephant = $5
+- Wood per tiger = 40 g
+- Plastic per tiger = 30 g
+- Profit per tiger = $4
+- Available wood = 5000 g
+- Available plastic = 4000 g
+
+Constraints
+- Wood: 50x + 40y ≤ 5000
+- Plastic: 20x + 30y ≤ 4000
+- Nonnegativity: x ≥ 0, y ≥ 0
+- (Optional) Integrality: x,y integer
+
+Objective
+Maximise total weekly profit: maximize Z = 5x + 4y
+
+Analysis and analytic solution
+- The feasible region is given by the two resource inequalities and the axes.
+- Note: the two resource boundary lines intersect at a point with negative x (their intersection is outside the first quadrant). Therefore the plastic constraint is non‑binding (redundant) over the feasible region defined by wood and nonnegativity.
+- The active (binding) constraint at optimum is the wood constraint:
+  50x + 40y = 5000  (equivalently 5x + 4y = 500).
+- Along this wood-boundary line, the objective equals Z = 5x + 4y = 500 (constant). So every feasible (x,y) satisfying 50x + 40y = 5000 and x,y ≥ 0 is optimal and yields total profit $500.
+
+Representative optimal solutions
+- All points on the segment between (x,y) = (100, 0) and (0, 125) are optimal.
+- Examples:
+  - Produce 100 elephants and 0 tigers → profit = $500.
+  - Produce 0 elephants and 125 tigers → profit = $500.
+  - Any mix satisfying 50x + 40y = 5000 (e.g. x = 40, y = 75 → 50·40 + 40·75 = 2000 + 3000 = 5000) → profit = $500.
+
+Integer solution remark
+- If integrality is required, integer solutions on the optimal line satisfy 5x + 4y = 500 with x,y integers. From this, x must be a multiple of 4 (x = 0,4,8,...,100); corresponding y = (500 - 5x)/4 will be integer. All such integer points are optimal with profit $500.
+
+Sensitivity (short)
+- Wood is the scarce resource (binding). The marginal profit per gram of wood equals profit/wood for either item: 5/50 = 4/40 = 0.10 $/g. Thus the shadow price of wood is $0.10 per gram (i.e. an extra 10 g of wood raises max profit by $1, assuming feasibility of production scaling).
+- The plastic constraint is slack at optimal solutions, so its shadow price is 0 (small increases in plastic do not increase profit unless wood also increases).
+- If unit profits or available resources change, re-solve the LP (or check whether plastic becomes binding).
+
+Suggested Python solvers / libraries
+- pulp (easy to formulate LP/IP, uses CBC solver by default)
+- OR-Tools (Google's CP-SAT for integer problems; linear solver for LP)
+- scipy.optimize.linprog (for continuous LP solutions)
+- cvxpy (higher-level modelling for convex problems)
+Use pulp or OR-Tools if you need integer solutions; scipy.optimize.linprog is fine for continuous LP.
+
+If you want, I can:
+- Provide a short pulp or scipy code snippet to solve both the LP and the integer version, or
+- Enumerate all integer optimal solutions (x multiples of 4 from 0 to 100 and corresponding y).
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the toy production LP/IP problem
+# Maximises Z = 5x + 4y subject to:
+#   50x + 40y <= 5000  (wood)
+#   20x + 30y <= 4000  (plastic)
+#   x, y >= 0
+# Also shows integer-optimal solutions if integrality is required.
+
+import math
+
+# Try to use pulp if available; otherwise fall back to analytic solution
+try:
+    import pulp
+    pulp_available = True
+except Exception:
+    pulp_available = False
+
+# Problem data
+wood_per_elephant = 50
+plastic_per_elephant = 20
+profit_elephant = 5
+
+wood_per_tiger = 40
+plastic_per_tiger = 30
+profit_tiger = 4
+
+available_wood = 5000
+available_plastic = 4000
+
+# Container for final objective value
+final_obj_value = None
+
+if pulp_available:
+    # Continuous LP
+    prob = pulp.LpProblem("Toy_Production_LP", pulp.LpMaximize)
+    x = pulp.LpVariable("x_elephants", lowBound=0, cat="Continuous")
+    y = pulp.LpVariable("y_tigers", lowBound=0, cat="Continuous")
+
+    # Objective
+    prob += profit_elephant * x + profit_tiger * y
+
+    # Constraints
+    prob += wood_per_elephant * x + wood_per_tiger * y <= available_wood
+    prob += plastic_per_elephant * x + plastic_per_tiger * y <= available_plastic
+
+    # Solve
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+    status = pulp.LpStatus.get(prob.status, "Unknown")
+    cont_x = x.varValue
+    cont_y = y.varValue
+    cont_obj = pulp.value(prob.objective)
+
+    # Integer (IP) version
+    prob_int = pulp.LpProblem("Toy_Production_IP", pulp.LpMaximize)
+    xi = pulp.LpVariable("x_elephants_int", lowBound=0, cat="Integer")
+    yi = pulp.LpVariable("y_tigers_int", lowBound=0, cat="Integer")
+    prob_int += profit_elephant * xi + profit_tiger * yi
+    prob_int += wood_per_elephant * xi + wood_per_tiger * yi <= available_wood
+    prob_int += plastic_per_elephant * xi + plastic_per_tiger * yi <= available_plastic
+    prob_int.solve(pulp.PULP_CBC_CMD(msg=False))
+    int_status = pulp.LpStatus.get(prob_int.status, "Unknown")
+    int_x = xi.varValue
+    int_y = yi.varValue
+    int_obj = pulp.value(prob_int.objective)
+
+    # Analytical enumeration of integer optimal solutions on the optimal line:
+    # From 5x + 4y = 500, integer solutions have x multiple of 4: x = 0,4,...,100
+    integer_opt_solutions = []
+    for xm in range(0, 101, 4):
+        ym_numer = 500 - 5 * xm
+        if ym_numer % 4 == 0:
+            ym = ym_numer // 4
+            if ym >= 0:
+                # Check original constraints (should satisfy wood exactly and plastic <=)
+                if wood_per_elephant * xm + wood_per_tiger * ym <= available_wood + 1e-9 and \
+                   plastic_per_elephant * xm + plastic_per_tiger * ym <= available_plastic + 1e-9:
+                    integer_opt_solutions.append((xm, ym))
+
+    # Set final objective value to continuous optimum (they are equal here)
+    final_obj_value = cont_obj
+
+    # Print some informative results (not the FINAL_OBJ line)
+    print("Continuous LP status:", status)
+    print(f"Continuous solution: x = {cont_x}, y = {cont_y}, objective = {cont_obj}")
+    print("Integer IP status:", int_status)
+    print(f"Integer solution (one optimal integer found by solver): x = {int_x}, y = {int_y}, objective = {int_obj}")
+    print("All integer optimal solutions on the optimal line (x,y):")
+    for sol in integer_opt_solutions:
+        print(sol)
+
+else:
+    # Fallback analytic solution (no external solver)
+    # From analysis: wood constraint is binding and gives 5x + 4y = 500, objective equals 500 for any feasible point on that line.
+    final_obj_value = 500.0
+
+    # Provide representative solutions
+    cont_x, cont_y = 100.0, 0.0
+    int_x, int_y = 0, 125  # integer example (note: x=0, y=125 is integer)
+    print("Pulp not available; using analytic solution.")
+    print(f"Representative continuous solution: x = {cont_x}, y = {cont_y}, objective = {final_obj_value}")
+    print(f"Representative integer solution: x = {int_x}, y = {int_y}, objective = {final_obj_value}")
+
+# Final required single-line output (must be last)
+print(f"FINAL_OBJ: {final_obj_value}")
+```

@@ -1,0 +1,159 @@
+[MODELER]:
+Here is a clean mathematical formulation of the problem, followed by modelling/solver suggestions.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of radio ads to purchase (integer, \(x \ge 0\))
+- \(y\) = number of social media ads to purchase (integer, \(y \ge 0\))
+
+---
+
+## 2. Objective function
+
+Maximize total exposure (total expected number of viewers):
+
+- Each radio ad gives 60,500 viewers.
+- Each social media ad gives 50,000 viewers.
+
+So the objective is:
+
+\[
+\max \; Z = 60{,}500x + 50{,}000y
+\]
+
+---
+
+## 3. Constraints
+
+### Budget constraint
+
+Total advertising cost must not exceed \$250,000.
+
+- Each radio ad costs \$5,000.
+- Each social media ad costs \$9,150.
+
+\[
+5{,}000x + 9{,}150y \le 250{,}000
+\]
+
+### Policy constraints on number of ads
+
+Radio ads:
+
+\[
+15 \le x \le 40
+\]
+
+Social media ads:
+
+\[
+y \ge 35
+\]
+
+### Nonnegativity and integrality
+
+\[
+x, y \in \mathbb{Z}, \quad x \ge 0,\; y \ge 0
+\]
+
+(The lower bounds in previous constraints already enforce nonnegativity.)
+
+---
+
+## 4. Type of model
+
+This is a **(small) integer linear programming (ILP)** problem:
+
+- Linear objective
+- Linear constraints
+- Integer decision variables
+
+Because the numbers are small, you could also solve it as a continuous LP and then check integer feasibility around the optimum, but using ILP directly is straightforward.
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard MILP/LP solver will handle this easily. Some good options:
+
+- **PuLP**  
+  - High-level Python library that can use CBC (open-source) or commercial solvers.
+  - Simple and readable syntax; ideal for small ILPs like this.
+
+- **OR-Tools (Google OR-Tools)**  
+  - `pywraplp` or `ortools.linear_solver` module for linear/integer programming.
+  - Very efficient and well-documented; good for scaling up.
+
+- **Pyomo**  
+  - More general modeling language; good if you plan to extend the model.
+
+- **SciPy (`scipy.optimize.linprog`)**  
+  - Only supports continuous LP directly; you’d need to handle integrality separately or accept fractional ads (usually not appropriate here).
+
+For this specific problem, **PuLP** or **OR-Tools** are the most straightforward choices.
+
+---
+
+## 6. Example PuLP formulation (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Ad_Exposure_Maximization", pl.LpMaximize)
+
+# Variables (integer)
+x = pl.LpVariable('radio_ads', lowBound=15, upBound=40, cat='Integer')
+y = pl.LpVariable('social_media_ads', lowBound=35, cat='Integer')
+
+# Objective
+prob += 60500 * x + 50000 * y
+
+# Budget constraint
+prob += 5000 * x + 9150 * y <= 250000
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Radio ads (x):", x.value())
+print("Social media ads (y):", y.value())
+print("Max exposure:", pl.value(prob.objective))
+```
+
+This code captures precisely the mathematical model defined above.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Ad_Exposure_Maximization", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('radio_ads', lowBound=15, upBound=40, cat='Integer')
+    y = pl.LpVariable('social_media_ads', lowBound=35, cat='Integer')
+
+    # Objective function
+    prob += 60500 * x + 50000 * y
+
+    # Budget constraint
+    prob += 5000 * x + 9150 * y <= 250000
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract the final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

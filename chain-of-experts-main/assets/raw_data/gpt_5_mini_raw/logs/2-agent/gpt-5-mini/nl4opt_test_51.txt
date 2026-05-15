@@ -1,0 +1,179 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of reams of graph paper produced (>= 0)
+  - y = number of reams of music paper produced (>= 0)
+
+- Objective
+  - Maximise daily profit: maximize Z = 4x + 2.5y
+
+- Constraints (machine time available per day)
+  - Printing machine time: 3x + 1.5y ≤ 350
+  - Scanning machine time: 5.5x + 3y ≤ 350
+  - Nonnegativity: x ≥ 0, y ≥ 0
+
+Remarks: This is a linear program. The printing constraint is not binding in the first quadrant for this problem (the scanning constraint is always tighter for nonnegative x,y), but it should be kept in the model for completeness.
+
+Solving the LP analytically
+- Corner (x=0): from scanning 3y ≤ 350 → y = 350/3 ≈ 116.6667 → profit = 2.5*(350/3) = 875/3 ≈ $291.67
+- Corner (y=0): from scanning 5.5x ≤ 350 → x = 350/5.5 ≈ 63.63636 → profit = 4*(350/5.5) ≈ $254.55
+- The intersection of the two machine-equality lines lies outside the nonnegative quadrant, so the feasible region’s best point is x=0, y=350/3.
+
+Optimal continuous solution
+- Produce x = 0 reams of graph paper and y = 350/3 ≈ 116.667 reams of music paper.
+- Maximum profit = 2.5 * (350/3) = 875/3 ≈ $291.67 per day.
+
+Integer (integral reams) remark
+- If x and y must be integers, solve the integer LP (MILP). Checking nearby integer points shows, for example, x=2, y=113 is feasible (5.5*2 + 3*113 = 11 + 339 = 350) and gives profit 4*2 + 2.5*113 = 290.5, which appears close to the continuous optimum but slightly lower. The exact integer optimum should be found by an MILP solver.
+
+Recommended Python libraries for solving
+- pulp (simple, pure-Python LP/MILP interface)
+- scipy.optimize.linprog (continuous LP)
+- OR-Tools (good for LP and MILP; fast)
+- cvxpy (convex optimization interface)
+- Commercial solvers if available: Gurobi, CPLEX (via their Python APIs) for larger instances or faster MILP solves
+
+If you want, I can provide a short Python example (pulp or scipy.optimize) that solves this LP and reports the optimal solution.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data (initialized directly)
+# Decision variables:
+#   x >= 0 (reams of graph paper)
+#   y >= 0 (reams of music paper)
+#
+# Objective: maximize Z = 4x + 2.5y
+#
+# Constraints:
+#   3x + 1.5y <= 350   (printing)
+#   5.5x + 3y <= 350   (scanning)
+
+# Coefficients
+c_x = 4.0
+c_y = 2.5
+
+# Right-hand side
+b_print = 350.0
+b_scan = 350.0
+
+# Constraint coefficients
+a1_x, a1_y = 3.0, 1.5    # printing: 3x + 1.5y <= 350
+a2_x, a2_y = 5.5, 3.0    # scanning: 5.5x + 3y <= 350
+
+tol = 1e-9
+
+# Helper: check feasibility
+def feasible(x, y):
+    if x < -tol or y < -tol:
+        return False
+    if a1_x * x + a1_y * y - b_print > tol:
+        return False
+    if a2_x * x + a2_y * y - b_scan > tol:
+        return False
+    return True
+
+# Candidate corner points: intersections of constraints with axes and each other
+candidates = []
+
+# Origin
+candidates.append((0.0, 0.0))
+
+# x = 0, y from each constraint (take the limiting one)
+y1 = b_print / a1_y  # from printing
+y2 = b_scan / a2_y   # from scanning
+# The feasible y when x=0 is the minimum of these
+candidates.append((0.0, min(y1, y2)))
+
+# y = 0, x from each constraint (take the limiting one)
+x1 = b_print / a1_x
+x2 = b_scan / a2_x
+candidates.append((min(x1, x2), 0.0))
+
+# Intersection of the two constraint lines (if within first quadrant)
+# Solve:
+# a1_x * x + a1_y * y = b_print
+# a2_x * x + a2_y * y = b_scan
+D = a1_x * a2_y - a2_x * a1_y
+if abs(D) > tol:
+    x_int = (b_print * a2_y - b_scan * a1_y) / D
+    y_int = (a1_x * b_scan - a2_x * b_print) / D
+    candidates.append((x_int, y_int))
+
+# Evaluate feasible candidates and find the best continuous (LP) solution
+best_point = None
+best_obj = -math.inf
+feasible_points = []
+for (x, y) in candidates:
+    # clamp tiny negatives to zero
+    x_clamped = x if x > 0 else max(x, 0.0)
+    y_clamped = y if y > 0 else max(y, 0.0)
+    if feasible(x_clamped, y_clamped):
+        z = c_x * x_clamped + c_y * y_clamped
+        feasible_points.append((x_clamped, y_clamped, z))
+        if z > best_obj + tol:
+            best_obj = z
+            best_point = (x_clamped, y_clamped)
+
+# As a fallback (shouldn't be necessary), also check axis endpoints explicitly
+# (ensures robustness if earlier derived candidates missed something)
+axis_candidates = [
+    (0.0, b_scan / a2_y),  # x=0 from scanning
+    (0.0, b_print / a1_y), # x=0 from printing
+    (b_scan / a2_x, 0.0),  # y=0 from scanning
+    (b_print / a1_x, 0.0), # y=0 from printing
+]
+for (x, y) in axis_candidates:
+    if feasible(x, y):
+        z = c_x * x + c_y * y
+        if z > best_obj + tol:
+            best_obj = z
+            best_point = (x, y)
+
+# Brute-force integer (MILP) search for integer reams, if desired
+# Set reasonable upper bounds based on the least restrictive axis bounds
+x_upper = int(math.floor(b_print / min(a1_x, a2_x))) + 1
+y_upper = int(math.floor(b_print / min(a1_y, a2_y))) + 1
+
+best_int_point = None
+best_int_obj = -math.inf
+for xi in range(0, x_upper + 1):
+    # quick prune: if xi alone violates any constraint with y=0, skip
+    if a1_x * xi - b_print > tol or a2_x * xi - b_scan > tol:
+        continue
+    for yi in range(0, y_upper + 1):
+        if a1_x * xi + a1_y * yi - b_print > tol:
+            continue
+        if a2_x * xi + a2_y * yi - b_scan > tol:
+            continue
+        z = c_x * xi + c_y * yi
+        if z > best_int_obj + tol:
+            best_int_obj = z
+            best_int_point = (xi, yi)
+
+# Output summary (human-readable)
+print("Linear programming (continuous) solution candidates evaluated:")
+for (x, y, z) in feasible_points:
+    print(f"  x = {x:.6f}, y = {y:.6f}, profit = {z:.6f}")
+if best_point is not None:
+    print(f"Best continuous solution: x = {best_point[0]:.6f}, y = {best_point[1]:.6f}, profit = {best_obj:.6f}")
+else:
+    print("No feasible continuous solution found.")
+
+if best_int_point is not None:
+    print(f"Best integer solution: x = {best_int_point[0]}, y = {best_int_point[1]}, profit = {best_int_obj:.6f}")
+else:
+    print("No feasible integer solution found within searched bounds.")
+
+# According to the analytical solution provided, the continuous optimum is at x=0, y=350/3
+# Confirm and set final_obj to the continuous optimum value
+final_obj = best_obj
+
+# CRITICAL: final line must be exactly in this format
+print(f"FINAL_OBJ: {final_obj:.6f}")
+```

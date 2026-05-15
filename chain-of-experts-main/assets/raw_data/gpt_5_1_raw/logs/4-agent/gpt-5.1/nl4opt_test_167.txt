@@ -1,0 +1,261 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+   - **Goal:** Minimise the **total daily food cost per worker** while meeting minimum nutritional requirements.
+   - Objective is to choose the mix of hamburgers and chicken wraps that satisfies:
+     - At least 2200 calories
+     - At least 50 g protein
+     - At least 70 g carbs
+     …at minimum total cost.
+
+2. **Suggested model type**
+
+   - **Model:** Linear Programming (LP)
+   - Justification:
+     - Decision variables are continuous meal quantities (number of hamburgers and wraps), which can be treated as real-valued in a basic formulation.
+     - Cost and nutrient contributions are linear in the quantities.
+     - Constraints are simple linear inequalities.
+
+3. **Main decision variables**
+
+   Let the modeller define:
+
+   - \(x_H\): Number of hamburgers provided per worker per day.
+   - \(x_W\): Number of chicken wraps provided per worker per day.
+
+   Notes for the modeller:
+   - Default assumption: variables can be non-negative real numbers (fractional units allowed) if the problem is “continuous diet” style.
+   - If the context requires whole food items only, you can later upgrade to an **Integer Linear Program (ILP)** by imposing integrality on \(x_H, x_W\).
+
+4. **Key constraints to consider**
+
+   Define the nutrient content and costs as parameters:
+
+   - **Hamburger**:
+     - Cost: 6.5 (dollars per unit)
+     - Calories: 800 per unit
+     - Protein: 19 g per unit
+     - Carbs: 20 g per unit
+
+   - **Chicken wrap**:
+     - Cost: 4 (dollars per unit)
+     - Calories: 450 per unit
+     - Protein: 12 g per unit
+     - Carbs: 10 g per unit
+
+   **Constraints:**
+
+   1. **Calorie requirement**
+      - Total calories from hamburgers and wraps must be **at least 2200** for each worker.
+      - Use the given per-item calorie values multiplied by the decision variables.
+
+   2. **Protein requirement**
+      - Total protein intake must be **at least 50 grams**.
+      - Use grams of protein per item times the respective decision variables.
+
+   3. **Carbohydrate requirement**
+      - Total carbohydrate intake must be **at least 70 grams**.
+      - Use grams of carbs per item times the respective decision variables.
+
+   4. **Non-negativity**
+      - Both decision variables must be **greater than or equal to zero**.
+      - No negative number of hamburgers or wraps.
+
+   5. **(Optional) Integrality constraints**
+      - If the problem is interpreted as each worker must receive whole items:
+        - Impose that \(x_H\) and \(x_W\) are **integers**.
+      - This would turn the model from LP to **Integer Linear Programming (ILP)**, but the structure of constraints and objective remains the same.
+
+5. **Objective function structure**
+
+   - Total cost per worker per day is:
+     - Cost of hamburgers: unit cost × number of hamburgers.
+     - Cost of wraps: unit cost × number of wraps.
+   - Sum them and set the model to **minimise** this total.
+
+6. **Modelling suggestions**
+
+   - Start with a continuous LP to:
+     - Get a lower bound on minimum cost.
+     - Identify the cost-minimising mix.
+   - If desired, re-solve with integrality to get a realistic whole-number solution and compare:
+     - Cost increase (if any) due to integrality.
+     - Whether multiple integer solutions exist at the minimum cost (useful for flexibility in menu planning).
+
+This structure gives the Modeller a straightforward, two-variable LP/ILP diet problem: minimise food cost, subject to three nutrient constraints plus non-negativity (and optionally integrality).
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by Python-solver suggestions.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_H \ge 0\): number of hamburgers per worker per day  
+- \(x_W \ge 0\): number of chicken wraps per worker per day  
+
+Base model: real-valued (LP).  
+If whole items are required: \(x_H, x_W \in \mathbb{Z}_{\ge 0}\) (ILP).
+
+---
+
+## 2. Parameters
+
+Per unit:
+
+- Hamburger:
+  - Cost: \(c_H = 6.5\) dollars
+  - Calories: \(cal_H = 800\)
+  - Protein: \(prot_H = 19\) g
+  - Carbs: \(carb_H = 20\) g
+
+- Chicken wrap:
+  - Cost: \(c_W = 4\) dollars
+  - Calories: \(cal_W = 450\)
+  - Protein: \(prot_W = 12\) g
+  - Carbs: \(carb_W = 10\) g
+
+Requirements (per worker per day):
+
+- Calories: at least \(Cal^{min} = 2200\)
+- Protein: at least \(Prot^{min} = 50\) g
+- Carbs: at least \(Carb^{min} = 70\) g
+
+---
+
+## 3. Objective function
+
+Minimise total daily food cost per worker:
+
+\[
+\min\; Z = 6.5 x_H + 4 x_W
+\]
+
+---
+
+## 4. Constraints
+
+### 4.1 Calorie requirement
+
+\[
+800 x_H + 450 x_W \;\ge\; 2200
+\]
+
+### 4.2 Protein requirement
+
+\[
+19 x_H + 12 x_W \;\ge\; 50
+\]
+
+### 4.3 Carbohydrate requirement
+
+\[
+20 x_H + 10 x_W \;\ge\; 70
+\]
+
+### 4.4 Non-negativity
+
+\[
+x_H \ge 0,\quad x_W \ge 0
+\]
+
+### 4.5 (Optional) Integrality
+
+If whole items only:
+
+\[
+x_H, x_W \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 5. Model type
+
+- Without integrality: **Linear Program (LP)** with 2 variables, 3 main inequality constraints.
+- With integrality: **Integer Linear Program (ILP)** with same structure.
+
+---
+
+## 6. Suitable Python libraries
+
+Any LP/ILP-capable library will handle this easily:
+
+- **PuLP** (`pulp`): Very straightforward for small LP/ILP models.
+- **OR-Tools Linear Solver** (`ortools.linear_solver`): Robust, supports LP and MIP.
+- **SciPy** (`scipy.optimize.linprog`): Good for the continuous LP version (no integrality).
+- For larger or more advanced use cases: `pyomo` (but overkill for this toy model).
+
+---
+
+## 7. Example PuLP formulation (continuous LP)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("MinCostDiet", pl.LpMinimize)
+
+# Variables (continuous, >= 0)
+x_H = pl.LpVariable('x_H', lowBound=0)
+x_W = pl.LpVariable('x_W', lowBound=0)
+
+# Objective
+prob += 6.5 * x_H + 4 * x_W, "TotalCost"
+
+# Constraints
+prob += 800 * x_H + 450 * x_W >= 2200, "CalorieMin"
+prob += 19 * x_H + 12 * x_W >= 50,   "ProteinMin"
+prob += 20 * x_H + 10 * x_W >= 70,   "CarbMin"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("x_H (hamburgers)   =", pl.value(x_H))
+print("x_W (chicken wraps) =", pl.value(x_W))
+print("Min cost per worker =", pl.value(prob.objective))
+```
+
+To switch to integer quantities, change variable definitions to:
+
+```python
+x_H = pl.LpVariable('x_H', lowBound=0, cat='Integer')
+x_W = pl.LpVariable('x_W', lowBound=0, cat='Integer')
+```
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem (Integer Linear Program)
+    prob = pl.LpProblem("MinCostDiet_Integer", pl.LpMinimize)
+
+    # Decision variables: integers, >= 0
+    x_H = pl.LpVariable('x_H', lowBound=0, cat='Integer')  # hamburgers
+    x_W = pl.LpVariable('x_W', lowBound=0, cat='Integer')  # chicken wraps
+
+    # Objective: minimize total cost
+    prob += 6.5 * x_H + 4 * x_W, "TotalCost"
+
+    # Constraints
+    prob += 800 * x_H + 450 * x_W >= 2200, "CalorieMin"
+    prob += 19 * x_H + 12 * x_W >= 50, "ProteinMin"
+    prob += 20 * x_H + 10 * x_W >= 70, "CarbMin"
+
+    # Solve using CBC (default solver in PuLP)
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print final objective as required
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

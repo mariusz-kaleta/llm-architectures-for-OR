@@ -1,0 +1,96 @@
+[MODELER]:
+Formulation
+
+- Decision variables
+  - x ∈ Z≥0 = number of calcium pills
+  - y ∈ Z≥0 = number of vitamin D pills
+
+- Objective
+  - Minimize total effective time T = 5x + 6y (minutes)
+
+- Constraints
+  - Total pills at least 130: x + y ≥ 130
+  - At least 40 vitamin D pills: y ≥ 40
+  - More calcium than vitamin D (integer form): x ≥ y + 1
+  - Integrality: x, y integers
+
+Mathematical model
+  minimize   T = 5x + 6y
+  subject to x + y ≥ 130
+             y ≥ 40
+             x ≥ y + 1
+             x, y ∈ Z≥0
+
+Reasoning / solution
+- All coefficients in the objective are positive, so taking extra pills only increases T. Thus we should take the minimum total number of pills allowed by the constraints.
+- The minimum total pills is 130. Because vitamin D pills are slower (6 min) than calcium (5 min), for a fixed sum x+y the objective is minimized by using as many calcium pills as allowed.
+- y is lower-bounded by 40, so set y = 40. Then x must satisfy x + 40 ≥ 130 ⇒ x ≥ 90 and also x ≥ y+1 = 41 (the 90 bound dominates).
+- Choose x = 90 (smallest feasible x). This gives the minimum total time.
+
+Answer
+- Calcium pills x = 90
+- Vitamin D pills y = 40
+- Total time = 5·90 + 6·40 = 450 + 240 = 690 minutes (11 hours 30 minutes)
+
+Recommended solvers/libraries
+- pulp (linear/integer programming, pure Python)
+- ortools (CP-SAT / integer programming)
+- pyomo (modeling; use CBC/Gurobi/CPLEX solvers)
+- For small problems like this, a trivial brute-force search or simple arithmetic suffices.
+
+Example (pulp) code snippet
+  from pulp import LpMinimize, LpProblem, LpVariable, LpInteger, value
+
+  prob = LpProblem("pills", LpMinimize)
+  x = LpVariable('calcium', lowBound=0, cat=LpInteger)
+  y = LpVariable('vitD',   lowBound=0, cat=LpInteger)
+
+  prob += 5*x + 6*y                    # objective
+  prob += x + y >= 130
+  prob += y >= 40
+  prob += x >= y + 1
+
+  prob.solve()
+  print(x.value(), y.value(), "total minutes:", value(prob.objective))
+
+This will return x=90, y=40, total minutes = 690.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+# Integer optimization brute-force search based on the provided model
+# Decision variables:
+#   x >= 0 integer (calcium pills)
+#   y >= 0 integer (vitamin D pills)
+# Objective:
+#   minimize T = 5*x + 6*y
+# Constraints:
+#   x + y >= 130
+#   y >= 40
+#   x >= y + 1
+
+# Brute-force search over a reasonable bounding box
+max_search = 500  # more than enough for this small problem
+
+best_obj = None
+best_x = None
+best_y = None
+
+for x in range(0, max_search + 1):
+    for y in range(0, max_search + 1):
+        # constraints
+        if x + y < 130:
+            continue
+        if y < 40:
+            continue
+        if x < y + 1:
+            continue
+        obj = 5 * x + 6 * y
+        if best_obj is None or obj < best_obj:
+            best_obj = obj
+            best_x = x
+            best_y = y
+
+# At this point best_obj, best_x, best_y hold the optimal solution
+# Print final objective value in the exact required format
+print(f"FINAL_OBJ: {best_obj}")

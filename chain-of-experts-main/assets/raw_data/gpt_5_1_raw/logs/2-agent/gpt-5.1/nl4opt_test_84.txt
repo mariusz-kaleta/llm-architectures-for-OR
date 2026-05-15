@@ -1,0 +1,200 @@
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by the solution and how you could solve it with Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of buses  
+- \(y\) = number of personal cars  
+
+We assume \(x, y\) are nonnegative integers:
+\[
+x \in \mathbb{Z}_{\ge 0}, \quad y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 2. Objective
+
+Minimize the total number of vehicles:
+
+\[
+\min \; Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+1. **Capacity constraint (must carry at least 100 children)**  
+   - Each bus carries 9 children  
+   - Each personal car carries 4 children  
+   - Total capacity must be at least 100:
+
+   \[
+   9x + 4y \;\ge\; 100
+   \]
+
+2. **Pollution constraint (more buses than personal cars)**  
+
+   \[
+   x \;>\; y
+   \]
+
+   In integer programming this is usually written as:
+   \[
+   x \;\ge\; y + 1
+   \]
+
+3. **Extra attention constraint (enough personal cars)**  
+
+   \[
+   y \;\ge\; 5
+   \]
+
+4. **Integrality and non-negativity**  
+
+   \[
+   x, y \in \mathbb{Z}, \quad x \ge 0,\; y \ge 0
+   \]
+
+So the complete model is:
+
+\[
+\begin{aligned}
+\min \quad & x + y \\
+\text{s.t.} \quad
+& 9x + 4y \ge 100 \\
+& x \ge y + 1 \\
+& y \ge 5 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 4. Solving the model (by reasoning)
+
+Since we want to minimize \(x + y\), and buses have higher capacity per vehicle than cars, we expect to use “as many buses as possible” while meeting the constraints.
+
+From \(y \ge 5\), the smallest possible \(y\) is 5. Then \(x \ge y + 1 = 6\).
+
+Check capacity with \(x=6, y=5\):
+
+\[
+9(6) + 4(5) = 54 + 20 = 74 < 100 \quad \Rightarrow \text{not enough}
+\]
+
+Keep \(y = 5\) (the minimum allowed), increase \(x\) until capacity is met:
+
+\[
+9x + 4\cdot 5 \ge 100
+\Rightarrow 9x + 20 \ge 100
+\Rightarrow 9x \ge 80
+\Rightarrow x \ge \frac{80}{9} \approx 8.89
+\]
+
+So the smallest integer \(x\) that works is \(x = 9\).
+
+Check all constraints for \(x=9, y=5\):
+
+- Capacity: \(9\cdot 9 + 4\cdot 5 = 81 + 20 = 101 \ge 100\) ✓  
+- More buses than cars: \(9 > 5\) ✓  
+- At least 5 cars: \(y = 5\) ✓  
+- Total vehicles: \(x + y = 9 + 5 = 14\).
+
+To see if this is optimal: any other feasible solution must have
+
+- \(y \ge 5\),
+- \(x \ge 9\) (since for \(y=5\) capacity already forces \(x \ge 9\), and larger \(y\) would increase the total \(x+y\) unless \(x\) drops sharply, but then capacity and \(x \ge y+1\) will prevent that from reducing the total below 14).
+
+You can verify quickly: if \(y \ge 6\), then \(x \ge y+1 \ge 7\), so total vehicles \(x+y \ge 13\); but for such low \(x\), capacity fails until you increase both enough, and checking combinations shows totals ≥ 14. Thus \((9,5)\) is optimal.
+
+**Answer:**
+
+- 9 buses  
+- 5 personal cars  
+- Total vehicles minimized: 14
+
+---
+
+## 5. Suggested Python tools
+
+This is a small integer linear program (ILP). Suitable Python libraries:
+
+- `PuLP` (very good for teaching and small models)
+- `ortools.linear_solver` (Google OR-Tools, efficient and free)
+- `pyomo` (more general modeling framework)
+
+---
+
+## 6. Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Daycare_Vehicle_Planning", pl.LpMinimize)
+
+# Decision variables (nonnegative integers)
+x = pl.LpVariable("buses", lowBound=0, cat="Integer")
+y = pl.LpVariable("cars", lowBound=0, cat="Integer")
+
+# Objective: minimize total vehicles
+prob += x + y, "Total_Vehicles"
+
+# Constraints
+prob += 9*x + 4*y >= 100, "Capacity"
+prob += x >= y + 1,        "More_buses_than_cars"
+prob += y >= 5,            "Min_cars"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal buses:", x.value())
+print("Optimal cars:", y.value())
+print("Minimum total vehicles:", pl.value(prob.objective))
+```
+
+This will output:
+
+- Optimal buses: 9  
+- Optimal cars: 5  
+- Minimum total vehicles: 14
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import itertools
+
+def is_feasible(x, y):
+    if x < 0 or y < 0:
+        return False
+    if 9*x + 4*y < 100:
+        return False
+    if x < y + 1:
+        return False
+    if y < 5:
+        return False
+    return True
+
+best_val = None
+best_solution = None
+
+# Reasonable search bounds:
+# y >= 5, and capacity: 4y <= 100 -> y <= 25 if x=0, so search y in [5, 25]
+# For each y, capacity 9x >= 100 - 4y, so x has upper bound around (100 - 4*5)/9=80/9~8.9
+# Use a safe upper bound, say x up to 30
+for x, y in itertools.product(range(0, 31), range(5, 26)):
+    if is_feasible(x, y):
+        val = x + y
+        if best_val is None or val < best_val:
+            best_val = val
+            best_solution = (x, y)
+
+# Print FINAL_OBJ as required
+print(f"FINAL_OBJ: {best_val}")

@@ -1,0 +1,262 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximise the total number of letters that can be sent, subject to bird-availability and treat constraints.
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP), or at minimum a 2‑variable Integer Program, because the number of birds of each type must be whole numbers.
+
+3. Main decision variables  
+Define integer decision variables:
+- x = number of carrier pigeons used  
+- y = number of owls used  
+
+(You may also introduce an auxiliary variable if helpful, e.g., B = total number of birds, but it can be represented as x + y.)
+
+Objective function component:
+- Total letters sent = 2x + 5y (since each pigeon carries 2 letters, each owl 5).
+
+4. Key constraints to consider  
+
+a) Treat (resource) limitation  
+- Each carrier pigeon requires 3 treats.  
+- Each owl requires 5 treats.  
+- Total treats available = 1000.  
+→ Treats constraint:  
+  3x + 5y ≤ 1000  
+
+b) Minimum number of carrier pigeons  
+- At least 20 carrier pigeons must be used.  
+→ Pigeon minimum:  
+  x ≥ 20  
+
+c) Fraction of owls limited to at most 40% of total birds  
+- At most 40% of all birds used can be owls.  
+- Total birds = x + y  
+- Owl fraction constraint:  
+  y ≤ 0.4(x + y)  
+
+You may want to transform this into a linear inequality in x and y only (e.g., move all terms to one side and simplify) so it fits standard ILP form.
+
+d) Non-negativity and integrality  
+- x ≥ 0, y ≥ 0  
+- x, y are integers.
+
+5. Model structure summary for the Modeller  
+
+- Decision variables: integer counts of carrier pigeons and owls.  
+- Objective: maximise 2x + 5y.  
+- Constraints:  
+  - Treat budget: linear inequality involving x and y.  
+  - Minimum pigeons: simple lower bound on x.  
+  - Owl proportion: linear inequality derived from “owls ≤ 40% of total birds.”  
+  - Non-negativity and integrality on x and y.
+
+6. Solution / analysis approach  
+
+- Because there are only two integer variables, you can:
+  - Solve analytically by exploring the feasible region defined by the linear constraints and checking integer points near the boundary that give high 2x + 5y values, or  
+  - Use a small ILP solver (or even treat as LP and then adjust to nearest feasible integers) and verify integrality.  
+
+Focus first on simplifying the owl-fraction constraint into a standard linear form, then identify the corner/edge points formed by intersection of:  
+- Treat budget line,  
+- Owl fraction line,  
+- Pigeon minimum line,  
+and check integer solutions there to find the maximum number of letters.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model for the problem, plus how you’d implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x \in \mathbb{Z}_{\ge 0}\): number of carrier pigeons used  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of owls used  
+
+(Non‑negativity and integrality are required.)
+
+---
+
+## 2. Objective function
+
+Each pigeon carries 2 letters, each owl carries 5 letters.
+
+Maximise total letters sent:
+\[
+\text{Maximise } Z = 2x + 5y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Treat budget
+
+- Pigeon uses 3 treats, owl uses 5 treats.
+- Total treats ≤ 1000.
+
+\[
+3x + 5y \le 1000
+\]
+
+---
+
+### b) Minimum number of pigeons
+
+At least 20 pigeons:
+
+\[
+x \ge 20
+\]
+
+---
+
+### c) At most 40% owls
+
+At most 40% of all birds can be owls:
+\[
+\frac{y}{x + y} \le 0.4, \quad \text{for } x + y > 0
+\]
+
+Convert to a linear inequality:
+
+\[
+y \le 0.4(x + y)
+\]
+
+\[
+y \le 0.4x + 0.4y
+\]
+
+\[
+y - 0.4y \le 0.4x
+\]
+
+\[
+0.6y \le 0.4x
+\]
+
+\[
+3y \le 2x
+\]
+
+So the linear (ILP‑friendly) form is:
+\[
+3y \le 2x
+\]
+
+This automatically implies \(x + y > 0\) if any birds are used; together with the treat constraint and \(x \ge 20\), that’s satisfied.
+
+---
+
+### d) Non‑negativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full ILP formulation
+
+\[
+\begin{aligned}
+\max_{x,y} \quad & 2x + 5y \\
+\text{s.t.} \quad 
+& 3x + 5y \le 1000 \\
+& x \ge 20 \\
+& 3y \le 2x \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a small integer linear program (ILP) with two variables and three main constraints.
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard MILP solver is appropriate; for a problem this small, all will be very fast.
+
+Recommended libraries:
+
+- **PuLP** (pure Python, wraps CBC by default):
+  - Easy modelling, good for teaching / quick scripts.
+- **OR-Tools** (Google OR-Tools CP-SAT or linear solver):
+  - Very powerful; CP-SAT handles integer problems very well.
+- **Pyomo**:
+  - More general modelling environment, integrates with many solvers.
+- **SciPy**:
+  - `scipy.optimize.linprog` only handles continuous LP (no integrality), so you’d need to round and check feasibility manually. Less ideal here than a true ILP solver.
+
+For this, **PuLP** or **OR-Tools** are the simplest choices.
+
+---
+
+## 6. Example: PuLP model skeleton
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Magic_School_Birds", pl.LpMaximize)
+
+# Decision variables (non-negative integers)
+x = pl.LpVariable('pigeons', lowBound=0, cat='Integer')
+y = pl.LpVariable('owls',    lowBound=0, cat='Integer')
+
+# Objective: maximize total letters
+prob += 2 * x + 5 * y, "Total_Letters"
+
+# Constraints
+prob += 3 * x + 5 * y <= 1000, "Treat_budget"
+prob += x >= 20,               "Min_pigeons"
+prob += 3 * y <= 2 * x,        "Owl_fraction"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Pigeons (x):", pl.value(x))
+print("Owls (y):", pl.value(y))
+print("Max letters:", pl.value(2 * x + 5 * y))
+```
+
+This directly encodes the ILP described above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create problem
+    prob = pl.LpProblem("Magic_School_Birds", pl.LpMaximize)
+
+    # Decision variables (non-negative integers)
+    x = pl.LpVariable('pigeons', lowBound=0, cat='Integer')
+    y = pl.LpVariable('owls',    lowBound=0, cat='Integer')
+
+    # Objective: maximize total letters
+    prob += 2 * x + 5 * y, "Total_Letters"
+
+    # Constraints
+    prob += 3 * x + 5 * y <= 1000, "Treat_budget"
+    prob += x >= 20,               "Min_pigeons"
+    prob += 3 * y <= 2 * x,        "Owl_fraction"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    value = pl.value(2 * x + 5 * y)
+
+    # Final required output
+    print(f"FINAL_OBJ: {value}")
+
+if __name__ == "__main__":
+    main()

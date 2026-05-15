@@ -1,0 +1,99 @@
+[MODELER]:
+Formal integer model
+
+- Decision variables
+  - c ∈ Z_{\ge 0}: number of canoes
+  - d ∈ Z_{\ge 0}: number of diesel boats
+
+- Constraints
+  1. Capacity: 10 c + 15 d ≥ 1000
+  2. Environmental rule: c ≥ 3 d
+
+- Objective
+  Minimize the total number of craft: minimize Z = c + d
+
+This is an integer linear program (ILP):
+minimize c + d
+subject to
+10c + 15d ≥ 1000
+c − 3d ≥ 0
+c, d ∈ Z_{\ge 0}
+
+Algebraic simplification and exact solution
+Use c = 3d + t with integer t ≥ 0. Then capacity becomes
+10(3d + t) + 15d = 45d + 10t ≥ 1000.
+The objective is Z = (3d + t) + d = 4d + t.
+For a given d, the minimal t is t = max(0, ceil((1000 − 45d)/10)), so
+Z(d) = 4d + max(0, ceil((1000 − 45d)/10)).
+Search d over nonnegative integers (only need check up to d = ceil(1000/45) = 23 for t = 0 and a bit beyond for monotonicity).
+
+Evaluating gives the minimum at d = 22 with t = 1, so
+c = 3·22 + 1 = 67, d = 22, and total Z = 67 + 22 = 89.
+Check: 10·67 + 15·22 = 670 + 330 = 1000, and 67 ≥ 3·22 holds.
+
+Algorithmic approach
+- Simple brute-force: loop d from 0..ceil(1000/15) (or up to 23..30) and compute the minimum feasible c for each d, keep the minimal c + d.
+- Or solve the ILP directly with an ILP solver.
+
+Suggested Python libraries
+- pulp (simple LP/ILP interface, uses CBC by default)
+- OR-Tools CP-SAT (very fast for integer problems)
+- python-mip (for MIP via CBC/Gurobi if available)
+- CVXPY with integer variables (less common for pure ILP)
+
+Example (conceptual) pulp sketch
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpInteger, PULP_CBC_CMD
+
+prob = LpProblem("boats", LpMinimize)
+c = LpVariable('c', lowBound=0, cat=LpInteger)
+d = LpVariable('d', lowBound=0, cat=LpInteger)
+prob += c + d
+prob += 10*c + 15*d >= 1000
+prob += c - 3*d >= 0
+prob.solve(PULP_CBC_CMD(msg=False))
+print(c.value(), d.value(), "total", c.value()+d.value())
+
+Conclusion
+Optimal solution: use 67 canoes and 22 diesel boats, total = 89 craft.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data
+capacity_required = 1000
+# decision variables: c (canoes), d (diesel boats), both nonnegative integers
+# constraints:
+#   10*c + 15*d >= capacity_required
+#   c >= 3*d
+# objective: minimize Z = c + d
+
+best_Z = None
+best_c = None
+best_d = None
+
+# Upper bound for d: when 15*d alone meets capacity -> d = ceil(capacity_required / 15)
+max_d = math.ceil(capacity_required / 15) + 20  # a small margin beyond the pure-diesel bound
+
+for d in range(0, max_d + 1):
+    # minimal c to satisfy capacity: ceil((capacity_required - 15*d) / 10)
+    needed_c_capacity = math.ceil((capacity_required - 15 * d) / 10)
+    if needed_c_capacity < 0:
+        needed_c_capacity = 0
+    needed_c_env = 3 * d
+    c = max(needed_c_capacity, needed_c_env)
+    Z = c + d
+
+    # keep best integer solution
+    if best_Z is None or Z < best_Z:
+        best_Z = Z
+        best_c = c
+        best_d = d
+
+# final verification (will raise if something unexpected)
+assert best_c is not None and best_d is not None
+assert 10 * best_c + 15 * best_d >= capacity_required
+assert best_c >= 3 * best_d
+
+print(f"FINAL_OBJ: {best_Z}")

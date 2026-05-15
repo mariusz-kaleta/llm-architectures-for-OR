@@ -1,0 +1,70 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- r ∈ Z_{\ge 0}: number of retail stores to open.
+- o ∈ Z_{\ge 0}: number of factory‑outlet stores to open.
+
+Objective
+- Minimize the total number of stores open:
+  minimize Z = r + o
+
+Constraints
+- Customer coverage: 200 r + 80 o ≥ 1200
+- Employee limit: 6 r + 4 o ≤ 50
+- Integrality and nonnegativity: r, o ∈ Z_{\ge 0}
+
+Comments / analysis
+- A lower bound on total stores is ceil(1200/200) = 6 (if all stores are retail). Check feasibility: 6 retail stores use 6·6 = 36 employees ≤ 50, so (r=6,o=0) is feasible. No solution can have fewer than 6 stores because even 5 all-retail stores give only 5·200 = 1000 customers < 1200. Hence the optimal solution is r = 6, o = 0 (six retail stores, zero outlets), giving 1200 customers and using 36 employees.
+
+Suggested solvers / Python libraries
+- pulp (easy modelling, uses CBC solver)
+- OR-Tools (CP-SAT for integer problems, or linear solver)
+- Pyomo (with a solver like CBC, GLPK, Gurobi)
+- scipy.optimize is not ideal because this is an integer (ILP) problem.
+
+Example (short) with pulp
+- Define integer variables r, o
+- Set objective minimize r+o
+- Add constraints 200*r + 80*o >= 1200 and 6*r + 4*o <= 50
+- Solve with pulp.PULP_CBC_CMD()
+
+Result: open 6 retail stores and 0 factory outlets.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Parameters
+cust_per_r = 200
+cust_per_o = 80
+cust_required = 1200
+
+emp_per_r = 6
+emp_per_o = 4
+emp_limit = 50
+
+# Search bounds (safe upper bounds)
+max_r = emp_limit // emp_per_r + 5
+max_o = emp_limit // emp_per_o + 5
+
+best_obj = float('inf')
+best_solution = None
+
+for r in range(0, max_r + 1):
+    for o in range(0, max_o + 1):
+        if cust_per_r * r + cust_per_o * o >= cust_required and emp_per_r * r + emp_per_o * o <= emp_limit:
+            obj = r + o
+            if obj < best_obj:
+                best_obj = obj
+                best_solution = (r, o)
+
+# Convert to int for printing
+if best_obj == float('inf'):
+    # No feasible solution found; set to None (shouldn't happen for this problem)
+    final_value = None
+else:
+    final_value = int(best_obj)
+
+print(f"FINAL_OBJ: {final_value}")

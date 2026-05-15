@@ -1,0 +1,83 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x ∈ Z_{\ge 0} = number of densely-seated lifts (45 guests/min, 30 electricity each)
+  - y ∈ Z_{\ge 0} = number of loosely-seated lifts (20 guests/min, 22 electricity each)
+
+- Objective
+  - Minimize total number of lifts: minimize z = x + y
+
+- Constraints
+  1. Throughput requirement: 45x + 20y ≥ 1000
+  2. Electricity limit: 30x + 22y ≤ 940
+  3. Beginner requirement: y ≥ 5
+  4. Integrality: x, y integers and x, y ≥ 0
+
+Analytical solution (short)
+
+- Because densely-seated lifts provide more guests per lift than loosely-seated ones, for a fixed total number of lifts n = x + y the throughput is maximized by making y as small as allowed (y = 5). For total n lifts with y = 5 the maximum throughput is:
+  45(x) + 20(5) = 45(n − 5) + 100 = 45n − 125.
+  Requiring 45n − 125 ≥ 1000 gives 45n ≥ 1125 ⇒ n ≥ 25.
+
+- So at least 25 lifts are required. Taking the minimal n = 25 and minimal y = 5 gives x = 25 − 5 = 20.
+
+- Check constraints:
+  - Throughput: 45·20 + 20·5 = 900 + 100 = 1000 (meets requirement)
+  - Electricity: 30·20 + 22·5 = 600 + 110 = 710 ≤ 940 (within limit)
+
+Optimal plan
+- Densely-seated lifts x = 20
+- Loosely-seated lifts y = 5
+- Total lifts = 25
+
+Suggested Python libraries for solving/validating
+- pulp (easy-to-use MILP interface, default CBC solver)
+- ortools (CP-SAT solver, very fast for integer programs)
+- mip (python-mip) or gurobipy if you have a commercial solver license
+- scipy.optimize (for LP relaxation only; not suitable for integrality)
+
+If you want, I can provide a short PuLP or OR-Tools script that solves this MILP and prints the solution.
+
+---
+
+[CODER]:
+```python
+# Self-contained script to solve the integer program by exhaustive search (no external solvers required).
+
+# Decision variables:
+# x >= 0 integer: number of densely-seated lifts (45 guests/min, 30 electricity each)
+# y >= 0 integer: number of loosely-seated lifts (20 guests/min, 22 electricity each)
+#
+# Objective: minimize z = x + y
+# Constraints:
+# 1) 45x + 20y >= 1000
+# 2) 30x + 22y <= 940
+# 3) y >= 5
+
+def find_optimal():
+    # Bounds derived from constraints to limit search space:
+    # From electricity: 30x + 22y <= 940 => x <= 940//30, y <= 940//22
+    x_max = 940 // 30  # 31
+    y_max = 940 // 22  # 42
+
+    best = None  # tuple (z, x, y)
+    for x in range(0, x_max + 1):
+        for y in range(5, y_max + 1):  # y >= 5
+            if 45 * x + 20 * y >= 1000 and 30 * x + 22 * y <= 940:
+                z = x + y
+                if best is None or z < best[0] or (z == best[0] and x > best[1]):
+                    # prefer larger x if tie (more densely seated), optional tie-break
+                    best = (z, x, y)
+    return best
+
+result = find_optimal()
+if result is None:
+    # No feasible solution found (shouldn't happen for this model)
+    value = None
+else:
+    value, x_opt, y_opt = result
+
+# Print final objective value in required format
+print(f"FINAL_OBJ: {value}")
+```

@@ -1,0 +1,107 @@
+[MODELER]:
+Define decision variables:
+
+- \(x_s \ge 0\): number of senior accountants  
+- \(x_j \ge 0\): number of junior accountants  
+
+Objective (minimize weekly wage bill):
+
+\[
+\min Z = 3000x_s + 1000x_j
+\]
+
+Subject to constraints:
+
+1. Total number of accountants at least 100:
+\[
+x_s + x_j \ge 100
+\]
+
+2. At least 5 senior accountants:
+\[
+x_s \ge 5
+\]
+
+3. Experience requirement (senior at least one third of junior):
+
+“Number of senior accountants should be at least a third of the number of junior accountants” means
+\[
+x_s \ge \frac{1}{3} x_j
+\]
+or equivalently
+\[
+3x_s - x_j \ge 0
+\]
+
+4. Weekly wage bill below \$150,000:
+
+If “below” is interpreted as “no more than”:
+\[
+3000x_s + 1000x_j \le 150000
+\]
+
+5. Non-negativity (and integrality if we require whole people):
+
+\[
+x_s \ge 0,\quad x_j \ge 0
+\]
+Optionally:
+\[
+x_s, x_j \in \mathbb{Z}
+\]
+
+So the complete LP is:
+
+\[
+\begin{aligned}
+\min \quad & 3000x_s + 1000x_j \\
+\text{s.t.}\quad 
+& x_s + x_j \ge 100 \\
+& x_s \ge 5 \\
+& 3x_s - x_j \ge 0 \\
+& 3000x_s + 1000x_j \le 150000 \\
+& x_s, x_j \ge 0 \quad (\text{and integer if required})
+\end{aligned}
+\]
+
+Suitable Python libraries to model and solve this problem:
+
+- `PuLP` (simple LP/MILP modeling, works with CBC, GLPK, etc.)
+- `ortools.linear_solver` from Google OR-Tools (for LP/MILP)
+- `Pyomo` (more general algebraic modeling, can use CBC, GLPK, Gurobi, CPLEX, etc.)
+
+For a small LP like this, `PuLP` or OR-Tools would be very straightforward.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def main():
+    # Create the LP problem: minimize objective
+    prob = pulp.LpProblem("Accountant_Staffing", pulp.LpMinimize)
+
+    # Decision variables: number of senior and junior accountants (continuous, >=0)
+    x_s = pulp.LpVariable('x_s', lowBound=0, cat='Continuous')
+    x_j = pulp.LpVariable('x_j', lowBound=0, cat='Continuous')
+
+    # Objective function: minimize weekly wage bill
+    prob += 3000 * x_s + 1000 * x_j, "Weekly_Wage_Bill"
+
+    # Constraints
+    prob += x_s + x_j >= 100, "Total_Accountants"
+    prob += x_s >= 5, "Min_Senior"
+    prob += 3 * x_s - x_j >= 0, "Experience_Requirement"
+    prob += 3000 * x_s + 1000 * x_j <= 150000, "Budget_Limit"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print final objective value
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

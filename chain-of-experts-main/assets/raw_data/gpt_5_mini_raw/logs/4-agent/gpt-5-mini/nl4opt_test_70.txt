@@ -1,0 +1,136 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Minimise the total diesel consumption used to deliver at least 1000 gifts.
+
+2) Suggested model type
+- Model: Integer Linear Programming (ILP) / Mixed-Integer Linear Program.  
+  (Very small problem — a simple ILP or brute-force enumeration over integer trip counts is sufficient.)
+
+3) Main decision variables
+- Number of trips by the new company (n).  
+- Number of trips by the old company (o).  
+Notes: n and o are non‑negative integers (whole trips).
+
+4) Key constraints to include (expressed conceptually)
+- Delivery requirement: total gifts delivered (gifts per trip × trips) must be at least 1000. (50 gifts per trip for new, 70 for old.)
+- New-company cap: the new company can make at most 15 trips.
+- Old-company minimum share: at least 40% of all trips must be made by the old company. (This is a proportion constraint coupling n and o.)
+- Non-negativity and integrality: n ≥ 0, o ≥ 0, and both must be integers.
+- (Optional practical constraint) Total trips should be an integer and realistically small; you can bound an upper limit for o for enumeration convenience.
+
+5) Objective function (conceptual)
+- Minimise total diesel = diesel per trip of new × n + diesel per trip of old × o (30 L per new trip, 40 L per old trip).
+
+6) Modelling/solution notes and suggestions for the Modeller
+- Because there are only two integer variables, either (a) solve the ILP with any MILP solver, or (b) brute-force enumerate n = 0..15 and for each n compute the smallest integer o that satisfies the delivery and 40%-share constraints, then pick the (n,o) pair with minimum diesel.
+- Check feasibility: ensure the chosen pair meets both the capacity and the 40% proportion constraint.
+- Consider LP relaxation for quick insight (then enforce integrality). Also compute diesel-per-gift: new = 30/50 = 0.6 L/gift; old ≈ 40/70 ≈ 0.5714 L/gift — this suggests old trips are more diesel-efficient per gift, so expect an optimal solution using mostly (or only) the old company.
+- Report the optimal trip counts, total diesel consumed, total gifts delivered, and verify all constraints.
+
+This structure provides everything needed to implement and solve the optimisation and to validate/interpret the solution.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- n ∈ Z≥0 : number of trips by the new company.
+- o ∈ Z≥0 : number of trips by the old company.
+
+Objective
+- Minimise total diesel D = 30 n + 40 o.
+
+Constraints
+1. Delivery requirement: 50 n + 70 o ≥ 1000.
+2. New-company cap: n ≤ 15.
+3. Old-company share (at least 40% of all trips by old): o ≥ 0.4 (n + o).
+   This can be rearranged to a linear form: 0.6 o ≥ 0.4 n  ⇔  o ≥ (2/3) n.
+4. Integrality and non-negativity: n, o ∈ Z≥0.
+
+Compact ILP
+Minimise D = 30 n + 40 o
+s.t.
+50 n + 70 o ≥ 1000
+n ≤ 15
+o ≥ (2/3) n
+n, o ∈ Z≥0
+
+Solution approach
+- Because only two integer variables are involved, either:
+  a) brute-force enumerate n = 0..15, compute the smallest integer o satisfying both 50 n + 70 o ≥ 1000 and o ≥ ceil((2/3) n), pick the pair with minimum D; or
+  b) solve the ILP with any MILP solver.
+
+Suggested libraries
+- Simple enumeration: plain Python (math.ceil).
+- ILP solvers / modelling: pulp (CBC), ortools (CP-SAT or linear solver), pyomo (with CBC/GLPK/Gurobi), or scipy.optimize for LP relaxation.
+- For a tiny ILP pulp or ortools CP-SAT is most convenient.
+
+Enumerative solution (calculation and result)
+For n = 0..15, compute minimal feasible o = max( ceil((1000 − 50 n)/70), ceil((2/3) n), 0 ).
+
+Applying this yields the minimum total diesel D = 580 liters, attained by at least two feasible (n, o) pairs:
+- n = 2, o = 13 → gifts = 2·50 + 13·70 = 1010 gifts, diesel = 30·2 + 40·13 = 580 L, total trips = 15.
+- n = 6, o = 10 → gifts = 6·50 + 10·70 = 1000 gifts, diesel = 30·6 + 40·10 = 580 L, total trips = 16.
+
+Both pairs satisfy all constraints (n ≤ 15 and old-company trips ≥ 40% of total). There is no feasible pair with diesel < 580 L.
+
+Notes and possible tie-breakers
+- If you require exactly 1000 gifts (not just at least), choose (n=6,o=10).
+- If you prefer fewer total trips, choose (n=2,o=13) (15 trips vs 16).
+- If you want to prioritise fewer new-company trips (e.g., to favour the old company), pick (n=2,o=13).
+- If an additional objective is to minimise number of trips subject to minimal diesel, add that as a secondary objective or a tie-break.
+
+Example Python outline (brute-force)
+- Loop n in 0..15:
+  - o_min1 = ceil((1000 - 50*n) / 70)  (if negative set 0)
+  - o_min2 = ceil((2/3) * n)
+  - o = max(o_min1, o_min2, 0)
+  - compute D = 30*n + 40*o, record feasible (n,o,D) and pick minimal D.
+
+This is trivial to implement and fast.
+
+Summary answer
+- Minimal diesel = 580 liters.
+- Two optimal trip plans: (n=2 new trips, o=13 old trips) or (n=6 new trips, o=10 old trips).
+- Pick between them using any additional tie-break preference (exact deliveries, fewer trips, etc.).
+
+---
+
+[CODER]:
+```python
+import math
+
+# Problem data
+required = 1000
+max_n = 15
+
+best_solutions = []
+min_D = None
+
+for n in range(0, max_n + 1):
+    # minimal o to meet delivery requirement
+    o_min_deliver = math.ceil((required - 50 * n) / 70) if (required - 50 * n) > 0 else 0
+    # minimal o to satisfy o >= (2/3) n -> ceil(2*n/3)
+    o_min_share = (2 * n + 2) // 3  # integer ceil of 2*n/3
+    o = max(o_min_deliver, o_min_share, 0)
+    # ensure integer non-negative
+    if o < 0:
+        continue
+    # verify feasibility
+    if 50 * n + 70 * o < required:
+        continue
+    D = 30 * n + 40 * o
+    if (min_D is None) or (D < min_D):
+        min_D = D
+        best_solutions = [(n, o, D)]
+    elif D == min_D:
+        best_solutions.append((n, o, D))
+
+# At least one feasible solution should exist
+if min_D is None:
+    raise RuntimeError("No feasible solution found")
+
+# Final required output line
+print(f"FINAL_OBJ: {min_D}")
+```

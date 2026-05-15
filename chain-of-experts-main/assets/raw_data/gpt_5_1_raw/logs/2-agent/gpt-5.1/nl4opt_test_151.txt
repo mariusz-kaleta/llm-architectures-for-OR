@@ -1,0 +1,180 @@
+[MODELER]:
+Here is a clear optimization model formulation.
+
+---
+
+### Decision variables
+
+Let  
+- \(x \ge 0\): number of gummies (can add integer constraint if they must be whole)  
+- \(y \ge 10\): number of pills (must be at least 10; again, integer if needed)
+
+---
+
+### Data
+
+From the problem:
+
+- Each gummy:  
+  - Magnesium: 3 units  
+  - Zinc: 4 units  
+
+- Each pill:  
+  - Magnesium: 2 units  
+  - Zinc: 5 units  
+
+- Magnesium limit: at most 200 units  
+- At least 10 pills: \(y \ge 10\)  
+- Must eat at least 3 times as many gummies as pills: \(x \ge 3y\)
+
+---
+
+### Objective
+
+Maximize total zinc intake:
+
+\[
+\max \; Z = 4x + 5y
+\]
+
+---
+
+### Constraints
+
+1. **Magnesium constraint (at most 200 units):**
+   \[
+   3x + 2y \le 200
+   \]
+
+2. **Minimum pills:**
+   \[
+   y \ge 10
+   \]
+
+3. **Preference for gummies (at least 3 times as many gummies as pills):**
+   \[
+   x \ge 3y
+   \]
+
+4. **Non-negativity:**
+   \[
+   x \ge 0, \quad y \ge 0
+   \]
+
+If integrality is required (he can’t take fractions of a pill/gummy), then add:
+\[
+x, y \in \mathbb{Z}
+\]
+
+---
+
+### Solving (sketch of reasoning)
+
+The zinc objective grows with both \(x\) and \(y\), and magnesium is limited, so the magnesium constraint will bind at optimality:
+
+\[
+3x + 2y = 200
+\]
+
+Given \(x \ge 3y\), replacing \(x\) in that equality with the smallest allowed value \(x = 3y\) (to respect that constraint as equality) gives:
+
+\[
+3(3y) + 2y = 200 \;\Rightarrow\; 9y + 2y = 200 \;\Rightarrow\; 11y = 200 \;\Rightarrow\; y = \frac{200}{11} \approx 18.18
+\]
+
+Then:
+\[
+x = 3y = \frac{600}{11} \approx 54.54
+\]
+
+Check pills constraint: \(y \approx 18.18 \ge 10\), so it’s satisfied.
+
+If **continuous** solution is acceptable:
+- Optimal: \(x = 600/11 \approx 54.55\) gummies, \(y = 200/11 \approx 18.18\) pills  
+- Magnesium used: \(3x + 2y = 200\)  
+- Zinc: \(4x + 5y = 4\cdot\frac{600}{11} + 5\cdot\frac{200}{11} = \frac{3400}{11} \approx 309.09\)
+
+If you require **integer** amounts, you’d solve the integer-programming (IP) version, or search near that point for integer \(x, y\) satisfying all constraints and maximizing \(4x+5y\).
+
+---
+
+### Suitable Python libraries
+
+This is a linear (and optionally integer) optimization problem. Good Python libraries:
+
+- **PuLP** – simple LP/IP modeling, uses CBC or other solvers.
+- **OR-Tools (Google)** – powerful MIP solver (`pywraplp` / `LinearSolver`).
+- **SciPy (`scipy.optimize.linprog`)** – suitable for continuous LP version (no integrality).
+
+---
+
+### Example with PuLP (continuous LP)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Zinc_Maximization", pl.LpMaximize)
+
+# Decision variables (continuous)
+x = pl.LpVariable('gummies', lowBound=0)
+y = pl.LpVariable('pills', lowBound=10)  # min 10 pills
+
+# Objective: maximize zinc
+prob += 4*x + 5*y
+
+# Constraints
+prob += 3*x + 2*y <= 200        # magnesium limit
+prob += x >= 3*y                # at least 3 times as many gummies as pills
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Gummies:", x.value())
+print("Pills:", y.value())
+print("Total zinc:", pl.value(4*x + 5*y))
+```
+
+To enforce **integer** solutions, use:
+
+```python
+x = pl.LpVariable('gummies', lowBound=0, cat='Integer')
+y = pl.LpVariable('pills', lowBound=10, cat='Integer')
+```
+
+The same model structure applies in OR-Tools or `scipy.optimize.linprog` (for the continuous case).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+# Create the problem (maximize total zinc intake)
+prob = pl.LpProblem("Zinc_Maximization_Integer", pl.LpMaximize)
+
+# Decision variables: integers
+x = pl.LpVariable('gummies', lowBound=0, cat='Integer')
+y = pl.LpVariable('pills', lowBound=10, cat='Integer')
+
+# Objective: maximize zinc
+prob += 4 * x + 5 * y
+
+# Constraints
+prob += 3 * x + 2 * y <= 200      # Magnesium limit
+prob += x >= 3 * y                # At least 3 times as many gummies as pills
+
+# Solve the problem
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Extract objective value
+final_obj = pl.value(4 * x + 5 * y)
+
+# Print outputs (optional detailed results)
+print("Status:", pl.LpStatus[prob.status])
+print("Gummies (x):", x.value())
+print("Pills (y):", y.value())
+print("Total zinc:", final_obj)
+
+# Required final line
+print(f"FINAL_OBJ: {final_obj}")

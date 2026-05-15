@@ -1,0 +1,297 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- **Goal:** Maximize total protein intake from smoothies and protein bars, subject to:
+  - A calorie limit.
+  - A fixed ratio between the number of bars and smoothies.
+
+2. **Suggested model type**
+
+- **Model:** Linear Programming (LP) — integer restriction optional.
+  - The natural decision variables (number of smoothies and bars) are counts, so they are integers, but the problem is small and can be solved directly or as an Integer Linear Program (ILP) if required.
+
+3. **Main decision variables**
+
+Define:
+
+- \( S \): Number of smoothies consumed.
+- \( B \): Number of protein bars consumed.
+
+(If integer requirements are needed: \( S, B \) are non-negative integers.)
+
+4. **Objective function structure**
+
+- Protein per smoothie: 2 units.
+- Protein per bar: 7 units.
+- **Total protein to maximize:** \( 2S + 7B \).
+
+5. **Key constraints**
+
+a) **Calorie constraint (upper bound)**  
+- Smoothie: 300 calories each.  
+- Protein bar: 250 calories each.  
+- Total calories cannot exceed 2000:  
+  - \( 300S + 250B \leq 2000 \).
+
+b) **Relationship between bars and smoothies (ratio constraint)**  
+- “She must eat 2 times more protein bars than smoothies” → bars are twice smoothies:  
+  - \( B = 2S \).
+
+c) **Non-negativity (and practical domain) constraints**  
+- \( S \ge 0 \)  
+- \( B \ge 0 \)  
+- (Optionally, \( S, B \) are integers because they represent counts of meal preps.)
+
+6. **Modelling strategy**
+
+- Use the ratio constraint to reduce dimensionality if desired:
+  - Substitute \( B = 2S \) into both the calorie constraint and the objective, turning the problem into a single-variable linear optimization in \( S \).
+- Check that:
+  - The calorie constraint is respected.
+  - The resulting solution gives maximum protein while satisfying \( B = 2S \).
+- If using an LP/ILP solver:
+  - Implement the two variables \( S \), \( B \) with the constraints listed.
+  - Set objective to maximize \( 2S + 7B \).
+  - If a solver doesn’t handle equality easily, ensure the ratio is enforced as equality, not inequality.
+
+---
+
+[MODELER]:
+Below is a full mathematical / algorithmic model of the problem, plus recommendations for Python tools to solve it.
+
+---
+
+## 1. Problem type
+
+This is a linear optimisation problem.  
+Because the decision variables are counts of items, it is naturally an **Integer Linear Program (ILP)**, but the structure is simple enough that it can also be solved as a continuous LP and then checked for integer feasibility.
+
+---
+
+## 2. Decision variables
+
+Let:
+
+- \( S \): number of smoothies consumed  
+- \( B \): number of protein bars consumed  
+
+Domain:
+
+- \( S \ge 0,\ B \ge 0 \)  
+- Optionally, for realism: \( S, B \in \mathbb{Z}_{\ge 0} \) (non-negative integers)
+
+---
+
+## 3. Objective function
+
+Each item provides:
+
+- Smoothie: 2 units of protein
+- Protein bar: 7 units of protein
+
+Total protein intake:
+
+\[
+\text{Protein} = 2S + 7B
+\]
+
+**Objective:** Maximize total protein
+
+\[
+\max\ Z = 2S + 7B
+\]
+
+---
+
+## 4. Constraints
+
+### 4.1 Calorie constraint
+
+- Smoothie: 300 calories each
+- Protein bar: 250 calories each
+- Total calories ≤ 2000
+
+\[
+300S + 250B \le 2000
+\]
+
+### 4.2 Ratio between bars and smoothies
+
+“She must eat 2 times more protein bars than smoothies” means:
+
+\[
+B = 2S
+\]
+
+(This is an equality; not just an inequality.)
+
+### 4.3 Non-negativity (and integrality, if imposed)
+
+\[
+S \ge 0,\quad B \ge 0
+\]
+
+Optionally:
+
+\[
+S, B \in \mathbb{Z}
+\]
+
+---
+
+## 5. Reduced single-variable model (optional)
+
+Using the ratio constraint \( B = 2S \), substitute into the calorie and objective:
+
+### 5.1 Calorie constraint
+
+\[
+300S + 250(2S) \le 2000
+\]
+\[
+300S + 500S \le 2000
+\]
+\[
+800S \le 2000
+\]
+\[
+S \le 2.5
+\]
+
+If we require integrality, \( S \in \{0,1,2\} \).
+
+Then from \( B = 2S \),  
+\( B \in \{0,2,4\} \).
+
+### 5.2 Objective in one variable
+
+\[
+Z = 2S + 7B = 2S + 7(2S) = 2S + 14S = 16S
+\]
+
+So:
+
+- **Maximize** \( 16S \)  
+- Subject to \( 0 \le S \le 2.5 \) (and integer if desired).
+
+**Continuous LP solution:**  
+\( S^* = 2.5,\ B^* = 5,\ Z^* = 16 \cdot 2.5 = 40 \) protein units, but 2.5 smoothies is not realistic if we require whole units.
+
+**Integer solution:**  
+Max allowed integer is \( S = 2 \Rightarrow B = 4 \)  
+Then:
+- Calories: \( 300(2) + 250(4) = 600 + 1000 = 1600 \le 2000 \)
+- Protein: \( 2(2) + 7(4) = 4 + 28 = 32 \)
+
+Hence the protein-maximizing integer solution is:
+
+- \( S = 2 \) smoothies  
+- \( B = 4 \) protein bars  
+
+---
+
+## 6. Summary of mathematical model
+
+\[
+\begin{align*}
+\max\quad & 2S + 7B \\
+\text{s.t.}\quad
+& 300S + 250B \le 2000 \\
+& B = 2S \\
+& S \ge 0,\ B \ge 0 \\
+& S, B \in \mathbb{Z} \quad \text{(if integer counts are required)}
+\end{align*}
+\]
+
+---
+
+## 7. Recommended Python libraries
+
+Any standard LP/ILP solver will handle this model easily. Recommended libraries:
+
+- **PuLP**  
+  - Easy syntax for linear and integer programming.  
+  - Integrates with open-source solvers (CBC) and commercial solvers if installed.
+  - Good for learning and small/medium problems.
+
+- **OR-Tools (Google)**  
+  - `ortools.linear_solver` (for LP/MIP).  
+  - Very good MIP capabilities, fast and well-supported.
+
+- **Pyomo**  
+  - More general algebraic modeling language in Python.  
+  - Good if you want to scale to more complex models later.
+
+- **scipy.optimize**  
+  - `linprog` solves continuous LPs only; no integer variables.  
+  - Use this only if you’re okay relaxing integrality.
+
+For this specific small problem, **PuLP** or **OR-Tools** is ideal.
+
+---
+
+## 8. Example in PuLP (integer model)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Protein_Maximization", pl.LpMaximize)
+
+# Decision variables (integer)
+S = pl.LpVariable('Smoothies', lowBound=0, cat='Integer')
+B = pl.LpVariable('Bars', lowBound=0, cat='Integer')
+
+# Objective
+prob += 2*S + 7*B, "TotalProtein"
+
+# Constraints
+prob += 300*S + 250*B <= 2000, "CalorieLimit"
+prob += B == 2*S, "RatioBarsToSmoothies"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal smoothies S:", pl.value(S))
+print("Optimal bars B:", pl.value(B))
+print("Max protein:", pl.value(2*S + 7*B))
+```
+
+This will return:
+
+- Smoothies S = 2  
+- Bars B = 4  
+- Max protein = 32
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem: maximize protein
+    prob = pl.LpProblem("Protein_Maximization", pl.LpMaximize)
+
+    # Decision variables (integer, non-negative)
+    S = pl.LpVariable('Smoothies', lowBound=0, cat='Integer')
+    B = pl.LpVariable('Bars', lowBound=0, cat='Integer')
+
+    # Objective: Maximize 2S + 7B
+    prob += 2 * S + 7 * B, "TotalProtein"
+
+    # Constraints
+    prob += 300 * S + 250 * B <= 2000, "CalorieLimit"
+    prob += B == 2 * S, "RatioBarsToSmoothies"
+
+    # Solve with CBC (default solver within PuLP)
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract optimal objective value
+    final_obj = pl.value(2 * S + 7 * B)
+
+    # Print required final objective in specified format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

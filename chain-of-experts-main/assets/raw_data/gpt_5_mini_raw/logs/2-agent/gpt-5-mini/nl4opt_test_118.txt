@@ -1,0 +1,101 @@
+[MODELER]:
+Model
+
+Decision variables
+- h ∈ Z≥0 : number of helicopter trips
+- c ∈ Z≥0 : number of car trips
+
+Parameters
+- helicopter capacity per trip = 30 fish
+- car capacity per trip = 20 fish
+- helicopter time per trip = 40 minutes
+- car time per trip = 30 minutes
+- max helicopter trips = 5
+- at least 300 fish must be transported
+- at least 60% of trips must be by car
+
+Constraints
+1. Capacity: 30h + 20c ≥ 300
+2. Helicopter limit: 0 ≤ h ≤ 5
+3. Car-trip proportion: c ≥ 0.6 (h + c) ⇔ 2c ≥ 3h (equivalently c ≥ 1.5 h)
+4. Integrality/nonnegativity: h, c ∈ Z≥0
+
+Objective
+Minimize total time spent (sum of times of all trips):
+minimize T = 40h + 30c
+
+Solution (small integer search)
+h can only be 0,1,2,3,4,5. For each h compute the smallest integer c satisfying (2c ≥ 3h) and (30h+20c ≥ 300):
+
+- h=0 → c≥15 → T = 30·15 = 450
+- h=1 → c≥14 → T = 40 + 30·14 = 460
+- h=2 → c≥12 → T = 80 + 30·12 = 440
+- h=3 → c≥11 → T = 120 + 30·11 = 450
+- h=4 → c≥9  → T = 160 + 30·9  = 430  ← best
+- h=5 → c≥8  → T = 200 + 30·8  = 440
+
+Optimal integer solution: h = 4 helicopter trips, c = 9 car trips.
+Total fish transported = 30·4 + 20·9 = 300 (meets exactly).
+Minimal total time = 40·4 + 30·9 = 430 minutes.
+
+Notes and solver recommendations
+- This is an integer linear program (two integer variables, linear objective and constraints). Because the domain is tiny, a brute-force enumeration is trivial.
+- For general / larger problems use integer linear programming libraries:
+  - pulp (CBC solver) — easy Python modeling for small MILPs
+  - OR-Tools CP-SAT — fast for integer/constraint problems
+  - Pyomo with GLPK / CBC / CPLEX / Gurobi — for larger modelling needs
+  - scipy.optimize is not suitable for integer programming
+
+Example (quick pulp sketch)
+- Define IntVar h, c
+- Add constraints: 30*h+20*c >= 300, h <= 5, 2*c >= 3*h
+- Minimize 40*h + 30*c
+- Solve (CBC) — result h=4, c=9.
+
+If you want, I can provide the full Python code (pulp or OR-Tools) to solve and verify the result.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Parameters
+helicopter_capacity = 30  # fish per helicopter trip
+car_capacity = 20         # fish per car trip
+helicopter_time = 40      # minutes per helicopter trip
+car_time = 30             # minutes per car trip
+max_helicopter_trips = 5
+required_fish = 300
+
+best = None  # to store (T, h, c, fish)
+
+for h in range(0, max_helicopter_trips + 1):
+    # constraint: c >= 1.5 * h  ->  c >= ceil(1.5*h)
+    c_min_prop = math.ceil(1.5 * h)
+    # constraint: 30h + 20c >= 300 -> c >= ceil((300 - 30h)/20) if positive
+    remaining = required_fish - helicopter_capacity * h
+    if remaining <= 0:
+        c_min_capacity = 0
+    else:
+        c_min_capacity = math.ceil(remaining / car_capacity)
+    c_min = max(0, c_min_prop, c_min_capacity)
+
+    c = c_min
+    fish = helicopter_capacity * h + car_capacity * c
+    T = helicopter_time * h + car_time * c
+
+    # Feasibility double-check
+    if fish >= required_fish and c >= c_min_prop:
+        if best is None or T < best[0] or (T == best[0] and (h < best[1] or (h == best[1] and c < best[2]))):
+            best = (T, h, c, fish)
+
+# Output results
+if best is None:
+    raise RuntimeError("No feasible solution found.")
+
+T_opt, h_opt, c_opt, fish_opt = best
+
+print(f"Optimal integer solution: h = {h_opt}, c = {c_opt}")
+print(f"Total fish transported = {fish_opt}")
+print(f"Minimal total time = {T_opt} minutes")
+print(f"FINAL_OBJ: {T_opt}")

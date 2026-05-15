@@ -1,0 +1,247 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total number of pipes installed/used per day while satisfying demand, technician availability, risk limits, and minimum low‑volume pipes.
+
+2. Suggested model type  
+Model: Mixed-Integer Linear Programming (MILP) or Integer Programming (IP), since the number of pipes must be integer and there is a percentage constraint linking the two types.
+
+3. Main decision variables  
+Let the Modeller define integer decision variables such as:
+
+- High-volume pipes:
+  - \(H\): Number of high-volume pipes used per day.
+- Low-volume pipes:
+  - \(L\): Number of low-volume pipes used per day.
+
+(If necessary for solver implementation, these can be restricted to nonnegative integers.)
+
+4. Key constraints to consider  
+
+a) Demand satisfaction (throughput requirement)  
+- Each high-volume pipe carries 10,000 gallons/day.  
+- Each low-volume pipe carries 5,000 gallons/day.  
+- Total daily capacity must be at least 150,000 gallons.  
+  - Constraint: 10,000·H + 5,000·L ≥ 150,000.
+
+b) Technician availability  
+- Each high-volume pipe requires 12 technicians.  
+- Each low-volume pipe requires 5 technicians.  
+- Total technicians available per day = 160.  
+  - Constraint: 12·H + 5·L ≤ 160.
+
+c) Risk / composition constraint on high-volume pipes  
+- At most 35% of all pipes can be high-volume.  
+- Formally: H ≤ 0.35·(H + L).  
+- This is linear and should be kept in that form or rearranged algebraically to avoid division by zero (i.e., bring all terms to one side).
+
+d) Minimum number of low-volume pipes  
+- There must be at least 8 low-volume pipes.  
+  - Constraint: L ≥ 8.
+
+e) Non-negativity and integrality  
+- H, L ≥ 0.  
+- H, L must be integers (count of pipes).
+
+5. Objective function (conceptual)  
+- Minimise total number of pipes:
+  - Objective: Minimise H + L.
+
+6. Additional modelling notes for the Modeller  
+
+- Ensure the percentage constraint is implemented carefully:
+  - Rearranged form to keep it linear and avoid fractions:  
+    - From H ≤ 0.35(H + L) ⇒ 0.65H ≤ 0.35L ⇒ 13H ≤ 7L (after scaling).
+- No need to introduce binary variables; pure integer variables for H and L suffice.
+- The model is small enough that a standard MILP/IP solver will find optimal solutions quickly.
+- After solving, check that:
+  - Total capacity ≥ 150,000 gallons.
+  - Technician use ≤ 160.
+  - High-volume share ≤ 35% of total pipes.
+  - L ≥ 8.
+  - Objective H + L is minimal.
+
+---
+
+[MODELER]:
+Below is a complete mathematical model of the problem, plus suggestions for how to implement it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(H \in \mathbb{Z}_{\ge 0}\): number of high-volume pipes used per day  
+- \(L \in \mathbb{Z}_{\ge 0}\): number of low-volume pipes used per day  
+
+(They must be integers, since we count pipes.)
+
+---
+
+## 2. Objective function
+
+Minimize the total number of pipes used:
+
+\[
+\min \; H + L
+\]
+
+---
+
+## 3. Constraints
+
+### a) Demand (throughput) constraint
+
+Each high-volume pipe carries 10,000 gallons/day; each low-volume pipe carries 5,000 gallons/day.  
+Total capacity must be at least 150,000 gallons/day:
+
+\[
+10{,}000\,H + 5{,}000\,L \;\ge\; 150{,}000
+\]
+
+You can simplify by dividing by 5,000 if desired:
+
+\[
+2H + L \;\ge\; 30
+\]
+
+### b) Technician availability
+
+Each high-volume pipe requires 12 technicians; each low-volume pipe requires 5 technicians.  
+There are at most 160 technicians available:
+
+\[
+12H + 5L \;\le\; 160
+\]
+
+### c) Risk / composition constraint (high-volume share)
+
+At most 35% of all pipes used can be high-volume:
+
+\[
+H \;\le\; 0.35\,(H + L)
+\]
+
+Rearrange to keep it linear with integer coefficients:
+
+\[
+H \le 0.35H + 0.35L
+\;\Rightarrow\;
+0.65H \le 0.35L
+\;\Rightarrow\;
+\frac{13}{20}H \le \frac{7}{20}L
+\;\Rightarrow\;
+13H \le 7L
+\]
+
+So the constraint can be implemented as:
+
+\[
+13H \;\le\; 7L
+\]
+
+(This automatically prevents the degenerate case \(H>0, L=0\).)
+
+### d) Minimum number of low-volume pipes
+
+There must be at least 8 low-volume pipes:
+
+\[
+L \;\ge\; 8
+\]
+
+### e) Non-negativity and integrality
+
+\[
+H \ge 0,\quad L \ge 0,\quad H, L \in \mathbb{Z}
+\]
+
+---
+
+## 4. Model type
+
+- This is an (integer) linear optimization problem with two integer decision variables and linear constraints.
+- It can be formulated as:
+  - An Integer Programming (IP) problem, or
+  - A Mixed-Integer Linear Programming (MILP) problem (trivially “mixed” since all integer).
+
+Formally:
+
+\[
+\begin{aligned}
+\min_{H,L} \quad & H + L \\
+\text{s.t.} \quad 
+& 10{,}000H + 5{,}000L \;\ge\; 150{,}000 \\
+& 12H + 5L \;\le\; 160 \\
+& 13H \;\le\; 7L \\
+& L \;\ge\; 8 \\
+& H, L \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+Several standard Python libraries can handle this model efficiently:
+
+- **PuLP**  
+  - Simple modeling syntax, uses CBC or other MILP solvers.
+  - Good for teaching, prototyping, and small to medium problems.
+
+- **OR-Tools (Google OR-Tools, `ortools.linear_solver`)**  
+  - Industrial-strength optimization toolkit.
+  - Includes CBC and other solvers; good performance and rich features.
+
+- **Pyomo**  
+  - More general algebraic modeling language.
+  - Integrates with various MILP solvers (CBC, GLPK, CPLEX, Gurobi, etc.).
+
+- **MIP / Python-MIP**  
+  - Dedicated to mixed-integer linear optimization; good performance and clear syntax.
+
+For this very small model, any of these will solve it essentially instantly. If you want a straightforward choice for implementation:
+
+- Start with **PuLP** or **OR-Tools** if you want something lightweight and easy to use.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Define the problem
+    prob = pulp.LpProblem("Pipe_Selection", pulp.LpMinimize)
+
+    # Decision variables (non-negative integers)
+    H = pulp.LpVariable('H', lowBound=0, cat='Integer')  # High-volume pipes
+    L = pulp.LpVariable('L', lowBound=0, cat='Integer')  # Low-volume pipes
+
+    # Objective: minimize total number of pipes
+    prob += H + L, "Total_Pipes"
+
+    # Constraints
+
+    # Throughput constraint: 2H + L >= 30  (from 10,000H + 5,000L >= 150,000)
+    prob += 2 * H + L >= 30, "Throughput"
+
+    # Technician availability: 12H + 5L <= 160
+    prob += 12 * H + 5 * L <= 160, "Technicians"
+
+    # High-volume share constraint: 13H <= 7L
+    prob += 13 * H <= 7 * L, "High_Volume_Share"
+
+    # Minimum number of low-volume pipes: L >= 8
+    prob += L >= 8, "Min_Low_Volume"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+    # Extract objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

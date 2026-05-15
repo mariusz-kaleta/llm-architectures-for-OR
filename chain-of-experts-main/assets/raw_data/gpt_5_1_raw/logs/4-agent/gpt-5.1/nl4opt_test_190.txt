@@ -1,0 +1,243 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximise total profit from selling black milk tea and matcha milk tea, subject to limited milk and honey.
+
+2. Suggested model type  
+Model: Linear Programming (LP) – two-variable, continuous or integer (depending on whether fractional bottles are allowed; usually integer, but LP relaxation will likely give an integer solution).
+
+3. Main decision variables  
+Define decision variables as:  
+- x₁: Number of bottles of black milk tea to produce.  
+- x₂: Number of bottles of matcha milk tea to produce.
+
+4. Objective function (conceptual)  
+- Profit contribution:  
+  - Black milk tea: $7.5 per bottle  
+  - Matcha milk tea: $5 per bottle  
+- Objective: Maximise total profit = 7.5·x₁ + 5·x₂.
+
+5. Key resource consumption relationships  
+- Milk usage:  
+  - Black milk tea: 600 g per bottle  
+  - Matcha milk tea: 525 g per bottle  
+- Honey usage:  
+  - Black milk tea: 10 g per bottle  
+  - Matcha milk tea: 5 g per bottle  
+
+6. Key constraints to model  
+
+a) Milk availability constraint  
+- Total milk used by both products cannot exceed 30000 grams.  
+- Structure: 600·x₁ + 525·x₂ ≤ 30000.
+
+b) Honey availability constraint  
+- Total honey used by both products cannot exceed 500 grams.  
+- Structure: 10·x₁ + 5·x₂ ≤ 500.
+
+c) Non-negativity constraints  
+- Cannot produce a negative number of bottles.  
+- Structure: x₁ ≥ 0, x₂ ≥ 0.
+
+d) Integrality (if needed)  
+- If the context demands whole bottles only, add: x₁, x₂ are integers.
+
+7. Suggested modelling/solution strategy  
+
+- First model and solve as a standard 2-variable LP:
+  - Plot or compute the intersection of the two binding resource constraints to locate the potential optimal corner point.
+  - Also evaluate the objective at all feasible corner points of the resource polygon (including when one variable is zero).
+- Then, if integer solutions are required and LP solution is not integer, adjust to nearest feasible integer points and compare objective values.
+- Check which resource is binding at the optimum:
+  - Use constraint multipliers or just observe which inequalities hold as equalities at the optimal solution.
+- Verify that at the optimum both resource constraints are satisfied and non-negativity holds.
+
+8. Sensitivity / extensions (optional for the modeller)  
+
+If needed, consider:  
+- Sensitivity to changes in:
+  - Milk availability (30000 g).  
+  - Honey availability (500 g).  
+  - Per-bottle profit levels (7.5 and 5).  
+- Scenario: What if the owner can buy extra milk or honey at some cost? Then:
+  - Add decision variables for extra milk/honey purchased.  
+  - Add cost terms to the objective.  
+
+Focus for now on solving the base LP model with these variables, constraints, and objective.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model for the problem, plus how you could implement and solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x_1\) = number of bottles of black milk tea to produce  
+- \(x_2\) = number of bottles of matcha milk tea to produce  
+
+Depending on context, you can treat \(x_1, x_2\) as:
+- **Integers** (more realistic: you can’t make half a bottle), or  
+- **Continuous** (LP relaxation; will often give integer answers anyway in small problems like this).
+
+---
+
+## 2. Objective function
+
+Profit per bottle:  
+- Black milk tea: \$7.5  
+- Matcha milk tea: \$5  
+
+Maximise total profit:
+\[
+\max Z = 7.5x_1 + 5x_2
+\]
+
+---
+
+## 3. Constraints
+
+### a) Milk constraint
+
+Each bottle uses milk as follows:  
+- Black: 600 g  
+- Matcha: 525 g  
+
+Total milk available: 30000 g.
+
+\[
+600x_1 + 525x_2 \le 30000
+\]
+
+---
+
+### b) Honey constraint
+
+Each bottle uses honey as follows:  
+- Black: 10 g  
+- Matcha: 5 g  
+
+Total honey available: 500 g.
+
+\[
+10x_1 + 5x_2 \le 500
+\]
+
+---
+
+### c) Non-negativity
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+---
+
+### d) Optional integrality
+
+If you require whole bottles:
+
+\[
+x_1, x_2 \in \mathbb{Z}
+\]
+
+---
+
+## 4. Model summary (LP / ILP)
+
+Maximise  
+\[
+Z = 7.5x_1 + 5x_2
+\]
+
+subject to  
+\[
+600x_1 + 525x_2 \le 30000 \quad\text{(milk)}
+\]  
+\[
+10x_1 + 5x_2 \le 500 \quad\text{(honey)}
+\]  
+\[
+x_1 \ge 0,\; x_2 \ge 0
+\]  
+and optionally \(x_1, x_2\) integers.
+
+---
+
+## 5. Suitable Python libraries
+
+This is a small linear program. Appropriate libraries:
+
+- **PuLP** – very simple LP/ILP modelling; good for teaching and quick prototypes.
+- **OR-Tools (from Google)** – powerful, with dedicated linear solver and MIP solver.
+- **SciPy (`scipy.optimize.linprog`)** – good for continuous LPs (no integer constraints).
+
+For integer bottling, use PuLP or OR-Tools.
+
+---
+
+## 6. Example implementation (PuLP)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("MilkTea_Profit_Max", pl.LpMaximize)
+
+# Decision variables (Integer; use lowBound=0, cat='Continuous' for LP relaxation)
+x1 = pl.LpVariable('x_black', lowBound=0, cat='Integer')
+x2 = pl.LpVariable('x_matcha', lowBound=0, cat='Integer')
+
+# Objective
+prob += 7.5 * x1 + 5 * x2
+
+# Constraints
+prob += 600 * x1 + 525 * x2 <= 30000, "Milk_limit"
+prob += 10 * x1 + 5 * x2 <= 500, "Honey_limit"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("x1 (black):", x1.value())
+print("x2 (matcha):", x2.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This code directly encodes the model above and will return the optimal number of each bottle and the maximum profit.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem: maximize profit
+    prob = pl.LpProblem("MilkTea_Profit_Max", pl.LpMaximize)
+
+    # Decision variables (Integer bottles)
+    x1 = pl.LpVariable('x_black', lowBound=0, cat='Integer')
+    x2 = pl.LpVariable('x_matcha', lowBound=0, cat='Integer')
+
+    # Objective function: Maximize 7.5*x1 + 5*x2
+    prob += 7.5 * x1 + 5 * x2
+
+    # Constraints
+    # Milk: 600x1 + 525x2 <= 30000
+    prob += 600 * x1 + 525 * x2 <= 30000, "Milk_limit"
+
+    # Honey: 10x1 + 5x2 <= 500
+    prob += 10 * x1 + 5 * x2 <= 500, "Honey_limit"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pl.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

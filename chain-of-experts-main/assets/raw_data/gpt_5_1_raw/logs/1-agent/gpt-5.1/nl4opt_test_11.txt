@@ -1,0 +1,39 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Banquet_Transportation", pulp.LpMinimize)
+
+# Decision variables
+b = pulp.LpVariable('bikes', lowBound=0, cat='Integer')
+c = pulp.LpVariable('cars', lowBound=0, cat='Integer')
+
+# Constraints
+# Capacity constraint: each bike takes 3 people, each car takes 5
+prob += 3 * b + 5 * c >= 500, "Capacity"
+
+# Car proportion constraint: at most 40% of vehicles are cars
+# c <= 0.4 * (b + c)  ->  0.6c <= 0.4b  ->  3c <= 2b
+prob += 3 * c <= 2 * b, "Car_Proportion"
+
+# Objective: Minimize number of bikes
+prob += b, "Minimize_Bikes"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+bikes_val = int(pulp.value(b))
+cars_val = int(pulp.value(c))
+
+# Compute an objective value consistent with problem goal:
+# total bikes minimized, but we can define final objective as number of bikes
+final_obj = bikes_val
+
+# Print solution details (optional, but kept minimal as user did not forbid)
+print(f"Bikes: {bikes_val}")
+print(f"Cars: {cars_val}")
+print(f"Total people transported: {3 * bikes_val + 5 * cars_val}")
+
+# Required final objective print
+print(f"FINAL_OBJ: {final_obj}")

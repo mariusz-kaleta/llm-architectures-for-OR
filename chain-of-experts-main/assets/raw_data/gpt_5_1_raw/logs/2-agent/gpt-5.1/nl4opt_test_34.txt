@@ -1,0 +1,144 @@
+[MODELER]:
+Below is a precise optimization model for the problem, and then a brief note on how to solve it in Python.
+
+---
+
+## 1. Define decision variables
+
+Let  
+- \(x\) = number of carts  
+- \(y\) = number of trolleys  
+
+These are nonnegative integers:
+\[
+x \ge 0,\quad y \ge 12,\quad x,y \in \mathbb{Z}.
+\]
+
+---
+
+## 2. Objective function
+
+Each cart uses 2 workers and each trolley uses 4 workers.  
+We want to minimize the total number of workers:
+
+\[
+\min\; Z = 2x + 4y.
+\]
+
+---
+
+## 3. Constraints
+
+### (a) Transportation capacity requirement
+
+Each cart can transport 5 kg/min and each trolley 7 kg/min.  
+The total transport rate must be at least 100 kg/min:
+
+\[
+5x + 7y \;\ge\; 100.
+\]
+
+### (b) Minimum number of trolleys
+
+There must be at least 12 trolleys:
+
+\[
+y \;\ge\; 12.
+\]
+
+### (c) Maximum share of transportation done by trolleys
+
+At most 40% of the **transported load** (by rate) can be via trolleys.  
+Trolleys move \(7y\) kg/min, and total transported is \(5x + 7y\) kg/min.
+
+The requirement:
+\[
+\frac{7y}{5x + 7y} \;\le\; 0.4.
+\]
+
+This is nonlinear as written, but we can clear denominators (valid when \(5x + 7y > 0\), which is necessary to meet 100 kg/min):
+
+\[
+7y \;\le\; 0.4(5x + 7y)
+\]
+\[
+7y \;\le\; 2x + 2.8y
+\]
+\[
+7y - 2.8y \;\le\; 2x
+\]
+\[
+4.2y \;\le\; 2x
+\]
+\[
+x \;\ge\; 2.1y.
+\]
+
+To avoid decimals, multiply by 10:
+
+\[
+21y \;\le\; 10x.
+\]
+
+So the linear constraint is:
+
+\[
+10x - 21y \;\ge\; 0.
+\]
+
+---
+
+## 4. Full mathematical model
+
+\[
+\begin{aligned}
+\min\ & 2x + 4y \\
+\text{s.t. } & 5x + 7y \;\ge\; 100, \\
+& y \;\ge\; 12, \\
+& 10x - 21y \;\ge\; 0, \\
+& x, y \in \mathbb{Z}_{\ge 0}.
+\end{aligned}
+\]
+
+---
+
+## 5. Solving the model (Python suggestions)
+
+This is a small integer linear program (ILP). Suitable Python libraries:
+
+- **PuLP** (`pulp`) – simple to model and solve ILPs; works with CBC by default.
+- **OR-Tools** (`ortools.linear_solver` or `ortools.math_opt`) – efficient and feature-rich for linear and integer programming.
+- **Pyomo** – more general modeling library for optimization problems.
+
+Any of these can directly encode the above objective and constraints as a linear integer program and find the optimal numbers of carts (\(x\)) and trolleys (\(y\)).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+# Create the problem
+prob = pulp.LpProblem("Carts_Trolleys_Optimization", pulp.LpMinimize)
+
+# Decision variables (nonnegative integers)
+x = pulp.LpVariable('x', lowBound=0, cat='Integer')   # number of carts
+y = pulp.LpVariable('y', lowBound=12, cat='Integer')  # number of trolleys, at least 12
+
+# Objective function: minimize total workers
+prob += 2 * x + 4 * y
+
+# Constraints
+# Transportation capacity requirement
+prob += 5 * x + 7 * y >= 100
+
+# Maximum share of transportation done by trolleys: 10x - 21y >= 0
+prob += 10 * x - 21 * y >= 0
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+# Compute final objective value
+final_obj = pulp.value(prob.objective)
+
+# Print final objective value in required format
+print(f"FINAL_OBJ: {final_obj}")

@@ -1,0 +1,139 @@
+[MODELER]:
+Here is a clean mathematical optimization model of the problem.
+
+---
+
+## 1. Decision variables
+
+Let  
+
+- \(x\) = number of acres processed with the windrower  
+- \(y\) = number of acres processed with the hay harvester  
+
+Both are continuous and nonnegative:
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+(If acres must be integer, we can later enforce \(x, y\) to be integers, but the problem as stated works with real acres.)
+
+---
+
+## 2. Objective function
+
+We want to maximize the total amount of hay processed.
+
+- Windrower: 10 kg of hay per acre → contributes \(10x\) kg  
+- Harvester: 8 kg of hay per acre → contributes \(8y\) kg  
+
+So the objective is:
+
+\[
+\max Z = 10x + 8y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Land availability
+
+The farmer has 200 acres total:
+
+\[
+x + y \le 200
+\]
+
+### b) Fuel availability
+
+Each acre processed:
+
+- Windrower: 2 kg fuel per acre → total fuel for windrower: \(2x\)  
+- Harvester: 1 kg fuel per acre → total fuel for harvester: \(y\)  
+
+There are at most 300 kg of fuel:
+
+\[
+2x + y \le 300
+\]
+
+### c) Methane emission limit
+
+Each acre processed:
+
+- Windrower: 5 kg methane per acre → total methane from windrower: \(5x\)  
+- Harvester: 3 kg methane per acre → total methane from harvester: \(3y\)  
+
+Methane must be at most 800 kg:
+
+\[
+5x + 3y \le 800
+\]
+
+### d) Nonnegativity
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+## 4. Complete linear programming model
+
+\[
+\begin{aligned}
+\max\ & 10x + 8y \\
+\text{s.t. } 
+& x + y \le 200, \\
+& 2x + y \le 300, \\
+& 5x + 3y \le 800, \\
+& x \ge 0,\ y \ge 0.
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+This is a small linear programming (LP) problem. Good choices in Python include:
+
+- `PuLP` – very straightforward for LPs, integrates with CBC or other solvers.
+- `scipy.optimize.linprog` – part of SciPy, suitable for dense LPs.
+- `ortools.linear_solver` (Google OR-Tools) – efficient and flexible.
+- `Pyomo` – more general modeling environment, good if you’ll extend the model.
+
+For a quick solution, `PuLP` or `scipy.optimize.linprog` are usually the simplest.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def main():
+    # Create the LP problem: maximize total hay processed
+    prob = pulp.LpProblem("Hay_Processing", pulp.LpMaximize)
+
+    # Decision variables: x = acres with windrower, y = acres with hay harvester
+    x = pulp.LpVariable('x', lowBound=0, cat='Continuous')
+    y = pulp.LpVariable('y', lowBound=0, cat='Continuous')
+
+    # Objective function: maximize 10x + 8y
+    prob += 10 * x + 8 * y
+
+    # Constraints
+    prob += x + y <= 200        # Land availability
+    prob += 2 * x + y <= 300    # Fuel availability
+    prob += 5 * x + 3 * y <= 800  # Methane emission limit
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print the final objective value in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

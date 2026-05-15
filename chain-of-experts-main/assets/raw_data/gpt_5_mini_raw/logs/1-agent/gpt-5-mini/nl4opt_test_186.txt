@@ -1,0 +1,30 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Minimize_Wagons", pulp.LpMinimize)
+
+# Decision variables
+s = pulp.LpVariable('small_wagons', lowBound=0, cat='Integer')  # number of small wagons
+l = pulp.LpVariable('large_wagons', lowBound=0, cat='Integer')  # number of large wagons
+
+# Parameters (initialized directly)
+capacity_small = 20
+capacity_large = 50
+required_ore = 2000
+
+# Objective: minimize total number of wagons
+prob += s + l, "Total_Wagons"
+
+# Constraints
+prob += capacity_small * s + capacity_large * l >= required_ore, "Capacity_Requirement"
+prob += s >= 2 * l, "Small_at_least_twice_large"
+prob += l >= 10, "At_least_10_large"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Compute final objective (as integer)
+final_obj = int(pulp.value(s) + pulp.value(l))
+
+print(f"FINAL_OBJ: {final_obj}")

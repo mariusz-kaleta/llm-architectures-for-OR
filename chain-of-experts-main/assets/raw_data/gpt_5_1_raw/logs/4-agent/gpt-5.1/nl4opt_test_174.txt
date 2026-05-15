@@ -1,0 +1,198 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximise the total number of patients who can have their temperature taken during the 15,000 minutes the office is open.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with integer (or non‑negative whole number) decision variables, since the number of patients must be integral.
+
+3. Main decision variables  
+Define two primary decision variables:
+- \(E\): Number of patients whose temperature is taken with the electronic thermometer.  
+- \(R\): Number of patients whose temperature is taken with the regular thermometer.
+
+(If the modeller wishes, they can explicitly declare them as integer, but the structure is simple enough that an LP relaxation will naturally yield integers.)
+
+4. Key constraints to consider  
+
+a) Time capacity constraint  
+- Each electronic reading takes 3 minutes; each regular reading takes 2 minutes.  
+- Total available time is 15,000 minutes.  
+- Constraint: Total time for all electronic and regular measurements cannot exceed 15,000 minutes.  
+
+b) Accuracy preference constraint  
+- At least twice as many patients must be checked with the electronic thermometer as with the regular thermometer, to reflect higher accuracy.  
+- Constraint: Number of electronic measurements is at least 2 times the number of regular measurements.  
+
+c) Minimum usage of regular thermometer  
+- Due to cooldown/operational requirements, at least 50 patients must be measured with the regular thermometer.  
+- Constraint: Number of regular thermometer measurements is at least 50.  
+
+d) Non-negativity and integrality  
+- Both decision variables must be non-negative.  
+- Both should be whole numbers (patients cannot be fractional).  
+
+5. Objective function (verbally)  
+- Maximise the total number of patients measured, i.e., maximise \(E + R\) subject to the above constraints.  
+
+6. Modelling strategy notes for the Modeller  
+- Start by formulating the LP with the variables and the three key constraints (time, ratio, minimum R), plus non-negativity.  
+- Because the coefficients and right-hand sides are small integers, solving the LP directly should produce integer solutions; formal integer programming might not be necessary.  
+- After solving, verify feasibility against:  
+  - Total time used.  
+  - The ratio condition (electronic at least twice regular).  
+  - The minimum count of regular thermometer measurements.  
+- Finally, confirm that the solution indeed maximises the total number of patients (no unused time that could be converted into additional measurements without violating constraints).
+
+---
+
+[MODELER]:
+Here is a clean mathematical model and how you could implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(E \in \mathbb{Z}_{\ge 0}\): number of patients checked with the electronic thermometer  
+- \(R \in \mathbb{Z}_{\ge 0}\): number of patients checked with the regular thermometer  
+
+(You can model them as continuous \(\ge 0\) and the LP solution will still be integral because this is a simple problem with integral coefficients.)
+
+---
+
+## 2. Objective
+
+Maximise the total number of patients whose temperature is taken:
+
+\[
+\max \; Z = E + R
+\]
+
+---
+
+## 3. Constraints
+
+1. **Time capacity constraint**
+
+   - Electronic reading: 3 minutes per patient  
+   - Regular reading: 2 minutes per patient  
+   - Office open: 15,000 minutes  
+
+   Total time used cannot exceed available time:
+
+   \[
+   3E + 2R \le 15000
+   \]
+
+2. **Accuracy preference (electronic at least twice regular)**
+
+   \[
+   E \ge 2R
+   \]
+
+3. **Minimum usage of regular thermometer**
+
+   \[
+   R \ge 50
+   \]
+
+4. **Non-negativity and integrality**
+
+   \[
+   E \ge 0,\quad R \ge 0,\quad E, R \in \mathbb{Z}
+   \]
+
+---
+
+## 4. Full model summary
+
+\[
+\begin{aligned}
+\max \quad & E + R \\
+\text{s.t.} \quad & 3E + 2R \le 15000 \\
+                  & E - 2R \ge 0 \\
+                  & R \ge 50 \\
+                  & E, R \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+This is a very small linear/integer program. Any standard LP/MIP library will solve it instantly:
+
+- **PuLP** (pure Python, easy to use, works with CBC by default)
+- **OR-Tools** (Google OR-Tools, very fast MIP solver)
+- **SciPy (`scipy.optimize.linprog`)** (solve as continuous LP; integrality is implicit here)
+- **Pyomo** (if you want a more general algebraic modelling language)
+
+For a direct and simple implementation, **PuLP** or **OR-Tools** are recommended.
+
+---
+
+## 6. Example with PuLP
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Temperature_Maximisation", pl.LpMaximize)
+
+# Decision variables
+E = pl.LpVariable("E", lowBound=0, cat="Integer")
+R = pl.LpVariable("R", lowBound=0, cat="Integer")
+
+# Objective
+prob += E + R, "Total_Patients"
+
+# Constraints
+prob += 3*E + 2*R <= 15000, "Time_Capacity"
+prob += E >= 2*R, "Accuracy_Preference"
+prob += R >= 50, "Min_Regular_Usage"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("E (electronic):", pl.value(E))
+print("R (regular):", pl.value(R))
+print("Total patients:", pl.value(E + R))
+print("Time used:", 3*pl.value(E) + 2*pl.value(R))
+```
+
+You can substitute PuLP with OR-Tools or Pyomo if you prefer different modelling styles; the underlying mathematical model remains exactly as above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create problem
+    prob = pl.LpProblem("Temperature_Maximisation", pl.LpMaximize)
+
+    # Decision variables
+    E = pl.LpVariable("E", lowBound=0, cat="Integer")
+    R = pl.LpVariable("R", lowBound=0, cat="Integer")
+
+    # Objective: Maximise total patients
+    prob += E + R, "Total_Patients"
+
+    # Constraints
+    prob += 3 * E + 2 * R <= 15000, "Time_Capacity"
+    prob += E >= 2 * R, "Accuracy_Preference"
+    prob += R >= 50, "Min_Regular_Usage"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    obj_value = pl.value(E + R)
+
+    # Final required print
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,218 @@
+[MODELER]:
+Here’s a clean mathematical model of the problem, followed by how to solve it with Python.
+
+---
+
+## 1. Decision Variables
+
+Let:
+
+- \( x \) = number of bananas  
+- \( y \) = number of mangoes  
+
+We assume \( x, y \ge 0 \) and can be real-valued (continuous). If you want integer numbers of fruits, you can later add \( x, y \in \mathbb{Z}_{\ge 0} \).
+
+---
+
+## 2. Objective Function (Minimize Sugar)
+
+Sugar content:
+
+- Each banana: 10 grams  
+- Each mango: 8 grams  
+
+Total sugar:
+\[
+\text{Sugar} = 10x + 8y
+\]
+
+**Objective:**
+\[
+\min \; 10x + 8y
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Calorie Requirement
+
+Each banana: 80 calories  
+Each mango: 100 calories  
+
+Gorilla must consume **at least 4000 calories**:
+
+\[
+80x + 100y \;\ge\; 4000
+\]
+
+---
+
+### 3.2 Potassium Requirement
+
+Each banana: 20 grams of potassium  
+Each mango: 15 grams of potassium  
+
+Gorilla must consume **at least 150 grams of potassium**:
+
+\[
+20x + 15y \;\ge\; 150
+\]
+
+---
+
+### 3.3 Mango Proportion Limit (at most 33% of the fruits)
+
+"At most 33% of the fruits he eats can be mangoes":
+
+\[
+\frac{y}{x + y} \;\le\; 0.33, 
+\quad \text{with } x + y > 0
+\]
+
+Rearrange (for \(x + y > 0\)):
+
+\[
+y \;\le\; 0.33(x + y)
+\]
+\[
+y \;\le\; 0.33x + 0.33y
+\]
+\[
+y - 0.33y \;\le\; 0.33x
+\]
+\[
+0.67y \;\le\; 0.33x
+\]
+\[
+y \;\le\; \frac{0.33}{0.67} x \approx 0.492537 x
+\]
+
+To avoid decimals, you can equivalently write:
+
+\[
+0.67y \le 0.33x \quad\Longleftrightarrow\quad 67y \le 33x
+\]
+
+This is convenient in linear solvers.
+
+---
+
+### 3.4 Non-negativity
+
+\[
+x \ge 0, \quad y \ge 0
+\]
+
+If integer fruits are required:
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete Linear Program
+
+Minimize:
+\[
+\min\; 10x + 8y
+\]
+
+Subject to:
+\[
+\begin{aligned}
+80x + 100y &\ge 4000 \quad &\text{(calories)} \\
+20x + 15y &\ge 150 \quad &\text{(potassium)} \\
+67y &\le 33x \quad &\text{(mango fraction ≤ 33%)} \\
+x, y &\ge 0 \quad &\text{(non-negativity)}
+\end{aligned}
+\]
+
+(Optional): \(x, y\) integers if needed.
+
+---
+
+## 5. Suitable Python Libraries
+
+This is a linear optimization problem (LP, or MILP if integers). Good Python libraries:
+
+- **PuLP**: simple modeling for LP/MILP, works well for teaching and small problems.
+- **OR-Tools (Google)**: powerful MILP solver (`ortools.linear_solver`).
+- **Pyomo**: more general algebraic modeling language, integrates with many solvers.
+- **scipy.optimize.linprog**: can handle continuous LP (no integrality).
+
+For this problem, **PuLP** or **OR-Tools** are ideal.
+
+---
+
+## 6. Example with PuLP (continuous LP)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Gorilla_Diet", pl.LpMinimize)
+
+# Decision variables (non-negative, continuous)
+x = pl.LpVariable('bananas', lowBound=0)
+y = pl.LpVariable('mangoes', lowBound=0)
+
+# Objective: minimize total sugar
+prob += 10 * x + 8 * y
+
+# Constraints
+prob += 80 * x + 100 * y >= 4000, "CalorieRequirement"
+prob += 20 * x + 15 * y >= 150,  "PotassiumRequirement"
+prob += 67 * y <= 33 * x,        "MangoFractionLimit"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Bananas (x) =", pl.value(x))
+print("Mangoes (y) =", pl.value(y))
+print("Minimum sugar =", pl.value(10 * x + 8 * y))
+```
+
+If you want integer numbers of fruits, change the variable definitions to:
+
+```python
+x = pl.LpVariable('bananas', lowBound=0, cat='Integer')
+y = pl.LpVariable('mangoes', lowBound=0, cat='Integer')
+```
+
+This model will compute the number of bananas and mangoes that minimizes total sugar while meeting all nutritional and preference constraints.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the linear programming problem (minimization)
+    prob = pl.LpProblem("Gorilla_Diet", pl.LpMinimize)
+
+    # Decision variables: non-negative continuous (can be changed to Integer if needed)
+    x = pl.LpVariable('bananas', lowBound=0)
+    y = pl.LpVariable('mangoes', lowBound=0)
+
+    # Objective: minimize total sugar
+    prob += 10 * x + 8 * y
+
+    # Constraints
+    prob += 80 * x + 100 * y >= 4000, "CalorieRequirement"
+    prob += 20 * x + 15 * y >= 150,  "PotassiumRequirement"
+    prob += 67 * y <= 33 * x,        "MangoFractionLimit"
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute final objective value
+    final_obj = pl.value(10 * x + 8 * y)
+
+    # Print final objective as required
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

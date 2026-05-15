@@ -1,0 +1,134 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Minimise the total number of snow removers hired (seasonal + permanent) while meeting the city’s labor-hour requirement and staying within the budget.
+
+2) Suggested model type
+- Model: Integer Linear Programming (ILP) with two integer decision variables (or simply a small discrete enumeration since there are only two variables).
+
+3) Main decision variables
+- S = number of seasonal snow removers to hire (integer, ≥ 0).
+- P = number of permanent snow removers to hire (integer, ≥ 0).
+
+4) Key constraints to include (describe conceptually)
+- Total-hours requirement: The combined working hours provided by S and P must be at least the required 300 hours after the snowfall (each seasonal provides 6 hours per shift; each permanent provides 10 hours per shift).
+- Budget constraint: Total pay for S and P must not exceed the available $6500 (seasonal pay $120 per seasonal worker; permanent pay $250 per permanent worker).
+- Integrality and nonnegativity: S and P must be nonnegative integers (you cannot hire fractional workers).
+- Practical upper bounds (derivable from budget): enforce upper bounds to limit search (for example, S cannot exceed floor(budget / seasonal wage) and P cannot exceed floor(budget / permanent wage))—useful to accelerate enumeration/branch‑and‑bound.
+- Feasibility check: include a step to verify that at least one feasible (S,P) pair exists given both the hours and budget constraints (e.g., check that max achievable hours under the budget is at least 300).
+
+5) Recommended solution approach / solver guidance
+- Because there are only two integer variables, a simple discrete search is efficient: iterate P over its feasible integer range (0 to floor(budget/250)) and for each P compute the minimum S needed to meet the hours requirement, then check the budget constraint; track the pair(s) that minimize S+P.
+- Alternatively, formulate as a small ILP and solve with any integer programming solver (branch-and-bound, CBC, Gurobi, etc.). You may solve LP relaxation first to get a lower bound on the objective.
+- If multiple (S,P) pairs tie on minimal total workers, you can break ties by secondary criteria if desired (e.g., minimize cost, minimize overtime, prefer permanent/seasonal).
+
+6) Deliverables expected from the Modeller
+- The optimal integer counts S and P.
+- Confirmation of feasibility.
+- Short sensitivity note: whether changing the budget or required hours by small amounts would change the optimal hiring.
+
+---
+
+[MODELER]:
+Model formulation
+
+Decision variables
+- S ∈ Z≥0 : number of seasonal snow removers to hire.
+- P ∈ Z≥0 : number of permanent snow removers to hire.
+
+Objective
+- Minimize total number of hired workers: minimize Z = S + P.
+
+Constraints
+1. Hours requirement:
+   6 S + 10 P ≥ 300
+   (each seasonal gives 6 hours, each permanent 10 hours, total must be at least 300)
+
+2. Budget limit:
+   120 S + 250 P ≤ 6500
+   (seasonal wage $120, permanent $250, total ≤ budget)
+
+3. Integrality and nonnegativity:
+   S, P ∈ Z≥0.
+
+(Practical bounds) Upper bounds from budget:
+- S ≤ floor(6500 / 120) = 54
+- P ≤ floor(6500 / 250) = 26
+(these bound the search and speed up enumeration)
+
+Solution approach
+Because there are only two integer variables, a direct discrete search (enumerate P from 0..26, compute minimal S needed from the hours constraint S_min = ceil(max(0,(300−10P)/6)) and test the budget) is efficient. Alternatively formulate the same as a small ILP and solve with any integer programming solver.
+
+Recommended Python libraries
+- For enumeration / simple code: Python standard library + math (ceil).
+- For ILP: PuLP (with CBC), OR-Tools (CP-SAT for integer programs), or commercial solvers (Gurobi, CPLEX) if available.
+- (scipy.optimize is not suitable directly for integer programs; use it only for LP relaxation.)
+
+Optimal solution (computed)
+- Optimal hires: S = 35 seasonal, P = 9 permanent.
+- Total workers = 44.
+- Check:
+  - Hours: 6·35 + 10·9 = 210 + 90 = 300 (meets requirement).
+  - Cost: 120·35 + 250·9 = 4200 + 2250 = 6450 ≤ 6500 (within budget).
+
+Feasibility
+- The problem is feasible (for example S = 50, P = 0 gives 300 hours and costs $6000 ≤ $6500), so feasible solutions exist. The above (35,9) is the cost-feasible combination minimizing S+P.
+
+Short sensitivity notes
+- Minimum budget needed to achieve the 44-worker solution (35,9) is $6450 (the solution uses $6450). If the budget falls below $6450 (e.g., $6449), (35,9) becomes infeasible and the minimum achievable total workers increases to 45 (for example S=37, P=8 gives 6·37+10·8 = 222+80 = 302 hours, cost = 4440+2000 = 6440 but verify feasibility for the exact budget; the particular next-best feasible combination is P=8, S=37 with cost $6440 and total 45).
+- Increasing the required hours would typically increase the required workers; decreasing required hours may allow fewer hires (or the same hires at lower cost). Small changes in required hours or budget can change the optimal mix because feasibility is tight near P = 9, S = 35.
+
+If you want, I can:
+- Provide a short Python script (enumeration and/or PuLP model) that finds this optimum and lists all feasible (S,P) pairs sorted by S+P.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data (initialized directly)
+hours_required = 300
+budget = 6500
+wage_S = 120        # seasonal wage
+wage_P = 250        # permanent wage
+hours_S = 6         # hours provided by one seasonal
+hours_P = 10        # hours provided by one permanent
+
+# Practical bounds from budget
+S_max = 6500 // wage_S  # 54
+P_max = 6500 // wage_P  # 26
+
+best_solution = None  # tuple (total_workers, S, P, cost, hours)
+feasible_solutions = []
+
+for P in range(P_max + 1):
+    # hours still required after P permanents
+    remaining_hours = max(0, hours_required - hours_P * P)
+    # minimal seasonal workers needed to cover remaining hours
+    S_min = (remaining_hours + hours_S - 1) // hours_S  # ceil division
+    if S_min > S_max:
+        continue
+    cost = wage_S * S_min + wage_P * P
+    if cost <= budget:
+        total_workers = S_min + P
+        hours_total = hours_S * S_min + hours_P * P
+        feasible_solutions.append((total_workers, S_min, P, cost, hours_total))
+        if (best_solution is None) or (total_workers < best_solution[0]) or (
+            total_workers == best_solution[0] and cost < best_solution[3]
+        ):
+            best_solution = (total_workers, S_min, P, cost, hours_total)
+
+# Ensure we found a feasible solution
+if best_solution is None:
+    raise SystemExit("No feasible solution found.")
+
+best_total, best_S, best_P, best_cost, best_hours = best_solution
+
+# Optional: show best solution details
+print(f"Best solution: S = {best_S}, P = {best_P}, total workers = {best_total}")
+print(f"Hours provided = {best_hours}, Cost = ${best_cost}")
+
+# Final required output line (exact format)
+print(f"FINAL_OBJ: {best_total}")
+```

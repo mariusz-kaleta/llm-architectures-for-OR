@@ -1,0 +1,220 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- **Goal:** Minimise the *total number of machines purchased* while:
+  - Producing at least 1000 cones of ice cream per day.
+  - Not exceeding 500 units of heat output per day.
+
+---
+
+2. **Suggested model type**
+
+- **Model:** Integer Linear Programming (ILP)
+  - Both decision variables are counts of machines, so they must be non‑negative integers.
+  - Objective and constraints are linear in these counts.
+
+---
+
+3. **Main decision variables**
+
+Define:
+- \(x\): number of counter-top machines to buy.
+- \(y\): number of fridge-sized machines to buy.
+
+Both are:
+- Integer
+- Non-negative
+
+---
+
+4. **Key constraints to consider**
+
+1. **Production capacity constraint (minimum cones per day)**
+   - Each counter-top machine produces 80 cones/day.
+   - Each fridge-sized machine produces 150 cones/day.
+   - Total daily production must be at least 1000 cones:
+     - Production from counter-top + production from fridge-sized ≥ 1000.
+
+2. **Heat output constraint (maximum heat per day)**
+   - Each counter-top machine outputs 50 units of heat/day.
+   - Each fridge-sized machine outputs 70 units of heat/day.
+   - Total daily heat output must be at most 500 units:
+     - Heat from counter-top + heat from fridge-sized ≤ 500.
+
+3. **Integrality and non-negativity**
+   - Number of machines cannot be negative.
+   - Must be whole numbers (no fractional machines).
+
+---
+
+5. **Objective function structure**
+
+- Objective: **Minimise total machines**
+  - Minimise (number of counter-top machines + number of fridge-sized machines).
+
+---
+
+6. **Modelling strategy / notes for the Modeller**
+
+- Formulate the ILP with:
+  - 2 integer decision variables.
+  - 2 functional constraints (production and heat).
+  - Non-negativity and integrality constraints.
+- After solving:
+  - Verify that the chosen integer solution satisfies:
+    - Production ≥ 1000 cones.
+    - Heat ≤ 500 units.
+  - Among all feasible integer combinations, the one with the smallest sum \(x + y\) is the optimal configuration.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by solver suggestions.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x \in \mathbb{Z}_{\ge 0}\): number of counter-top machines to buy  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of fridge-sized machines to buy  
+
+Both must be **non-negative integers**.
+
+---
+
+## 2. Objective
+
+Minimise the total number of machines purchased:
+
+\[
+\min \; z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Production capacity constraint
+
+Each:
+- Counter-top machine produces 80 cones/day.
+- Fridge-sized machine produces 150 cones/day.
+
+The store must produce at least 1000 cones/day:
+
+\[
+80x + 150y \;\ge\; 1000
+\]
+
+### b) Heat output constraint
+
+Each:
+- Counter-top machine outputs 50 units of heat/day.
+- Fridge-sized machine outputs 70 units of heat/day.
+
+The store must not exceed 500 units of heat/day:
+
+\[
+50x + 70y \;\le\; 500
+\]
+
+### c) Integrality and non-negativity
+
+\[
+x \in \mathbb{Z}_{\ge 0}, \quad y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Model summary (ILP)
+
+\[
+\begin{aligned}
+\text{Minimise} \quad & z = x + y \\
+\text{subject to} \quad
+& 80x + 150y \ge 1000 \quad \text{(production)} \\
+& 50x + 70y \le 500 \quad \text{(heat limit)} \\
+& x, y \in \mathbb{Z}_{\ge 0} \quad \text{(integer, non-negative)} \\
+\end{aligned}
+\]
+
+This is a small **integer linear program (ILP)**.
+
+---
+
+## 5. Suitable Python libraries
+
+You can model and solve this ILP with any standard MIP/LP library; for a problem this size, all of the following are more than sufficient:
+
+- **PuLP**  
+  - Easy syntax, pure Python, works with CBC (default open-source solver).  
+  - Good for quick modelling and teaching examples.
+- **OR-Tools (Google)**  
+  - `ortools.linear_solver` for MIP.  
+  - Very fast and robust, but slightly more verbose API.
+- **Pyomo**  
+  - Very flexible algebraic modelling language in Python.  
+  - Good if you plan to grow to larger/more complex models.
+- **SciPy** (`scipy.optimize.linprog`)  
+  - Only supports continuous variables directly.  
+  - You’d need to relax integrality (making this an LP) or handle integrality another way, so it’s **not ideal** here if you need integer solutions.
+
+### Example library choice
+
+For this problem, **PuLP** or **OR-Tools** are the most straightforward:
+
+- Use **PuLP** if you’d like an approachable algebraic-style interface:
+  ```python
+  import pulp as pl
+
+  model = pl.LpProblem("IceCreamMachines", pl.LpMinimize)
+
+  # Decision variables
+  x = pl.LpVariable('x', lowBound=0, cat='Integer')  # counter-top
+  y = pl.LpVariable('y', lowBound=0, cat='Integer')  # fridge-sized
+
+  # Objective
+  model += x + y
+
+  # Constraints
+  model += 80*x + 150*y >= 1000   # production
+  model += 50*x + 70*y <= 500     # heat
+
+  # Solve
+  model.solve()
+  print("x =", pl.value(x), "y =", pl.value(y))
+  ```
+
+- Use **OR-Tools** if you want a production-grade solver with more tuning options later.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    model = pl.LpProblem("IceCreamMachines", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('x', lowBound=0, cat='Integer')  # counter-top
+    y = pl.LpVariable('y', lowBound=0, cat='Integer')  # fridge-sized
+
+    # Objective: minimize total machines
+    model += x + y
+
+    # Constraints
+    model += 80 * x + 150 * y >= 1000   # production
+    model += 50 * x + 70 * y <= 500     # heat
+
+    # Solve the model
+    model.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pl.value(model.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

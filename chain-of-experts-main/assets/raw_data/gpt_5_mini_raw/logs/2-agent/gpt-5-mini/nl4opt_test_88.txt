@@ -1,0 +1,108 @@
+[MODELER]:
+Summary (interpretation)
+- I interpret "at most 1.5 times more pH tests than salinity tests" to mean "the number of pH tests is at most 1.5 times the number of salinity tests", i.e. P <= 1.5·S. (If you meant a different interpretation — e.g. “1.5 times more” = S + 1.5·S = 2.5·S — see note at the end.)
+
+Decision variables
+- S = number of salinity tests (integer, S >= 0)
+- P = number of pH tests (integer, P >= 0)
+
+Objective
+- Minimize the total number of probes used: minimize Z = 3S + 2P
+  (salinity requires 3 probes each, pH requires 2 probes each).
+
+Constraints
+1. At least 250 pH tests: P >= 250
+2. At least 400 tests total: S + P >= 400
+3. pH limited relative to salinity: P <= 1.5 S  (equivalently 2P <= 3S)
+4. Integer and nonnegativity: S, P ∈ Z_+, S >= 0, P >= 0
+
+Solution (analysis)
+- Because pH uses fewer probes per test (2 vs 3), you want as many pH tests as allowed. Using the constraints and solving the linear program (and then enforcing integrality), the optimal feasible integer solution is:
+  - P = 250 (minimum allowed)
+  - S = 167 (smallest integer S satisfying S >= max(400 − P, ceil(2P/3)) = max(150, 167) = 167)
+
+Total probes = 3·167 + 2·250 = 501 + 500 = 1001 probes.
+
+So perform 167 salinity tests and 250 pH tests to minimize probes (1001 probes total).
+
+Recommended solvers / Python libraries
+- For integer linear programming:
+  - PuLP (pure-Python modelling, can use CBC solver) — easy to set up for small problems.
+  - OR-Tools CP-SAT (Google) — very fast and reliable for integer problems.
+  - mip (python-mip) or Gurobi/CPLEX if you have commercial solvers available.
+- For continuous LP relaxation or quick checks:
+  - scipy.optimize.linprog or cvxpy
+
+Short PuLP model outline (optional)
+- Define integer variables S, P
+- Add constraints: P >= 250; S + P >= 400; 2*P <= 3*S; S,P >= 0 and integer
+- Minimize objective 3*S + 2*P
+- Solve; read S,P
+
+Note on wording ambiguity
+- If instead the phrase "1.5 times more pH tests than salinity tests" was intended as P <= S + 1.5·S = 2.5·S (i.e. P <= 2.5 S), that is a much weaker constraint. Then the minimizing solution is P = 250, S = 150 (so total = 400 tests) and probes = 3·150 + 2·250 = 950. If you want that interpretation instead, use P <= 2.5·S as the constraint.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+#!/usr/bin/env python3
+# Self-contained script to solve the integer optimization described by the user.
+# Decision variables:
+#   S = number of salinity tests (integer, S >= 0)
+#   P = number of pH tests (integer, P >= 0)
+# Objective:
+#   Minimize Z = 3*S + 2*P
+# Constraints:
+#   P >= 250
+#   S + P >= 400
+#   P <= 1.5 * S   (interpreted as P <= 1.5*S, i.e., 2P <= 3S)
+#
+# The script enumerates feasible integer (S,P) pairs and finds the optimum.
+# It also optionally computes the alternative interpretation P <= 2.5*S for comparison.
+
+def solve_with_ratio(max_ratio):
+    best_obj = None
+    best_solution = None
+    # Choose reasonable search bounds:
+    # P must be at least 250. Upper bound for P: choose 2000 (far beyond needed).
+    # S upper bound: choose 2000 as well.
+    for S in range(0, 2001):
+        for P in range(250, 2001):
+            if S + P < 400:
+                continue
+            # Check ratio constraint: P <= max_ratio * S
+            # Handle S == 0 separately to avoid division issues:
+            if S == 0:
+                if P > 0:
+                    continue  # P > 0 not allowed if S == 0 and ratio finite
+                # else P == 0 but P must be >= 250 so impossible
+            else:
+                if P > max_ratio * S + 1e-9:
+                    continue
+            obj = 3 * S + 2 * P
+            if (best_obj is None) or (obj < best_obj) or (obj == best_obj and (S < best_solution[0] or (S == best_solution[0] and P < best_solution[1]))):
+                best_obj = obj
+                best_solution = (S, P)
+    return best_obj, best_solution
+
+# Primary interpretation: P <= 1.5 * S
+best_obj_main, best_sol_main = solve_with_ratio(1.5)
+
+# Alternative interpretation (if "1.5 times more" meant P <= 2.5*S)
+best_obj_alt, best_sol_alt = solve_with_ratio(2.5)
+
+# Print results
+if best_sol_main is not None:
+    S_main, P_main = best_sol_main
+    print(f"Optimal (P <= 1.5*S): S = {S_main}, P = {P_main}, probes = {best_obj_main}")
+else:
+    print("No feasible solution found for P <= 1.5*S")
+
+if best_sol_alt is not None:
+    S_alt, P_alt = best_sol_alt
+    print(f"Alternative (P <= 2.5*S): S = {S_alt}, P = {P_alt}, probes = {best_obj_alt}")
+else:
+    print("No feasible solution found for P <= 2.5*S")
+
+# Final required output line (exact format)
+print(f"FINAL_OBJ: {best_obj_main}")

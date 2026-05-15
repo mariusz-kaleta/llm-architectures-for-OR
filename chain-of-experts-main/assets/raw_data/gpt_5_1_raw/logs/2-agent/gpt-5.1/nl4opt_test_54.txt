@@ -1,0 +1,220 @@
+[MODELER]:
+Formulate this as a **linear programming (LP)** problem.
+
+### Decision variables
+Let:
+- \(x \ge 0\): number of glasses of milk per day  
+- \(y \ge 0\): number of plates of vegetables per day  
+
+### Objective (minimize cost)
+- Milk costs \$1 per glass  
+- Vegetables cost \$2 per plate  
+
+Minimize total daily cost:
+\[
+\min \; Z = 1x + 2y
+\]
+
+### Constraints
+
+**Calcium requirement (at least 100 units):**  
+- Milk: 40 units per glass  
+- Vegetables: 15 units per plate  
+
+\[
+40x + 15y \;\ge\; 100
+\]
+
+**Iron requirement (at least 50 units):**  
+- Milk: 25 units per glass  
+- Vegetables: 30 units per plate  
+
+\[
+25x + 30y \;\ge\; 50
+\]
+
+**Non-negativity:**
+\[
+x \ge 0, \quad y \ge 0
+\]
+
+---
+
+### Solve analytically
+
+Try to meet both nutrient constraints as cheaply as possible. The optimum for a problem like this will occur at a **corner point** of the feasible region.
+
+Solve the two constraints as equalities:
+\[
+\begin{cases}
+40x + 15y = 100 \\
+25x + 30y = 50
+\end{cases}
+\]
+
+1. From the second equation:
+\[
+25x + 30y = 50 \Rightarrow 5x + 6y = 10 \Rightarrow x = 2 - \frac{6}{5}y
+\]
+
+2. Substitute into the first:
+\[
+40\left(2 - \frac{6}{5}y\right) + 15y = 100
+\]
+\[
+80 - 48y + 15y = 100
+\]
+\[
+80 - 33y = 100 \Rightarrow -33y = 20 \Rightarrow y = -\frac{20}{33} < 0
+\]
+
+This violates \(y \ge 0\), so the calcium and iron constraints can’t both bind with nonnegative amounts. The optimum must be on a boundary with one variable at 0.
+
+#### Case 1: \(x = 0\) (no milk)
+
+Calcium: \(15y \ge 100 \Rightarrow y \ge \frac{100}{15} \approx 6.67\)  
+Iron: \(30y \ge 50 \Rightarrow y \ge \frac{50}{30} \approx 1.67\)
+
+So \(y \ge 6.67\). Cost: \(Z = 2y \approx 13.33\).
+
+#### Case 2: \(y = 0\) (no vegetables)
+
+Calcium: \(40x \ge 100 \Rightarrow x \ge 2.5\)  
+Iron: \(25x \ge 50 \Rightarrow x \ge 2\)
+
+So \(x \ge 2.5\). Cost: \(Z = x = 2.5\).
+
+This is much cheaper.
+
+### Continuous solution
+If fractional servings are allowed:
+
+- Optimal solution:  
+  \[
+  x^* = 2.5 \text{ glasses of milk}, \quad y^* = 0 \text{ plates of vegetables}
+  \]
+- Minimum cost:  
+  \[
+  Z^* = 2.5 \text{ dollars}
+  \]
+
+### Integer solution (if whole servings only)
+
+If the boy must consume whole numbers of servings:
+
+- From above, we need \(x \ge 3\) (smallest integer ≥ 2.5), \(y = 0\) is still feasible:  
+  Calcium: \(40 \cdot 3 = 120 \ge 100\)  
+  Iron: \(25 \cdot 3 = 75 \ge 50\)  
+
+Cost: \$3.  
+Check if any combination with \(y > 0\) is cheaper: the only cheaper integer point would be total cost 0, 1, or 2 dollars, but:
+
+- Cost = 1: \((x,y) = (1,0)\): calcium \(40<100\), iron \(25<50\) → infeasible  
+- Cost = 2: possibilities:  
+  - \((2,0)\): calcium \(80<100\), iron \(50\) → calcium fails  
+  - \((0,1)\): both calcium and iron fail  
+
+So integer-optimal:
+- \(x = 3\) glasses of milk  
+- \(y = 0\) plates of vegetables  
+- Cost = \$3.
+
+---
+
+### Suitable Python libraries
+
+You can model and solve this LP using:
+
+- **PuLP** (simple LP/MIP modeling, pure Python)
+- **SciPy** (`scipy.optimize.linprog` for continuous LP only)
+- **OR-Tools** (`ortools.linear_solver.pywraplp` for LP/MIP)
+
+Example with PuLP (continuous version):
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Nutrition_Cost_Minimization", pl.LpMinimize)
+
+# Variables (continuous, >=0)
+x = pl.LpVariable('milk', lowBound=0)
+y = pl.LpVariable('veg', lowBound=0)
+
+# Objective
+prob += 1 * x + 2 * y
+
+# Constraints
+prob += 40 * x + 15 * y >= 100   # calcium
+prob += 25 * x + 30 * y >= 50    # iron
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("milk =", x.value())
+print("veg  =", y.value())
+print("cost =", pl.value(prob.objective))
+```
+
+For integer servings, define:
+```python
+x = pl.LpVariable('milk', lowBound=0, cat='Integer')
+y = pl.LpVariable('veg', lowBound=0, cat='Integer')
+```
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def solve_continuous():
+    # Define LP problem for continuous servings
+    prob = pl.LpProblem("Nutrition_Cost_Minimization_Continuous", pl.LpMinimize)
+
+    # Decision variables: continuous, >= 0
+    x = pl.LpVariable('milk', lowBound=0)
+    y = pl.LpVariable('veg', lowBound=0)
+
+    # Objective function
+    prob += 1 * x + 2 * y
+
+    # Constraints
+    prob += 40 * x + 15 * y >= 100   # Calcium
+    prob += 25 * x + 30 * y >= 50    # Iron
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    cost = pl.value(prob.objective)
+    return cost
+
+def solve_integer():
+    # Define MILP problem for integer servings
+    prob = pl.LpProblem("Nutrition_Cost_Minimization_Integer", pl.LpMinimize)
+
+    # Decision variables: integer, >= 0
+    x = pl.LpVariable('milk', lowBound=0, cat='Integer')
+    y = pl.LpVariable('veg', lowBound=0, cat='Integer')
+
+    # Objective function
+    prob += 1 * x + 2 * y
+
+    # Constraints
+    prob += 40 * x + 15 * y >= 100   # Calcium
+    prob += 25 * x + 30 * y >= 50    # Iron
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    cost = pl.value(prob.objective)
+    return cost
+
+if __name__ == "__main__":
+    continuous_obj = solve_continuous()
+    integer_obj = solve_integer()
+
+    # Here we choose to report the continuous LP optimal objective value
+    FINAL_OBJ_value = continuous_obj
+
+    print(f"FINAL_OBJ: {FINAL_OBJ_value}")

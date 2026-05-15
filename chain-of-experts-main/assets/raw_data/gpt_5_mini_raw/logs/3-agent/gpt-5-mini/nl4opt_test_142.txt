@@ -1,0 +1,94 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- L ∈ Z≥0 (or R≥0) = number of large art pieces to make
+- S ∈ Z≥0 (or R≥0) = number of small art pieces to make
+
+(If you require integer numbers of pieces use integer variables; otherwise the linear relaxation uses continuous variables.)
+
+Objective
+Maximise profit:
+max Z = 30 L + 15 S
+
+Constraints
+Resource limits:
+1) Paint: 4L + 2S ≤ 100
+2) Glitter: 3L + 1S ≤ 50
+3) Glue: 5L + 2S ≤ 70
+
+Minimum production requirements:
+4) L ≥ 5
+5) S ≥ 5
+
+Nonnegativity:
+L ≥ 0, S ≥ 0 (and integer if required)
+
+Remarks on solving and solutions
+- Continuous (LP) solution: solve the LP relaxation (L,S real). If you substitute L = 5 + x, S = 5 + y (x,y ≥ 0) the LP reduces to maximizing 2x + y subject to 5x + 2y ≤ 35 (the other resource constraints are redundant). The LP optimum is at x = 0, y = 17.5, i.e. L = 5, S = 22.5 with objective Z = 487.5. This is fractional in S.
+
+- Integer (practical) solution: pieces must be integer. Checking nearby integer feasible points gives optimal integer solutions:
+  - L = 5, S = 22 → profit Z = 30·5 + 15·22 = 480
+  - L = 6, S = 20 → profit Z = 30·6 + 15·20 = 480
+Both use resources within limits (the second uses glue fully). No integer feasible solution achieves profit > 480, so 480 is the optimal integer profit; the two pairs above are optimal.
+
+Suggested Python libraries
+- Continuous LP: scipy.optimize.linprog (SciPy), PuLP, or OR-Tools linear solver.
+- Integer (mixed) integer LP: PuLP (with CBC or other solver), OR-Tools CP-SAT or MIP solver, or commercial solvers such as Gurobi/Cplex if available.
+
+Quick PuLP formulation (integer example)
+- Define L and S as LpInteger variables, add constraints as above, set objective 30*L + 15*S, and call solver. This will return the integer optimal solutions (e.g., L=5,S=22 or L=6,S=20).
+
+If you want, I can provide a ready-to-run code snippet using PuLP or OR-Tools for either the continuous or integer case.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the art-piece production integer optimization
+# Decision variables:
+#   L = number of large pieces (integer, >=5)
+#   S = number of small pieces (integer, >=5)
+# Objective: maximize 30*L + 15*S
+# Constraints:
+#   4L + 2S <= 100   (paint)
+#   3L + 1S <= 50    (glitter)
+#   5L + 2S <= 70    (glue)
+
+def main():
+    # Bounds derived from resource single-item limits to restrict search space
+    L_min = 5
+    S_min = 5
+    # Individual upper bounds (safe overestimates)
+    L_max = min(100 // 4, 50 // 3, 70 // 5)  # = min(25,16,14) = 14
+    S_max = min(100 // 2, 50 // 1, 70 // 2)  # = min(50,50,35) = 35
+
+    best_obj = None
+    best_solutions = []
+
+    for L in range(L_min, L_max + 1):
+        for S in range(S_min, S_max + 1):
+            if 4 * L + 2 * S > 100:
+                continue
+            if 3 * L + 1 * S > 50:
+                continue
+            if 5 * L + 2 * S > 70:
+                continue
+            obj = 30 * L + 15 * S
+            if (best_obj is None) or (obj > best_obj):
+                best_obj = obj
+                best_solutions = [(L, S)]
+            elif obj == best_obj:
+                best_solutions.append((L, S))
+
+    # According to enumeration, best_obj should be 480 (e.g., (5,22) and (6,20)).
+    if best_obj is None:
+        best_obj = 0
+
+    # Final required print line (no other text on this line)
+    print(f"FINAL_OBJ: {int(best_obj)}")
+
+if __name__ == "__main__":
+    main()
+```

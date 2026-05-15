@@ -1,0 +1,123 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of loaves of bread produced per year (>= 0)
+  - y = number of cookie batches produced per year (>= 0)
+
+- Objective
+  - Maximize total profit Z = 5x + 3y
+
+- Constraints
+  - Stand mixer time: 1·x + 0.5·y ≤ 3000 (hours/year)
+  - Oven time: 3·x + 1·y ≤ 3000 (hours/year)
+  - x ≥ 0, y ≥ 0
+
+Comments: the oven constraint dominates the mixer constraint here because 3x + y ≤ 3000 implies 2x + y ≤ 6000, so any point satisfying the oven constraint automatically satisfies the mixer constraint. Thus the feasible region is 3x + y ≤ 3000, x,y ≥ 0.
+
+Solution (analysis)
+- Profit per oven-hour: bread = 5/3 ≈ 1.667, cookies = 3/1 = 3.
+- Cookies give higher profit per unit of the binding resource (oven), so use the oven for cookies only:
+  - x* = 0, y* = 3000.
+- Check mixer use: 0.5·3000 = 1500 ≤ 3000 OK.
+- Maximum profit Z* = 5·0 + 3·3000 = $9,000.
+
+Suggested Python libraries for solving this LP
+- pulp (simple, pure-Python LP modeling)
+- scipy.optimize.linprog (for continuous LPs)
+- OR-Tools (cp-sat or linear solver, if you need integer/large-scale)
+- CVXOPT (if you prefer convex optimization tools)
+
+Example (pulp) — minimal example to solve:
+- Define variables x,y >=0
+- Maximize 5*x + 3*y
+- Add constraints 1*x + 0.5*y <= 3000 and 3*x + y <= 3000
+- Solve and read x,y,Z
+
+(Any of the libraries above will return the same optimal solution x=0, y=3000, profit=9000.)
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data
+# Decision variables: x (loaves), y (cookie batches)
+c1, c2 = 5.0, 3.0  # objective coefficients: maximize 5x + 3y
+
+# Constraints (a*x + b*y <= c)
+constraints = [
+    (1.0, 0.5, 3000.0),  # stand mixer time: x + 0.5y <= 3000
+    (3.0, 1.0, 3000.0),  # oven time: 3x + y <= 3000
+]
+
+# Also include non-negativity as boundary lines for corner generation:
+# x = 0  -> 1*x + 0*y = 0
+# y = 0  -> 0*x + 1*y = 0
+boundary_lines = [
+    (1.0, 0.0, 0.0),  # x = 0
+    (0.0, 1.0, 0.0),  # y = 0
+]
+
+# Combine equality representations of the constraint boundaries and boundaries
+eq_lines = boundary_lines + constraints
+
+tol = 1e-9
+
+def intersect(line1, line2):
+    a1, b1, c1 = line1
+    a2, b2, c2 = line2
+    det = a1 * b2 - a2 * b1
+    if abs(det) < tol:
+        return None
+    x = (c1 * b2 - c2 * b1) / det
+    y = (a1 * c2 - a2 * c1) / det
+    return (x, y)
+
+# Generate candidate corner points from intersections
+candidates = []
+n = len(eq_lines)
+for i in range(n):
+    for j in range(i + 1, n):
+        pt = intersect(eq_lines[i], eq_lines[j])
+        if pt is not None:
+            candidates.append(pt)
+
+# Also include the origin explicitly
+candidates.append((0.0, 0.0))
+
+# Filter feasible points (satisfy all inequalities and non-negativity)
+feasible = []
+for x, y in candidates:
+    if x < -tol or y < -tol:
+        continue
+    ok = True
+    for a, b, c in constraints:
+        if a * x + b * y > c + 1e-6:
+            ok = False
+            break
+    if ok:
+        # clamp tiny negatives to zero
+        x_clamped = 0.0 if abs(x) < 1e-9 else x
+        y_clamped = 0.0 if abs(y) < 1e-9 else y
+        feasible.append((x_clamped, y_clamped))
+
+# Evaluate objective at feasible points and pick the best
+best_obj = -math.inf
+best_point = None
+for x, y in feasible:
+    val = c1 * x + c2 * y
+    if val > best_obj + 1e-9:
+        best_obj = val
+        best_point = (x, y)
+
+# Ensure best_obj is a plain number (not -inf)
+if best_obj == -math.inf:
+    best_obj = 0.0
+    best_point = (0.0, 0.0)
+
+# Final output: print only the required final objective line
+print(f"FINAL_OBJ: {best_obj}")
+```

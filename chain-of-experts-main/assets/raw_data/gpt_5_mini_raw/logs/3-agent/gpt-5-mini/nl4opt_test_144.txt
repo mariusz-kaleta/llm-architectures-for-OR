@@ -1,0 +1,136 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - V = number of vegetable servings (≥ 0)
+  - F = number of fruit servings (≥ 0)
+
+- Objective
+  - Minimize cost: minimize C = 3V + 5F
+
+- Constraints
+  - Vitamin requirement: 2V + 4F ≥ 20
+  - Mineral requirement: 3V + 1F ≥ 30
+  - Nonnegativity: V ≥ 0, F ≥ 0
+  - (Optionally integrality: V, F integer if servings must be whole)
+
+Solve analytically (two variables — check corner points)
+
+1. Intersection of both equalities:
+   - 3V + F = 30 and 2V + 4F = 20
+   - Solve → V = 10, F = 0. Cost = 3·10 + 5·0 = $30.
+
+2. Axis intersections:
+   - V = 0 → F must satisfy 3(0)+F ≥30 → F ≥30. Cost = 5·30 = $150.
+   - F = 0 → V must satisfy 2V ≥20 and 3V ≥30 → V ≥10. Minimal at V = 10, cost = $30.
+
+Minimum cost is $30 at V = 10, F = 0. So he should eat 10 servings of vegetables and 0 servings of fruit.
+
+Suggested Python libraries for solving
+- pulp (for linear/integer programming)
+- scipy.optimize.linprog (continuous LP)
+- ortools.linear_solver (for LP/IP with Google OR-Tools)
+
+Example (pulp) outline
+- Define variables V, F (LpVariable, lowBound=0, cat='Integer' if needed)
+- Set objective LpMinimize(3*V + 5*F)
+- Add constraints 2*V + 4*F >= 20 and 3*V + 1*F >= 30
+- Solve and read V.value(), F.value().
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data (initialized directly)
+# Decision variables: V (vegetable servings), F (fruit servings)
+# Objective: Minimize C = 3V + 5F
+# Constraints:
+#   2V + 4F >= 20
+#   3V + 1F >= 30
+#   V >= 0, F >= 0
+
+# Represent lines as tuples (a, b, c) for a*V + b*F = c
+lines = [
+    (2.0, 4.0, 20.0),  # constraint 1 equality
+    (3.0, 1.0, 30.0),  # constraint 2 equality
+    (1.0, 0.0, 0.0),   # V = 0
+    (0.0, 1.0, 0.0),   # F = 0
+]
+
+def intersect(line1, line2):
+    a1, b1, c1 = line1
+    a2, b2, c2 = line2
+    det = a1 * b2 - a2 * b1
+    if abs(det) < 1e-12:
+        return None  # parallel or coincident
+    V = (c1 * b2 - c2 * b1) / det
+    F = (a1 * c2 - a2 * c1) / det
+    return (V, F)
+
+# Generate candidate corner points by intersecting each pair of lines
+candidates = set()
+n = len(lines)
+for i in range(n):
+    for j in range(i+1, n):
+        pt = intersect(lines[i], lines[j])
+        if pt is None:
+            continue
+        # round small numerical noise
+        V, F = pt
+        Vr = 0.0 if abs(V) < 1e-12 else V
+        Fr = 0.0 if abs(F) < 1e-12 else F
+        candidates.add((Vr, Fr))
+
+# Feasibility check for inequalities
+def feasible(V, F):
+    if V < -1e-9 or F < -1e-9:
+        return False
+    if 2.0 * V + 4.0 * F + 1e-9 < 20.0:
+        return False
+    if 3.0 * V + 1.0 * F + 1e-9 < 30.0:
+        return False
+    return True
+
+# Evaluate objective and find minimum among feasible candidates
+best_val = None
+best_point = None
+for V, F in candidates:
+    if not feasible(V, F):
+        continue
+    val = 3.0 * V + 5.0 * F
+    if (best_val is None) or (val < best_val - 1e-12):
+        best_val = val
+        best_point = (V, F)
+
+# As a fallback, if no candidate found (shouldn't happen), check axis minima
+if best_val is None:
+    # Check V-axis minimal feasible (F=0)
+    # Need V >= max(20/2, 30/3) = max(10,10) = 10
+    V_axis = max(20.0/2.0, 30.0/3.0)
+    val_axis_V = 3.0 * V_axis + 5.0 * 0.0
+    # Check F-axis minimal feasible (V=0)
+    # Need F >= max(20/4, 30/1) = max(5,30) = 30
+    F_axis = max(20.0/4.0, 30.0/1.0)
+    val_axis_F = 3.0 * 0.0 + 5.0 * F_axis
+    if val_axis_V <= val_axis_F:
+        best_val = val_axis_V
+        best_point = (V_axis, 0.0)
+    else:
+        best_val = val_axis_F
+        best_point = (0.0, F_axis)
+
+# Post-process best_val to print nicely (integers when very close)
+def tidy_number(x):
+    if abs(x - round(x)) < 1e-9:
+        return int(round(x))
+    # limit floating representation to reasonable precision
+    return float(round(x, 9))
+
+final_value = tidy_number(best_val)
+
+# Final output line required by the task
+print(f"FINAL_OBJ: {final_value}")
+```

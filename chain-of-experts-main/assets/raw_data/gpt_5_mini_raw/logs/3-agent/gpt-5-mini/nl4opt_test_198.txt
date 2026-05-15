@@ -1,0 +1,88 @@
+[MODELER]:
+Model
+
+Decision variables
+- T ∈ Z≥0 : number of trains.
+- R ∈ Z≥0 : number of trams.
+
+Objective
+- Minimize total units: minimize Z = T + R.
+
+Constraints
+1. Capacity: 120 T + 30 R ≥ 600. (equivalently 4 T + R ≥ 20)
+2. Tram-to-train ratio: R ≥ 2 T.
+3. Integrality and nonnegativity: T, R integers ≥ 0.
+
+Remarks
+- The continuous relaxation (T, R real ≥ 0) has optimum at the intersection of 4T + R = 20 and R = 2T:
+  20 - 4T = 2T ⇒ T = 10/3, R = 20 - 4*(10/3) = 20/3, objective = 10. Because T and R must be integers, the integer optimum will be ≥ 10.
+- Evaluate integer T values (small finite range since 4T + R ≥ 20 implies T ≤ 5 if R ≥ 0) and set R = ceil(max(20 − 4T, 2T)). Doing so yields the minimum at:
+  T = 3, R = 8 with total units T + R = 11.
+  Check: 3*120 + 8*30 = 360 + 240 = 600, and 8 ≥ 2*3.
+
+Hence optimal solution: 3 trains and 8 trams, total 11 units.
+
+Suggested solvers / Python libraries
+- pulp (for an easy-to-use MILP interface)
+- OR-Tools CP-SAT (for integer/CP-style solving)
+- mip (mip-python) or gurobipy / cplex (if commercial solvers available)
+- For small problems you can also solve by simple enumeration without a solver.
+
+Example (pulp)
+```
+from pulp import LpProblem, LpMinimize, LpVariable, LpInteger, lpSum, LpStatus, value
+
+prob = LpProblem("trains_trams", LpMinimize)
+T = LpVariable('T', lowBound=0, cat=LpInteger)
+R = LpVariable('R', lowBound=0, cat=LpInteger)
+
+prob += T + R
+prob += 120*T + 30*R >= 600
+prob += R >= 2*T
+
+prob.solve()
+print(LpStatus[prob.status], value(T), value(R), value(prob.objective))
+```
+
+This will return T=3, R=8, objective=11.
+
+---
+
+[CODER]:
+#!/usr/bin/env python3
+import math
+
+# Data (directly initialized)
+capacity_per_train = 120
+capacity_per_tram = 30
+required_capacity = 600
+
+# Derived constraint in simpler integer form:
+# 120*T + 30*R >= 600  <=>  4*T + R >= 20
+# R >= 2*T
+
+best_obj = None
+best_T = None
+best_R = None
+
+# Search over a reasonable range for T (0..100)
+for T in range(0, 101):
+    # R must satisfy both: R >= 20 - 4*T and R >= 2*T, and R >= 0
+    R_lower = max(0, 20 - 4 * T, 2 * T)
+    # R_lower is integer already; choose smallest feasible R
+    R = R_lower
+    # verify capacity constraint (defensive)
+    if 120 * T + 30 * R < required_capacity:
+        # if not satisfied, increase R until satisfied
+        # but this should not happen because 4*T + R >= 20 ensures capacity
+        needed = math.ceil((required_capacity - 120 * T) / capacity_per_tram)
+        R = max(R, needed)
+    obj = T + R
+    if best_obj is None or obj < best_obj:
+        best_obj = obj
+        best_T = T
+        best_R = R
+
+# At this point best_T, best_R hold an optimal integer solution
+# Print only the required final objective line
+print(f"FINAL_OBJ: {best_obj}")

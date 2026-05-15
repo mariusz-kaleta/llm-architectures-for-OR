@@ -1,0 +1,212 @@
+[MODELER]:
+We can model this as a small integer linear program.
+
+### Decision variables
+Let  
+- \(L\) = number of limousines (integer, \(L \ge 0\))  
+- \(B\) = number of buses (integer, \(B \ge 0\))
+
+### Objective
+Minimize the total number of vehicles:
+\[
+\min \; L + B
+\]
+
+### Constraints
+
+1. **Capacity (at least 400 people):**
+
+Each limousine carries 12, each bus 18:
+\[
+12L + 18B \;\ge\; 400
+\]
+
+2. **Attractiveness (at least 70% limousines among vehicles):**
+
+At least 70% of used vehicles are limousines:
+\[
+L \;\ge\; 0.7(L + B)
+\]
+
+Rewriting:
+\[
+L \;\ge\; 0.7L + 0.7B
+\]
+\[
+0.3L \;\ge\; 0.7B
+\]
+\[
+3L \;\ge\; 7B
+\]
+
+3. **Integrality and nonnegativity:**
+
+\[
+L, B \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+### Mathematical model (compact form)
+
+\[
+\begin{aligned}
+\min \quad & L + B \\
+\text{s.t.} \quad
+& 12L + 18B \ge 400, \\
+& 3L - 7B \ge 0, \\
+& L, B \in \mathbb{Z}_{\ge 0}.
+\end{aligned}
+\]
+
+---
+
+### Solving the model (reasoning)
+
+First, make vehicles few as possible: capacity constraint gives a lower bound on \(L+B\).
+
+Because limousines are “worse” in terms of capacity per vehicle (12 vs 18), and they are forced to be at least 70% of vehicles, we’ll likely want just enough buses to maximize capacity per vehicle while respecting the 70% rule.
+
+Use the ratio constraint: \(3L \ge 7B \Rightarrow L \ge \frac{7}{3}B\). For a given \(B\), take the smallest integer \(L = \lceil \frac{7}{3}B \rceil\) that satisfies this, then check capacity and total vehicles.
+
+Search for small \(L+B\) that satisfy both constraints:
+
+1. Try total vehicles \(V = L + B\) starting from small values:
+   - From capacity:  
+     \(12L + 18B \ge 400 \Rightarrow 12(L+B) + 6B \ge 400\).  
+     So \(12V + 6B \ge 400 \Rightarrow 12V \ge 400 - 6B \).  
+     This shows \(V\) must be at least about \(400/18 \approx 22.3\), but since we need many limos, \(V\) will be higher.
+
+2. A more direct finite search is easy for such small numbers; solving systematically (or via a solver) yields:
+
+One optimal integer solution is:
+\[
+L = 23,\quad B = 5.
+\]
+
+Check constraints:
+
+- Capacity:  
+  \(12 \cdot 23 + 18 \cdot 5 = 276 + 90 = 366\) → this is not enough; we must correct that.
+
+So increase vehicles slightly.
+
+Try \(L = 24, B = 5\):  
+- Capacity: \(12\cdot 24 + 18\cdot 5 = 288 + 90 = 378 < 400\). Still not enough.
+
+Try \(L = 25, B = 5\):  
+- Capacity: \(12\cdot 25 + 18\cdot 5 = 300 + 90 = 390 < 400\).
+
+Try \(L = 26, B = 5\):  
+- Capacity: \(312 + 90 = 402 \ge 400\).  
+- Ratio: \(3L = 78\), \(7B = 35\), so \(78 \ge 35\) → satisfied.  
+- Total vehicles: \(L + B = 31\).
+
+Can we do better with fewer than 31 vehicles? Check \(V = 30\) with ratio and capacity:
+
+- With 70% limos, minimum limos when \(V=30\) is \(L = 0.7\cdot 30 = 21\). Since integer, \(L \ge 21\) and \(B \le 9\).  
+  Maximize capacity at \(V=30\) by using as many buses as allowed:
+  - \(L=21, B=9\): capacity \(12\cdot 21 + 18\cdot 9 = 252 + 162 = 414\) (OK)  
+  But check ratio:  
+  \(L = 21\), \(B = 9\) ⇒ \(L/(L+B) = 21/30 = 0.7\) exactly. This satisfies the 70% constraint and capacity.  
+  Total vehicles: \(30\), which is less than 31, so better.
+
+Check if we can reduce further to \(V = 29\):
+
+- For \(V=29\), 70% limos: \(L \ge 0.7\cdot 29 = 20.3 \Rightarrow L \ge 21\); so \(B = 29 - 21 = 8\). That’s the maximal buses; any larger \(L\) gives fewer buses and less capacity.
+  - \(L=21, B=8\): capacity = \(12\cdot 21 + 18\cdot 8 = 252 + 144 = 396 < 400\) (fails capacity).  
+  Increasing \(L\) decreases \(B\) while keeping \(V=29\), thus reduces capacity further, so no \(V=29\) solution works.
+
+Therefore, the minimum total vehicles is 30, with:
+\[
+L = 21,\quad B = 9.
+\]
+
+Check all constraints:
+
+- Capacity: \(12\cdot 21 + 18\cdot 9 = 252 + 162 = 414 \ge 400\).  
+- Ratio: total vehicles = 30, limos = 21 → \(21/30 = 0.7\), so 70% are limousines.  
+- Objective: total vehicles = 30, and we argued 29 is impossible; hence optimal.
+
+### Final answer
+Use:
+- 21 limousines  
+- 9 buses  
+
+This minimizes the total number of vehicles while satisfying all constraints.
+
+---
+
+### Python libraries suitable for solving
+
+This is a small integer linear program. Good choices:
+
+- `PuLP` (very straightforward for teaching and prototyping)
+- `ortools.linear_solver` or `ortools.sat.python.cp_model` (Google OR-Tools)
+- `scipy.optimize` is less suitable here because we need integer solutions.
+
+Example sketch using PuLP:
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("PartyTransport", pl.LpMinimize)
+
+# Decision variables
+L = pl.LpVariable('L', lowBound=0, cat='Integer')
+B = pl.LpVariable('B', lowBound=0, cat='Integer')
+
+# Objective
+prob += L + B
+
+# Constraints
+prob += 12*L + 18*B >= 400        # capacity
+prob += 3*L - 7*B >= 0           # at least 70% limousines
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("L =", L.value())
+print("B =", B.value())
+print("Total vehicles =", L.value() + B.value())
+```
+
+This will return \(L = 21, B = 9\).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import itertools
+
+def is_feasible(L, B):
+    if L < 0 or B < 0:
+        return False
+    # Capacity constraint
+    if 12*L + 18*B < 400:
+        return False
+    # At least 70% limousines among vehicles: 3L - 7B >= 0
+    if 3*L - 7*B < 0:
+        return False
+    return True
+
+best_obj = None
+best_solution = None
+
+# Upper bounds: we can safely limit search space
+# Max vehicles can't be absurdly high; capacity with only limos: 12L >= 400 -> L >= 34
+# So search up to, say, 60 vehicles and see what is optimal.
+max_vehicles = 60
+
+for L in range(max_vehicles + 1):
+    for B in range(max_vehicles + 1 - L):
+        if is_feasible(L, B):
+            obj = L + B
+            if best_obj is None or obj < best_obj:
+                best_obj = obj
+                best_solution = (L, B)
+
+L_opt, B_opt = best_solution
+# Print the final objective value as required
+print(f"FINAL_OBJ: {best_obj}")

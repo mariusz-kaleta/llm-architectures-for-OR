@@ -1,0 +1,206 @@
+[MODELER]:
+Here is a clean mathematical model of the problem as an integer linear program.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\): number of trips using high‑pressure tube trailers  
+- \(y\): number of trips using liquefied hydrogen tankers  
+
+Both must be nonnegative integers:
+\[
+x \in \mathbb{Z}_{\ge 0}, \quad y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 2. Objective
+
+Minimize the total number of trips:
+
+\[
+\min Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1. Volume (transport requirement)
+
+Each tube trailer trip carries 50 m³; each tanker trip carries 30 m³.  
+The company needs at least 1000 m³ transported:
+
+\[
+50x + 30y \;\ge\; 1000
+\]
+
+### 3.2. Budget constraint
+
+Each tube trailer trip costs \$500; each tanker trip costs \$200.  
+Total budget available is \$3750:
+
+\[
+500x + 200y \;\le\; 3750
+\]
+
+### 3.3. Method usage relation
+
+The number of tube trailer trips must be less than the number of tanker trips:
+
+\[
+x < y
+\]
+
+In integer form, this is typically modeled as:
+
+\[
+x \le y - 1
+\]
+
+### 3.4. Integrality and nonnegativity
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete model
+
+\[
+\begin{aligned}
+\min \quad & x + y \\
+\text{s.t.} \quad &
+50x + 30y \;\ge\; 1000 \\
+& 500x + 200y \;\le\; 3750 \\
+& x \le y - 1 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+This is a small integer linear programming (ILP) problem. Good choices in Python:
+
+- **PuLP** (`pulp`) – simple, user‑friendly modeling for LP/ILP.
+- **OR-Tools** (`ortools.linear_solver.pywraplp`) – powerful Google optimization library.
+- **Pyomo** – more general modeling framework; good for larger projects.
+- **SciPy** is not ideal here because it does not natively handle integrality constraints; stick to MILP solvers.
+
+For this specific problem, PuLP or OR-Tools is likely the easiest and most straightforward.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import itertools
+
+def is_feasible(x, y):
+    # Nonnegativity and integrality implicitly satisfied by loop
+    # Volume constraint: 50x + 30y >= 1000
+    if 50 * x + 30 * y < 1000:
+        return False
+    # Budget constraint: 500x + 200y <= 3750
+    if 500 * x + 200 * y > 3750:
+        return False
+    # Method usage relation: x <= y - 1  (i.e., x < y)
+    if not (x <= y - 1):
+        return False
+    return True
+
+best_value = None
+best_solution = None
+
+# Since each trip costs at least 200, max trips under budget is 3750/200 = 18.75
+# So upper bound for x+y can be 18; we can scan reasonable ranges for x,y.
+max_trips = 19
+for x in range(max_trips + 1):
+    for y in range(max_trips + 1):
+        if is_feasible(x, y):
+            obj = x + y
+            if best_value is None or obj < best_value:
+                best_value = obj
+                best_solution = (x, y)
+
+# If no solution found, raise an error
+if best_value is None:
+    raise ValueError("No feasible solution found")
+
+# Print the final objective value
+print(f"FINAL_OBJ: {best_value}")
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import itertools
+
+def is_feasible(x, y):
+    # Volume constraint: 50x + 30y >= 1000
+    if 50 * x + 30 * y < 1000:
+        return False
+    # Budget constraint: 500x + 200y <= 3750
+    if 500 * x + 200 * y > 3750:
+        return False
+    # Method usage relation: x <= y - 1  (i.e., x < y)
+    if not (x <= y - 1):
+        return False
+    return True
+
+best_value = None
+best_solution = None
+
+# Derive tighter bounds analytically to ensure search space includes all possibilities
+
+# From budget: 500x + 200y <= 3750
+# Max x when y=0: 500x <= 3750 -> x <= 7.5 -> x <= 7
+# Max y when x=0: 200y <= 3750 -> y <= 18.75 -> y <= 18
+max_x_budget = 7
+max_y_budget = 18
+
+# From volume: 50x + 30y >= 1000
+# Minimal x when y=max_y_budget: 50x + 30*18 >= 1000 -> 50x >= 460 -> x >= 9.2 -> x >= 10 (but budget limits x<=7, so no feasible with y=18 alone)
+# Minimal y when x=max_x_budget: 50*7 + 30y >= 1000 -> 350 + 30y >= 1000 -> 30y >= 650 -> y >= 21.67 -> y >= 22 (but y<=18 from budget, so combined constraints are tight)
+
+# We know from combined inequalities:
+# From budget: y <= 18.75 - 2.5x
+# From volume: y >= (1000 - 50x)/30
+# And integrality & x<y will shrink feasible region further.
+
+# Since x is at most 7 from budget, and negative values are not allowed, search x in [0,7].
+# y from 0 to 18 is already implied from budget.
+for x in range(0, max_x_budget + 1):
+    for y in range(0, max_y_budget + 1):
+        if is_feasible(x, y):
+            obj = x + y
+            if best_value is None or obj < best_value:
+                best_value = obj
+                best_solution = (x, y)
+
+# If no solution found in this box, expand search grid cautiously
+if best_value is None:
+    # Expand ranges based solely on integrality and nonnegativity but still respecting clear upper bounds:
+    # Under budget, min cost per trip is 200, so max trips x+y <= 18.75 -> 18
+    # However, previous analytic bounds already gave y<=18 and x<=7, so no larger x or y are feasible.
+    # To be extra safe, we can still scan a bit larger box, though analytically impossible under budget.
+    for x in range(0, 20):
+        for y in range(0, 20):
+            if is_feasible(x, y):
+                obj = x + y
+                if best_value is None or obj < best_value:
+                    best_value = obj
+                    best_solution = (x, y)
+
+# At this point, if still no solution, then the model is infeasible.
+if best_value is None:
+    # The correct behavior for this validator is to still output something numeric.
+    # Since the ILP is infeasible (no (x,y) satisfying all constraints), we can
+    # represent this as, e.g., None or a sentinel like float('inf').
+    # We choose float('inf') as "no feasible objective".
+    best_value = float('inf')
+
+print(f"FINAL_OBJ: {best_value}")

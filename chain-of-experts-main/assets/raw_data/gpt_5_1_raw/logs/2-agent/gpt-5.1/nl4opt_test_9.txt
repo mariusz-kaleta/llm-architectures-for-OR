@@ -1,0 +1,141 @@
+[MODELER]:
+Formulate this as a linear optimization problem.
+
+### 1. Decision variables
+
+Let  
+- \(x\) = number of small containers used  
+- \(y\) = number of large containers used  
+
+We’ll treat \(x, y\) as **nonnegative real numbers** first (LP). If they must be whole containers, we then add integrality constraints (MILP).
+
+### 2. Data from the problem
+
+- Small container:
+  - Water used: 10 units
+  - Powdered pill used: 15 units
+  - Paste produced: 20 units
+
+- Large container:
+  - Water used: 20 units
+  - Powdered pill used: 20 units
+  - Paste produced: 30 units
+
+- Resource limits:
+  - Water available: 500 units
+  - Powdered pill available: 700 units
+
+### 3. Objective function
+
+Maximize total paste produced:
+\[
+\text{Maximize } Z = 20x + 30y
+\]
+
+### 4. Constraints
+
+**Water constraint**
+
+Total water used by both container types cannot exceed 500 units:
+\[
+10x + 20y \le 500
+\]
+
+**Powdered pill constraint**
+
+Total pill used cannot exceed 700 units:
+\[
+15x + 20y \le 700
+\]
+
+**Nonnegativity constraints**
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+**(Optional) Integer constraints** if you require a whole number of containers:
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+### 5. Full mathematical model
+
+\[
+\begin{aligned}
+\max\quad & 20x + 30y \\
+\text{s.t.}\quad & 10x + 20y \le 500 \quad\text{(water)}\\
+& 15x + 20y \le 700 \quad\text{(pill)}\\
+& x \ge 0,\ y \ge 0, \\
+& x, y \in \mathbb{Z} \quad\text{(if integer containers required)}
+\end{aligned}
+\]
+
+### 6. Suitable Python libraries
+
+To solve this:
+
+- For **linear programming with optional integer variables**:
+  - `PuLP` – easy modeling of LP/MILP in Python
+  - `Pyomo` – more general modeling framework
+  - `ortools.linear_solver` (from Google OR-Tools) – efficient MILP solvers
+- For **pure continuous LP** (no integrality):
+  - `scipy.optimize.linprog`
+  - `PuLP` (just omit integer constraints)
+
+### 7. Example in PuLP (integer version)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Paste_Maximization", pl.LpMaximize)
+
+# Decision variables (integer, nonnegative)
+x = pl.LpVariable('small_containers', lowBound=0, cat='Integer')
+y = pl.LpVariable('large_containers', lowBound=0, cat='Integer')
+
+# Objective
+prob += 20 * x + 30 * y, "Total_Paste"
+
+# Constraints
+prob += 10 * x + 20 * y <= 500, "Water"
+prob += 15 * x + 20 * y <= 700, "Pill"
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Small containers (x):", pl.value(x))
+print("Large containers (y):", pl.value(y))
+print("Maximum paste:", pl.value(20 * x + 30 * y))
+```
+
+This model directly corresponds to the optimization problem described.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+# Create the optimization problem (maximize)
+prob = pl.LpProblem("Paste_Maximization", pl.LpMaximize)
+
+# Decision variables: nonnegative integers (number of containers)
+x = pl.LpVariable('small_containers', lowBound=0, cat='Integer')
+y = pl.LpVariable('large_containers', lowBound=0, cat='Integer')
+
+# Objective function: maximize total paste produced
+prob += 20 * x + 30 * y, "Total_Paste"
+
+# Constraints
+prob += 10 * x + 20 * y <= 500, "Water"
+prob += 15 * x + 20 * y <= 700, "Pill"
+
+# Solve the problem
+prob.solve()
+
+# Extract objective value
+objective_value = pl.value(20 * x + 30 * y)
+
+# Print final objective in required format
+print(f"FINAL_OBJ: {objective_value}")

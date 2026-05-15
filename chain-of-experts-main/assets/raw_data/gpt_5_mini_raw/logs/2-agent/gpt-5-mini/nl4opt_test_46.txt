@@ -1,0 +1,142 @@
+[MODELER]:
+Below is a clear formalization of the problem as a linear program, the analytic solution, and solver recommendations (with a short Python example).
+
+1) Decision variables
+- x = acres harvested with the traditional machine (acres, x ≥ 0)
+- y = acres harvested with the modern machine (acres, y ≥ 0)
+
+(If acres must be integer, add x, y ∈ Z≥0 — the continuous solution below is integer anyway.)
+
+2) Objective
+Maximise total tea leaves picked:
+Maximize Z = 30x + 40y  (kg)
+
+3) Constraints
+- Land: x + y ≤ 500  (total acres available)
+- Fuel: 20x + 15y ≤ 9000  (liters of fuel available)
+- Waste: 10x + 15y ≤ 6000  (kg of waste capacity)
+- Nonnegativity: x ≥ 0, y ≥ 0
+
+4) Solve (analytical)
+Feasible corner points to check:
+- (x,y) = (450,0): Z = 30·450 = 13,500 kg (fuel binds)
+- (x,y) = (0,400): Z = 40·400 = 16,000 kg (waste binds)
+- Intersection of the three constraints: solve
+    x + y = 500
+    20x + 15y = 9000
+Solving gives x = 300, y = 200. Check waste: 10·300 + 15·200 = 6000 (waste binds).
+At (300,200): Z = 30·300 + 40·200 = 17,000 kg.
+
+Thus the optimum is:
+- Use the traditional machine on x = 300 acres
+- Use the modern machine on y = 200 acres
+Maximum tea leaves = 17,000 kg.
+
+5) Solver recommendations
+- pulp (easy to model and solve LP/IP with CBC) — pip install pulp
+- scipy.optimize.linprog (for continuous LPs)
+- OR-Tools linear solver (good for larger LP/MIP problems)
+- cvxopt or cvxpy (convex optimization frameworks)
+
+6) Example using pulp
+(from which you can reproduce the result)
+
+from pulp import LpProblem, LpMaximize, LpVariable, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("TeaEstate", LpMaximize)
+x = LpVariable('traditional_acres', lowBound=0)
+y = LpVariable('modern_acres', lowBound=0)
+
+prob += 30*x + 40*y                      # objective
+prob += x + y <= 500                     # land
+prob += 20*x + 15*y <= 9000              # fuel
+prob += 10*x + 15*y <= 6000              # waste
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print(x.value(), y.value(), "Total kg:", 30*x.value()+40*y.value())
+
+This prints: 300.0 200.0 Total kg: 17000.0
+
+If you want the acres to be integers, declare x and y as LpVariable(..., cat='Integer') — the same integer optimum will be returned here.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data
+# Decision variables: x (traditional acres), y (modern acres)
+# Objective: maximize 30*x + 40*y
+c1, c2 = 30.0, 40.0
+
+# Constraints (a1*x + a2*y <= b)
+constraints = [
+    (1.0, 1.0, 500.0),    # land
+    (20.0, 15.0, 9000.0), # fuel
+    (10.0, 15.0, 6000.0)  # waste
+]
+
+eps = 1e-9
+
+def solve_2x2(a11, a12, a21, a22, b1, b2):
+    det = a11 * a22 - a12 * a21
+    if abs(det) < 1e-12:
+        return None
+    x = (b1 * a22 - a12 * b2) / det
+    y = (a11 * b2 - b1 * a21) / det
+    return (x, y)
+
+# Generate candidate corner points:
+candidates = set()
+
+# include origin
+candidates.add((0.0, 0.0))
+
+# intersections of each constraint with axes
+for (a1, a2, b) in constraints:
+    if abs(a1) > 0:
+        x = b / a1
+        candidates.add((x, 0.0))
+    if abs(a2) > 0:
+        y = b / a2
+        candidates.add((0.0, y))
+
+# intersections of every pair of constraint lines
+n = len(constraints)
+for i in range(n):
+    for j in range(i+1, n):
+        a11, a12, b1 = constraints[i]
+        a21, a22, b2 = constraints[j]
+        sol = solve_2x2(a11, a12, a21, a22, b1, b2)
+        if sol is not None:
+            candidates.add(sol)
+
+# Filter feasible points and evaluate objective
+feasible_points = []
+for (x, y) in candidates:
+    # reject negative values (allow tiny negative due to numerical)
+    if x < -1e-8 or y < -1e-8:
+        continue
+    x_pos = max(0.0, x)
+    y_pos = max(0.0, y)
+    ok = True
+    for (a1, a2, b) in constraints:
+        if a1 * x_pos + a2 * y_pos > b + 1e-6:
+            ok = False
+            break
+    if ok:
+        obj = c1 * x_pos + c2 * y_pos
+        feasible_points.append((x_pos, y_pos, obj))
+
+if not feasible_points:
+    final_value = 0.0
+else:
+    # pick max objective
+    best = max(feasible_points, key=lambda t: t[2])
+    best_x, best_y, final_value = best
+
+# If very close to integer, make it integer for clean output
+if abs(final_value - round(final_value)) < 1e-6:
+    final_value = int(round(final_value))
+
+print(f"FINAL_OBJ: {final_value}")

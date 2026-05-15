@@ -1,0 +1,231 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximise total cleaning capacity (i.e., total number of hands that can be cleaned by the produced sanitizers).
+
+2. Suggested model type  
+Model: Linear Programming (LP) with integer decision variables (small counts of products; but continuous LP will already give integer solutions here).
+
+3. Main decision variables  
+Define two primary decision variables:
+- L = number of liquid hand sanitizer units to produce.
+- F = number of foam hand sanitizer units to produce.
+
+4. Objective function (conceptual)  
+Maximise:  
+- Total hands cleaned = 30·L + 20·F  
+  - 30 hands per liquid unit  
+  - 20 hands per foam unit  
+
+5. Key constraints to consider  
+
+Resource constraints  
+- Water availability:  
+  - Each liquid unit uses 40 units of water.  
+  - Each foam unit uses 60 units of water.  
+  - Total water used cannot exceed 2000 units.  
+  → 40·L + 60·F ≤ 2000  
+
+- Alcohol availability:  
+  - Each liquid unit uses 50 units of alcohol.  
+  - Each foam unit uses 40 units of alcohol.  
+  - Total alcohol used cannot exceed 2100 units.  
+  → 50·L + 40·F ≤ 2100  
+
+Production/commercial constraints  
+- Foam must exceed liquid:  
+  → F > L  
+  (In LP form, if needed as non-strict, use F ≥ L + ε; with integer vars, you can use F ≥ L + 1.)  
+
+- Maximum liquid units:  
+  → L ≤ 30  
+
+Non-negativity and integrality  
+- L ≥ 0, F ≥ 0  
+- If modeling realistically: L and F integer (whole units).
+
+6. Modelling strategy notes  
+- This is a two-variable LP, so it can be solved graphically or via simplex.  
+- Check all binding/resource corners and also intersections with L = 30 and F = L + 1 (or F = L if using non-strict for feasibility check), then choose the combination with the highest value of 30·L + 20·F.  
+- Ensure that any recommended solution respects F > L and the resource limits simultaneously.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, plus how you would implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+
+- \(L\) = number of liquid hand sanitizer units produced.  
+- \(F\) = number of foam hand sanitizer units produced.  
+
+We want integer (whole) units:
+
+- \(L \in \mathbb{Z}_{\ge 0}\)  
+- \(F \in \mathbb{Z}_{\ge 0}\)
+
+---
+
+## 2. Objective function
+
+Each unit cleans:
+
+- Liquid: 30 hands per unit  
+- Foam: 20 hands per unit  
+
+Maximise total hands cleaned:
+
+\[
+\max \; Z = 30L + 20F
+\]
+
+---
+
+## 3. Constraints
+
+### Resource constraints
+
+**Water** (2000 units available):
+
+- Liquid uses 40 units each  
+- Foam uses 60 units each  
+
+\[
+40L + 60F \le 2000
+\]
+
+**Alcohol** (2100 units available):
+
+- Liquid uses 50 units each  
+- Foam uses 40 units each  
+
+\[
+50L + 40F \le 2100
+\]
+
+### Production/commercial constraints
+
+Foam must strictly exceed liquid:
+
+\[
+F > L
+\]
+
+For an integer model, use:
+
+\[
+F \ge L + 1
+\]
+
+Maximum number of liquid units:
+
+\[
+L \le 30
+\]
+
+### Non-negativity & integrality
+
+\[
+L \ge 0,\; F \ge 0,\; L, F \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete model
+
+\[
+\begin{aligned}
+\max \quad & 30L + 20F \\
+\text{s.t.} \quad 
+& 40L + 60F \le 2000 \quad (\text{water}) \\
+& 50L + 40F \le 2100 \quad (\text{alcohol}) \\
+& F \ge L + 1 \quad (\text{foam exceeds liquid}) \\
+& L \le 30 \quad (\text{max liquid}) \\
+& L, F \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+Because all coefficients are integers and constraints are simple, the LP relaxation (treating \(L, F\) as continuous) will often yield integer solutions, but modelling them as integers is correct and robust.
+
+---
+
+## 5. Suitable Python libraries
+
+Any MILP/LP library works well for this small model. Good choices:
+
+- `PuLP` (pure Python, easy syntax, interfaces to CBC/GLPK/CPLEX/Gurobi):  
+  - Recommended for teaching, quick prototypes.
+- `ortools.linear_solver` (Google OR-Tools):  
+  - Very fast and industrial-strength MILP solver.
+- `scipy.optimize.linprog`:  
+  - Good for continuous LP only; doesn’t directly support integrality constraints.
+
+For this problem, `PuLP` or OR-Tools is ideal.
+
+---
+
+## 6. Example implementation with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Hand_Sanitizer_Production", pl.LpMaximize)
+
+# Decision variables (integers, >= 0)
+L = pl.LpVariable('L', lowBound=0, cat='Integer')  # liquid
+F = pl.LpVariable('F', lowBound=0, cat='Integer')  # foam
+
+# Objective: maximise total hands cleaned
+prob += 30 * L + 20 * F, "Total_Hands_Cleaned"
+
+# Constraints
+prob += 40 * L + 60 * F <= 2000, "Water_Constraint"
+prob += 50 * L + 40 * F <= 2100, "Alcohol_Constraint"
+prob += F >= L + 1, "Foam_Exceeds_Liquid"
+prob += L <= 30, "Max_Liquid"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal L (liquid units):", L.value())
+print("Optimal F (foam units):", F.value())
+print("Max hands cleaned:", pl.value(prob.objective))
+```
+
+You can swap in OR-Tools or another MILP solver with essentially the same model structure.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Problem
+    prob = pl.LpProblem("Hand_Sanitizer_Production", pl.LpMaximize)
+
+    # Decision variables (integers, >= 0)
+    L = pl.LpVariable('L', lowBound=0, cat='Integer')  # liquid
+    F = pl.LpVariable('F', lowBound=0, cat='Integer')  # foam
+
+    # Objective: maximise total hands cleaned
+    prob += 30 * L + 20 * F, "Total_Hands_Cleaned"
+
+    # Constraints
+    prob += 40 * L + 60 * F <= 2000, "Water_Constraint"
+    prob += 50 * L + 40 * F <= 2100, "Alcohol_Constraint"
+    prob += F >= L + 1, "Foam_Exceeds_Liquid"
+    prob += L <= 30, "Max_Liquid"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    obj_value = pl.value(prob.objective)
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

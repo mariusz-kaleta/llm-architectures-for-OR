@@ -1,0 +1,119 @@
+[PLANNER]:
+1) Key optimisation goal
+- Minimise the total number of buses hired (small + large) while carrying at least 500 students and respecting the parking-lot limit on large buses.
+
+2) Suggested model type
+- Integer Linear Programming (ILP). (Counts of buses must be non‑negative integers; linear constraints and linear objective.)
+- For this small discrete problem an exhaustive/iterative integer search over feasible counts of large buses is also efficient and recommended.
+
+3) Main decision variables
+- S: number of small buses (integer, ≥ 0).
+- L: number of large buses (integer, ≥ 0).
+(Each small bus carries 20 students; each large bus carries 50 students.)
+
+4) Key constraints to include (described conceptually)
+- Capacity constraint: total passenger capacity from S and L must be at least 500 students.
+- Proportion (parking) constraint: no more than 20% of the buses can be large — i.e., the number of large buses must not exceed 20% of the total buses.
+- Integrality and nonnegativity: S and L must be non‑negative integers.
+
+5) Practical modelling / solution strategy for the Modeller
+- Formulate the ILP with objective = minimize S + L subject to the constraints above.
+- Because the domain of L is small (a large bus seats 50, so L is at most about 10 if only large buses were used), iterate integer values of L from 0 up to a safe upper bound (e.g., 10) and for each:
+  - compute the minimal S that satisfies both the capacity constraint and the parking-proportion constraint,
+  - record S + L and keep the minimum-feasible pair.
+- Alternatively solve directly with a standard ILP solver.
+
+6) Implementation notes and checks
+- Ensure proportion constraint is implemented as stated (L ≤ 0.2*(S + L)), which enforces at most 20% large buses.
+- Check integrality after any continuous relaxation.
+- Verify feasibility for each tested L by checking both capacity and proportion constraints.
+
+Optional — quick expected result (verification)
+- Using the strategy above the minimum total number of buses is achieved with 4 large buses and 16 small buses (total 20 buses), which meets capacity (≥500) and the 20% limit.
+
+---
+
+[MODELER]:
+Below is a clear formal model, a short analytical solution, and solver/implementation suggestions.
+
+1) Decision variables
+- S ∈ Z_{\ge 0} = number of small buses (each carries 20 students)
+- L ∈ Z_{\ge 0} = number of large buses (each carries 50 students)
+
+2) Objective
+Minimize total buses: minimize Z = S + L
+
+3) Constraints
+- Capacity: 20 S + 50 L ≥ 500
+- Parking (at most 20% large): L ≤ 0.2 (S + L)
+  - This is linear; rearrange to avoid fractions: L ≤ 0.2S + 0.2L → 0.8L ≤ 0.2S → 4 L ≤ S
+  - So equivalently S ≥ 4 L
+- Integrality and nonnegativity: S, L ∈ Z_{\ge 0}
+
+4) Analytical simplification and exact solution
+From S ≥ 4L we get Z = S + L ≥ 5 L. From capacity with S = 4L (smallest S for a given L),
+20(4L) + 50L = 130 L ≥ 500 → L ≥ 500/130 ≈ 3.846 → L ≥ 4 (integer).
+
+Thus the minimum possible L is 4, which gives minimal S = 4L = 16 (this also satisfies the capacity exactly: 20·16 + 50·4 = 520 ≥ 500). Total buses Z = 16 + 4 = 20. No smaller total is feasible (check: for L < 4 capacity or proportion fails; for L > 4 total increases).
+
+Optimal solution:
+- Small buses S* = 16
+- Large buses L* = 4
+- Total buses = 20
+
+5) Practical solution methods / libraries
+- Exact ILP solvers: pulp (CBC), OR-Tools (CP-SAT), gurobi/cplex (if available).
+- For this tiny problem, a simple integer enumeration/loop is trivial and efficient (iterate feasible L and compute minimal S).
+- Python libraries you can use: pulp, ortools.sat.python.cp_model, or directly brute-force with plain Python.
+
+6) Example approaches
+- ILP: model objective minimize S+L with the above linear constraints and integer variables; solve with pulp or OR-Tools.
+- Direct reasoning / brute force: loop L from 0..ceil(500/50)=10, compute S = max(ceil((500 - 50L)/20), 4L), check feasibility and track minimal S+L.
+
+If you want, I can provide a short Python snippet using pulp or a brute-force loop to compute this.
+
+---
+
+[CODER]:
+```python
+import math
+
+# Problem data
+total_students = 500
+cap_small = 20
+cap_large = 50
+
+# Brute-force search over possible numbers of large buses
+min_total = None
+best_S = None
+best_L = None
+
+# Upper bound for L: reasonably total_students (very loose) or ceil(total_students/cap_large)
+max_L = math.ceil(total_students / cap_large) + 50  # extra margin
+
+for L in range(0, max_L + 1):
+    # Number of small buses required to meet capacity (if any)
+    remaining = max(0, total_students - cap_large * L)
+    S_capacity = math.ceil(remaining / cap_small)
+    # Parking constraint: S >= 4L
+    S_proportion = 4 * L
+    S = max(S_capacity, S_proportion)
+
+    # Ensure integrality and nonnegativity (S is integer by construction)
+    if S < 0:
+        continue
+
+    # Check feasibility (should hold by construction)
+    if cap_small * S + cap_large * L >= total_students and S >= 4 * L:
+        total = S + L
+        if (min_total is None) or (total < min_total) or (total == min_total and L < best_L):
+            min_total = total
+            best_S = S
+            best_L = L
+
+# Sanity check (expected solution: S=16, L=4 -> total 20)
+assert min_total is not None, "No feasible solution found."
+
+# Final required print (exact format)
+print(f"FINAL_OBJ: {min_total}")
+```

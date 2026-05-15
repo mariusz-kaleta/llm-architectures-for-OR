@@ -1,0 +1,82 @@
+[MODELER]:
+Model formulation
+
+Decision variables
+- e ∈ Z≥0 : number of patients checked with the electronic thermometer.
+- r ∈ Z≥0 : number of patients checked with the regular thermometer.
+
+Objective
+- Maximise total patients: maximize Z = e + r.
+
+Constraints
+1. Time limit: 3e + 2r ≤ 15000 (minutes).
+2. Electronic at least twice regular: e ≥ 2r.
+3. At least 50 regular checks: r ≥ 50.
+4. Integrality and nonnegativity: e, r ∈ Z≥0.
+
+Analytic solution
+Because an electronic check uses more time than a regular check, for fixed r it is best to set e as small as allowed, i.e. e = 2r. Substitute into the time constraint:
+3(2r) + 2r = 8r ≤ 15000 ⇒ r ≤ floor(15000/8) = 1875.
+
+Also r ≥ 50, so the best choice is r = 1875, and e = 2r = 3750. This uses exactly 3·3750 + 2·1875 = 15000 minutes.
+
+Optimal value: total patients = e + r = 3750 + 1875 = 5625.
+
+Solvers you can use
+- pulp (easy Python MILP modeling)
+- OR-Tools CP-SAT (Google) for integer problems
+- mip or pyomo (higher-level MILP)
+- scipy.optimize.linprog (for LP relaxation only — not integer)
+
+Example (pulp) — minimal code sketch
+from pulp import LpProblem, LpMaximize, LpVariable, lpSum, LpInteger, value
+
+prob = LpProblem("temp_check", LpMaximize)
+e = LpVariable("e", lowBound=0, cat=LpInteger)
+r = LpVariable("r", lowBound=0, cat=LpInteger)
+prob += e + r
+prob += 3*e + 2*r <= 15000
+prob += e >= 2*r
+prob += r >= 50
+prob.solve()
+print(value(e), value(r), value(prob.objective))
+
+This will return e=3750, r=1875, total=5625.
+
+---
+
+[CODER]:
+```python
+# Self-contained script to solve the integer optimization problem described.
+# Decision variables:
+#   e >= 0 integer (electronic checks)
+#   r >= 0 integer (regular checks)
+# Objective: maximize e + r
+# Constraints:
+#   3e + 2r <= 15000
+#   e >= 2r
+#   r >= 50
+
+# Analytical solution: for fixed r, minimize e -> e = 2r.
+# Substitute: 3*(2r) + 2r = 8r <= 15000 -> r <= floor(15000/8) = 1875.
+# r must be at least 50, so optimal r = 1875, e = 3750, total = 5625.
+
+# Initialize data
+total_time = 15000
+time_e = 3
+time_r = 2
+min_r = 50
+# relation e >= 2r
+coef_e_for_relation = 2
+
+# Compute maximum feasible r using e = 2r
+import math
+r_max = total_time // (time_e * coef_e_for_relation + time_r)  # floor division for integers
+r_opt = max(min_r, r_max)  # ensure r >= min_r; r_max already >= min_r in this problem
+e_opt = coef_e_for_relation * r_opt
+# Compute objective
+obj = e_opt + r_opt
+
+# Final output exactly as required
+print(f"FINAL_OBJ: {obj}")
+```

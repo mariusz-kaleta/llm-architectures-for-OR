@@ -1,0 +1,35 @@
+[MONOLITH]:
+import pulp
+
+# Initialize the problem
+prob = pulp.LpProblem("Production_Unit_Transportation", pulp.LpMinimize)
+
+# Decision variables
+L = pulp.LpVariable('LargeUnits', lowBound=0, cat='Integer')
+S = pulp.LpVariable('SmallUnits', lowBound=5, cat='Integer')  # At least 5 small units
+
+# Constraints
+# Transport capacity: 6 people per large, 2 per small, total at least 80
+prob += 6 * L + 2 * S >= 80, "PeopleCapacity"
+
+# Large units must make up at least 75% of all vehicles: L >= 0.75(L + S) => L >= 3S
+prob += L >= 3 * S, "LargeFraction"
+
+# Objective: Minimize total parking spots: 2 per large, 1 per small
+prob += 2 * L + S, "TotalParkingSpots"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+L_val = int(pulp.value(L))
+S_val = int(pulp.value(S))
+objective_value = int(pulp.value(prob.objective))
+
+# Print solution details (optional)
+print(f"Large Units: {L_val}")
+print(f"Small Units: {S_val}")
+print(f"Total Parking Spots: {objective_value}")
+
+# Final required output
+print(f"FINAL_OBJ: {objective_value}")

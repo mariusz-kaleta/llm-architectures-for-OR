@@ -1,0 +1,139 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Minimise the total number of parking spots required while transporting at least 80 people under the vehicle-mix rules.
+
+2) Suggested model type
+- Model: Integer Linear Programming (ILP) (small-scale; can also be solved by simple enumeration/exhaustive search).
+
+3) Main decision variables
+- Let S = number of small mobile production units (integer).
+- Let L = number of large mobile production units (integer).
+(Interpretation: each small unit carries 2 people and uses 1 parking spot; each large unit carries 6 people and uses 2 parking spots.)
+
+4) Key constraints to include (description, not formal equations)
+- Capacity constraint: The combined people capacity of all units must be at least 80 (each large contributes 6 seats, each small 2 seats).
+- Minimum small-units requirement: At least 5 units must be small (S must be at least 5).
+- Proportion / large-unit dominance: Large units must constitute at least 75% of all vehicles. This can be enforced in integer form by requiring the number of large units to be at least three times the number of small units (i.e., L must be >= 3 × S). This enforces L/(L+S) ≥ 0.75.
+- Variable domain and integrality: S and L are non‑negative integers (whole numbers). Add reasonable upper bounds for solver performance (e.g., S ≤ 40, L ≤ 40 or tighter bounds derived from capacity).
+- Objective function (described): Minimise total parking spots, counting 2 spots for each large unit and 1 spot for each small unit.
+
+5) Implementation notes and modelling tips
+- The proportion constraint simplifies to an integer linear relation (large at least three times small), so all constraints and the objective are linear — suitable for standard ILP solvers (CBC, Gurobi, CPLEX, or open-source MILP).
+- Because problem size is tiny, a simple search over feasible S values (starting at S = 5 upwards) computing the minimum L that satisfies both the proportion and capacity constraints will quickly find the global optimum. This is often simpler and faster than a full ILP setup.
+- Provide explicit bounds for enumeration: S starts at 5; upper bound for S can be 40 (since 40 small units carry 80 people); L lower bound comes from both the 3×S rule and the capacity shortfall if S alone is insufficient.
+- Report the optimal (S, L) pair and the resulting total parking spots and total capacity. Also report whether any constraints are binding (e.g., proportion or capacity) to help decision-makers understand trade-offs.
+- Optional sensitivity checks: test solutions with the proportion rule relaxed or with alternative minimum small-unit count to show how parking requirement changes.
+
+Deliverable for the Modeller
+- Formulate and solve the ILP with variables S and L, objective to minimise 2·L + 1·S, subject to: capacity ≥ 80, S ≥ 5, L ≥ 3·S, integer S,L ≥ 0. Alternatively, run a short enumeration over feasible S values to find the optimal L and report optimal counts and parking spots.
+
+---
+
+[MODELER]:
+Below is a formal model, a short analytical solution, and practical solver/implementation notes.
+
+1) Decision variables
+- S ∈ Z≥0 : number of small mobile production units.
+- L ∈ Z≥0 : number of large mobile production units.
+
+2) Objective
+Minimise total parking spots:
+minimise P = 1·S + 2·L
+
+3) Constraints
+- Capacity: 2·S + 6·L ≥ 80
+- Minimum small units: S ≥ 5
+- Proportion (large units ≥ 75% of vehicles): L/(L+S) ≥ 0.75 → L ≥ 3·S
+- Integrality and nonnegativity: S, L ∈ Z≥0
+- (Optional solver bounds) e.g. S ≤ 40, L ≤ 40
+
+4) Comments on linearity
+All constraints and the objective are linear integers → an Integer Linear Program (ILP).
+
+5) Quick analytical solution
+Note that if L = 3S (the proportion constraint at equality), capacity becomes
+2S + 6(3S) = 2S + 18S = 20S.
+To meet capacity 20S ≥ 80 ⇒ S ≥ 4. Since S must be at least 5 anyway, choosing S = 5 and L = 3·5 = 15 satisfies all constraints. For S ≥ 5, L = 3S already yields capacity ≥ 100, so the capacity constraint is not binding given S ≥ 5 and L ≥ 3S.
+
+Objective value at S = 5, L = 15:
+P = 1·5 + 2·15 = 5 + 30 = 35 parking spots.
+Total people capacity = 2·5 + 6·15 = 10 + 90 = 100 people.
+
+Thus the optimal solution is:
+- S* = 5 small units
+- L* = 15 large units
+- Minimum parking spots = 35
+Binding constraints: S ≥ 5 and L ≥ 3S are binding. The capacity constraint is not binding at the optimum (it is slack).
+
+6) How to solve computationally
+Because the problem is tiny you can either:
+- Do a tiny enumeration: for S from 5 to an upper bound (e.g. 40) compute Lmin = max(3·S, ceil((80 − 2·S)/6), 0), compute P = S + 2·Lmin, pick the minimal P.
+- Or formulate the ILP and solve with a standard solver.
+
+Recommended Python libraries:
+- pulp (pure-Python MILP, CBC solver)
+- ortools (CP-SAT integer solver, very fast)
+- mip (Python-MIP with CBC/Gurobi backends)
+- If available: Gurobi or CPLEX for faster commercial solving
+
+7) Example enumeration algorithm (concept)
+For S in range(5, 41):
+  Lmin = max(3*S, ceil(max(0, 80 - 2*S)/6))
+  P = S + 2*Lmin
+  track minimum P and corresponding (S,Lmin)
+
+8) Sensitivity notes
+- If the 75% proportion rule were relaxed (but S≥5 kept), the best solution would be S=5 and L = ceil((80 - 2·5)/6) = 12 → P = 5 + 24 = 29 spots (lower than 35). Hence the proportion rule is costly in parking spots.
+- If the minimum-small constraint were reduced (e.g. S ≥ 4), the feasible (S=4, L=12) gives P = 4 + 24 = 28.
+
+If you want, I can provide a short Python script (pulp or ortools) that enumerates or solves the ILP and prints the optimal solution.
+
+---
+
+[CODER]:
+import math
+
+# Initialize problem data
+required_capacity = 80
+
+# Search bounds (as suggested)
+S_min = 5
+S_max = 40  # inclusive upper bound for search
+
+best_P = None
+best_S = None
+best_L = None
+
+for S in range(S_min, S_max + 1):
+    # capacity needed after small units
+    needed_capacity = max(0, required_capacity - 2 * S)
+    # minimal L to satisfy capacity
+    L_capacity = math.ceil(needed_capacity / 6)
+    # minimal L to satisfy proportion constraint L >= 3*S
+    L_prop = 3 * S
+    # choose the larger of the two
+    L = max(L_capacity, L_prop)
+    # compute objective (parking spots)
+    P = S + 2 * L
+
+    # track best (minimize P)
+    if best_P is None or P < best_P:
+        best_P = P
+        best_S = S
+        best_L = L
+
+# Validate solution
+assert best_S is not None
+assert best_L is not None
+assert (2 * best_S + 6 * best_L) >= required_capacity
+assert best_S >= 5
+assert best_L >= 3 * best_S
+
+# Optional: compute capacity at optimum
+opt_capacity = 2 * best_S + 6 * best_L
+
+# Print a short summary (optional)
+print(f"S_opt = {best_S}, L_opt = {best_L}, capacity = {opt_capacity}")
+
+# Final required output line (exact format)
+print(f"FINAL_OBJ: {best_P}")

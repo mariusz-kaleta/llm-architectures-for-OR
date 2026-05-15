@@ -1,0 +1,230 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total weekly wage bill for accountants while satisfying staffing, experience, and budget requirements.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with integer (or nonnegative) decision variables.  
+- If only a strategic formulation is needed, treat variables as continuous (standard LP).  
+- If the context requires whole people, treat this as an Integer LP (ILP).
+
+3. Main decision variables  
+Define two primary decision variables:
+- Number of senior accountants hired/assigned in a week.
+- Number of junior accountants hired/assigned in a week.
+
+(Use standard notation such as:  
+- S = number of senior accountants  
+- J = number of junior accountants)
+
+4. Key constraints to consider  
+
+a) Minimum total staffing requirement  
+- The total number of accountants (senior + junior) must be at least 100.  
+  - Purpose: Satisfy contract requirement for at least 100 accountants.
+
+b) Minimum senior staffing requirement  
+- The number of senior accountants must be at least 5.  
+  - Purpose: Satisfy the explicit contract requirement that at least 5 must be senior.
+
+c) Experience mix requirement  
+- The number of senior accountants must be at least one third of the number of junior accountants.  
+  - Express as: seniors ≥ (1/3) × juniors.  
+  - Equivalently, 3 × seniors ≥ juniors.  
+  - Purpose: Ensure sufficient experience mix in the team.
+
+d) Wage bill relationship  
+- Total weekly wage bill = (wage of senior × number of seniors) + (wage of junior × number of juniors).  
+  - With given data: 3000 × S + 1000 × J.  
+  - This will be used as the objective function to minimise.
+
+e) Budget cap  
+- Total weekly wage bill must not exceed 150000.  
+  - Constraint: 3000 × S + 1000 × J ≤ 150000.  
+  - Purpose: Respect the upper bound on the weekly wage bill.
+
+f) Nonnegativity and integrality  
+- S ≥ 0, J ≥ 0.  
+- If modelling people explicitly, include: S and J are integers.  
+  - Purpose: Practical feasibility (cannot hire negative accountants or fractional people in a real-world setting).
+
+5. Objective function structure  
+- Minimise: total weekly wage cost = 3000 × S + 1000 × J.  
+- Subject to the constraints in section 4.
+
+6. Modelling notes for the Modeller  
+- The problem is naturally suited to a small LP/ILP; variable count is only 2.  
+- The “minimise wage bill” objective might appear redundant given the upper bound of 150000, but both should be included:  
+  - The cap (≤ 150000) is a hard feasibility constraint.  
+  - The objective ensures that among all feasible staffing combinations, the model finds the lowest possible wage cost.  
+- If using a pure LP solver (allowing fractional values), note that the optimal mathematical solution may produce non-integer S and J; if integral solutions are required, specify integrality constraints and use an MILP solver.
+
+---
+
+[MODELER]:
+Here is a clean mathematical formulation and how you’d model/solve it in practice.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(S \ge 0\): number of senior accountants  
+- \(J \ge 0\): number of junior accountants  
+
+If you must model whole people:
+
+- \(S, J \in \mathbb{Z}_{\ge 0}\) (integer nonnegative)
+
+---
+
+## 2. Objective
+
+Minimise the total weekly wage bill:
+
+\[
+\min\; Z = 3000 S + 1000 J
+\]
+
+---
+
+## 3. Constraints
+
+1. **Minimum total staffing**
+
+   At least 100 accountants in total:
+   \[
+   S + J \;\ge\; 100
+   \]
+
+2. **Minimum number of seniors**
+
+   At least 5 senior accountants:
+   \[
+   S \;\ge\; 5
+   \]
+
+3. **Experience mix: seniors ≥ 1/3 of juniors**
+
+   The number of seniors must be at least one third of the number of juniors:
+   \[
+   S \;\ge\; \frac{1}{3}J
+   \quad\Longleftrightarrow\quad 3S \;\ge\; J
+   \]
+
+4. **Budget cap**
+
+   Weekly wage bill must not exceed \$150,000:
+   \[
+   3000 S + 1000 J \;\le\; 150{,}000
+   \]
+
+5. **Nonnegativity (and integrality, if required)**
+
+   \[
+   S \;\ge\; 0,\quad J \;\ge\; 0
+   \]
+   and optionally
+   \[
+   S, J \in \mathbb{Z}
+   \]
+
+---
+
+## 4. Complete LP / ILP model
+
+**LP version (allowing fractional people, purely mathematical):**
+
+\[
+\begin{aligned}
+\min\quad & 3000 S + 1000 J \\
+\text{s.t.}\quad
+& S + J \;\ge\; 100 \\
+& S \;\ge\; 5 \\
+& 3S \;\ge\; J \\
+& 3000 S + 1000 J \;\le\; 150{,}000 \\
+& S, J \;\ge\; 0
+\end{aligned}
+\]
+
+**Integer LP (practical staffing):**
+
+Same, plus \(S, J \in \mathbb{Z}\).
+
+---
+
+## 5. Suggested Python libraries
+
+Any standard LP/MILP library will handle this easily:
+
+- `PuLP` – very convenient, pure Python interface; uses CBC by default.
+- `ortools.linear_solver` (Google OR-Tools) – strong MILP solvers, good for integer constraints.
+- `Pyomo` – more general modeling framework, connects to many solvers.
+- For continuous LP only: `scipy.optimize.linprog` also works (but no integrality).
+
+---
+
+## 6. Example code skeleton (PuLP)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Accountant_Staffing", pl.LpMinimize)
+
+# Decision variables (integer version)
+S = pl.LpVariable("Seniors", lowBound=0, cat="Integer")
+J = pl.LpVariable("Juniors", lowBound=0, cat="Integer")
+
+# Objective
+prob += 3000 * S + 1000 * J
+
+# Constraints
+prob += S + J >= 100          # total staff
+prob += S >= 5                # minimum seniors
+prob += 3 * S >= J            # experience mix
+prob += 3000 * S + 1000 * J <= 150000  # budget cap
+
+# Solve
+prob.solve()
+print("Status:", pl.LpStatus[prob.status])
+print("Seniors:", S.value())
+print("Juniors:", J.value())
+print("Min wage bill:", pl.value(prob.objective))
+```
+
+This code implements exactly the mathematical model above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Accountant_Staffing", pl.LpMinimize)
+
+    # Decision variables (integer, nonnegative)
+    S = pl.LpVariable("Seniors", lowBound=0, cat="Integer")
+    J = pl.LpVariable("Juniors", lowBound=0, cat="Integer")
+
+    # Objective: Minimize total wage bill
+    prob += 3000 * S + 1000 * J
+
+    # Constraints
+    prob += S + J >= 100                # Minimum total staffing
+    prob += S >= 5                      # Minimum number of seniors
+    prob += 3 * S >= J                  # Experience mix: seniors ≥ 1/3 juniors
+    prob += 3000 * S + 1000 * J <= 150000  # Budget cap
+
+    # Solve the problem
+    prob.solve()
+
+    # Get the objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,152 @@
+[MODELER]:
+Here is a clean mathematical model of the problem and how to solve it.
+
+---
+
+## 1. Define decision variables
+
+Let  
+- \(x\) = number of full-time workers scheduled (per shift)  
+- \(y\) = number of part-time workers scheduled (per shift)
+
+We will assume \(x\) and \(y\) must be **nonnegative integers** (you can’t schedule a fraction of a worker).
+
+---
+
+## 2. Objective
+
+We want to **minimize the total number of workers**:
+
+\[
+\min \; z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1. Labor-hours requirement
+
+Each full-time worker provides 8 hours; each part-time worker provides 4 hours.  
+We need at least 500 hours of labor:
+
+\[
+8x + 4y \;\ge\; 500
+\]
+
+### 3.2. Budget constraint
+
+Each full-time worker costs \$300; each part-time worker costs \$100.  
+Total cost must not exceed \$15{,}000:
+
+\[
+300x + 100y \;\le\; 15000
+\]
+
+### 3.3. Nonnegativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x,y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete mathematical model
+
+\[
+\begin{aligned}
+\min\; & x + y \\
+\text{s.t.}\quad 
+& 8x + 4y \ge 500, \\
+& 300x + 100y \le 15000, \\
+& x, y \in \mathbb{Z}_{\ge 0}.
+\end{aligned}
+\]
+
+This is an **integer linear program (ILP)**.
+
+---
+
+## 5. Modeling and solving in Python
+
+Good libraries for this ILP:
+
+- **PuLP** – simple and pure-Python; good for teaching and small models.
+- **OR-Tools (Google)** – powerful MILP solver interface; supports CBC, Gurobi, etc.
+- **Pyomo** – more general modeling framework, works with various MILP solvers.
+
+### Example using PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("StaffingProblem", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable("FullTime", lowBound=0, cat="Integer")
+y = pl.LpVariable("PartTime", lowBound=0, cat="Integer")
+
+# Objective: minimize total number of workers
+prob += x + y
+
+# Labor-hours constraint
+prob += 8*x + 4*y >= 500, "LaborRequirement"
+
+# Budget constraint
+prob += 300*x + 100*y <= 15000, "Budget"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Full-time workers (x):", x.value())
+print("Part-time workers (y):", y.value())
+print("Total workers:", x.value() + y.value())
+print("Total hours:", 8*x.value() + 4*y.value())
+print("Total cost: $", 300*x.value() + 100*y.value())
+```
+
+This will compute the optimal numbers of full-time and part-time workers that meet the hours and budget constraints while minimizing the total headcount.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("StaffingProblem", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable("FullTime", lowBound=0, cat="Integer")
+    y = pl.LpVariable("PartTime", lowBound=0, cat="Integer")
+
+    # Objective: minimize total number of workers
+    prob += x + y
+
+    # Constraints
+    prob += 8 * x + 4 * y >= 500, "LaborRequirement"
+    prob += 300 * x + 100 * y <= 15000, "Budget"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    x_val = x.value()
+    y_val = y.value()
+    final_obj = x_val + y_val
+
+    # Optional detailed prints (not required, but useful)
+    print("Status:", pl.LpStatus[prob.status])
+    print("Full-time workers (x):", x_val)
+    print("Part-time workers (y):", y_val)
+    print("Total workers:", final_obj)
+    print("Total hours:", 8 * x_val + 4 * y_val)
+    print("Total cost: $", 300 * x_val + 100 * y_val)
+
+    # Final required output
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,190 @@
+[MODELER]:
+We can model this as a **linear programming** (LP) problem.
+
+---
+
+## 1. Decision variables
+
+Let:
+
+- \( x \) = number of servings of vegetables  
+- \( y \) = number of servings of fruits  
+
+Both must be non-negative:
+- \( x \ge 0 \)
+- \( y \ge 0 \)
+
+---
+
+## 2. Objective function (minimize cost)
+
+Each serving costs:
+- Vegetables: \$3 per serving → cost = \(3x\)
+- Fruits: \$5 per serving → cost = \(5y\)
+
+Total cost:
+\[
+\min \; C = 3x + 5y
+\]
+
+---
+
+## 3. Constraints
+
+Nutritional requirements:
+
+1. **Vitamins**  
+   - Vegetables: 2 units per serving  
+   - Fruits: 4 units per serving  
+   - Needs at least 20 units:  
+   \[
+   2x + 4y \ge 20
+   \]
+
+2. **Minerals**  
+   - Vegetables: 3 units per serving  
+   - Fruits: 1 unit per serving  
+   - Needs at least 30 units:  
+   \[
+   3x + y \ge 30
+   \]
+
+3. **Non-negativity**  
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+
+So the complete LP is:
+
+\[
+\begin{aligned}
+\min\ & 3x + 5y \\
+\text{s.t. } 
+& 2x + 4y \ge 20,\\
+& 3x + y \ge 30,\\
+& x \ge 0,\ y \ge 0.
+\end{aligned}
+\]
+
+---
+
+## 4. Solving analytically
+
+We can solve by checking the intersection of constraints (since it’s a 2-variable LP).
+
+Solve:
+\[
+\begin{cases}
+2x + 4y = 20\\
+3x + y = 30
+\end{cases}
+\]
+
+From the second: \(y = 30 - 3x\).  
+Substitute in the first:
+
+\[
+2x + 4(30 - 3x) = 20 \\
+2x + 120 - 12x = 20 \\
+-10x = -100 \Rightarrow x = 10
+\]
+Then:
+\[
+y = 30 - 3(10) = 0
+\]
+
+Check constraints:
+- Vitamins: \(2(10) + 4(0) = 20 \ge 20\) ✔  
+- Minerals: \(3(10) + 0 = 30 \ge 30\) ✔  
+
+Cost at \((x,y) = (10,0)\):  
+\[
+C = 3(10) + 5(0) = 30
+\]
+
+Try corner with only fruits (x=0) that meets minerals:  
+Minerals: \(y \ge 30\). That gives vitamins \(4 \cdot 30 = 120\), but cost:
+\[
+C = 5 \cdot 30 = 150
+\]
+Much higher.
+
+So the **optimal solution** is:
+- Vegetables: \(x = 10\) servings  
+- Fruits: \(y = 0\) servings  
+- Minimum cost: \$30  
+
+---
+
+## 5. Suitable Python libraries
+
+This is a standard linear program. Good options:
+
+- **PuLP** – easy for small LPs, integrates with CBC solver (default).
+- **SciPy** – `scipy.optimize.linprog` for continuous LPs.
+- **OR-Tools** (Google) – `pywraplp` for linear/Integer programming.
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("DietProblem", pl.LpMinimize)
+
+# Variables (continuous, >= 0)
+x = pl.LpVariable('vegetables', lowBound=0)
+y = pl.LpVariable('fruits', lowBound=0)
+
+# Objective
+prob += 3*x + 5*y
+
+# Constraints
+prob += 2*x + 4*y >= 20   # vitamins
+prob += 3*x + y >= 30     # minerals
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Vegetable servings:", x.value())
+print("Fruit servings:", y.value())
+print("Minimum cost:", pl.value(prob.objective))
+```
+
+This will return:
+- Vegetable servings ≈ 10  
+- Fruit servings ≈ 0  
+- Minimum cost ≈ 30
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the LP problem: minimize cost
+    prob = pl.LpProblem("DietProblem", pl.LpMinimize)
+
+    # Decision variables: servings of vegetables (x) and fruits (y), both >= 0
+    x = pl.LpVariable('vegetables', lowBound=0)
+    y = pl.LpVariable('fruits', lowBound=0)
+
+    # Objective function: minimize 3x + 5y
+    prob += 3 * x + 5 * y
+
+    # Constraints
+    prob += 2 * x + 4 * y >= 20   # Vitamins constraint
+    prob += 3 * x + y >= 30       # Minerals constraint
+
+    # Solve the problem
+    prob.solve()
+
+    # Get the optimal objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective value in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,97 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x1 ≥ 0 = minutes machine 1 is used
+  - x2 ≥ 0 = minutes machine 2 is used
+
+- Constraints
+  - Heart (at most 8 units): 0.5 x1 + 0.3 x2 ≤ 8
+  - Brain (at least 4 units): 0.8 x1 + 1.0 x2 ≥ 4
+  - Nonnegativity: x1 ≥ 0, x2 ≥ 0
+
+- Objective
+  - Minimize total waste: minimize W = 0.3 x1 + 0.5 x2
+
+This is a linear program in two variables.
+
+Analytic solution (2-variable LP)
+- From the brain constraint when binding: x2 = 4 − 0.8 x1 (and x2 ≥ 0 implies x1 ≤ 5).
+- Substitute into the objective: W = 0.3 x1 + 0.5(4 − 0.8 x1) = 2 − 0.1 x1.
+  W decreases as x1 increases, so we maximize x1 subject to feasibility. The maximum x1 with x2 ≥ 0 is x1 = 5, giving x2 = 0.
+- Check heart: 0.5(5) + 0.3(0) = 2.5 ≤ 8 (feasible).
+
+Optimal solution
+- x1 = 5 minutes (machine 1)
+- x2 = 0 minutes (machine 2)
+- Minimum waste W = 0.3·5 + 0.5·0 = 1.5 units
+
+Suggested solvers / Python libraries
+- pulp (simple LP modeling)
+- scipy.optimize.linprog
+- OR-Tools linear solver
+- cvxpy (convex optimization)
+
+Example (pulp)
+  from pulp import LpProblem, LpMinimize, LpVariable, lpSum, value
+
+  prob = LpProblem("min_waste", LpMinimize)
+  x1 = LpVariable('x1', lowBound=0)
+  x2 = LpVariable('x2', lowBound=0)
+  prob += 0.3*x1 + 0.5*x2
+  prob += 0.5*x1 + 0.3*x2 <= 8
+  prob += 0.8*x1 + 1.0*x2 >= 4
+  prob.solve()
+  print(x1.varValue, x2.varValue, value(prob.objective))
+
+This will return x1=5, x2=0, objective=1.5.
+
+---
+
+[CODER]:
+```python
+# Self-contained script to solve the LP and print the final objective value.
+# Problem:
+# Minimize W = 0.3 x1 + 0.5 x2
+# s.t.
+#  0.5 x1 + 0.3 x2 <= 8
+#  0.8 x1 + 1.0 x2 >= 4
+#  x1, x2 >= 0
+
+from math import isfinite
+
+# Attempt to solve with scipy.optimize.linprog if available, otherwise use analytic fallback.
+value = None
+
+try:
+    from scipy.optimize import linprog
+
+    c = [0.3, 0.5]
+    # A_ub x <= b_ub. Convert 0.8 x1 + 1.0 x2 >= 4  to  -0.8 x1 -1.0 x2 <= -4
+    A_ub = [
+        [0.5, 0.3],
+        [-0.8, -1.0]
+    ]
+    b_ub = [8.0, -4.0]
+    bounds = [(0, None), (0, None)]
+
+    res = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method='highs')
+    if res.success and isfinite(res.fun):
+        value = float(res.fun)
+    else:
+        # fallback to analytic if solver fails
+        value = None
+except Exception:
+    value = None
+
+# Analytic fallback (derived in problem statement)
+if value is None:
+    # From brain constraint binding and maximizing x1 (since W = 2 - 0.1 x1 on that line),
+    # x2 = 4 - 0.8 x1, x2 >= 0 => x1 <= 5. So take x1 = 5, x2 = 0.
+    x1 = 5.0
+    x2 = 0.0
+    value = 0.3 * x1 + 0.5 * x2
+
+# Final required print line (no other text on this line)
+print(f"FINAL_OBJ: {value}")
+```

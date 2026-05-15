@@ -1,0 +1,169 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Minimise total pollution produced by the vans used to deliver at least 5000 bottles.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP).  
+   - This can be treated as an integer program if an integral solution is required, but the structure is simple and the LP relaxation will already yield integer values.
+
+3. Main decision variables  
+   Define decision variables for the number of each van type used:
+   - Variable 1: Number of old vans used.  
+   - Variable 2: Number of new vans used.  
+
+4. Objective function (conceptual)  
+   - Each old van produces 50 units of pollution.  
+   - Each new van produces 30 units of pollution.  
+   - Objective: Minimise total pollution = 50 × (number of old vans) + 30 × (number of new vans).
+
+5. Key constraints to consider  
+
+   a) Capacity / demand constraint  
+   - Each old van carries 100 bottles.  
+   - Each new van carries 80 bottles.  
+   - Need to deliver at least 5000 bottles.  
+   - Constraint: Total bottles from old and new vans ≥ 5000.
+
+   b) Fleet availability constraint for new vans  
+   - At most 30 new vans can be used.  
+   - Constraint: Number of new vans ≤ 30.
+
+   c) Non-negativity constraints  
+   - Number of old vans ≥ 0.  
+   - Number of new vans ≥ 0.
+
+   d) Integrality constraints (if modelling explicitly)  
+   - Number of old vans must be an integer.  
+   - Number of new vans must be an integer.
+
+6. Modelling notes / simplifications  
+   - No explicit upper bound on old vans is given, so treat it as unbounded above except as limited by the demand and the objective.  
+   - Because both capacity and pollution are linear in the number of vans, and all constraints are linear, a straightforward LP/ILP solver will find the optimal mix.  
+   - After solving, check that the solution satisfies both the minimum bottle requirement and the maximum new-van constraint.
+
+---
+
+[MODELER]:
+Here is a clean mathematical optimisation model for the problem, followed by implementation suggestions.
+
+---
+
+## 1. Decision variables
+
+Let:
+
+- \(x\) = number of old vans used  
+- \(y\) = number of new vans used  
+
+Both must be non‑negative integers.
+
+\[
+x \in \mathbb{Z}_{\ge 0}, \quad y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 2. Objective function
+
+Each old van produces 50 units of pollution.  
+Each new van produces 30 units of pollution.
+
+Minimise total pollution:
+
+\[
+\min \; Z = 50x + 30y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Demand (bottle) constraint
+
+Each old van carries 100 bottles, each new van carries 80 bottles.  
+At least 5000 bottles must be sent:
+
+\[
+100x + 80y \;\ge\; 5000
+\]
+
+### b) New-van availability constraint
+
+At most 30 new vans can be used:
+
+\[
+y \;\le\; 30
+\]
+
+### c) Non‑negativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Summary as a standard ILP model
+
+\[
+\begin{aligned}
+\text{Minimise} \quad & 50x + 30y \\
+\text{subject to} \quad
+& 100x + 80y \ge 5000 \\
+& y \le 30 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+Because coefficients are integers and constraints are simple, solving the LP relaxation (allowing \(x, y \ge 0\) real) will still yield an integer optimal solution in this small case, but formally it is an Integer Linear Program.
+
+---
+
+## 5. Suitable Python libraries
+
+Any LP/ILP solver can handle this:
+
+- **PuLP**: Very convenient for teaching and small models; pure Python, can call CBC.
+  - `pulp.LpProblem`, `pulp.LpVariable`, `pulp.LpMinimize`.
+- **OR-Tools (Linear Solver or CP-SAT)**:
+  - `ortools.linear_solver.pywraplp.Solver` (for LP/MIP).
+  - Or `ortools.sat.python.cp_model.CpModel` (CP-SAT for integer problems).
+- **Pyomo**: More general algebraic modeling language; good if you’ll extend the model.
+- **SciPy (`scipy.optimize.linprog`)**:
+  - Works for continuous LPs (no integrality), so use if you relax integrality.
+
+For this problem, **PuLP** or **OR-Tools linear solver** are the most straightforward choices.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem
+    prob = pulp.LpProblem("Van_Pollution_Minimization", pulp.LpMinimize)
+
+    # Decision variables: number of old (x) and new (y) vans
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')
+
+    # Objective function: Minimize total pollution
+    prob += 50 * x + 30 * y
+
+    # Constraints
+    # Bottle demand constraint: 100x + 80y >= 5000
+    prob += 100 * x + 80 * y >= 5000
+
+    # New-van availability constraint: y <= 30
+    prob += y <= 30
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    final_obj = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

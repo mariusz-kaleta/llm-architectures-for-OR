@@ -1,0 +1,41 @@
+[MONOLITH]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("IceCream_Production", pl.LpMaximize)
+
+    # Decision variables: gallons of chocolate (c) and vanilla (v)
+    c = pl.LpVariable('chocolate', lowBound=5, upBound=10, cat='Continuous')
+    v = pl.LpVariable('vanilla', lowBound=5, upBound=8, cat='Continuous')
+
+    # Objective function: Maximize profit = 200c + 300v
+    prob += 200 * c + 300 * v
+
+    # Constraints
+
+    # Time constraint: 1 hour per gallon chocolate, 2 hours per gallon vanilla, total <= 30
+    prob += 1 * c + 2 * v <= 30, "TimeConstraint"
+
+    # Worker constraint: At least 6 workers, 1 on chocolate and 2 on vanilla at any time
+    # Interpreted as 1*c + 2*v >= 6 (worker-gallon requirement)
+    prob += 1 * c + 2 * v >= 6, "WorkerConstraint_Min"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get results
+    c_val = pl.value(c)
+    v_val = pl.value(v)
+    obj_val = pl.value(prob.objective)
+
+    # Print detailed solution (optional for inspection)
+    print(f"Optimal chocolate gallons: {c_val}")
+    print(f"Optimal vanilla gallons: {v_val}")
+    print(f"Maximum profit: {obj_val}")
+
+    # Required final objective print
+    print(f"FINAL_OBJ: {obj_val}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,119 @@
+[PLANNER]:
+1) Key optimisation goal
+- Maximise annual return (dollars earned) from the $600,000 invested in two property types.
+
+2) Suggested model type
+- Small Linear Programming problem (two continuous decision variables). Because there are only two investments and linear returns/constraints, this can also be solved by simple algebra or by checking boundary points.
+
+3) Main decision variables (described)
+- Amount invested in apartments (call it "apartments"): dollars allocated to apartments.
+- Amount invested in townhouses (call it "townhouses"): dollars allocated to townhouses.
+(Implicit: both variables are non‑negative and together use the available capital.)
+
+4) Key constraints to include (described)
+- Total capital constraint: all $600,000 is allocated between apartments and townhouses.
+- Upper bound on apartments: dollars invested in apartments cannot exceed $200,000.
+- Relative‑investment constraint: dollars in apartments must be at least one half of the dollars in townhouses.
+- Nonnegativity: investments cannot be negative.
+
+Suggested solution approach for the Modeller
+- Reduce to one variable using the total-capital split, then apply the apartment upper and relative-investment constraints to identify the feasible interval for the apartment amount.
+- Because the objective (10% on apartments, 15% on townhouses) rewards townhouses more, the optimum will lie on a boundary of the feasible region; evaluate the boundary points found above.
+- Verify feasibility and compute the objective (return) for the candidate point(s).
+
+Expected outcome (brief)
+- The constraints force the apartment investment to be exactly $200,000 (it cannot exceed $200,000 and the "at least half of townhouses" requirement combined with the $600,000 total makes $200,000 the only feasible apartment amount). Therefore invest $200,000 in apartments and $400,000 in townhouses. This allocation yields the maximum annual return of $80,000 (10% of apartments + 15% of townhouses).
+
+Deliverable requested from the Modeller
+- A concise implementation (algebraic check or LP solve) showing the feasible region, the evaluated boundary points, and the computed maximum return with the final allocation.
+
+---
+
+[MODELER]:
+Below is a formal model, a short algebraic solution, and a minimal LP implementation suggestion.
+
+1) Decision variables
+- A = dollars invested in apartments (continuous, $).
+- T = dollars invested in townhouses (continuous, $).
+
+2) Objective
+- Maximize annual return R = 0.10 A + 0.15 T.
+
+3) Constraints
+- Total capital: A + T = 600000.
+- Apartment cap: A ≤ 200000.
+- Relative-investment: A ≥ 0.5 T (apartments at least one half of townhouses).
+- Nonnegativity: A ≥ 0, T ≥ 0.
+
+4) Reduce to one variable and solve (algebraic)
+From A + T = 600000, T = 600000 − A. Substitute into relative constraint:
+A ≥ 0.5(600000 − A) → A ≥ 300000 − 0.5A → 1.5A ≥ 300000 → A ≥ 200000.
+
+Combine with A ≤ 200000 → A = 200000 (unique feasible value). Then T = 600000 − 200000 = 400000.
+
+5) Objective value
+R = 0.10(200000) + 0.15(400000) = 20000 + 60000 = 80000 (dollars per year).
+
+Conclusion: Invest $200,000 in apartments and $400,000 in townhouses; maximum annual return = $80,000. The feasible region collapses to this single point because the relative-investment constraint and the apartment cap together force A = 200,000.
+
+6) Suggested solvers / libraries
+- pulp (Python) — straightforward LP modeling with CBC solver.
+- scipy.optimize.linprog — for small LPs (need to convert to minimization form).
+- ortools.linear_solver (OR-Tools) — fast and robust solver backends.
+
+Optional minimal Python (pulp) snippet
+- Model is so small the algebra above suffices, but for completeness:
+
+from pulp import LpProblem, LpVariable, LpMaximize, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("Invest", LpMaximize)
+A = LpVariable("A", lowBound=0)
+T = LpVariable("T", lowBound=0)
+prob += 0.10*A + 0.15*T
+prob += A + T == 600000
+prob += A <= 200000
+prob += A >= 0.5*T
+prob.solve(PULP_CBC_CMD(msg=False))
+print(A.value(), T.value(), (0.10*A.value() + 0.15*T.value()))
+
+This returns A=200000, T=400000, objective=80000.
+
+If you want, I can produce a plotted feasible region or show the check of boundary points explicitly.
+
+---
+
+[CODER]:
+# Investment optimization problem solved analytically in-code
+
+# Data / parameters
+total_capital = 600_000         # total dollars available
+cap_apartments = 200_000        # maximum dollars allowed in apartments
+r_A = 0.10                      # return rate for apartments
+r_T = 0.15                      # return rate for townhouses
+
+# Reduce problem using A + T = total_capital => T = total_capital - A
+# Relative-investment constraint: A >= 0.5 * T = 0.5 * (total_capital - A)
+# Solve: A >= 0.5*total_capital - 0.5*A -> 1.5*A >= 0.5*total_capital -> A >= total_capital / 3
+A_lower_from_relative = total_capital / 3.0
+
+# Other bounds: 0 <= A <= min(cap_apartments, total_capital)
+A_lower = max(0.0, A_lower_from_relative)
+A_upper = min(cap_apartments, total_capital)
+
+# Check feasibility
+if A_lower > A_upper + 1e-9:
+    raise ValueError("No feasible solution for the given constraints.")
+
+# Objective as function of A: R(A) = r_A*A + r_T*(total_capital - A) = (r_A - r_T)*A + r_T*total_capital
+# Since r_A - r_T < 0 here, objective decreases with A, so choose smallest feasible A.
+A_opt = A_lower
+T_opt = total_capital - A_opt
+R_opt = r_A * A_opt + r_T * T_opt
+
+# If R_opt is essentially integer, present as integer
+if abs(R_opt - round(R_opt)) < 1e-8:
+    R_print = int(round(R_opt))
+else:
+    R_print = R_opt
+
+print(f"FINAL_OBJ: {R_print}")

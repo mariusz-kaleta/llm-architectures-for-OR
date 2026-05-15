@@ -1,0 +1,248 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Minimise the total amount of fever suppressant used, subject to material availability and policy requirements on vaccine mix.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with continuous decision variables and then checked for integer feasibility (or Integer Linear Programming if integrality is required by the problem context).
+
+3. Main decision variables  
+   - Let:
+     - \(x_c\): number of children’s vaccine doses produced.  
+     - \(x_a\): number of adult vaccine doses produced.  
+
+4. Objective function (conceptual)  
+   - Each children’s dose uses 50 mg of fever suppressant.  
+   - Each adult dose uses 75 mg of fever suppressant.  
+   - Total fever suppressant used = \(50 \cdot x_c + 75 \cdot x_a\).  
+   - Objective: Minimise \(50 \cdot x_c + 75 \cdot x_a\).
+
+5. Key constraints to consider  
+
+   a) mRNA availability constraint  
+   - Total available mRNA: 20000 mg.  
+   - Each children’s dose uses 50 mg mRNA; each adult dose uses 75 mg mRNA.  
+   - mRNA usage constraint:  
+     - \(50 \cdot x_c + 75 \cdot x_a \le 20000\).  
+   - This is the only explicit capacity/resource constraint given.
+
+   b) Policy requirement: minimum proportion of adult vaccines  
+   - At least 70% of all vaccines produced must be adult doses.  
+   - Express as: adult vaccines ≥ 70% of total vaccines.  
+   - Constraint conceptually:  
+     - \(x_a \ge 0.7(x_a + x_c)\).  
+   - This can be algebraically simplified in the modelling step but the structure is a mix/ratio constraint between the two decision variables.
+
+   c) Policy requirement: minimum count of children’s vaccines  
+   - At least 50 children’s vaccines must be produced.  
+   - Constraint:  
+     - \(x_c \ge 50\).
+
+   d) Non-negativity (and potential integrality)  
+   - Non-negativity:  
+     - \(x_c \ge 0\), \(x_a \ge 0\).  
+   - Depending on interpretation, doses should be integer counts:  
+     - Enforce \(x_c, x_a\) as integers (Integer LP), or relax to continuous if approximate fractional doses are allowed for theoretical optimisation.
+
+6. Additional modelling notes / checks  
+
+   - Feasibility check:  
+     - Ensure the combination of “at least 70% adult” and “at least 50 children’s” is compatible with the 20000 mg mRNA capacity.  
+   - Binding constraints:  
+     - Expect that the mRNA constraint and the adult proportion constraint are likely to be binding at optimum, given the objective penalises adult doses more (higher fever suppressant per dose) but policy requires a high adult proportion.  
+   - No explicit upper bound on number of vaccines beyond mRNA availability; no separate cap on fever suppressant supply, so it only appears in the objective, not in constraints.
+
+7. What the Modeller should produce  
+
+   - Formally write the LP (or ILP) with:
+     - Decision variables \(x_c, x_a\).  
+     - Objective: minimise fever suppressant use.  
+     - Constraints: mRNA capacity, adult proportion, minimum children’s count, non-negativity (and optionally integrality).  
+   - Solve using a standard LP/ILP solver.  
+   - From the solution, report optimal values of \(x_c\) and \(x_a\) and the minimum total fever suppressant used.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem and guidance on how to solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x_c \in \mathbb{Z}_{\ge 0}\): number of children’s vaccine doses produced  
+- \(x_a \in \mathbb{Z}_{\ge 0}\): number of adult vaccine doses produced  
+
+(If integrality is not important, you can relax to \(x_c, x_a \ge 0\) continuous.)
+
+---
+
+## 2. Objective function
+
+Each dose uses fever suppressant:
+
+- Children: 50 mg per dose  
+- Adult: 75 mg per dose  
+
+Total fever suppressant used:
+\[
+F = 50 x_c + 75 x_a
+\]
+
+Objective:
+\[
+\min \; 50 x_c + 75 x_a
+\]
+
+---
+
+## 3. Constraints
+
+### a) mRNA availability
+
+Total mRNA available: 20000 mg.  
+Each dose uses:
+
+- Children: 50 mg per dose  
+- Adult: 75 mg per dose  
+
+Constraint:
+\[
+50 x_c + 75 x_a \le 20000
+\]
+
+### b) Adult-vaccine proportion requirement
+
+At least 70% of all vaccines must be adult doses:
+
+\[
+x_a \ge 0.7(x_a + x_c)
+\]
+
+Simplify:
+
+\[
+x_a \ge 0.7x_a + 0.7x_c \\
+x_a - 0.7x_a \ge 0.7x_c \\
+0.3x_a \ge 0.7x_c \\
+3x_a \ge 7x_c
+\]
+
+So the mixing constraint is:
+\[
+3x_a \ge 7x_c
+\]
+
+### c) Minimum number of children’s vaccines
+
+At least 50 children’s vaccines must be produced:
+
+\[
+x_c \ge 50
+\]
+
+### d) Non-negativity and integrality
+
+\[
+x_c \ge 0,\quad x_a \ge 0
+\]
+and, if required,
+\[
+x_c, x_a \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete model (ILP form)
+
+\[
+\begin{aligned}
+\min \quad & 50 x_c + 75 x_a \\
+\text{s.t.} \quad
+& 50 x_c + 75 x_a \le 20000 && \text{(mRNA capacity)}\\
+& 3 x_a - 7 x_c \ge 0        && \text{(adult proportion)}\\
+& x_c \ge 50                 && \text{(minimum children)}\\
+& x_c, x_a \ge 0,\; x_c, x_a \in \mathbb{Z} && \text{(non-negativity, integrality)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+For this (small) linear / integer linear program, any standard LP/ILP package will work:
+
+- `PuLP` (pure Python, easy to use, can call CBC, GLPK, etc.)
+- `ortools.linear_solver` (Google OR-Tools, very efficient, good for ILP)
+- `Pyomo` (more general algebraic modeling language; overkill but flexible)
+
+For a straightforward implementation, `PuLP` or OR-Tools are excellent:
+
+### Example with PuLP (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("VaccineMix", pl.LpMinimize)
+
+# Decision variables (integer)
+x_c = pl.LpVariable('x_c', lowBound=0, cat='Integer')
+x_a = pl.LpVariable('x_a', lowBound=0, cat='Integer')
+
+# Objective
+prob += 50 * x_c + 75 * x_a
+
+# Constraints
+prob += 50 * x_c + 75 * x_a <= 20000           # mRNA capacity
+prob += 3 * x_a - 7 * x_c >= 0                 # adult proportion
+prob += x_c >= 50                              # minimum children
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("x_c (children):", pl.value(x_c))
+print("x_a (adults):", pl.value(x_a))
+print("Min fever suppressant used (mg):", pl.value(50 * x_c + 75 * x_a))
+```
+
+This code directly encodes the mathematical model above and finds the optimal numbers of children’s and adult doses.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("VaccineMix", pl.LpMinimize)
+
+    # Decision variables (integer, non-negative)
+    x_c = pl.LpVariable('x_c', lowBound=0, cat='Integer')  # children's doses
+    x_a = pl.LpVariable('x_a', lowBound=0, cat='Integer')  # adult doses
+
+    # Objective: minimize total fever suppressant used
+    prob += 50 * x_c + 75 * x_a
+
+    # Constraints
+    # mRNA capacity
+    prob += 50 * x_c + 75 * x_a <= 20000
+
+    # adult proportion: 3 x_a >= 7 x_c
+    prob += 3 * x_a - 7 * x_c >= 0
+
+    # minimum children's vaccines
+    prob += x_c >= 50
+
+    # Solve the problem using CBC (default solver in PuLP)
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute final objective value
+    final_obj = pl.value(50 * x_c + 75 * x_a)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,80 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- v ∈ Z_{\ge 0}: number of van trips
+- t ∈ Z_{\ge 0}: number of truck trips
+
+Objective
+- Minimize total trips: minimize z = v + t
+
+Constraints
+1. Capacity: 50 v + 80 t ≥ 1500 (must transport at least 1500 boxes)
+2. Budget: 30 v + 50 t ≤ 1000 (budget constraint)
+3. Advertising (strict): v − t ≥ 1 (vans make strictly more trips than trucks)
+4. Integrality and nonnegativity: v, t ∈ Z_{\ge 0}
+
+(If a solver requires non-strict inequality, v ≥ t + 1 is equivalent to v − t ≥ 1.)
+
+Solution (small integer search or integer programming)
+- The integer solutions that satisfy all constraints and minimize v + t have total trips z = 24.
+- There are two optimal combinations:
+  - v = 14 van trips and t = 10 truck trips, or
+  - v = 13 van trips and t = 11 truck trips.
+Both satisfy 50v + 80t ≥ 1500 and 30v + 50t ≤ 1000, and v > t.
+
+Suggested solvers / Python libraries
+- pulp (with CBC) — easy to model MILP
+- OR-Tools CP-SAT or MIP solver — robust and fast
+- pyomo (with a MILP solver like CBC, Gurobi, CPLEX)
+- pure enumeration (simple double loop) is also trivial here because variables ranges are small
+
+Example outline (pseudo-Python using pulp)
+- Define integer variables v, t ≥ 0
+- Add constraints: 50*v + 80*t >= 1500; 30*v + 50*t <= 1000; v - t >= 1
+- Set objective minimize v + t
+- Solve and read v, t
+
+If you want, I can provide a ready-to-run Python script using pulp or OR-Tools that finds the optimal (v, t).
+
+---
+
+[CODER]:
+# Integer enumeration solver for the given MILP
+# Decision variables: v, t (nonnegative integers)
+# Constraints:
+#   50*v + 80*t >= 1500
+#   30*v + 50*t <= 1000
+#   v - t >= 1
+# Objective: minimize z = v + t
+
+capacity_needed = 1500
+budget_limit = 1000
+
+# Upper bounds from budget constraint to limit search
+v_max = budget_limit // 30  # maximum v given budget alone
+t_max = budget_limit // 50  # maximum t given budget alone
+
+best_z = None
+best_solutions = []
+
+for v in range(0, v_max + 1):
+    for t in range(0, t_max + 1):
+        if v - t < 1:
+            continue
+        if 50 * v + 80 * t < capacity_needed:
+            continue
+        if 30 * v + 50 * t > budget_limit:
+            continue
+        z = v + t
+        if (best_z is None) or (z < best_z):
+            best_z = z
+            best_solutions = [(v, t)]
+        elif z == best_z:
+            best_solutions.append((v, t))
+
+# Uncomment below lines to inspect solutions (kept commented so final line is only FINAL_OBJ)
+# print("Optimal z:", best_z)
+# print("Optimal solutions (v, t):", best_solutions)
+
+print(f"FINAL_OBJ: {best_z}")

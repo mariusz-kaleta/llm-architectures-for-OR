@@ -1,0 +1,185 @@
+[MODELER]:
+Let’s model this as a linear optimization problem.
+
+### 1. Decision variables
+
+Let  
+- \(x \ge 0\): number of units of coconut oil  
+- \(y \ge 0\): number of units of lavender  
+
+### 2. Objective function
+
+Each unit of coconut oil takes 0.7 minutes to be effective; each unit of lavender takes 0.9 minutes.  
+We’re asked to *minimize the total time contribution* from all units:
+
+\[
+\text{Minimize } Z = 0.7x + 0.9y
+\]
+
+(“One must be added before the other” doesn’t change the linear model here—total time is still linear in the amounts.)
+
+### 3. Constraints
+
+1. **Minimum coconut oil requirement**  
+   At least 300 units of coconut oil:
+   \[
+   x \ge 300
+   \]
+
+2. **Total ingredient upper bound**  
+   At most 550 units of both ingredients combined:
+   \[
+   x + y \le 550
+   \]
+
+3. **Coconut not too dominant**  
+   At most three times as much coconut oil as lavender:
+   \[
+   x \le 3y
+   \]
+
+4. **Nonnegativity**  
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+
+### 4. Solve the model analytically
+
+Because coconut oil is *faster* (0.7 < 0.9), we prefer more \(x\) and less \(y\), subject to constraints.
+
+We want to minimize \(Z = 0.7x + 0.9y\).
+
+Given the constraints, the optimal solution will be at a corner (vertex) of the feasible region. Consider the active constraints:
+
+#### Intersection of \(x = 3y\) and \(x + y = 550\):
+
+From \(x = 3y\), substitute into \(x + y = 550\):
+
+\[
+3y + y = 550 \Rightarrow 4y = 550 \Rightarrow y = 137.5, \quad x = 3y = 412.5
+\]
+
+Check all constraints:
+- \(x = 412.5 \ge 300\) ✓  
+- \(x + y = 412.5 + 137.5 = 550 \le 550\) ✓  
+- \(x \le 3y\) is tight: \(412.5 = 3 \cdot 137.5\) ✓  
+- Nonnegativity ✓  
+
+Compute the objective:
+
+\[
+Z = 0.7(412.5) + 0.9(137.5) = 288.75 + 123.75 = 412.5
+\]
+
+#### Other relevant vertices
+
+1. \(x = 300\) and \(x + y = 550\):  
+   - \(y = 250\)  
+   - Check \(x \le 3y\): \(300 \le 750\) ✓  
+   - Objective:  
+     \[
+     Z = 0.7(300) + 0.9(250) = 210 + 225 = 435
+     \]
+
+2. \(x = 300\) and \(x = 3y\):  
+   - \(300 = 3y \Rightarrow y = 100\)  
+   - Check \(x + y \le 550\): \(300 + 100 = 400 \le 550\) ✓  
+   - Objective:  
+     \[
+     Z = 0.7(300) + 0.9(100) = 210 + 90 = 300
+     \]
+
+   This is clearly **smaller** than 412.5 and 435.
+
+No other corners will beat this (in particular, moving to larger \(x + y\) or larger \(y\) with slower units increases the total time).
+
+### 5. Optimal solution
+
+To minimize the total time:
+
+- Coconut oil:  
+  \[
+  x^* = 300 \text{ units}
+  \]
+- Lavender:  
+  \[
+  y^* = 100 \text{ units}
+  \]
+
+Total time contribution:
+
+\[
+Z^* = 0.7 \cdot 300 + 0.9 \cdot 100 = 210 + 90 = 300 \text{ minutes}
+\]
+
+### 6. Python implementation suggestions
+
+This is a linear program; any LP solver works well. In Python, suitable libraries include:
+
+- **PuLP** (`pulp`) – simple modeling for LPs and MILPs.
+- **SciPy** (`scipy.optimize.linprog`) – good for pure LPs.
+- **OR-Tools** (`ortools.linear_solver.pywraplp`) – industrial-strength optimization.
+
+Example sketch using PuLP:
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("BodyWash_Time_Minimization", pl.LpMinimize)
+
+# Variables
+x = pl.LpVariable("coconut", lowBound=0)
+y = pl.LpVariable("lavender", lowBound=0)
+
+# Objective
+prob += 0.7 * x + 0.9 * y
+
+# Constraints
+prob += x >= 300
+prob += x + y <= 550
+prob += x <= 3 * y
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Coconut units:", x.value())
+print("Lavender units:", y.value())
+print("Min total time:", pl.value(prob.objective))
+```
+
+This will return \(x = 300\), \(y = 100\).
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("BodyWash_Time_Minimization", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable("coconut", lowBound=0)   # units of coconut oil
+    y = pl.LpVariable("lavender", lowBound=0)  # units of lavender
+
+    # Objective function: minimize total time
+    prob += 0.7 * x + 0.9 * y
+
+    # Constraints
+    prob += x >= 300          # minimum coconut oil requirement
+    prob += x + y <= 550      # total ingredient upper bound
+    prob += x <= 3 * y        # coconut not more than three times lavender
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

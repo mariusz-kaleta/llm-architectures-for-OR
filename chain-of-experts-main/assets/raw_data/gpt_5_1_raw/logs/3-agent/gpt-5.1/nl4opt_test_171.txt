@@ -1,0 +1,162 @@
+[MODELER]:
+Define decision variables:
+
+- \(x\): number of glass jars to fill  
+- \(y\): number of plastic jars to fill  
+
+Both must be nonnegative integers:
+- \(x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}\)
+
+---
+
+### Constraints
+
+1. **Honey volume constraint**  
+   Each glass jar holds 250 ml, each plastic jar 300 ml, and there is 20000 ml of honey:
+   \[
+   250x + 300y \le 20000
+   \]
+
+2. **Plastic at least twice glass**  
+   \[
+   y \ge 2x
+   \]
+
+3. **At least 20 glass jars**  
+   \[
+   x \ge 20
+   \]
+
+---
+
+### Objective
+
+Maximize the total number of jars filled:
+\[
+\max \; Z = x + y
+\]
+
+So the optimization model is:
+
+\[
+\begin{aligned}
+\max \quad & x + y \\
+\text{s.t.} \quad & 250x + 300y \le 20000 \\
+                  & y \ge 2x \\
+                  & x \ge 20 \\
+                  & x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+### Solving the model (by hand)
+
+Use \(y = 2x\) to push up the number of jars while still respecting the constraint that plastic jars are at least twice glass.
+
+Substitute \(y = 2x\) into the honey constraint:
+\[
+250x + 300(2x) \le 20000 \Rightarrow 250x + 600x \le 20000 \Rightarrow 850x \le 20000
+\]
+\[
+x \le \frac{20000}{850} \approx 23.53
+\]
+
+Since \(x\) must be an integer and at least 20:
+\[
+20 \le x \le 23
+\]
+
+Check corresponding \(y = 2x\) and honey usage:
+
+- \(x = 20,\; y = 40\):  
+  \(250\cdot 20 + 300\cdot 40 = 5000 + 12000 = 17000 \le 20000\), total jars \(= 60\)
+- \(x = 21,\; y = 42\):  
+  \(250\cdot 21 + 300\cdot 42 = 5250 + 12600 = 17850 \le 20000\), total jars \(= 63\)
+- \(x = 22,\; y = 44\):  
+  \(250\cdot 22 + 300\cdot 44 = 5500 + 13200 = 18700 \le 20000\), total jars \(= 66\)
+- \(x = 23,\; y = 46\):  
+  \(250\cdot 23 + 300\cdot 46 = 5750 + 13800 = 19550 \le 20000\), total jars \(= 69\)
+
+Try larger \(y\) for \(x = 23\) to see if more jars are possible:
+
+- Honey remaining at \(x=23\): \(20000 - 19550 = 450\) ml  
+  One more plastic jar needs 300 ml, so \(y\) can be 47:
+  \[
+  250\cdot 23 + 300\cdot 47 = 5750 + 14100 = 19850 \le 20000
+  \]
+  Check ratio: \(47 \ge 2\cdot 23 = 46\) OK.  
+  Total jars = \(23 + 47 = 70\).
+
+Try \(y = 48\):
+
+\[
+250\cdot 23 + 300\cdot 48 = 5750 + 14400 = 20150 > 20000
+\]
+So not feasible.
+
+Check if \(x = 24\) is feasible with minimum \(y = 2x = 48\):
+
+\[
+250\cdot 24 + 300\cdot 48 = 6000 + 14400 = 20400 > 20000
+\]
+So \(x \ge 24\) is infeasible.
+
+Thus the maximum total number of jars is 70, achieved at:
+
+- **Glass jars**: \(x = 23\)  
+- **Plastic jars**: \(y = 47\)
+
+---
+
+### Recommended Python libraries
+
+This is a small integer linear programming (ILP) problem. Suitable Python libraries:
+
+- `PuLP` – very straightforward for formulating and solving linear/integer programs.
+- `ORTools` (Google OR-Tools, `ortools.linear_solver`) – powerful and efficient for ILPs.
+- `Pyomo` – more general modeling framework, also suitable here.
+
+For something this small, `pulp` or `ortools` is ideal and easy to implement.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: maximize total jars
+    prob = pulp.LpProblem("Honey_Jar_Filling", pulp.LpMaximize)
+
+    # Decision variables: nonnegative integers
+    x = pulp.LpVariable('x', lowBound=20, cat='Integer')      # glass jars, x >= 20
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')       # plastic jars
+
+    # Objective: maximize total jars x + y
+    prob += x + y, "Total_Jars"
+
+    # Constraints
+    # Honey volume: 250x + 300y <= 20000
+    prob += 250 * x + 300 * y <= 20000, "Honey_Volume"
+
+    # Plastic at least twice glass: y >= 2x
+    prob += y >= 2 * x, "Plastic_At_Least_Twice_Glass"
+
+    # Solve
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    x_val = pulp.value(x)
+    y_val = pulp.value(y)
+    final_obj = pulp.value(prob.objective)
+
+    # Optionally, ensure integers (solver should already give integer values)
+    x_val = int(round(x_val))
+    y_val = int(round(y_val))
+    final_obj = int(round(final_obj))
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

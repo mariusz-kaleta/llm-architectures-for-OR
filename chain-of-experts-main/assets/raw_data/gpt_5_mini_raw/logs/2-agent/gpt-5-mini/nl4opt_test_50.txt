@@ -1,0 +1,115 @@
+[MODELER]:
+Model type: Linear Program (continuous variables, maximize profit).
+
+Decision variables
+- x = kilograms of the first mix (20% cat paw, 80% gold shark), x ≥ 0
+- y = kilograms of the second mix (35% cat paw, 65% gold shark), y ≥ 0
+
+Resource constraints
+- Cat paw availability: 0.20 x + 0.35 y ≤ 20
+- Gold shark availability: 0.80 x + 0.65 y ≤ 50
+
+Objective function
+- Maximize profit P = 12 x + 15 y
+
+Full mathematical model
+Maximize: P = 12x + 15y
+Subject to:
+0.20x + 0.35y ≤ 20
+0.80x + 0.65y ≤ 50
+x ≥ 0, y ≥ 0
+
+Solution (analytic)
+Solve the two constraints as equalities (intersection of the two resource limits):
+0.20x + 0.35y = 20
+0.80x + 0.65y = 50
+
+Solving these gives x = 30 kg, y = 40 kg. This exhausts both resources and is the optimal vertex. Maximum profit = 12·30 + 15·40 = $960.
+
+Suggested Python libraries to solve numerically
+- pulp (recommended, easy modeling for LPs)
+- scipy.optimize.linprog
+- OR-Tools linear solver (ortools.linear_solver)
+- cvxpy (if you want a higher-level convex optimization interface)
+
+Example (pulp)
+from pulp import LpProblem, LpMaximize, LpVariable, value
+
+prob = LpProblem("SnackMix", LpMaximize)
+x = LpVariable("x", lowBound=0)  # first mix kg
+y = LpVariable("y", lowBound=0)  # second mix kg
+
+prob += 12*x + 15*y                    # objective
+prob += 0.2*x + 0.35*y <= 20           # cat paw constraint
+prob += 0.8*x + 0.65*y <= 50           # gold shark constraint
+
+prob.solve()
+print(x.varValue, y.varValue, value(prob.objective))
+
+This will return x=30, y=40, objective=960.
+
+Assumptions
+- Mixes are continuously divisible (any real kg allowed).
+- No other constraints (storage, minimum production, demand limits) apply. If integer kg units or other operational constraints exist, the model should be adjusted (e.g., integer variables).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+import numpy as np
+
+# Coefficients
+# Constraints:
+# 0.20 x + 0.35 y <= 20
+# 0.80 x + 0.65 y <= 50
+A = np.array([[0.20, 0.35],
+              [0.80, 0.65]])
+b = np.array([20.0, 50.0])
+
+# Solve intersection of the two constraints (equality)
+sol = np.linalg.solve(A, b)
+x_int, y_int = float(sol[0]), float(sol[1])
+
+# Other candidate vertices: intersections with axes
+# x = 0 => y = min(20/0.35, 50/0.65)
+y_at_x0 = min(20.0 / 0.35, 50.0 / 0.65)
+# y = 0 => x = min(20/0.20, 50/0.80)
+x_at_y0 = min(20.0 / 0.20, 50.0 / 0.80)
+
+candidates = [
+    (0.0, 0.0),
+    (x_at_y0, 0.0),
+    (0.0, y_at_x0),
+    (x_int, y_int)
+]
+
+# Objective P = 12 x + 15 y
+def objective(x, y):
+    return 12.0 * x + 15.0 * y
+
+best_val = None
+best_point = None
+for x, y in candidates:
+    # Ensure feasibility within tolerance
+    if x < -1e-8 or y < -1e-8:
+        continue
+    if 0.20*x + 0.35*y - 20.0 > 1e-8:
+        continue
+    if 0.80*x + 0.65*y - 50.0 > 1e-8:
+        continue
+    val = objective(x, y)
+    if (best_val is None) or (val > best_val + 1e-9):
+        best_val = val
+        best_point = (x, y)
+
+# Format final objective: if it's effectively an integer, print as int
+if best_val is None:
+    final_value = 0.0
+else:
+    if abs(round(best_val) - best_val) < 1e-8:
+        final_value = int(round(best_val))
+    else:
+        final_value = float(best_val)
+
+print(f"FINAL_OBJ: {final_value}")
+```

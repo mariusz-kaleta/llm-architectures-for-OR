@@ -1,0 +1,163 @@
+[MODELER]:
+Here is a clean mathematical model of the problem and how to solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of gas grills (integer, \(x \ge 0\))
+- \(y\) = number of electric grills (integer, \(y \ge 0\))
+
+---
+
+## 2. Objective
+
+Minimize the total number of grills:
+
+\[
+\min \; z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Production capacity (at least 150 patties per minute)
+
+Each gas grill: 20 patties/min  
+Each electric grill: 30 patties/min  
+
+\[
+20x + 30y \;\ge\; 150
+\]
+
+### b) Oil consumption (at most 140 units per minute)
+
+Each gas grill: 20 units/min  
+Each electric grill: 25 units/min  
+
+\[
+20x + 25y \;\le\; 140
+\]
+
+### c) Preference for gas grills
+
+Number of electric grills must be less than the number of gas grills:
+
+\[
+y < x
+\]
+
+Since we are in an integer setting, this can be written equivalently as:
+
+\[
+y \le x - 1
+\]
+
+### d) Integrality and nonnegativity
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete model
+
+Minimize
+\[
+\quad z = x + y
+\]
+
+subject to
+\[
+\begin{aligned}
+20x + 30y &\ge 150 \\
+20x + 25y &\le 140 \\
+y - x &\le -1 \\
+x, y &\in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a small Integer Linear Programming (ILP) problem.
+
+---
+
+## 5. Suitable Python libraries
+
+Any MILP-capable library will handle this well:
+
+- `PuLP` (pure Python, easy to use, works with CBC/GLPK/Gurobi/CPLEX, etc.)
+- `ortools.linear_solver` (Google OR-Tools, very efficient MILP solver)
+- `mip` (Python-MIP)
+- `python-constraint` (for constraint programming approach, though ILP is more natural here)
+
+For learning and simplicity, `PuLP` is a good choice.
+
+---
+
+## 6. Example formulation in PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("BurgerGrillSelection", pl.LpMinimize)
+
+# Variables (non-negative integers)
+x = pl.LpVariable('gas_grills', lowBound=0, cat='Integer')
+y = pl.LpVariable('electric_grills', lowBound=0, cat='Integer')
+
+# Objective
+prob += x + y, "TotalNumberOfGrills"
+
+# Constraints
+prob += 20*x + 30*y >= 150, "PattiesRequirement"
+prob += 20*x + 25*y <= 140, "OilLimit"
+prob += y <= x - 1,         "ElectricLessThanGas"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal number of gas grills    =", pl.value(x))
+print("Optimal number of electric grills =", pl.value(y))
+print("Minimum total grills =", pl.value(x + y))
+```
+
+This code will produce the optimal numbers of gas and electric grills that minimize the total number of grills while satisfying all constraints.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Problem
+    prob = pl.LpProblem("BurgerGrillSelection", pl.LpMinimize)
+
+    # Variables (non-negative integers)
+    x = pl.LpVariable('gas_grills', lowBound=0, cat='Integer')
+    y = pl.LpVariable('electric_grills', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of grills
+    prob += x + y, "TotalNumberOfGrills"
+
+    # Constraints
+    prob += 20 * x + 30 * y >= 150, "PattiesRequirement"
+    prob += 20 * x + 25 * y <= 140, "OilLimit"
+    prob += y <= x - 1, "ElectricLessThanGas"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    obj_value = pl.value(x + y)
+
+    # Print final objective value as required
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

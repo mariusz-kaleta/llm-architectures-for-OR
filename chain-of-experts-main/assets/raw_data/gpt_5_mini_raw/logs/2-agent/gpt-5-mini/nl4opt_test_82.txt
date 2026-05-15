@@ -1,0 +1,94 @@
+[MODELER]:
+Model type
+- Integer linear program (ILP). Variables are integers (numbers of shifts).
+
+Decision variables
+- B ∈ Z≥0 = number of bike shifts in the month.
+- S ∈ Z≥0 = number of scooter shifts in the month.
+
+Objective
+- Maximize total tips T = 50 B + 43 S.
+
+Constraints
+1. Shift availability: B + S ≤ 40.
+2. Energy budget: 5 B + 6 S ≤ 230.
+3. Orders requirement: 10 B + 7 S ≥ 320.
+4. Minimum scooters: S ≥ 5.
+5. Integrality and nonnegativity: B, S ∈ Z≥0.
+
+Mathematical formulation
+Maximize    T = 50 B + 43 S
+subject to
+  B + S ≤ 40
+  5 B + 6 S ≤ 230
+  10 B + 7 S ≥ 320
+  S ≥ 5
+  B, S ∈ Z≥0
+
+Solution (analysis)
+- Treating the LP relaxations, the objective per bike shift (50) is larger than per scooter shift (43). With the constraints above, the shift-capacity constraint B+S ≤ 40 and the minimum scooter constraint S ≥ 5 together imply the candidate solution S = 5, B = 35 (uses all shifts).
+- Check feasibility:
+  - Energy: 5·35 + 6·5 = 205 ≤ 230 ✓
+  - Orders: 10·35 + 7·5 = 385 ≥ 320 ✓
+- Objective value: T = 50·35 + 43·5 = 1,965.
+- Because increasing S (while keeping B+S = 40) decreases the objective (each bike → scooter trade reduces tips by 7), S = 5, B = 35 is optimal even with integrality enforced.
+
+Optimal schedule
+- Bike shifts B* = 35
+- Scooter shifts S* = 5
+- Maximum tips = $1,965
+
+Recommended Python libraries to solve this
+- pulp (pure-Python modeling + CBC solver; easy for small ILPs)
+- OR-Tools (CP-SAT solver; very fast for integer programs)
+- if you only wanted continuous relaxation: scipy.optimize.linprog
+
+Example (pulp) outline
+- Define LpVariable B and S as integer nonnegatives.
+- Add constraints as above.
+- Set LpMaximize objective 50*B + 43*S.
+- Solve with default CBC solver.
+
+If you want, I can provide a short runnable pulp or OR-Tools script that sets up and solves this ILP.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained script to solve the ILP by enumeration
+# Decision variables:
+#   B >= 0 integer (bike shifts)
+#   S >= 5 integer (scooter shifts)
+# Objective: maximize T = 50 B + 43 S
+# Constraints:
+#   B + S <= 40
+#   5 B + 6 S <= 230
+#   10 B + 7 S >= 320
+
+best_obj = None
+best_B = None
+best_S = None
+
+# B+S <= 40 and B,S >= 0 so B and S in [0,40]
+for S in range(5, 41):  # S >= 5
+    for B in range(0, 41 - S + 1):  # ensure B+S <= 40; +1 to include 40-S
+        if B + S > 40:
+            continue
+        if 5 * B + 6 * S > 230:
+            continue
+        if 10 * B + 7 * S < 320:
+            continue
+        obj = 50 * B + 43 * S
+        if (best_obj is None) or (obj > best_obj):
+            best_obj = obj
+            best_B = B
+            best_S = S
+
+# Verify we found a feasible solution
+if best_obj is None:
+    # No feasible solution; print zero objective (or could raise)
+    best_obj = 0
+
+# Print final objective in required format
+print(f"FINAL_OBJ: {best_obj}")
+```

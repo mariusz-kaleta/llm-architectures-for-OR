@@ -1,0 +1,105 @@
+[MONOLITH]:
+```python
+# Optimization for the pool chemical addition problem
+# We will formulate and solve two interpretations of the ambiguous "half as much" constraint:
+# Interpretation A: chlorine <= 0.5 * softener  (C <= 0.5*S)
+# Interpretation B: chlorine >= 0.5 * softener  (C >= 0.5*S)
+#
+# Decision variables:
+#   C = units of chlorine
+#   S = units of water softener
+#
+# Common constraints:
+#   C + S = 500
+#   C >= 200
+#   C, S >= 0
+#
+# Objective (to minimize): total time = 1*C + 2*S
+#
+# The script solves both LPs (if feasible) and reports solutions. At the very end it prints
+# the final objective value in the required format.
+
+import pulp
+
+# Problem data (directly initialized)
+TOTAL_UNITS = 500
+MIN_CHLORINE = 200
+
+def solve_problem(chlorine_vs_softener_relation):
+    # chlorine_vs_softener_relation: string 'leq' for C <= 0.5*S or 'geq' for C >= 0.5*S
+    prob = pulp.LpProblem("Pool_Chemicals_MinTime", pulp.LpMinimize)
+    C = pulp.LpVariable("Chlorine", lowBound=0, cat="Continuous")
+    S = pulp.LpVariable("Softener", lowBound=0, cat="Continuous")
+
+    # Objective: minimize total time
+    prob += 1.0 * C + 2.0 * S
+
+    # Constraints
+    prob += C + S == TOTAL_UNITS
+    prob += C >= MIN_CHLORINE
+    if chlorine_vs_softener_relation == 'leq':
+        prob += C <= 0.5 * S
+    elif chlorine_vs_softener_relation == 'geq':
+        prob += C >= 0.5 * S
+    else:
+        raise ValueError("relation must be 'leq' or 'geq'")
+
+    # Solve
+    solver = pulp.PULP_CBC_CMD(msg=False)
+    prob.solve(solver)
+
+    status = pulp.LpStatus[prob.status]
+    result = None
+    if status == 'Optimal':
+        c_val = pulp.value(C)
+        s_val = pulp.value(S)
+        obj = pulp.value(prob.objective)
+        result = {'relation': chlorine_vs_softener_relation, 'C': c_val, 'S': s_val, 'obj': obj}
+    else:
+        result = {'relation': chlorine_vs_softener_relation, 'status': status}
+
+    return result
+
+# Solve both interpretations
+res_leq = solve_problem('leq')   # C <= 0.5*S (original literal reading)
+res_geq = solve_problem('geq')   # C >= 0.5*S (alternate reading)
+
+feasible_results = []
+for r in (res_leq, res_geq):
+    if r is not None and r.get('obj') is not None:
+        feasible_results.append(r)
+
+# Display results for both interpretations
+print("Interpretation A (C <= 0.5*S):")
+if res_leq.get('obj') is not None:
+    print(f"  Chlorine = {res_leq['C']:.6f}, Softener = {res_leq['S']:.6f}, Total time = {res_leq['obj']:.6f}")
+else:
+    print(f"  Infeasible or no optimal solution (status: {res_leq.get('status')}).")
+
+print("Interpretation B (C >= 0.5*S):")
+if res_geq.get('obj') is not None:
+    print(f"  Chlorine = {res_geq['C']:.6f}, Softener = {res_geq['S']:.6f}, Total time = {res_geq['obj']:.6f}")
+else:
+    print(f"  Infeasible or no optimal solution (status: {res_geq.get('status')}).")
+
+# Choose best (minimum time) among feasible interpretations
+if feasible_results:
+    best = min(feasible_results, key=lambda x: x['obj'])
+    final_value = best['obj']
+    # Also print chosen interpretation details
+    print("\nChosen (best) feasible interpretation and solution:")
+    if best['relation'] == 'leq':
+        rel_text = "C <= 0.5 * S"
+    else:
+        rel_text = "C >= 0.5 * S"
+    print(f"  Relation used: {rel_text}")
+    print(f"  Chlorine = {best['C']:.6f}")
+    print(f"  Softener = {best['S']:.6f}")
+    print(f"  Minimum total time = {best['obj']:.6f}")
+else:
+    final_value = "INFEASIBLE"
+    print("\nNo feasible solution found for either interpretation.")
+
+# Final required print in exact format
+print(f"FINAL_OBJ: {final_value}")
+```

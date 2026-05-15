@@ -1,0 +1,131 @@
+[MODELER]:
+Define decision variables:
+
+- \(x\): number of Zodiac pills taken per day  
+- \(y\): number of Sunny pills taken per day  
+
+Both must be nonnegative, and since they are pills, in practice they should be integers (but the basic LP treats them as continuous).
+
+Objective (minimize daily cost):
+
+\[
+\min \; C = 1x + 3y
+\]
+
+Z1 requirement (at least 5 grams):
+
+Each Zodiac pill has 1.3 g Z1, each Sunny pill has 1.2 g Z1, so:
+
+\[
+1.3x + 1.2y \;\ge\; 5
+\]
+
+D3 requirement (at least 10 grams):
+
+Each Zodiac pill has 1.5 g D3, each Sunny pill has 5 g D3, so:
+
+\[
+1.5x + 5y \;\ge\; 10
+\]
+
+Nonnegativity:
+
+\[
+x \ge 0, \quad y \ge 0
+\]
+
+If you want to enforce whole pills (integer solution):
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+So the LP model is:
+
+\[
+\begin{aligned}
+\min \quad & x + 3y \\
+\text{s.t.} \quad 
+& 1.3x + 1.2y \ge 5 \\
+& 1.5x + 5y \ge 10 \\
+& x, y \ge 0 \quad (\text{and optionally integer})
+\end{aligned}
+\]
+
+Suitable Python libraries to solve this:
+
+- For pure LP (continuous \(x,y\)):  
+  - `scipy.optimize.linprog`  
+  - `pulp`  
+  - `ortools.linear_solver` (GLOP or CLP)
+
+- If you want integer solutions (whole pills):  
+  - `pulp`  
+  - `ortools.linear_solver` with MIP (CBC, SCIP, or CP-SAT)
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import numpy as np
+from scipy.optimize import linprog
+
+def solve_continuous_lp():
+    # Objective: minimize x + 3y
+    c = np.array([1.0, 3.0])
+
+    # Constraints are given as:
+    # 1.3x + 1.2y >= 5  ->  -1.3x - 1.2y <= -5
+    # 1.5x + 5y >= 10   ->  -1.5x - 5y <= -10
+    A_ub = np.array([
+        [-1.3, -1.2],
+        [-1.5, -5.0]
+    ])
+    b_ub = np.array([-5.0, -10.0])
+
+    # Bounds: x >= 0, y >= 0
+    bounds = [(0, None), (0, None)]
+
+    res = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method='highs')
+    if not res.success:
+        raise RuntimeError("Continuous LP did not converge")
+
+    return res.x, res.fun
+
+def solve_integer_version():
+    # Brute-force over a reasonable range of pills, using the continuous solution as a guide.
+    # From constraints, rough upper bounds can be estimated.
+    # If y = 0: 1.3x >= 5 -> x >= ~3.85; 1.5x >=10 -> x >= ~6.67 => x up to, say, 20.
+    # If x = 0: 1.2y >= 5 -> y >= ~4.17; 5y >=10 -> y >=2 => y up to, say, 20.
+    best_cost = None
+    best_x, best_y = None, None
+
+    max_x = 50
+    max_y = 50
+
+    for x in range(max_x + 1):
+        for y in range(max_y + 1):
+            if 1.3 * x + 1.2 * y >= 5 and 1.5 * x + 5 * y >= 10:
+                cost = x + 3 * y
+                if best_cost is None or cost < best_cost:
+                    best_cost = cost
+                    best_x, best_y = x, y
+
+    if best_cost is None:
+        raise RuntimeError("No feasible integer solution found in search range")
+
+    return (best_x, best_y), best_cost
+
+if __name__ == "__main__":
+    # Solve continuous LP
+    (x_cont, y_cont), obj_cont = solve_continuous_lp()
+
+    # Solve integer version
+    (x_int, y_int), obj_int = solve_integer_version()
+
+    # Here we choose which objective to report as FINAL_OBJ.
+    # The problem mainly describes the LP; we'll output the continuous optimum.
+    value = obj_cont
+
+    print(f"Continuous optimum: x = {x_cont:.4f}, y = {y_cont:.4f}, cost = {obj_cont:.4f}")
+    print(f"Integer optimum:   x = {x_int}, y = {y_int}, cost = {obj_int}")
+    print(f"FINAL_OBJ: {value}")

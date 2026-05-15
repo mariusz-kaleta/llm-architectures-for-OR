@@ -1,0 +1,77 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- g ∈ Z, g ≥ 0 : number of glass bottles
+- p ∈ Z, p ≥ 0 : number of plastic bottles
+
+Objective
+- Maximize total number of bottles: maximize Z = g + p
+
+Constraints
+1. Capacity (water) constraint:
+   500 g + 750 p ≤ 250000  (ml)
+
+2. Plastic at least three times glass:
+   p ≥ 3 g
+
+3. Minimum glass bottles:
+   g ≥ 20
+
+(Implicit) integrality:
+   g, p are integers.
+
+Remarks: this is a small integer linear program (MILP).
+
+Analytical solution sketch
+- For fixed g, to maximize g + p you should take p as large as allowed by the capacity:
+  p_max(g) = floor((250000 − 500 g)/750).
+- Feasibility requires p_max(g) ≥ 3 g.
+- Evaluate g from 20 up to floor(250000/500)=500 and compute p = p_max(g) when feasible; pick the pair with largest g + p.
+
+Solving this yields an optimal total of 363 bottles. Two feasible integer solutions attain this maximum (both satisfy p ≥ 3g and the capacity):
+- g = 90 glass bottles, p = 273 plastic bottles (90 + 273 = 363), or
+- g = 89 glass bottles, p = 274 plastic bottles (89 + 274 = 363).
+
+(There is no feasible integer solution with more than 363 bottles.)
+
+Recommended software/libraries
+- For MILP: PuLP (with default CBC), OR-Tools (CP-SAT), Pyomo (with solvers like CBC/Gurobi), or commercial solvers (Gurobi, CPLEX) if available.
+- For enumeration or small custom search: pure Python is fine.
+- scipy.optimize is not suitable for integer programming directly.
+
+Example (PuLP) snippet
+- Define variables g,p as LpInteger, add constraints shown above, set objective g+p, and solve with the default solver (CBC). This will return one of the optimal integer solutions (e.g., g=90, p=273).
+
+---
+
+[CODER]:
+import math
+
+# Data
+capacity_ml = 250000
+glass_min = 20
+glass_capacity_ml = 500
+plastic_capacity_ml = 750
+
+# Search for optimal integer solution
+g_max = capacity_ml // glass_capacity_ml
+best_total = -1
+best_solutions = []
+
+for g in range(glass_min, g_max + 1):
+    remaining_ml = capacity_ml - glass_capacity_ml * g
+    if remaining_ml < 0:
+        continue
+    p_max = remaining_ml // plastic_capacity_ml
+    if p_max >= 3 * g:
+        total = g + p_max
+        if total > best_total:
+            best_total = total
+            best_solutions = [(g, p_max)]
+        elif total == best_total:
+            best_solutions.append((g, p_max))
+
+# Optionally, best_solutions contains [(90,273),(89,274)]
+# Print final objective value as required
+print(f"FINAL_OBJ: {best_total}")

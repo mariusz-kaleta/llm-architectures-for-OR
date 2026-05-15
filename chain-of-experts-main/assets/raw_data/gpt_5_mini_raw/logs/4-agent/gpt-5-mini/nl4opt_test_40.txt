@@ -1,0 +1,164 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Minimise the firm’s weekly wage bill.
+
+2. Suggested model type
+- Model: Linear programming with integer decision variables (Mixed Integer Linear Program, MILP). Use integer variables because accountants are indivisible; you may check the continuous LP relaxation first for quick insight.
+
+3. Main decision variables
+- Number of senior accountants (integer, >= 0).
+- Number of junior accountants (integer, >= 0).
+
+- Implicit auxiliary quantity (for reporting/constraints): weekly wage bill (computed as 3000 * #seniors + 1000 * #juniors).
+
+4. Key constraints to consider (describe in words)
+- Total-staff requirement: the sum of senior and junior accountants must be at least 100.
+- Minimum seniors: at least 5 senior accountants must be employed.
+- Experience ratio: the number of senior accountants must be at least one third of the number of junior accountants (i.e., seniors >= 1/3 * juniors). This enforces sufficient experienced staff relative to juniors.
+- Wage-cap: the weekly wage bill (3000 per senior + 1000 per junior) must remain below or equal to $150,000.
+- Non-negativity and integrality: both staff counts must be non-negative integers.
+
+Modeller notes / suggestions
+- Objective function (for implementation): minimize the computed wage bill (3000*seniors + 1000*juniors).
+- Check feasibility before solving: confirm that the combination of ratio, minimum total, and wage-cap allows at least one feasible integer solution.
+- Solver choice: use an LP/MILP solver (e.g., CBC, Gurobi, CPLEX, or open-source solvers). If integers are required, run as MILP; you can solve the LP relaxation first to get bounds/insight.
+- Reporting: return the optimal counts of seniors and juniors, the resulting wage bill, and which constraints are binding at optimum.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- S ∈ Z≥0 : number of senior accountants.
+- J ∈ Z≥0 : number of junior accountants.
+
+Objective
+- Minimise weekly wage bill:
+  minimize z = 3000 S + 1000 J
+
+Constraints
+1. Total staff requirement:
+   S + J ≥ 100
+2. Minimum seniors:
+   S ≥ 5
+3. Experience ratio (seniors at least one third of juniors):
+   S ≥ (1/3) J  ⇔  3 S − J ≥ 0
+4. Wage cap:
+   3000 S + 1000 J ≤ 150000
+5. Integrality and non-negativity:
+   S, J ∈ Z≥0
+
+Feasibility check
+- From constraint 3, J ≤ 3S. Substitute in 1: S + J ≥ 100 and J ≤ 3S ⇒ S + 3S ≥ 100 ⇒ S ≥ 25. This satisfies S ≥ 5 automatically, so the minimal feasible integer S is 25. Setting S = 25 gives minimum J to satisfy total-staff as J = 100 − 25 = 75, which also satisfies J ≤ 3S (75 ≤ 75). The wage bill is 3000·25 + 1000·75 = 150000, which satisfies the wage-cap exactly. So the problem is feasible.
+
+Optimal solution (analytic)
+- S* = 25 seniors
+- J* = 75 juniors
+- Minimum weekly wage bill z* = $150,000
+
+Binding constraints at optimum
+- Total staff: S + J = 100 (binding)
+- Experience ratio: 3S − J = 0 (binding)
+- Wage cap: 3000S + 1000J = 150000 (binding)
+- Minimum seniors S ≥ 5 is not binding.
+
+Notes on LP relaxation
+- The LP relaxation (S, J continuous, ≥0) yields the same corner solution (25,75), so integer integrality does not change the optimum in this case.
+
+Suggested solvers / Python libraries
+- PuLP (with default CBC) — easy to model MILP.
+- OR-Tools CP-SAT — fast for integer programs.
+- CVXOPT / CVXPY with a MILP backend (GLPK_MI).
+- Commercial: Gurobi or CPLEX (if available).
+
+Example (PuLP) — straightforward implementation
+- Create integer LpVariables S and J.
+- Add the four constraints and the objective.
+- Solve with pulp.PULP_CBC_CMD() and report S, J, objective value.
+- To inspect which constraints are binding, compute left-hand minus right-hand for each constraint (zero means binding).
+
+If you want, I can provide the exact PuLP code snippet and show solver output and slack checks.
+
+---
+
+[CODER]:
+import math
+
+# Try using PuLP; if not available, fall back to brute-force search
+try:
+    import pulp
+
+    # Define problem
+    prob = pulp.LpProblem("Accountants_Staffing", pulp.LpMinimize)
+
+    # Decision variables: integers >= 0
+    S = pulp.LpVariable("S", lowBound=0, cat="Integer")
+    J = pulp.LpVariable("J", lowBound=0, cat="Integer")
+
+    # Objective: minimize weekly wage bill
+    prob += 3000 * S + 1000 * J, "WageBill"
+
+    # Constraints
+    prob += S + J >= 100
+    prob += S >= 5
+    prob += 3 * S - J >= 0
+    prob += 3000 * S + 1000 * J <= 150000
+
+    # Solve with default CBC solver (quiet)
+    solver = pulp.PULP_CBC_CMD(msg=False)
+    prob.solve(solver)
+
+    status = pulp.LpStatus.get(prob.status, str(prob.status))
+    S_val = int(round(pulp.value(S)))
+    J_val = int(round(pulp.value(J)))
+    obj_val = pulp.value(prob.objective)
+
+except Exception:
+    # Fallback brute-force search
+    best_obj = float("inf")
+    best_S = None
+    best_J = None
+
+    # Bounds: from wage cap S <= 150000/3000 = 50
+    for S_candidate in range(0, 51):
+        # From experience ratio J <= 3S
+        max_J = min(150, 3 * S_candidate)  # cap J search to reasonable number
+        for J_candidate in range(0, max_J + 1):
+            # Constraints
+            if S_candidate + J_candidate < 100:
+                continue
+            if S_candidate < 5:
+                continue
+            if 3 * S_candidate - J_candidate < 0:
+                continue
+            if 3000 * S_candidate + 1000 * J_candidate > 150000:
+                continue
+            obj = 3000 * S_candidate + 1000 * J_candidate
+            if obj < best_obj:
+                best_obj = obj
+                best_S = S_candidate
+                best_J = J_candidate
+
+    S_val = best_S
+    J_val = best_J
+    obj_val = best_obj
+    status = "FallbackBruteForce"
+
+# Clean up objective for printing: if very close to integer, make it int
+if obj_val is None:
+    obj_print = None
+else:
+    if abs(obj_val - round(obj_val)) < 1e-6:
+        obj_print = int(round(obj_val))
+    else:
+        # limit to 6 decimal places if not integer
+        obj_print = float(round(obj_val, 6))
+
+# Optional prints (not the final required line)
+print(f"S = {S_val}")
+print(f"J = {J_val}")
+print(f"Status = {status}")
+
+# Final required print line (must be the last line)
+print(f"FINAL_OBJ: {obj_print}")

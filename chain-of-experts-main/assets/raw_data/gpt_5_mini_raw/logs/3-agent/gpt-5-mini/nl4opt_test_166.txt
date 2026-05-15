@@ -1,0 +1,96 @@
+[MODELER]:
+Model
+
+Decision variables
+- x ∈ Z≥0 : number of taxi rides
+- y ∈ Z≥0 : number of company car rides
+
+Constraints
+1. Capacity (transport at least 500 employees):
+   2x + 3y ≥ 500
+2. At most 60% of rides can be company cars. The ratio constraint y/(x+y) ≤ 0.6 is linearized:
+   y ≤ 0.6(x + y)  ⇔  0.4y ≤ 0.6x  ⇔  2y ≤ 3x  ⇔  3x − 2y ≥ 0
+3. At least 30 company car rides:
+   y ≥ 30
+4. Integrality and nonnegativity:
+   x, y integers ≥ 0
+
+Objective
+- Minimize the total number of taxi rides x.
+
+Mathematical formulation
+Minimize x
+subject to
+  2x + 3y ≥ 500
+  3x − 2y ≥ 0
+  y ≥ 30
+  x, y ∈ Z≥0
+
+Solution (analysis + result)
+For a given y, the smallest feasible x must satisfy both:
+  x ≥ (500 − 3y)/2  (capacity)
+  x ≥ (2/3) y        (proportion)
+so x = max( ceil((500 − 3y)/2), ceil((2/3) y), 0 ).
+
+The two lower bounds are equal when y = 1500/13 ≈ 115.3846. Checking integer y around that gives the smallest possible x = 78. In particular:
+- y = 115 ⇒ x ≥ ceil((500 − 3·115)/2) = ceil(155/2) = 78, and ceil((2/3)·115)=77, so x = 78 is feasible. This yields 2·78 + 3·115 = 501 employees and 115/(78+115) ≈ 0.596 ≤ 0.6.
+- y = 116 ⇒ x = 78 also feasible.
+- y = 117 ⇒ x = 78 also feasible.
+
+Thus the minimum possible number of taxi rides is x* = 78. There are three feasible y values achieving this (115, 116, 117). If you prefer the solution that also minimizes the total number of rides, choose the smallest y among them: y* = 115.
+
+Recommended answer
+- Taxi rides x = 78
+- Company car rides y = 115
+(This transports 501 employees and meets the 60% limit; it minimizes taxi rides and among optimal choices minimizes total rides.)
+
+Suggested solvers / libraries
+- pulp (Python) — integer linear programming, easy to use
+- OR-Tools (Google) — CP-SAT solver or linear solver for integer problems
+- gurobipy or CPLEX Python API — commercial solvers if available
+
+Example (pulp) implementation
+(Outline — can be run in Python)
+from pulp import LpProblem, LpVariable, LpMinimize, LpInteger, lpSum, value, PULP_CBC_CMD
+
+prob = LpProblem('rides', LpMinimize)
+x = LpVariable('x', lowBound=0, cat=LpInteger)
+y = LpVariable('y', lowBound=0, cat=LpInteger)
+prob += x
+prob += 2*x + 3*y >= 500
+prob += 3*x - 2*y >= 0
+prob += y >= 30
+prob.solve(PULP_CBC_CMD(msg=False))
+print(value(x), value(y))
+
+This returns x = 78 and y = 115 (or 116 or 117; the solver may pick one).
+
+---
+
+[CODER]:
+```python
+import math
+
+def ceil_div(a: int, b: int) -> int:
+    """Ceiling division for integers (handles negatives correctly)."""
+    return -((-a) // b)
+
+best_x = None
+best_y = None
+
+# Search feasible y values (y >= 30). Upper bound large enough to capture optimum.
+for y in range(30, 1001):
+    # minimal x from capacity: x >= (500 - 3y)/2
+    x_cap = ceil_div(500 - 3 * y, 2)
+    # minimal x from proportion: x >= (2/3) y
+    x_prop = ceil_div(2 * y, 3)
+    x_req = max(x_cap, x_prop, 0)
+    # Verify feasibility
+    if 2 * x_req + 3 * y >= 500 and 3 * x_req - 2 * y >= 0 and y >= 30:
+        if best_x is None or x_req < best_x or (x_req == best_x and y < best_y):
+            best_x = x_req
+            best_y = y
+
+# Print final objective value (minimum number of taxi rides)
+print(f"FINAL_OBJ: {best_x}")
+```

@@ -1,0 +1,228 @@
+[MODELER]:
+Interpret this as an optimization problem:
+
+- We choose how many palladium‑heavy and platinum‑heavy catalysts to build/use.
+- Each uses some amount of platinum and palladium.
+- We have limited platinum and palladium.
+- Each catalyst yields a certain conversion rate (units CO₂ per second).
+- We want to maximize the total conversion rate.
+
+Let’s formulate it.
+
+## Decision variables
+
+Let
+
+- \(x\) = number of palladium‑heavy catalysts used  
+- \(y\) = number of platinum‑heavy catalysts used  
+
+Assume \(x, y \ge 0\) and can be real (continuous) unless the problem explicitly requires integer numbers; if they must be whole catalysts, we’ll add integrality.
+
+## Resource usage and constraints
+
+From the description:
+
+- Palladium‑heavy:
+  - uses 15 units of platinum
+  - uses 25 units of palladium
+  - conversion rate = 5 units/s
+
+- Platinum‑heavy:
+  - uses 20 units of platinum
+  - uses 14 units of palladium
+  - conversion rate = 4 units/s
+
+Available:
+
+- Platinum: 450 units
+- Palladium: 390 units
+
+So the resource constraints are:
+
+1. Platinum constraint  
+   \(15x + 20y \le 450\)
+
+2. Palladium constraint  
+   \(25x + 14y \le 390\)
+
+3. Nonnegativity  
+   \(x \ge 0,\; y \ge 0\)
+
+(If integer solutions are required: \(x, y \in \mathbb{Z}_{\ge 0}\).)
+
+## Objective function
+
+Total conversion rate (units per second) is:
+
+\[
+\text{rate} = 5x + 4y
+\]
+
+We want to maximize this:
+
+\[
+\max_{x, y} \; 5x + 4y
+\]
+
+Subject to:
+
+\[
+\begin{aligned}
+15x + 20y &\le 450 \\
+25x + 14y &\le 390 \\
+x &\ge 0 \\
+y &\ge 0
+\end{aligned}
+\]
+
+(and optionally \(x,y\) integer).
+
+## Solving analytically (continuous version)
+
+Check corner points of the feasible region:
+
+1. Intersection with axes:
+
+   - If \(x = 0\):
+     - \(20y \le 450 \Rightarrow y \le 22.5\)
+     - \(14y \le 390 \Rightarrow y \le 27.857...\)
+     ⇒ feasible max on this axis: \((x,y) = (0, 22.5)\)  
+     Objective: \(5\cdot 0 + 4\cdot 22.5 = 90\)
+
+   - If \(y = 0\):
+     - \(15x \le 450 \Rightarrow x \le 30\)
+     - \(25x \le 390 \Rightarrow x \le 15.6\)
+     ⇒ feasible max on this axis: \((x,y) = (15.6, 0)\)  
+     Objective: \(5\cdot 15.6 + 4\cdot 0 = 78\)
+
+2. Intersection of the two resource constraints:
+
+\[
+\begin{cases}
+15x + 20y = 450 \\
+25x + 14y = 390
+\end{cases}
+\]
+
+Solve:
+
+- From first: \(x = 30 - \tfrac{4}{3}y\)
+- Substitute in second:
+  \[
+  25\left(30 - \tfrac{4}{3}y\right) + 14y = 390
+  \]
+  \[
+  750 - \tfrac{100}{3}y + 14y = 390
+  \]
+  \[
+  750 - \tfrac{58}{3}y = 390
+  \Rightarrow \tfrac{58}{3}y = 360
+  \Rightarrow y = \frac{360 \cdot 3}{58} = \frac{1080}{58} = \frac{540}{29} \approx 18.62
+  \]
+  Then
+  \[
+  x = 30 - \tfrac{4}{3} \cdot \frac{540}{29}
+    = 30 - \frac{2160}{87}
+    = \frac{2610}{87} - \frac{2160}{87}
+    = \frac{450}{87} = \frac{150}{29} \approx 5.17
+  \]
+
+Objective at this point:
+
+\[
+5x + 4y
+= 5\cdot\frac{150}{29} + 4\cdot\frac{540}{29}
+= \frac{750}{29} + \frac{2160}{29}
+= \frac{2910}{29} \approx 100.34
+\]
+
+Compare objective values:
+
+- (0, 22.5): 90
+- (15.6, 0): 78
+- \((150/29, 540/29)\): ≈ 100.34
+
+So the maximum is at the intersection:
+
+- \(x = 150/29 ≈ 5.17\)
+- \(y = 540/29 ≈ 18.62\)
+
+If you need integer numbers of catalysts, you would solve the same model as an integer program and get the best integer pair near this point (e.g., by an ILP solver).
+
+## Recommended Python tools
+
+This is a linear programming problem; suitable libraries:
+
+- `PuLP` (very simple syntax for LP/MILP)
+- `ortools.linear_solver` (from Google OR-Tools)
+- `cvxpy` (general convex optimization, easily handles LPs)
+- `scipy.optimize.linprog` (for continuous LP only, not integer)
+
+### Example with PuLP (continuous)
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Catalyst_Selection", pl.LpMaximize)
+
+# Decision variables (continuous, >= 0)
+x = pl.LpVariable('x_palladium_heavy', lowBound=0)
+y = pl.LpVariable('y_platinum_heavy', lowBound=0)
+
+# Objective: maximize 5x + 4y
+prob += 5 * x + 4 * y
+
+# Constraints
+prob += 15 * x + 20 * y <= 450   # platinum
+prob += 25 * x + 14 * y <= 390   # palladium
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("x (palladium-heavy) =", x.value())
+print("y (platinum-heavy) =", y.value())
+print("Max conversion rate =", pl.value(prob.objective))
+```
+
+To enforce integer numbers of catalysts, change the variable declarations to:
+
+```python
+x = pl.LpVariable('x_palladium_heavy', lowBound=0, cat='Integer')
+y = pl.LpVariable('y_platinum_heavy', lowBound=0, cat='Integer')
+```
+
+This fully specifies the mathematical model and how to solve it programmatically.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define problem: maximize total conversion rate
+    prob = pl.LpProblem("Catalyst_Selection", pl.LpMaximize)
+
+    # Decision variables: number of palladium-heavy (x) and platinum-heavy (y) catalysts
+    x = pl.LpVariable('x_palladium_heavy', lowBound=0)
+    y = pl.LpVariable('y_platinum_heavy', lowBound=0)
+
+    # Objective function: 5x + 4y
+    prob += 5 * x + 4 * y
+
+    # Constraints
+    prob += 15 * x + 20 * y <= 450   # Platinum constraint
+    prob += 25 * x + 14 * y <= 390   # Palladium constraint
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print result as required
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

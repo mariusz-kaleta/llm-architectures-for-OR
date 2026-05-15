@@ -1,0 +1,44 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization (from problem statement)
+profit_mix1 = 12   # $ per kg for first mix
+profit_mix2 = 15   # $ per kg for second mix
+
+# Composition (fractions)
+catpaw_frac_mix1 = 0.20
+goldshark_frac_mix1 = 0.80
+
+catpaw_frac_mix2 = 0.35
+goldshark_frac_mix2 = 0.65
+
+# Available resources (kg)
+catpaw_available = 20.0
+goldshark_available = 50.0
+
+# Decision variables: kg of each mix to produce
+prob = pulp.LpProblem("Snack_Mix_Profit_Maximization", pulp.LpMaximize)
+x1 = pulp.LpVariable("mix1_kg", lowBound=0, cat='Continuous')  # first mix
+x2 = pulp.LpVariable("mix2_kg", lowBound=0, cat='Continuous')  # second mix
+
+# Objective: maximize profit
+prob += profit_mix1 * x1 + profit_mix2 * x2
+
+# Resource constraints
+prob += catpaw_frac_mix1 * x1 + catpaw_frac_mix2 * x2 <= catpaw_available, "CatPawConstraint"
+prob += goldshark_frac_mix1 * x1 + goldshark_frac_mix2 * x2 <= goldshark_available, "GoldSharkConstraint"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Results
+mix1_qty = x1.varValue if x1.varValue is not None else 0.0
+mix2_qty = x2.varValue if x2.varValue is not None else 0.0
+objective_value = pulp.value(prob.objective)
+
+print(f"Optimal kg of first mix (20% cat paw, 80% gold shark): {mix1_qty}")
+print(f"Optimal kg of second mix (35% cat paw, 65% gold shark): {mix2_qty}")
+print(f"Maximum profit: ${objective_value}")
+
+# Final required output line (must be the last line)
+print(f"FINAL_OBJ: {objective_value}")

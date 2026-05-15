@@ -1,0 +1,133 @@
+[MODELER]:
+Let’s model this as a linear optimization problem.
+
+### 1. Decision variables
+
+Let  
+- \(x\) = number of bags of subsoil  
+- \(y\) = number of bags of topsoil  
+
+Both should be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+### 2. Objective function
+
+We want to minimize the total daily water required.
+
+- Each bag of subsoil uses 10 units of water.
+- Each bag of topsoil uses 6 units of water.
+
+Total water:
+\[
+\text{Water}(x,y) = 10x + 6y
+\]
+Objective:
+\[
+\min\ 10x + 6y
+\]
+
+### 3. Constraints
+
+1. **Truck capacity (total bags limit):**  
+   At most 150 bags total:
+   \[
+   x + y \le 150
+   \]
+
+2. **Minimum amount of topsoil:**  
+   At least 10 bags of topsoil:
+   \[
+   y \ge 10
+   \]
+
+3. **Topsoil proportion constraint:**  
+   At most 30% of all bags can be topsoil:  
+   \[
+   y \le 0.3(x + y)
+   \]
+   Rearranging:
+   \[
+   y \le 0.3x + 0.3y
+   \]
+   \[
+   y - 0.3y \le 0.3x
+   \]
+   \[
+   0.7y \le 0.3x
+   \]
+   \[
+   y \le \frac{3}{7}x
+   \]
+
+4. **Integrality (if bags must be whole numbers):**  
+   \[
+   x, y \in \mathbb{Z}
+   \]
+
+This is a (mixed) integer linear program (ILP).
+
+### 4. Modeling discussion and solution structure
+
+- The water per bag is higher for subsoil (10) than for topsoil (6).
+- But topsoil is limited by the “at most 30% of all bags” constraint, not by water.
+- To minimize water, it is advantageous to use as much topsoil as allowed, because it uses less water per bag, subject to:
+  - \(y \ge 10\),
+  - \(y \le \frac{3}{7}x\),
+  - \(x + y \le 150\).
+
+A solver will find the exact optimal \((x, y)\) under these linear constraints.
+
+### 5. Suitable Python libraries
+
+To implement and solve this model in Python, appropriate libraries include:
+
+- **PuLP**  
+  - Easy modeling of linear and integer programs.
+  - Integrates with CBC (default), GLPK, CPLEX, Gurobi, etc.
+  - Good for educational and small/medium-size problems.
+
+- **OR-Tools (Google OR-Tools)**  
+  - Very efficient for integer programming.
+  - Python interface with CP-SAT and MIP solvers.
+  - Recommended if you want performance and a powerful solver.
+
+- **SciPy (`scipy.optimize.linprog`)**  
+  - Suitable for continuous linear programming (no integrality).
+  - If you relax integrality and allow fractional bags (not realistic here), `linprog` solves the LP efficiently.
+
+For this “bags” problem (where integer solutions are natural), **PuLP** or **OR-Tools** is most appropriate.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+# Create the problem: minimize total water
+prob = pulp.LpProblem("Soil_Water_Minimization", pulp.LpMinimize)
+
+# Decision variables: x = subsoil bags, y = topsoil bags (integers, nonnegative)
+x = pulp.LpVariable('x', lowBound=0, cat='Integer')
+y = pulp.LpVariable('y', lowBound=0, cat='Integer')
+
+# Objective function: minimize 10x + 6y
+prob += 10 * x + 6 * y
+
+# Constraints
+# 1) Truck capacity
+prob += x + y <= 150
+
+# 2) Minimum topsoil
+prob += y >= 10
+
+# 3) Proportion constraint y <= (3/7) x
+prob += y <= (3.0 / 7.0) * x
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract optimal objective value
+final_obj = pulp.value(prob.objective)
+
+print(f"FINAL_OBJ: {final_obj}")

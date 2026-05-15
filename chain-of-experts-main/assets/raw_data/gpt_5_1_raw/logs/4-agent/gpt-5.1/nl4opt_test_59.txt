@@ -1,0 +1,231 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximise total electricity produced from the two experiments, subject to limited metal and acid.
+
+2. Suggested model type  
+Model: Linear Programming (LP) – simple, continuous decision variables.  
+(If the scientist must run whole experiments only, then it becomes an Integer Linear Program, but start with continuous LP.)
+
+3. Main decision variables  
+Define non‑negative decision variables representing how many times each experiment is run:
+
+- Variable A: Number of times experiment alpha is conducted.  
+- Variable B: Number of times experiment beta is conducted.
+
+4. Objective function (conceptual)  
+Total electricity produced:
+
+- Experiment alpha: produces 8 units per run → contributes 8·A.  
+- Experiment beta: produces 10 units per run → contributes 10·B.
+
+Objective: Maximise 8·A + 10·B.
+
+5. Key constraints to consider  
+
+a) Metal availability  
+- Each alpha uses 3 units of metal.  
+- Each beta uses 5 units of metal.  
+- Total metal used cannot exceed 800 units.
+
+Strategic constraint:  
+3·A + 5·B ≤ 800.
+
+b) Acid availability  
+- Each alpha uses 5 units of acid.  
+- Each beta uses 4 units of acid.  
+- Total acid used cannot exceed 750 units.
+
+Strategic constraint:  
+5·A + 4·B ≤ 750.
+
+c) Non‑negativity  
+- Cannot run a negative number of experiments.
+
+Constraints:  
+A ≥ 0, B ≥ 0.
+
+d) (Optional) Integrality  
+- If the context requires whole experiments only, add:  
+A and B are integers.  
+Otherwise, allow them to be real numbers for a standard LP.
+
+6. Modelling/solution strategy  
+
+- Step 1: Formulate LP with objective and two resource constraints as above.  
+- Step 2: Solve graphically (2D feasible region) or via simplex/solver to identify the optimal corner point.  
+- Step 3: Check whether the optimal solution occurs at the intersection of metal and acid constraints or at one of the axes (A = 0 or B = 0).  
+- Step 4: If integrality is required and the LP solution is non‑integer, test nearby integer points around the LP optimum.
+
+---
+
+[MODELER]:
+Below is a complete mathematical model of the problem, plus notes on how to implement and solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(A \ge 0\): number of times experiment alpha is conducted  
+- \(B \ge 0\): number of times experiment beta is conducted  
+
+If whole experiments are required:
+
+- \(A, B \in \mathbb{Z}_{\ge 0}\) (non‑negative integers)
+
+---
+
+## 2. Objective function
+
+Each run of:
+
+- Alpha produces 8 units of electricity  
+- Beta produces 10 units of electricity  
+
+Total electricity produced:
+
+\[
+\text{Maximise } Z = 8A + 10B
+\]
+
+---
+
+## 3. Constraints
+
+### (a) Metal availability
+
+Each alpha uses 3 units of metal.  
+Each beta uses 5 units of metal.  
+At most 800 units of metal are available:
+
+\[
+3A + 5B \le 800
+\]
+
+### (b) Acid availability
+
+Each alpha uses 5 units of acid.  
+Each beta uses 4 units of acid.  
+At most 750 units of acid are available:
+
+\[
+5A + 4B \le 750
+\]
+
+### (c) Non‑negativity
+
+\[
+A \ge 0,\quad B \ge 0
+\]
+
+### (d) (Optional) Integrality
+
+If partial experiments are not allowed:
+
+\[
+A, B \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete LP model
+
+Continuous (LP) version:
+
+\[
+\begin{aligned}
+\text{Maximise} \quad & Z = 8A + 10B \\
+\text{s.t.} \quad 
+& 3A + 5B \le 800 \\
+& 5A + 4B \le 750 \\
+& A \ge 0 \\
+& B \ge 0
+\end{aligned}
+\]
+
+Integer (MILP) version adds: \(A, B\) integer.
+
+---
+
+## 5. Suitable Python libraries
+
+For this linear model you can use any standard LP/MILP solver. Common choices:
+
+- **PuLP**  
+  - Very user-friendly for small LP/MILP problems.  
+  - Works with CBC (open source) by default.
+- **OR-Tools (Google OR-Tools)**  
+  - Powerful, supports linear and mixed-integer programming via CBC or other solvers.
+- **SciPy (`scipy.optimize.linprog`)**  
+  - Suitable for the continuous LP version only (no integrality).
+
+### Example: PuLP (continuous LP)
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Electricity_Maximisation", pl.LpMaximize)
+
+# Decision variables (continuous, >= 0)
+A = pl.LpVariable('A', lowBound=0)
+B = pl.LpVariable('B', lowBound=0)
+
+# Objective
+prob += 8*A + 10*B
+
+# Constraints
+prob += 3*A + 5*B <= 800   # Metal
+prob += 5*A + 4*B <= 750   # Acid
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal A:", A.value())
+print("Optimal B:", B.value())
+print("Max electricity:", pl.value(prob.objective))
+```
+
+### Example: PuLP with integer constraints
+
+```python
+A = pl.LpVariable('A', lowBound=0, cat='Integer')
+B = pl.LpVariable('B', lowBound=0, cat='Integer')
+# same model otherwise
+```
+
+Both PuLP and OR-Tools are well suited; use OR-Tools if you anticipate scaling to larger or more complex models in the future.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem: Maximize electricity production
+    prob = pl.LpProblem("Electricity_Maximisation", pl.LpMaximize)
+
+    # Decision variables (non-negative integers)
+    A = pl.LpVariable('A', lowBound=0, cat='Integer')  # times experiment alpha is conducted
+    B = pl.LpVariable('B', lowBound=0, cat='Integer')  # times experiment beta is conducted
+
+    # Objective function: Maximize total electricity
+    prob += 8 * A + 10 * B
+
+    # Constraints
+    prob += 3 * A + 5 * B <= 800   # Metal availability
+    prob += 5 * A + 4 * B <= 750   # Acid availability
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    objective_value = pl.value(prob.objective)
+
+    # Final required print
+    print(f"FINAL_OBJ: {objective_value}")
+
+if __name__ == "__main__":
+    main()

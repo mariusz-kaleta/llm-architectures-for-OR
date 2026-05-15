@@ -1,0 +1,204 @@
+[MODELER]:
+Here’s a complete LP formulation of the problem, followed by how you could solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let:
+
+- \( x \) = number of sled dog trips  
+- \( y \) = number of truck trips  
+
+Both must be nonnegative:
+
+- \( x \ge 0 \)  
+- \( y \ge 0 \)
+
+(If trips must be whole numbers, then \(x, y\) should be integers, making it an ILP.)
+
+---
+
+## 2. Objective function
+
+Maximize the total amount of fish transported.
+
+Given:
+- Dog capability: `DogCapability = 100` units of fish per dog trip  
+- Truck capability: `TruckCapability = 300` units of fish per truck trip  
+
+Total transported fish:
+
+\[
+\text{Fish}(x,y) = 100x + 300y
+\]
+
+**Objective:**
+
+\[
+\max \; Z = 100x + 300y
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Budget constraint
+
+Given:
+- Dog cost: `DogCost = 50` per dog trip  
+- Truck cost: `TruckCost = 100` per truck trip  
+- Maximum budget: `MaxBudget = 1000`  
+
+Total transport cost:
+
+\[
+50x + 100y \le 1000
+\]
+
+### 3.2 Relative usage constraint
+
+The number of sled dog trips must be less than the number of truck trips:
+
+\[
+x < y
+\]
+
+In a *linear program* we typically write this as a non-strict inequality. Common formulations:
+
+- As a “less than or equal” with a small slack if required; or
+- If integer trips: \(x \le y - 1\).
+
+For pure LP (continuous):
+
+\[
+x \le y
+\]
+
+If you really want strictly fewer trips and are willing to use integer programming:
+
+\[
+x \le y - 1, \quad x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Full LP model (continuous version)
+
+\[
+\begin{aligned}
+\max \quad & 100x + 300y \\
+\text{s.t.} \quad
+& 50x + 100y \le 1000 \\
+& x \le y \\
+& x \ge 0, \; y \ge 0
+\end{aligned}
+\]
+
+If integer trips are required, add:
+
+\[
+x, y \in \mathbb{Z}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+To model and solve this optimization problem in Python, you can use:
+
+- **PuLP** – very user-friendly LP/ILP modeling library.
+- **OR-Tools (from Google)** – powerful for LP and MIP, high performance.
+- **Pyomo** – more general modeling framework, good for larger projects.
+- **scipy.optimize.linprog** – works for continuous LP (not integer).
+
+Given the simplicity of this LP, **PuLP** or **OR-Tools** are ideal.
+
+---
+
+## 6. Example with PuLP (continuous LP)
+
+```python
+import pulp as pl
+
+# Parameters
+DogCapability = 100
+TruckCapability = 300
+DogCost = 50
+TruckCost = 100
+MaxBudget = 1000
+
+# Problem
+prob = pl.LpProblem("Fish_Transport", pl.LpMaximize)
+
+# Decision variables (continuous >= 0)
+x = pl.LpVariable('dog_trips', lowBound=0)
+y = pl.LpVariable('truck_trips', lowBound=0)
+
+# Objective: maximize transported fish
+prob += DogCapability * x + TruckCapability * y, "Total_Fish"
+
+# Budget constraint
+prob += DogCost * x + TruckCost * y <= MaxBudget, "Budget"
+
+# Relative usage constraint (LP version)
+prob += x <= y, "Dog_less_than_or_equal_Truck"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("dog_trips =", x.value())
+print("truck_trips =", y.value())
+print("Total fish transported =", pl.value(prob.objective))
+```
+
+If you want integer trips and strictly fewer dog trips:
+
+```python
+x = pl.LpVariable('dog_trips', lowBound=0, cat='Integer')
+y = pl.LpVariable('truck_trips', lowBound=0, cat='Integer')
+
+prob += x <= y - 1  # strictly less
+```
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Parameters
+    DogCapability = 100
+    TruckCapability = 300
+    DogCost = 50
+    TruckCost = 100
+    MaxBudget = 1000
+
+    # Problem definition (maximize)
+    prob = pl.LpProblem("Fish_Transport", pl.LpMaximize)
+
+    # Decision variables: continuous, >= 0
+    x = pl.LpVariable('dog_trips', lowBound=0)
+    y = pl.LpVariable('truck_trips', lowBound=0)
+
+    # Objective: maximize total fish transported
+    prob += DogCapability * x + TruckCapability * y, "Total_Fish"
+
+    # Budget constraint
+    prob += DogCost * x + TruckCost * y <= MaxBudget, "Budget"
+
+    # Relative usage constraint: x <= y
+    prob += x <= y, "Dog_less_than_or_equal_Truck"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

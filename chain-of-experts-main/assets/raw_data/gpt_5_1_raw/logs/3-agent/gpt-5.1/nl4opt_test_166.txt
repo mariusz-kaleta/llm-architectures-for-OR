@@ -1,0 +1,191 @@
+[MODELER]:
+Let’s turn the description into a clear optimization model.
+
+### 1. Decision variables
+
+Let  
+- \(x\) = number of taxi rides (integer, \(x \ge 0\))  
+- \(y\) = number of company car rides (integer, \(y \ge 0\))
+
+### 2. Objective
+
+We want to **minimize the number of taxi rides**:
+
+\[
+\min x
+\]
+
+(If you want to avoid unbounded growth of total rides, it’s more natural to minimize \(x\) subject to all constraints including capacity; the constraints below will keep the solution finite.)
+
+### 3. Constraints
+
+1. **Capacity (employees transported)**  
+   Each taxi ride carries 2 employees, each company car ride carries 3.  
+   The company must transport at least 500 employees:
+
+   \[
+   2x + 3y \;\ge\; 500
+   \]
+
+2. **Company car ride upper fraction**  
+   At most 60% of all rides can be company car rides:
+
+   \[
+   y \;\le\; 0.6(x + y)
+   \]
+
+   Rearranging:
+
+   \[
+   y \le 0.6x + 0.6y \\
+   y - 0.6y \le 0.6x \\
+   0.4y \le 0.6x \\
+   y \le 1.5x
+   \]
+
+3. **Minimum number of company car rides**  
+
+   \[
+   y \;\ge\; 30
+   \]
+
+4. **Integrality**
+
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+---
+
+### 4. Solving logically (to see the structure)
+
+To minimize \(x\), we will tend to use the **maximum allowed amount of company car rides** (because they help carry employees and reduce the number of taxis needed):
+
+- The fraction constraint \(y \le 1.5x\) must hold.
+- The minimal \(x\) that allows a given \(y\) is \(x \ge \frac{y}{1.5}\).
+
+Combine the capacity and fraction constraints more systematically:
+
+From \(y \le 1.5x\), we have \(x \ge \frac{y}{1.5} = \frac{2}{3}y\).
+
+Substitute this lower bound for \(x\) into the capacity constraint to find how big \(y\) must be to get 500 employees with as few taxis as possible:
+
+\[
+2x + 3y \ge 500,\quad x \ge \tfrac{2}{3}y
+\]
+
+Use the minimal \(x = \tfrac{2}{3}y\):
+
+\[
+2\left(\tfrac{2}{3}y\right) + 3y \;\ge\; 500 \\
+\tfrac{4}{3}y + 3y = \left(\tfrac{4}{3} + 3\right)y = \tfrac{13}{3}y \ge 500 \\
+y \;\ge\; 500 \cdot \tfrac{3}{13} \approx 115.38
+\]
+
+So \(y\) must be at least 116 (and also at least 30, but 116 is stronger).
+
+Now enforce integrality and the fraction constraint:
+
+- Take \(y = 116\).
+- Then \(x \ge \tfrac{2}{3} \cdot 116 = 77.\overline{3}\), so \(x \ge 78\).
+- Check feasibility:
+
+  - Fraction constraint: \(y = 116 \le 1.5 \cdot 78 = 117\) ✓  
+  - Capacity: \(2x + 3y = 2\cdot 78 + 3\cdot 116 = 156 + 348 = 504 \ge 500\) ✓  
+  - Minimum company car rides: \(y = 116 \ge 30\) ✓  
+
+Try a smaller \(x\) (77):
+
+- From \(y \le 1.5x\): \(y \le 1.5\cdot 77 = 115.5\), so \(y \le 115\) (integer).
+- Capacity with best possible \(y=115\): \(2\cdot 77 + 3\cdot 115 = 154 + 345 = 499 < 500\) ✗
+
+So \(x=77\) is infeasible. Therefore, the optimal solution is:
+
+\[
+\boxed{x = 78 \text{ taxi rides},\quad y = 116 \text{ company car rides}}
+\]
+
+This minimizes the number of taxi rides under the given constraints.
+
+---
+
+### 5. Suitable Python libraries
+
+This is a small integer linear program (ILP). Any standard MILP or LP toolkit is suitable:
+
+- `PuLP` (simple and pure Python, works with CBC by default)
+- `ortools.linear_solver` from Google OR-Tools
+- `pyomo` (more general algebraic modeling language)
+- `scipy.optimize.linprog` can solve the LP relaxation but not integrality directly; use it only if you relax integrality or combine with rounding/heuristics.
+
+For this specific problem, `PuLP` or OR-Tools would be the most straightforward.
+
+#### Example with PuLP (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Factory_Rides", pl.LpMinimize)
+
+# Variables
+x = pl.LpVariable('taxis', lowBound=0, cat='Integer')
+y = pl.LpVariable('cars',  lowBound=0, cat='Integer')
+
+# Objective
+prob += x
+
+# Constraints
+prob += 2*x + 3*y >= 500           # capacity
+prob += y <= 1.5 * (x + y)         # at most 60% company car rides
+prob += y >= 30                    # at least 30 company car rides
+
+# Solve
+prob.solve()
+print("Optimal taxis:", pl.value(x))
+print("Optimal cars:", pl.value(y))
+```
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem: minimize number of taxi rides
+    prob = pl.LpProblem("Factory_Rides", pl.LpMinimize)
+
+    # Decision variables: number of taxi rides (x) and company car rides (y)
+    x = pl.LpVariable('taxis', lowBound=0, cat='Integer')
+    y = pl.LpVariable('cars', lowBound=0, cat='Integer')
+
+    # Objective: minimize x
+    prob += x
+
+    # Constraints
+    # 1. Capacity: 2 employees per taxi ride, 3 per company car ride; at least 500 employees
+    prob += 2 * x + 3 * y >= 500
+
+    # 2. Company car ride upper fraction: at most 60% of total rides are company cars
+    #    y <= 0.6(x + y)  ->  y <= 1.5x
+    prob += y <= 1.5 * x
+
+    # 3. Minimum number of company car rides
+    prob += y >= 30
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract the optimal objective value (minimal number of taxi rides)
+    optimal_x = pl.value(x)
+    # For completeness, we could also retrieve y if needed:
+    optimal_y = pl.value(y)
+
+    # Objective value is the minimal number of taxi rides
+    final_obj = optimal_x
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

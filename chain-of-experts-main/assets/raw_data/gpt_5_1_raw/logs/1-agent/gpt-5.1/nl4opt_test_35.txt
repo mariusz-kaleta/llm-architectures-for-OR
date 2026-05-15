@@ -1,0 +1,44 @@
+[MONOLITH]:
+import pulp as pl
+
+# Problem: minimize fat intake
+prob = pl.LpProblem("Nut_Intake_Optimization", pl.LpMinimize)
+
+# Decision variables: servings of almonds (a) and cashews (c)
+a = pl.LpVariable('almonds', lowBound=0, cat='Continuous')
+c = pl.LpVariable('cashews', lowBound=0, cat='Continuous')
+
+# Objective function: minimize total fat
+# Almonds: 15 g fat/serving
+# Cashews: 12 g fat/serving
+prob += 15 * a + 12 * c, "Total_Fat"
+
+# Constraints:
+
+# Calories: at least 10000
+# Almonds: 200 cal/serving
+# Cashews: 300 cal/serving
+prob += 200 * a + 300 * c >= 10000, "Calorie_Requirement"
+
+# Protein: at least 800 g
+# Almonds: 20 g/serving
+# Cashews: 25 g/serving
+prob += 20 * a + 25 * c >= 800, "Protein_Requirement"
+
+# At least twice as many servings of almonds as cashews: a >= 2c
+prob += a - 2 * c >= 0, "Almonds_Twice_Cashews"
+
+# Solve the problem
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Extract results
+almonds_servings = pl.value(a)
+cashews_servings = pl.value(c)
+total_fat = pl.value(prob.objective)
+
+# Print solution
+print(f"Optimal servings of almonds: {almonds_servings}")
+print(f"Optimal servings of cashews: {cashews_servings}")
+print(f"Minimum total fat intake (grams): {total_fat}")
+
+print(f"FINAL_OBJ: {total_fat}")

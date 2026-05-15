@@ -1,0 +1,114 @@
+[MODELER]:
+Formulate this as a linear programming (LP) minimization problem.
+
+### Decision variables
+Let  
+- \(x_C \ge 0\): kilograms of fertilizer C to use  
+- \(x_Y \ge 0\): kilograms of fertilizer Y to use  
+
+### Objective function (minimize cost)
+Fertilizer C costs \$2/kg and Y costs \$3/kg, so the total cost is:
+\[
+\min Z = 2x_C + 3x_Y
+\]
+
+### Constraints
+
+1. **Nitrous oxide requirement (at least 5 units)**  
+   - C provides 1.5 units/kg  
+   - Y provides 5 units/kg  
+   So:
+   \[
+   1.5x_C + 5x_Y \ge 5
+   \]
+
+2. **Vitamin mix requirement (at least 8 units)**  
+   - C provides 3 units/kg  
+   - Y provides 1 unit/kg  
+   So:
+   \[
+   3x_C + x_Y \ge 8
+   \]
+
+3. **Non-negativity**  
+   \[
+   x_C \ge 0,\quad x_Y \ge 0
+   \]
+
+This fully specifies the LP model.
+
+### Suitable Python libraries
+
+You can solve this with several Python libraries:
+
+- `PuLP` (simple LP modeling and calling CBC/other solvers)
+- `scipy.optimize.linprog` (from SciPy for linear programming)
+- `ortools.linear_solver` from Google OR-Tools (powerful for LP/MIP)
+
+#### Example with PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Fertilizer_Mix", pl.LpMinimize)
+
+# Decision variables
+x_C = pl.LpVariable('x_C', lowBound=0)
+x_Y = pl.LpVariable('x_Y', lowBound=0)
+
+# Objective
+prob += 2 * x_C + 3 * x_Y
+
+# Constraints
+prob += 1.5 * x_C + 5 * x_Y >= 5      # Nitrous oxide
+prob += 3 * x_C + 1 * x_Y >= 8        # Vitamin mix
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("x_C =", x_C.value())
+print("x_Y =", x_Y.value())
+print("Minimum cost = $", pl.value(prob.objective))
+```
+
+This code directly encodes the mathematical model and finds the minimum-cost mixture.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the LP problem
+    prob = pl.LpProblem("Fertilizer_Mix", pl.LpMinimize)
+
+    # Decision variables
+    x_C = pl.LpVariable('x_C', lowBound=0)
+    x_Y = pl.LpVariable('x_Y', lowBound=0)
+
+    # Objective function: minimize cost
+    prob += 2 * x_C + 3 * x_Y
+
+    # Constraints
+    prob += 1.5 * x_C + 5 * x_Y >= 5      # Nitrous oxide requirement
+    prob += 3 * x_C + 1 * x_Y >= 8        # Vitamin mix requirement
+
+    # Solve the LP
+    prob.solve()
+
+    # Retrieve the objective value
+    final_obj = pl.value(prob.objective)
+
+    # (Optional) print solution details
+    print("Status:", pl.LpStatus[prob.status])
+    print("x_C =", x_C.value())
+    print("x_Y =", x_Y.value())
+    print("Minimum cost = $", final_obj)
+
+    # Required final output
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,83 @@
+[MODELER]:
+Formulate this as a linear optimization problem.
+
+### Decision variables
+Let  
+- \(x\) = number of old vans used (integer, \(x \ge 0\))  
+- \(y\) = number of new vans used (integer, \(y \ge 0\))
+
+### Objective
+Minimize total pollution:
+
+\[
+\min Z = 50x + 30y
+\]
+
+### Constraints
+
+1. **Demand (bottle capacity) constraint**  
+   Each old van carries 100 bottles, each new van carries 80 bottles. At least 5000 bottles must be sent:
+
+   \[
+   100x + 80y \ge 5000
+   \]
+
+2. **Limit on new vans**  
+
+   \[
+   y \le 30
+   \]
+
+3. **Non-negativity and integrality**  
+
+   \[
+   x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+   \]
+
+This is a small integer linear program (ILP). In practice, you can also solve it as an LP and round/check integrality, because the natural solution here is integral.
+
+### Suitable Python libraries
+
+Any linear/integer programming solver is appropriate:
+
+- `PuLP` (easy to use, pure Python interface)
+- `ortools.linear_solver` (Google OR-Tools)
+- `pyomo` (more general modeling framework)
+- `scipy.optimize.linprog` (for continuous LP; you’d need to handle integrality yourself or accept fractional vans for an approximation)
+
+For a direct and simple implementation, `PuLP` or OR-Tools are the most convenient:
+
+- With **PuLP**: define `LpProblem`, `LpVariable` with `cat="Integer"`, add constraints and objective, then `prob.solve()`.
+- With **OR-Tools**: use `pywraplp.Solver.CreateSolver('CBC')`, define integer variables, add linear constraints, and call `Solve()`.
+
+This fully specifies the mathematical model you need to implement.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+# Create the problem
+prob = pulp.LpProblem("Van_Pollution_Minimization", pulp.LpMinimize)
+
+# Decision variables: x = old vans, y = new vans (integers, >=0)
+x = pulp.LpVariable('x', lowBound=0, cat='Integer')
+y = pulp.LpVariable('y', lowBound=0, cat='Integer')
+
+# Objective function: Minimize total pollution
+prob += 50 * x + 30 * y
+
+# Constraints
+# 1. Demand (bottle capacity) constraint
+prob += 100 * x + 80 * y >= 5000
+
+# 2. Limit on new vans
+prob += y <= 30
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Get the objective value
+final_obj = pulp.value(prob.objective)
+
+print(f"FINAL_OBJ: {final_obj}")

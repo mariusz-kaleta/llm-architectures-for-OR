@@ -1,0 +1,123 @@
+[MODELER]:
+Here’s a mathematical optimization model for the problem.
+
+---
+
+## 1. Decision variables
+
+Let:
+
+- \( x \): number of patients checked with the **electronic** thermometer  
+- \( y \): number of patients checked with the **regular** thermometer  
+
+Both are nonnegative integers:
+- \( x \ge 0, \; y \ge 0 \)
+- \( x, y \in \mathbb{Z} \)
+
+---
+
+## 2. Objective
+
+Maximize the total number of patients whose temperature is taken:
+
+\[
+\max \; Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Time (office open for 15000 minutes)
+
+Each electronic reading takes 3 minutes, each regular reading takes 2 minutes:
+
+\[
+3x + 2y \le 15000
+\]
+
+### b) Accuracy preference (electronic at least twice as many as regular)
+
+“At least twice as many patients should have their temperature checked by the electronic thermometer than the regular thermometer”:
+
+\[
+x \;\ge\; 2y
+\]
+
+### c) Regular thermometer minimum usage (cooldown requirement)
+
+“At least 50 patients should have their temperature checked by a regular thermometer”:
+
+\[
+y \;\ge\; 50
+\]
+
+---
+
+## 4. Model summary
+
+\[
+\begin{aligned}
+\max \quad & x + y \\
+\text{s.t.} \quad
+& 3x + 2y \le 15000 \\
+& x - 2y \ge 0 \\
+& y \ge 50 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+Because the coefficients are small and simple, you can also solve it by hand, but the above is the formal optimization model.
+
+---
+
+## 5. Suitable Python libraries
+
+To solve this integer linear program (ILP) in Python, any of the following are appropriate:
+
+- **PuLP**  
+  - Simple, pure-Python modeling interface for linear and integer programs.
+  - Can use CBC (default), GLPK, or commercial solvers.
+  - Good for teaching and small/medium problems.
+
+- **OR-Tools (Google OR-Tools)**  
+  - `ortools.linear_solver` for linear/integer programming.
+  - Industrial-strength, very good performance.
+
+- **Pyomo**  
+  - More general algebraic modeling language for optimization.
+  - Works well with many solvers (CBC, GLPK, Gurobi, CPLEX, etc.).
+
+For this small linear integer problem, **PuLP** or **OR-Tools** would be very straightforward.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: maximize total number of patients
+    prob = pulp.LpProblem("Thermometer_Allocation", pulp.LpMaximize)
+
+    # Decision variables: nonnegative integers
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # electronic
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # regular
+
+    # Objective function: maximize x + y
+    prob += x + y
+
+    # Constraints
+    prob += 3 * x + 2 * y <= 15000        # Time constraint
+    prob += x - 2 * y >= 0               # At least twice as many electronic as regular
+    prob += y >= 50                      # At least 50 regular
+
+    # Solve the problem using default solver
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract the optimal objective value
+    final_obj = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

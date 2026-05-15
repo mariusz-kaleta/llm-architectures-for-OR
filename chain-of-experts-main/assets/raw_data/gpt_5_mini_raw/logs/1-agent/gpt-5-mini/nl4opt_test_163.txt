@@ -1,0 +1,53 @@
+[MONOLITH]:
+```python
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Dim_Sum_Delivery_Refills_Minimization", pulp.LpMinimize)
+
+# Decision variables: number of servers using cart (x) and by hand (y)
+# They must be integers and non-negative
+x = pulp.LpVariable('cart_servers', lowBound=0, cat='Integer')
+y = pulp.LpVariable('hand_servers', lowBound=0, cat='Integer')
+
+# Parameters given in the problem
+interactions_per_cart = 70
+refills_per_cart = 5
+
+interactions_per_hand = 85
+refills_per_hand = 20
+
+required_interactions = 4000
+
+# Objective: minimize total refills per hour
+prob += refills_per_cart * x + refills_per_hand * y, "Total_Refills"
+
+# Constraints:
+# 1) Interaction requirement
+prob += interactions_per_cart * x + interactions_per_hand * y >= required_interactions, "InteractionsRequirement"
+
+# 2) At least 70% of delivery shifts must be by cart:
+#    x >= 0.7*(x+y)  -> 0.3*x >= 0.7*y  -> x >= (7/3)*y
+prob += x >= (7.0/3.0) * y, "CartShareRequirement"
+
+# 3) At least 3 servers delivering by hand
+prob += y >= 3, "MinHandServers"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve results
+cart_sol = int(pulp.value(x))
+hand_sol = int(pulp.value(y))
+total_refills = pulp.value(prob.objective)
+total_interactions = interactions_per_cart * cart_sol + interactions_per_hand * hand_sol
+
+# Print solution details
+print(f"Cart servers (x): {cart_sol}")
+print(f"Hand servers (y): {hand_sol}")
+print(f"Total interactions per hour: {total_interactions}")
+print(f"Total refills per hour: {int(total_refills)}")
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {total_refills}")
+```

@@ -1,0 +1,204 @@
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by how you could solve it with Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\): number of small buses (capacity 20 students each)  
+- \(y\): number of large buses (capacity 50 students each)
+
+Both must be nonnegative integers:
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 2. Objective
+
+Minimize the **total number of buses**:
+\[
+\min \; x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Capacity requirement
+
+The buses must carry at least 500 students:
+
+\[
+20x + 50y \;\ge\; 500
+\]
+
+### b) Parking restriction (at most 20% large buses)
+
+At most 20% of the buses can be large. That is:
+\[
+y \;\le\; 0.2(x + y)
+\]
+
+Rearrange:
+\[
+y \le 0.2x + 0.2y
+\]
+\[
+y - 0.2y \le 0.2x
+\]
+\[
+0.8y \le 0.2x
+\]
+\[
+4y \le x
+\]
+
+So we can express the parking constraint as:
+\[
+x \;\ge\; 4y
+\]
+
+---
+
+## 4. Complete optimization model
+
+\[
+\begin{aligned}
+\min \quad & x + y \\
+\text{s.t.}\quad 
+& 20x + 50y \;\ge\; 500 \\
+& x - 4y \;\ge\; 0 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Solving conceptually (to see the answer)
+
+Because we minimize \(x + y\), we look for combinations of \((x, y)\) with small totals satisfying the constraints.
+
+1. Try to find minimum total buses \(T = x + y\) such that:
+   - \(20x + 50y \ge 500\)
+   - \(x \ge 4y\)
+   - \(x, y \ge 0\), integers.
+
+2. From \(x \ge 4y\), for any fixed \(y\), the smallest feasible \(x\) is \(x = 4y\). Use that to get a lower bound on capacity:
+
+   \[
+   20x + 50y \ge 20(4y) + 50y = 80y + 50y = 130y
+   \]
+
+   So we need:
+   \[
+   130y \ge 500 \;\Rightarrow\; y \ge \frac{500}{130} \approx 3.846
+   \]
+   Thus \(y \ge 4\).
+
+3. Take \(y = 4\), then \(x \ge 4y = 16\). Check capacity with the smallest such \(x\):
+
+   \[
+   20x + 50y = 20 \cdot 16 + 50 \cdot 4 = 320 + 200 = 520 \ge 500
+   \]
+
+   Total buses \(T = x + y = 16 + 4 = 20\).
+
+4. Can we do better with fewer than 20 total buses?  
+   The best case for capacity with a given total \(T\) is when \(x\) is minimized subject to \(x \ge 4y\), which is exactly \(x = 4y\). Then \(T = x + y = 5y\).  
+   For fewer than 20 buses, \(T \le 19\), hence \(5y \le 19 \Rightarrow y \le 3\).  
+   But with \(y \le 3\), maximum capacity under \(x=4y\) is:
+   \[
+   y = 3 \Rightarrow x = 12 \Rightarrow 20\cdot 12 + 50\cdot 3 = 240 +150 = 390 < 500
+   \]
+   So no solution with \(T \le 19\).
+
+Therefore, the minimum total number of buses is 20, with:
+- \(x = 16\) small buses
+- \(y = 4\) large buses
+
+---
+
+## 6. Recommended Python tools
+
+This is a small integer linear program (ILP). Suitable Python libraries:
+
+- **PuLP**: Simple, pure-Python LP/MIP modeling library.
+- **OR-Tools (Google)**: Very powerful for integer programming and combinatorial optimization.
+- **SciPy (`scipy.optimize`)**: More suitable for continuous optimization; integer constraints are less direct.
+
+For this type of integer-based bus-optimization, **PuLP** or **OR-Tools** is ideal.
+
+---
+
+## 7. Example with PuLP
+
+```python
+import pulp as pl
+
+# Create problem: minimize total buses
+prob = pl.LpProblem("Bus_Allocation", pl.LpMinimize)
+
+# Decision variables (nonnegative integers)
+x = pl.LpVariable('small_buses', lowBound=0, cat='Integer')
+y = pl.LpVariable('large_buses', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of buses
+prob += x + y, "Total_Buses"
+
+# Constraint: capacity
+prob += 20*x + 50*y >= 500, "Capacity"
+
+# Constraint: at most 20% large (x >= 4y)
+prob += x - 4*y >= 0, "Parking_Limit"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Small buses:", x.value())
+print("Large buses:", y.value())
+print("Total buses:", x.value() + y.value())
+```
+
+This will output:
+- Small buses: 16  
+- Large buses: 4  
+- Total buses: 20
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create problem: minimize total number of buses
+    prob = pl.LpProblem("Bus_Allocation", pl.LpMinimize)
+
+    # Decision variables (nonnegative integers)
+    x = pl.LpVariable('small_buses', lowBound=0, cat='Integer')
+    y = pl.LpVariable('large_buses', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of buses
+    prob += x + y, "Total_Buses"
+
+    # Constraint: capacity requirement
+    prob += 20 * x + 50 * y >= 500, "Capacity"
+
+    # Constraint: at most 20% large buses -> x >= 4y
+    prob += x - 4 * y >= 0, "Parking_Limit"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute final objective value
+    total_buses = x.value() + y.value()
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {total_buses}")
+
+if __name__ == "__main__":
+    main()

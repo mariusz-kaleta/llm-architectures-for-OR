@@ -1,0 +1,175 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Maximise the total amount of slime produced by deciding how many setups of each table to run.
+
+2) Suggested model type
+- Model: Linear Programming (LP). Because there are two decision types and linear resource/production relationships, solve as an LP; treat the number of setups as integer if the physical interpretation requires whole setups (otherwise relax to continuous and round/check).
+
+3) Main decision variables
+- Number of times Table 1 is set up (call this x1). Each setup of Table 1 uses 3 units of powder, 5 units of glue, produces 4 units of slime, and generates 2 units of mess.
+- Number of times Table 2 is set up (call this x2). Each setup of Table 2 uses 8 units of powder, 6 units of glue, produces 5 units of slime, and generates 4 units of mess.
+
+4) Key constraints to consider (described verbally)
+- Powder availability: total powder consumed by both table types (3 per Table 1 plus 8 per Table 2) must not exceed the available 100 units.
+- Glue availability: total glue consumed by both table types (5 per Table 1 plus 6 per Table 2) must not exceed the available 90 units.
+- Mess cap: total mess produced by both table types (2 per Table 1 plus 4 per Table 2) must not exceed the allowed 30 units.
+- Nonnegativity: the number of setups of each table cannot be negative.
+- Integrality (optional): if a setup must be an integer count, enforce integer (whole-number) values for x1 and x2; otherwise solve the LP relaxation and round/adjust to a feasible integer solution if needed.
+
+Suggested solution approach for the modeller
+- Formulate the LP (objective: maximise total slime = 4 per Table 1 + 5 per Table 2) subject to the three resource/mess constraints and nonnegativity.
+- Because there are only two variables, solve graphically or by checking corner (intersection) points: intersections of each pair of binding constraints (powder vs glue, powder vs mess, glue vs mess) and the axes, select the feasible corner with highest slime production.
+- If integrality is required and the LP solution is fractional, enumerate nearby integer feasible points (or solve as an integer program) and pick the best feasible integer solution.
+- Report the optimal x1 and x2, the slack in each constraint, and the maximum slime produced.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- x1 >= 0 : number of setups of Table 1
+- x2 >= 0 : number of setups of Table 2
+(If setups must be whole numbers, enforce x1, x2 ∈ Z>=0; otherwise continuous.)
+
+Objective
+- Maximise total slime: maximize Z = 4 x1 + 5 x2
+
+Constraints
+- Powder: 3 x1 + 8 x2 ≤ 100
+- Glue:   5 x1 + 6 x2 ≤  90
+- Mess:   2 x1 + 4 x2 ≤  30
+- Nonnegativity: x1 ≥ 0, x2 ≥ 0
+- (Optional integrality) x1, x2 ∈ Z≥0
+
+Comments on structure and solution method
+- This is a small linear program (two variables, three resource constraints). Solve with the simplex method, graphically, or any LP solver. If integrality is required, solve as an integer program (but here the LP optimum is integer).
+- Because the mess constraint is tightest in this instance, the feasible region is the triangle with vertices (0,0), (15,0), (0,7.5).
+
+Analytic solution (corner-point evaluation)
+- Evaluate objective at vertices:
+  - (x1,x2)=(0,0) → Z=0
+  - (15,0) → Z = 4·15 + 5·0 = 60
+  - (0,7.5) → Z = 5·7.5 = 37.5
+- Maximum occurs at x1 = 15, x2 = 0.
+
+Optimal solution and slacks
+- Optimal setups: x1* = 15, x2* = 0
+- Maximum slime produced: Z* = 60 units
+- Constraint slacks:
+  - Powder slack = 100 − (3·15 + 8·0) = 100 − 45 = 55 units remaining
+  - Glue slack   = 90 − (5·15 + 6·0) = 90 − 75 = 15 units remaining
+  - Mess slack   = 30 − (2·15 + 4·0) = 30 − 30 = 0 (mess constraint binding)
+
+Suggested Python libraries
+- pulp (simple modeling + CBC/GLPK solvers)
+- scipy.optimize.linprog (LP relaxation)
+- OR-Tools (CP-SAT for integer programming, or linear solver)
+- cvxpy (convex optimization interface)
+
+Example (brief) using PuLP
+- Formulate variables x1,x2; objective 4*x1+5*x2; add constraints as above; solve with the default solver. The solver will return x1=15, x2=0 and objective 60.
+
+If you want, I can provide a ready-to-run PuLP or scipy code snippet, or solve the IP formulation if you require integer-only setups.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the described LP:
+# Maximize Z = 4 x1 + 5 x2
+# s.t.
+#   3 x1 + 8 x2 <= 100
+#   5 x1 + 6 x2 <= 90
+#   2 x1 + 4 x2 <= 30
+#   x1 >= 0, x2 >= 0
+#
+# This script finds all intersection points (vertices) of the constraint lines
+# (including the axes), tests feasibility, and returns the maximum objective.
+
+import math
+
+# Define the three resource constraints as lines: a*x1 + b*x2 = c
+constraints_eq = [
+    (3.0, 8.0, 100.0),  # Powder
+    (5.0, 6.0, 90.0),   # Glue
+    (2.0, 4.0, 30.0)    # Mess
+]
+
+# Add axis lines x1=0 and x2=0 for vertex generation
+axis_eq = [
+    (1.0, 0.0, 0.0),  # x1 = 0
+    (0.0, 1.0, 0.0)   # x2 = 0
+]
+
+all_lines = constraints_eq + axis_eq
+
+# Tolerance for numerical checks
+tol = 1e-9
+
+def intersect(line1, line2):
+    a1, b1, c1 = line1
+    a2, b2, c2 = line2
+    det = a1 * b2 - a2 * b1
+    if abs(det) < tol:
+        return None  # parallel or coincident
+    x1 = (c1 * b2 - c2 * b1) / det
+    x2 = (a1 * c2 - a2 * c1) / det
+    return (x1, x2)
+
+def is_feasible(point):
+    x1, x2 = point
+    # Nonnegativity
+    if x1 < -tol or x2 < -tol:
+        return False
+    # Resource constraints (<=)
+    for a, b, c in constraints_eq:
+        if a * x1 + b * x2 - c > tol:
+            return False
+    return True
+
+# Generate candidate vertices from all pairs of lines
+candidates = set()
+n = len(all_lines)
+for i in range(n):
+    for j in range(i+1, n):
+        pt = intersect(all_lines[i], all_lines[j])
+        if pt is None:
+            continue
+        # Snap tiny negatives to zero
+        x1, x2 = pt
+        if abs(x1) < 1e-12:
+            x1 = 0.0
+        if abs(x2) < 1e-12:
+            x2 = 0.0
+        candidates.add((x1, x2))
+
+# Also ensure origin is considered
+candidates.add((0.0, 0.0))
+
+# Evaluate feasible candidates and select best
+best_obj = -math.inf
+best_pt = None
+for pt in candidates:
+    if is_feasible(pt):
+        x1, x2 = pt
+        obj = 4.0 * x1 + 5.0 * x2
+        if obj > best_obj + tol:
+            best_obj = obj
+            best_pt = pt
+
+# If no feasible point found (should not happen), set to 0
+if best_pt is None:
+    best_obj = 0.0
+    best_pt = (0.0, 0.0)
+
+# If objective is very close to an integer, present it as integer
+if abs(best_obj - round(best_obj)) < 1e-8:
+    best_obj = int(round(best_obj))
+else:
+    # Round to a reasonable number of decimals for stable output
+    best_obj = float(round(best_obj, 12))
+
+print(f"FINAL_OBJ: {best_obj}")
+```

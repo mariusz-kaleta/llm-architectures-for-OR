@@ -1,0 +1,99 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of washing machines to repair (integer, x >= 0)
+  - y = number of freezers to repair (integer, y >= 0)
+
+- Objective
+  - Maximise total revenue: maximize Z = 250 x + 375 y
+
+- Constraints
+  - Inspection-time limit: 30 x + 20 y <= 5000  (minutes)
+  - Total-schedule-time limit (inspection + fixing): (30+90) x + (20+125) y <= 20000
+    i.e. 120 x + 145 y <= 20000
+  - Integrality and nonnegativity: x, y integer >= 0
+
+(If fractional repairs were allowed, drop integer requirement and solve as an LP. In practice x,y must be integers.)
+
+Solving and reasoning (integer solution)
+- Inspection constraint intercepts: x <= 5000/30 ≈ 166.67, y <= 5000/20 = 250.
+- Schedule constraint intercepts: x <= 20000/120 ≈ 166.67, y <= 20000/145 ≈ 137.93.
+- Freezers give higher revenue per schedule-minute: 375/145 ≈ 2.586 $/min versus washers 250/120 ≈ 2.083 $/min, so fill with freezers first.
+- Max integer freezers is y = 137 (y = 138 violates schedule by 10 minutes). With y = 137 there remain 20000 - 145*137 = 135 schedule minutes, enough for one washer (requires 120 minutes). Inspection minutes are ample.
+- Best integer solution found: x = 1, y = 137.
+
+Check:
+- Inspection: 30(1) + 20(137) = 30 + 2740 = 2770 <= 5000
+- Schedule: 120(1) + 145(137) = 120 + 19865 = 19985 <= 20000
+- Revenue: 250(1) + 375(137) = 250 + 51375 = $51,625
+
+Therefore the repairman should fix 1 washing machine and 137 freezers to maximize earnings, for total earnings $51,625.
+
+Suggested Python libraries to solve this
+- For integer linear programming: PuLP (with CBC), OR-Tools (CP-SAT), or Pyomo (with a solver like CBC/Gurobi/CPLEX).
+- For LP relaxation only: scipy.optimize.linprog.
+
+Example (PuLP) outline
+- Define LpProblem, LpVariable x,y as integers >=0, add the two constraints and objective, then call solver. This will produce the integer optimal solution shown above.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data
+rev_x = 250    # revenue per washing machine
+rev_y = 375    # revenue per freezer
+
+# Time requirements (minutes)
+insp_x = 30
+insp_y = 20
+sched_x = 120  # inspection + fixing for washing machine
+sched_y = 145  # inspection + fixing for freezer
+
+# Resource limits
+insp_limit = 5000
+sched_limit = 20000
+
+# Bounds for brute-force search (safe upper bounds)
+max_x_bound = min(insp_limit // insp_x if insp_x>0 else 0,
+                  sched_limit // sched_x if sched_x>0 else 0)
+max_y_bound = min(insp_limit // insp_y if insp_y>0 else 0,
+                  sched_limit // sched_y if sched_y>0 else 0)
+
+best_obj = None
+best_x = 0
+best_y = 0
+
+for y in range(0, max_y_bound + 1):
+    # remaining resources after y freezers
+    rem_insp = insp_limit - insp_y * y
+    rem_sched = sched_limit - sched_y * y
+    if rem_insp < 0 or rem_sched < 0:
+        continue
+    # maximum x given remaining resources
+    max_x_by_insp = rem_insp // insp_x
+    max_x_by_sched = rem_sched // sched_x
+    x_max = min(max_x_by_insp, max_x_by_sched, max_x_bound)
+    if x_max < 0:
+        continue
+    # best x for this y is x_max (since revenue per unit is positive)
+    x = x_max
+    obj = rev_x * x + rev_y * y
+    if (best_obj is None) or (obj > best_obj):
+        best_obj = obj
+        best_x = x
+        best_y = y
+
+# If nothing feasible (shouldn't happen), set to zeros
+if best_obj is None:
+    best_obj = 0
+    best_x = 0
+    best_y = 0
+
+# Final required print (only this specific line at the end)
+print(f"FINAL_OBJ: {best_obj}")
+```

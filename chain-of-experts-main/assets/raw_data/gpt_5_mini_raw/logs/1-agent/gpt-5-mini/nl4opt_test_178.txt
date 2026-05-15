@@ -1,0 +1,44 @@
+[MONOLITH]:
+```python
+import pulp
+
+# Data (from problem statement)
+drops_motion = 50   # drops per minute for motion activated
+drops_manual = 75   # drops per minute for manual
+energy_motion = 30  # kWh for motion activated
+energy_manual = 20  # kWh for manual
+
+min_drops_required = 1000
+max_energy = 500
+
+# Decision variables
+# x_motion: number of motion-activated machines (integer)
+# x_manual: number of manual machines (integer)
+prob = pulp.LpProblem("Sanitizer_Machines", pulp.LpMinimize)
+x_motion = pulp.LpVariable("x_motion", lowBound=0, cat="Integer")
+x_manual = pulp.LpVariable("x_manual", lowBound=0, cat="Integer")
+
+# Objective: minimize total number of machines
+prob += x_motion + x_manual
+
+# Constraints
+prob += drops_motion * x_motion + drops_manual * x_manual >= min_drops_required, "DropsRequirement"
+prob += energy_motion * x_motion + energy_manual * x_manual <= max_energy, "EnergyLimit"
+# At most 40% of machines can be manual -> x_manual <= 0.4*(x_motion + x_manual)
+# Rearranged to integer-friendly linear form: 3*x_manual <= 2*x_motion
+prob += 3 * x_manual <= 2 * x_motion, "ManualFractionLimit"
+# At least 3 should be motion activated
+prob += x_motion >= 3, "MinMotion"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+motion_count = int(pulp.value(x_motion))
+manual_count = int(pulp.value(x_manual))
+obj_value = int(pulp.value(prob.objective))
+
+# Print solution (counts) and final objective value as required.
+print(f"motion = {motion_count}, manual = {manual_count}")
+print(f"FINAL_OBJ: {obj_value}")
+```

@@ -1,0 +1,76 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - f ∈ Z_{\ge 0} = number of ferry trips
+  - r ∈ Z_{\ge 0} = number of light-rail trips
+
+- Constraints
+  1. Capacity: 20 f + 15 r ≥ 500 (each ferry carries 20 boxes, each rail 15)
+  2. Rail trips at least 4× ferry trips: r ≥ 4 f
+  3. Integrality and nonnegativity: f, r are nonnegative integers
+
+- Objective
+  - Minimize total trips: minimize T = f + r
+
+Remarks and solution sketch
+- This is an integer linear program (ILP). You can substitute r = 4 f + s (s ∈ Z_{\ge 0}) to reduce variables; capacity becomes 80 f + 15 s ≥ 500 and objective T = 5 f + s. For each integer f ≥ 0 choose minimal s = ceil(max(0, (500 − 80 f)/15)) and evaluate T.
+- Evaluating f = 0,1,2,... shows the minimum integer solution occurs at total trips T = 32. The integer optimal solutions are:
+  - f = 4, r = 28  (20·4 + 15·28 = 80 + 420 = 500)
+  - f = 5, r = 27  (100 + 405 = 505)
+  - f = 6, r = 26  (120 + 390 = 510)
+  All three give T = 32 trips. (Continuous relaxation gives f = 6.25, r = 25, T = 31.25, so integrality increases T to 32.)
+
+Suggested Python libraries
+- For ILP: PuLP, OR-Tools (CP-SAT or linear solver), or mip (Python-MIP). Any of these can model and solve the problem easily.
+- For quick enumeration: plain Python (small search over integer f values) or numpy.
+
+Example using PuLP (conceptual)
+- Create integer variables f and r, add constraints 20*f + 15*r >= 500 and r >= 4*f, set objective f + r to minimize, solve. The solver will return the optimal integer solution f,r = one of (4,28), (5,27) or (6,26) with objective 32.
+
+Answer
+- Minimum total number of trips = 32. Possible optimal allocations: (f=4, r=28), (f=5, r=27) or (f=6, r=26).
+
+---
+
+[CODER]:
+import math
+
+# Data
+capacity_required = 500
+cap_per_ferry = 20
+cap_per_rail = 15
+rail_min_multiplier = 4  # r >= 4*f
+
+# Search bounds
+# f cannot exceed ceil(capacity_required / cap_per_ferry), but r grows with f so objective increases fast.
+max_f = math.ceil(capacity_required / cap_per_ferry)
+
+best_T = None
+best_solutions = []
+
+for f in range(0, max_f + 1):
+    # substitute r = 4*f + s with s >= 0
+    remaining = capacity_required - (cap_per_ferry * rail_min_multiplier * f)  # 500 - 80f
+    # compute minimal s to cover remaining capacity with 15 per extra rail trip
+    if remaining <= 0:
+        s = 0
+    else:
+        s = int(math.ceil(remaining / cap_per_rail))
+    r = rail_min_multiplier * f + s
+    # verify feasibility
+    if cap_per_ferry * f + cap_per_rail * r >= capacity_required and r >= rail_min_multiplier * f and f >= 0 and r >= 0:
+        T = f + r
+        if best_T is None or T < best_T:
+            best_T = T
+            best_solutions = [(f, r)]
+        elif T == best_T:
+            best_solutions.append((f, r))
+
+# Print found optimal solutions (optional), but final printed line must be exactly the required format.
+for sol in best_solutions:
+    f, r = sol
+    print(f"Optimal solution: f = {f}, r = {r}, total trips = {f + r}")
+
+# Final required output line
+print(f"FINAL_OBJ: {best_T}")

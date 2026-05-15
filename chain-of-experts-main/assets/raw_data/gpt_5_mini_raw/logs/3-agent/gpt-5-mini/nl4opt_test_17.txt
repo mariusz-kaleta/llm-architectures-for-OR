@@ -1,0 +1,152 @@
+[MODELER]:
+First I set notation and an assumption (the problem text is slightly ambiguous):
+
+Assumption
+- “Each unit of the cleansing chemical takes 4 … to be effective” means each unit requires 4 minutes. Each unit of odor-removing chemical requires 6 minutes. (If you meant something else by “units to be effective”, tell me and I will adapt the model.)
+
+Decision variables
+- C = number of units of cleansing chemical used (units)
+- O = number of units of odor-removing chemical used (units)
+
+Objective
+- Minimize total cleaning time T (minutes). If each unit contributes its time additively, total time is
+  T = 4C + 6O.
+  (If the chemicals act in parallel and the time is the maximum of the two contributions, the model would change; say if that is the intent I will reformulate.)
+
+Constraints
+- Must use at least 100 units of cleansing chemical:
+  C ≥ 100
+- At least 300 units of chemicals in total:
+  C + O ≥ 300
+- Cleansing chemical at most twice the amount of odor-removing chemical:
+  C ≤ 2 O
+- Nonnegativity:
+  C ≥ 0, O ≥ 0
+
+Mathematical model (linear program)
+- Minimize: 4C + 6O
+- Subject to:
+  C ≥ 100
+  C + O ≥ 300
+  C − 2O ≤ 0
+  C, O ≥ 0
+
+Solving / reasoning
+- This is a small LP. Feasible corner points on the active constraints are:
+  - Intersection C = 100 and C + O = 300 → (C,O) = (100,200) → T = 4·100 + 6·200 = 1,600
+  - Intersection C = 2O and C + O = 300 → (C,O) = (200,100) → T = 4·200 + 6·100 = 1,400
+  The minimum occurs at (C,O) = (200,100) with total time 1,400 minutes.
+
+Solution
+- Use 200 units of cleansing chemical and 100 units of odor‑removing chemical.
+- Minimum total time = 1,400 minutes.
+
+Libraries suitable for solving
+- pulp (easy integer/continuous LP modeling in Python)
+- scipy.optimize.linprog (continuous LP)
+- ortools.linear_solver (Google OR-Tools, good for larger/mixed-integer problems)
+- cvxpy (convex optimization modeling)
+
+Example (pulp) — conceptual code
+- from pulp import LpProblem, LpMinimize, LpVariable, lpSum, PULP_CBC_CMD
+  prob = LpProblem("cleaning", LpMinimize)
+  C = LpVariable("C", lowBound=0)
+  O = LpVariable("O", lowBound=0)
+  prob += 4*C + 6*O
+  prob += C >= 100
+  prob += C + O >= 300
+  prob += C <= 2*O
+  prob.solve(PULP_CBC_CMD(msg=0))
+  print(C.value(), O.value(), (4*C.value()+6*O.value()))
+
+If you intended a different interpretation of “time” (for example, time = max(4C,6O) or any other non-additive rule), tell me and I will reformulate the model and solve that variant.
+
+---
+
+[CODER]:
+```python
+import itertools
+import numpy as np
+
+# Define the linear constraints as equalities for boundary lines:
+# Each line is represented as (a, b, c) meaning a*C + b*O = c
+lines = {
+    "C_eq_100": (1.0, 0.0, 100.0),      # C = 100
+    "CplusO_eq_300": (1.0, 1.0, 300.0), # C + O = 300
+    "C_eq_2O": (1.0, -2.0, 0.0),        # C - 2O = 0  (i.e., C = 2O)
+    "C_eq_0": (1.0, 0.0, 0.0),          # C = 0 (nonnegativity boundary)
+    "O_eq_0": (0.0, 1.0, 0.0),          # O = 0 (nonnegativity boundary)
+}
+
+tol = 1e-9
+
+def solve_intersection(l1, l2):
+    # Solve 2x2 linear system:
+    # a1*C + b1*O = c1
+    # a2*C + b2*O = c2
+    (a1,b1,c1) = l1
+    (a2,b2,c2) = l2
+    A = np.array([[a1, b1],[a2, b2]], dtype=float)
+    B = np.array([c1, c2], dtype=float)
+    # Check if matrix is singular
+    det = np.linalg.det(A)
+    if abs(det) < 1e-12:
+        return None
+    sol = np.linalg.solve(A, B)
+    return float(sol[0]), float(sol[1])  # C, O
+
+def feasible(C, O):
+    if C is None or O is None:
+        return False
+    # Constraints:
+    # C >= 100
+    # C + O >= 300
+    # C <= 2O
+    # C >= 0, O >= 0
+    if C < 100 - tol:
+        return False
+    if C + O < 300 - tol:
+        return False
+    if C > 2*O + tol:
+        return False
+    if C < -tol or O < -tol:
+        return False
+    return True
+
+# Collect candidate corner points from intersections of boundary lines
+candidates = []
+line_items = list(lines.items())
+for (name1, l1), (name2, l2) in itertools.combinations(line_items, 2):
+    sol = solve_intersection(l1, l2)
+    if sol is None:
+        continue
+    C, O = sol
+    if feasible(C, O):
+        candidates.append((C, O))
+
+# It's possible that the feasible region is unbounded in some direction; however,
+# given C >= 100 and C+O >= 300 and C <= 2O it's bounded in the relevant region.
+# As a safeguard, also consider projecting along active single constraints if necessary.
+# But the above intersections suffice for this 2-variable LP.
+
+if not candidates:
+    raise RuntimeError("No feasible corner points found; check model or tolerances.")
+
+# Objective T = 4C + 6O, minimize
+best = None
+best_point = None
+for C, O in candidates:
+    T = 4.0*C + 6.0*O
+    if best is None or T < best:
+        best = T
+        best_point = (C, O)
+
+# Clean up objective for printing: if nearly integer, make it integer
+if abs(best - round(best)) < 1e-8:
+    best_print = int(round(best))
+else:
+    best_print = best
+
+# Final output line as required
+print(f"FINAL_OBJ: {best_print}")
+```

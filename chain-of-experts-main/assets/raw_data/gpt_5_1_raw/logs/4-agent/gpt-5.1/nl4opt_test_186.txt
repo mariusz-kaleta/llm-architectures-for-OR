@@ -1,0 +1,197 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+   - **Goal:** Minimize the **total number of wagons** (small + large) used to transport exactly 2000 units of ore to the surface.
+
+2. **Suggested model type**
+
+   - **Model:** Integer Linear Programming (ILP), or even simpler: a small integer optimisation problem (can be treated as a 2-variable ILP).
+
+3. **Main decision variables**
+
+   Define integer decision variables:
+
+   - **S** = number of small wagons used  
+   - **L** = number of large wagons used  
+
+   Both should be nonnegative integers.
+
+4. **Key constraints to consider**
+
+   1. **Capacity (ore volume) constraint**
+      - Each small wagon carries 20 units of ore.  
+      - Each large wagon carries 50 units of ore.  
+      - Total ore carried by all wagons must be **exactly 2000 units**.
+      - Strategic form:  
+        - Ore transported by small wagons + ore transported by large wagons = demand (2000 units).
+
+   2. **Proportion / ramp-space constraint**
+      - The number of small wagons must be **at least twice** the number of large wagons.
+      - Strategic form:  
+        - “Small wagons ≥ 2 × large wagons”.
+
+   3. **Minimum usage of large wagons**
+      - At least **10 large wagons** must be used.
+      - Strategic form:  
+        - “Large wagons ≥ 10”.
+
+   4. **Non-negativity and integrality**
+      - Both S and L must be **integers** and **nonnegative**.
+      - Strategic form:  
+        - Enforce integer decision variables for wagon counts.
+
+5. **Objective function structure**
+
+   - Objective: minimize **S + L**.
+   - Since cost per wagon isn’t differentiated, treat each wagon (small or large) as having unit objective coefficient.
+
+6. **Modelling notes / simplifications**
+
+   - The problem is very small (two integer variables), so:
+     - It is feasible to solve by inspection / enumeration as well as by an ILP solver.
+     - Ensure the equality on ore volume is used rather than a ≥ constraint, since “need to be taken to the surface” suggests exactly 2000 units are to be transported.
+   - The model is linear: all constraints and the objective are linear in S and L.
+
+---
+
+[MODELER]:
+Here is the formal optimisation model corresponding to the problem.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(S \in \mathbb{Z}_{\ge 0}\): number of small wagons used  
+- \(L \in \mathbb{Z}_{\ge 0}\): number of large wagons used  
+
+Both are integer, nonnegative.
+
+---
+
+## 2. Objective
+
+Minimize the **total number of wagons**:
+
+\[
+\min\; Z = S + L
+\]
+
+---
+
+## 3. Constraints
+
+1. **Ore capacity (exactly 2000 units)**  
+   Each small wagon carries 20 units; each large wagon carries 50 units. Total ore transported must be exactly 2000:
+
+\[
+20 S + 50 L = 2000
+\]
+
+2. **Proportion / ramp-space constraint**  
+   Number of small wagons must be at least twice the number of large wagons:
+
+\[
+S \;\ge\; 2L
+\]
+
+3. **Minimum number of large wagons**  
+
+\[
+L \;\ge\; 10
+\]
+
+4. **Non‑negativity and integrality**  
+
+\[
+S \in \mathbb{Z}_{\ge 0},\quad L \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Model type
+
+This is a tiny **Integer Linear Programming (ILP)** problem with 2 integer variables and linear constraints.
+
+---
+
+## 5. Suggested Python tools
+
+Any general ILP solver will handle this instantly. Suitable Python libraries:
+
+- **PuLP**  
+  - Easy modelling of small ILPs.  
+  - Can use CBC (bundled), GLPK, or commercial solvers if available.
+- **OR-Tools** (Google OR-Tools, `ortools.linear_solver` or `ortools.sat.python.cp_model`)  
+  - Very fast, good for integer problems.
+- **Pyomo**  
+  - More general algebraic modelling, suitable if you want to extend the model later.
+
+For such a small model, **PuLP** is an excellent simple choice.
+
+---
+
+## 6. Example PuLP formulation (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("WagonMinimization", pl.LpMinimize)
+
+# Decision variables
+S = pl.LpVariable('S', lowBound=0, cat='Integer')
+L = pl.LpVariable('L', lowBound=0, cat='Integer')
+
+# Objective
+prob += S + L
+
+# Constraints
+prob += 20*S + 50*L == 2000             # ore capacity
+prob += S >= 2*L                        # proportion constraint
+prob += L >= 10                         # minimum large wagons
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Small wagons S =", pl.value(S))
+print("Large wagons L =", pl.value(L))
+print("Total wagons =", pl.value(S + L))
+```
+
+This code directly encodes the mathematical model above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("WagonMinimization", pl.LpMinimize)
+
+    # Decision variables
+    S = pl.LpVariable('S', lowBound=0, cat='Integer')  # Small wagons
+    L = pl.LpVariable('L', lowBound=0, cat='Integer')  # Large wagons
+
+    # Objective: Minimize total number of wagons
+    prob += S + L
+
+    # Constraints
+    prob += 20 * S + 50 * L == 2000          # Ore capacity exactly 2000 units
+    prob += S >= 2 * L                       # Proportion constraint
+    prob += L >= 10                          # Minimum number of large wagons
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the final objective value
+    final_obj = pl.value(S + L)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

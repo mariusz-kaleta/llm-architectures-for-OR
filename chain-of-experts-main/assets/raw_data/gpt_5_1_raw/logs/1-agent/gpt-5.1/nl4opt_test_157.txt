@@ -1,0 +1,49 @@
+[MONOLITH]:
+import pulp
+
+# Initialize the problem: minimize total number of trips
+model = pulp.LpProblem("Burger_Patty_Shipment", pulp.LpMinimize)
+
+# Decision variables: number of trucks (T) and vans (V), non-negative integers
+T = pulp.LpVariable('Trucks', lowBound=0, cat='Integer')
+V = pulp.LpVariable('Vans', lowBound=0, cat='Integer')
+
+# Parameters
+capacity_truck = 1000
+capacity_van = 500
+cost_truck = 300
+cost_van = 100
+min_patties = 50000
+budget = 12500
+
+# Objective: minimize total number of trips (trucks + vans)
+model += T + V, "Total_Trips"
+
+# Constraints
+
+# Capacity constraint: must ship at least 50,000 patties
+model += capacity_truck * T + capacity_van * V >= min_patties, "Capacity_Constraint"
+
+# Budget constraint: total cost must not exceed $12,500
+model += cost_truck * T + cost_van * V <= budget, "Budget_Constraint"
+
+# Truck-van relationship: number of trucks must not exceed the number of vans
+model += T <= V, "Truck_Van_Relationship"
+
+# Solve the model
+model.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve results
+num_trucks = int(pulp.value(T))
+num_vans = int(pulp.value(V))
+total_trips = num_trucks + num_vans
+
+# Print solution details
+print(f"Number of trucks: {num_trucks}")
+print(f"Number of vans: {num_vans}")
+print(f"Total patties shipped: {capacity_truck * num_trucks + capacity_van * num_vans}")
+print(f"Total cost: {cost_truck * num_trucks + cost_van * num_vans}")
+print(f"Total number of trips: {total_trips}")
+
+# Final required output
+print(f"FINAL_OBJ: {total_trips}")

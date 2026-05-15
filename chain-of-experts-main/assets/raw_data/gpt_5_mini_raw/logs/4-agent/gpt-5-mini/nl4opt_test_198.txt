@@ -1,0 +1,130 @@
+[PLANNER]:
+1. Key optimisation goal:
+- Goal: Minimise the total number of transportation units (trains + trams) while meeting the required passenger throughput and the tram/train build-ratio constraint.
+
+2. Suggested model type:
+- Model: Integer Linear Programming (ILP). (Variables must be non‑negative integers because units are indivisible. For quick solution a small integer enumeration or simple algebraic reduction is sufficient.)
+
+3. Main decision variables:
+- Number of trains (integer, >= 0).
+- Number of trams (integer, >= 0).
+
+4. Key constraints to consider (described conceptually):
+- Capacity requirement: combined capacity of all trains and trams must be at least the target passengers per hour (600 pph). Use the per‑unit capacities (train = 120 pph, tram = 30 pph) to form this constraint.
+- Build-ratio constraint: the number of trams must be at least twice the number of trains.
+- Integrality and nonnegativity: both counts must be integer and non‑negative.
+- (Optional modelling note) You can reduce the search space by substituting trams = twice the trains + excess trams (nonnegative). This turns the capacity requirement into a simple integer inequality in those variables and reduces the combinatorial search when searching for the minimal total units.
+
+Suggested solution approach to implement:
+- Formulate the ILP with objective minimize (trains + trams) subject to the three constraints above and solve with an ILP solver; or because the problem is very small, enumerate feasible small integer values for trains (starting at zero) and compute the minimum required trams from the ratio and capacity constraints, tracking the combination with smallest total units.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- x ∈ Z_{\ge 0} : number of trains.
+- y ∈ Z_{\ge 0} : number of trams.
+
+Parameters
+- train_capacity = 120 (people/hour per train)
+- tram_capacity  = 30  (people/hour per tram)
+- demand = 600 (people/hour)
+- ratio constraint: y ≥ 2 x
+
+Constraints
+1. Capacity constraint:
+   120 x + 30 y ≥ 600
+
+2. Build-ratio constraint:
+   y ≥ 2 x
+
+3. Integrality and nonnegativity:
+   x, y ∈ Z_{\ge 0}
+
+Objective
+Minimize total number of units:
+   minimize z = x + y
+
+Remarks and algebraic reduction
+Substitute y = 2x + k with k ∈ Z_{\ge 0}. The capacity constraint becomes:
+   120x + 30(2x + k) = 180x + 30k ≥ 600
+Divide by 30:
+   6x + k ≥ 20
+The objective becomes:
+   z = x + y = x + 2x + k = 3x + k
+
+For each integer x ≥ 0 choose the minimal k = max(0, 20 − 6x). Then z(x) = 3x + max(0,20−6x). Evaluate small x (note upper bound x ≤ ceil(600/120)=5):
+- x=0 → k=20 → z=20
+- x=1 → k=14 → z=17
+- x=2 → k=8  → z=14
+- x=3 → k=2  → z=11  (feasible: capacity = 600 exactly)
+- x=4 → k=0  → z=12
+- x=5 → k=0  → z=15
+
+Optimal integer solution: x = 3 trains, y = 8 trams (since y = 2·3 + 2), total units z = 11. Capacity = 3·120 + 8·30 = 600, and y ≥ 2x holds.
+
+LP relaxation note: if x,y allowed continuous, the LP optimum is x = 10/3, y = 20/3, z = 10 (a lower bound). Integer optimum is z = 11.
+
+Suggested solution methods / libraries
+- For this tiny ILP: simple enumeration as above is trivial and fastest (loop x from 0..5, compute minimal y).
+- ILP solver options:
+  - PuLP (open-source Python front-end; default CBC solver): easy to model and solve.
+  - OR-Tools (CP-SAT) from Google: robust integer solver.
+  - Gurobi / CPLEX: commercial high-performance solvers if available.
+- sciPy.optimize is not suitable for integer programs (continuous only), so prefer PuLP / OR-Tools for ILP.
+
+Example approaches (conceptual)
+- Enumeration: for x in 0..ceil(demand/train_capacity): y = max(2*x, ceil((demand - 120*x)/30, 0)); keep minimal x+y.
+- ILP with PuLP: declare integer vars x,y, add the two constraints and objective minimize x+y; solve and read x,y.
+
+If you want, I can provide a short Python snippet showing the enumeration and/or a PuLP model that implements the ILP.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Parameters
+train_capacity = 120  # people/hour per train
+tram_capacity = 30    # people/hour per tram
+demand = 600          # people/hour
+
+# Search bounds for x (number of trains)
+max_x = math.ceil(demand / train_capacity)
+
+best_solution = None  # tuple (z, x, y)
+
+for x in range(0, max_x + 1):
+    # capacity remaining after trains
+    remaining = demand - train_capacity * x
+    if remaining <= 0:
+        needed_trams_by_capacity = 0
+    else:
+        needed_trams_by_capacity = math.ceil(remaining / tram_capacity)
+    # build-ratio constraint y >= 2x
+    y = max(2 * x, needed_trams_by_capacity)
+    # ensure nonnegative integer
+    if y < 0:
+        y = 0
+    z = x + y
+    # check feasibility explicitly (should hold)
+    if 120 * x + 30 * y < demand:
+        continue
+    if y < 2 * x:
+        continue
+    cand = (z, x, y)
+    if best_solution is None or cand < best_solution:
+        best_solution = cand
+
+if best_solution is None:
+    raise RuntimeError("No feasible solution found")
+
+best_z, best_x, best_y = best_solution
+
+# Final required print (only this line must be in this exact format)
+print(f"FINAL_OBJ: {best_z}")
+```

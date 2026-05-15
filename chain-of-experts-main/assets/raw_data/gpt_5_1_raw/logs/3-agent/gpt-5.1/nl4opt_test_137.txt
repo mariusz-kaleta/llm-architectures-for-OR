@@ -1,0 +1,138 @@
+[MODELER]:
+Here’s a formal optimization model of the problem.
+
+---
+
+### 1. Decision Variables
+
+Let  
+- \(x\) = number of helicopter trips  
+- \(y\) = number of truck trips  
+
+Both must be nonnegative integers:
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+### 2. Objective Function
+
+Each helicopter trip produces 5 units of pollution, each truck trip 10 units.  
+Total pollution:
+\[
+\text{Pollution} = 5x + 10y
+\]
+
+We want to **minimize total pollution**:
+\[
+\min \; Z = 5x + 10y
+\]
+
+---
+
+### 3. Constraints
+
+1. **Transport all cows (capacity constraint)**  
+   Each helicopter trip transports 3 cows; each truck trip transports 7 cows.  
+   The farmer must transport at least 80 cows:
+   \[
+   3x + 7y \ge 80
+   \]
+
+2. **Limit on number of truck trips (budget constraint)**  
+   At most 8 truck trips:
+   \[
+   y \le 8
+   \]
+
+3. **Nonnegativity and integrality**  
+   \[
+   x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+   \]
+
+---
+
+### 4. Type of Optimization Problem
+
+This is a **mixed-integer linear programming (MILP)** problem with:
+
+- Linear objective function
+- Linear constraints
+- Integer decision variables
+
+---
+
+### 5. Suitable Python Libraries
+
+You can model and solve this using, for example:
+
+- **PuLP** (`pulp`): simple and user-friendly interface for LP/MIP.
+- **OR-Tools** (`ortools.linear_solver`): efficient and well-suited for integer programming.
+- **Pyomo**: more general algebraic modeling language (heavier but very flexible).
+
+For a problem this small, **PuLP** or **OR-Tools** is ideal.
+
+---
+
+### 6. Example in PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Cow_Transport", pl.LpMinimize)
+
+# Decision variables (integer, >= 0)
+x = pl.LpVariable('helicopter_trips', lowBound=0, cat='Integer')
+y = pl.LpVariable('truck_trips', lowBound=0, cat='Integer')
+
+# Objective: minimize pollution
+prob += 5 * x + 10 * y, "Total_Pollution"
+
+# Constraints
+prob += 3 * x + 7 * y >= 80, "Cows_Requirement"
+prob += y <= 8, "Truck_Limit"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Helicopter trips (x):", x.value())
+print("Truck trips (y):", y.value())
+print("Minimum pollution:", pl.value(prob.objective))
+```
+
+This model fully encodes the problem and can be directly solved by any MILP solver supported by the chosen library.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("Cow_Transport", pl.LpMinimize)
+
+    # Decision variables (integer, >= 0)
+    x = pl.LpVariable('helicopter_trips', lowBound=0, cat='Integer')
+    y = pl.LpVariable('truck_trips', lowBound=0, cat='Integer')
+
+    # Objective: minimize pollution
+    prob += 5 * x + 10 * y, "Total_Pollution"
+
+    # Constraints
+    prob += 3 * x + 7 * y >= 80, "Cows_Requirement"
+    prob += y <= 8, "Truck_Limit"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Retrieve objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print final result in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

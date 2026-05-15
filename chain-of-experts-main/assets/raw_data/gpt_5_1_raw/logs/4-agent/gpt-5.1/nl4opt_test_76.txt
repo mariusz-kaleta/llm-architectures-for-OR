@@ -1,0 +1,250 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximize the total volume (liters) of glacial water transported.
+
+2. Suggested model type  
+   - Model: Integer Linear Programming (ILP) with two decision variables.  
+   - A simple linear model with integrality constraints is sufficient (or even a small discrete search, but we’ll frame it as ILP).
+
+3. Main decision variables  
+   Define integer (non‑negative) decision variables:  
+   - \(x_s\): number of small kegs used.  
+   - \(x_l\): number of large kegs used.
+
+4. Objective function (conceptual)  
+   - Maximize: total water = (40 liters per small keg) × \(x_s\) + (100 liters per large keg) × \(x_l\).
+
+5. Key constraints to consider  
+
+   Capacity/availability constraints:
+   - Small keg availability:  
+     \(x_s\) cannot exceed the maximum number of small kegs available (30).
+   - Large keg availability:  
+     \(x_l\) cannot exceed the maximum number of large kegs available (10).
+
+   Total number of kegs:
+   - Total kegs constraint:  
+     \(x_s + x_l\) cannot exceed the maximum number of kegs that can be transported (25).
+
+   Policy/ratio constraints:
+   - At least twice as many small kegs as large kegs:  
+     Small kegs must be at least 2 times the large kegs, so \(x_s\) must be no less than twice \(x_l\).
+
+   Minimum large kegs:
+   - Lower bound on large kegs:  
+     At least 5 large kegs must be used, so \(x_l\) has a minimum value of 5.
+
+   Non‑negativity and integrality:
+   - \(x_s\) and \(x_l\) must be integers and non‑negative.
+
+6. Strategy notes for the Modeller  
+
+   - There are only two variables and small upper bounds; enumerating feasible integer solutions is trivial, but the ILP formulation is straightforward and generalizable.
+   - Because large kegs carry more water, the model will tend to use as many large kegs as allowed by:
+     - their availability,
+     - the minimum ratio constraint (enough small kegs),
+     - and the total kegs limit.
+   - After setting up the model, check:
+     - Feasibility: confirm there exists a solution satisfying “at least twice as many small as large” given the minimum of 5 large kegs and the total ≤25 kegs.
+     - Optimality: verify that any candidate solution with fewer large kegs cannot produce more total liters because large kegs are more efficient (100 vs 40 liters per unit).
+
+---
+
+[MODELER]:
+Here is a full mathematical/algorithmic model of the problem, plus how you’d implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_s \in \mathbb{Z}_{\ge 0}\): number of small kegs used  
+- \(x_l \in \mathbb{Z}_{\ge 0}\): number of large kegs used
+
+Both are integer and non‑negative.
+
+---
+
+## 2. Objective function
+
+Each small keg holds 40 L, each large keg 100 L.  
+Maximize total volume transported:
+
+\[
+\max \; Z = 40 x_s + 100 x_l
+\]
+
+---
+
+## 3. Constraints
+
+1. **Availability of kegs**  
+   At most 30 small and 10 large are available:
+   \[
+   x_s \le 30
+   \]
+   \[
+   x_l \le 10
+   \]
+
+2. **Total kegs limit**  
+   At most 25 kegs total can be transported:
+   \[
+   x_s + x_l \le 25
+   \]
+
+3. **Ratio/policy: at least twice as many small as large**  
+   Small kegs must be at least 2× large kegs:
+   \[
+   x_s \ge 2x_l
+   \]
+
+4. **Minimum large kegs**  
+   At least 5 large kegs must be used:
+   \[
+   x_l \ge 5
+   \]
+
+5. **Integrality and non‑negativity**
+   \[
+   x_s, x_l \in \mathbb{Z}, \quad x_s \ge 0,\; x_l \ge 0
+   \]
+
+This is a pure Integer Linear Programming (ILP) model with 2 integer variables and linear constraints.
+
+---
+
+## 4. Compact model summary
+
+\[
+\begin{aligned}
+\max \quad & 40x_s + 100x_l \\
+\text{s.t.} \quad 
+& x_s \le 30 \\
+& x_l \le 10 \\
+& x_s + x_l \le 25 \\
+& x_s \ge 2x_l \\
+& x_l \ge 5 \\
+& x_s, x_l \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard MILP library can solve this easily:
+
+- **PuLP** (pure Python, easy to use; can use CBC, GLPK, or other LP/MIP solvers)
+- **OR‑Tools** (Google OR‑Tools CP‑SAT or MIP solver; very fast, more “industrial”)
+- **Pyomo** (more general algebraic modeling language in Python)
+- **scipy.optimize** is *not* suitable here because it does not handle integer variables natively.
+
+For a problem this small, PuLP or OR‑Tools is ideal.
+
+---
+
+## 6. Example PuLP implementation
+
+```python
+import pulp as pl
+
+# Create the model
+model = pl.LpProblem("Glacial_Water_Transport", pl.LpMaximize)
+
+# Decision variables (non-negative integers)
+x_s = pl.LpVariable("x_s", lowBound=0, cat="Integer")  # small kegs
+x_l = pl.LpVariable("x_l", lowBound=0, cat="Integer")  # large kegs
+
+# Objective function: maximize total liters
+model += 40 * x_s + 100 * x_l, "Total_Water_Liters"
+
+# Constraints
+model += x_s <= 30, "Small_Keg_Availability"
+model += x_l <= 10, "Large_Keg_Availability"
+model += x_s + x_l <= 25, "Total_Keg_Limit"
+model += x_s >= 2 * x_l, "Ratio_Small_at_least_2x_Large"
+model += x_l >= 5, "Min_Large_Kegs"
+
+# Solve
+status = model.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[status])
+print("Optimal x_s (small kegs):", pl.value(x_s))
+print("Optimal x_l (large kegs):", pl.value(x_l))
+print("Max total liters:", pl.value(model.objective))
+```
+
+---
+
+## 7. Example OR‑Tools CP‑SAT implementation
+
+```python
+from ortools.sat.python import cp_model
+
+model = cp_model.CpModel()
+
+# Decision variables
+x_s = model.NewIntVar(0, 30, "x_s")  # small kegs
+x_l = model.NewIntVar(5, 10, "x_l")  # large kegs (lower bound 5 applied directly)
+
+# Constraints
+model.Add(x_s + x_l <= 25)
+model.Add(x_s >= 2 * x_l)
+
+# Objective: maximize 40*x_s + 100*x_l
+model.Maximize(40 * x_s + 100 * x_l)
+
+# Solve
+solver = cp_model.CpSolver()
+status = solver.Solve(model)
+
+if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
+    print("Status:", solver.StatusName(status))
+    print("Optimal x_s (small kegs):", solver.Value(x_s))
+    print("Optimal x_l (large kegs):", solver.Value(x_l))
+    print("Max total liters:", solver.Value(40 * x_s + 100 * x_l))
+else:
+    print("No feasible solution found.")
+```
+
+---
+
+This model is fully specified and directly solvable using the ILP formulations above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the model
+    model = pl.LpProblem("Glacial_Water_Transport", pl.LpMaximize)
+
+    # Decision variables (non-negative integers)
+    x_s = pl.LpVariable("x_s", lowBound=0, cat="Integer")  # small kegs
+    x_l = pl.LpVariable("x_l", lowBound=0, cat="Integer")  # large kegs
+
+    # Objective function: maximize total liters
+    model += 40 * x_s + 100 * x_l, "Total_Water_Liters"
+
+    # Constraints
+    model += x_s <= 30, "Small_Keg_Availability"
+    model += x_l <= 10, "Large_Keg_Availability"
+    model += x_s + x_l <= 25, "Total_Keg_Limit"
+    model += x_s >= 2 * x_l, "Ratio_Small_at_least_2x_Large"
+    model += x_l >= 5, "Min_Large_Kegs"
+
+    # Solve
+    status = model.solve(pl.PULP_CBC_CMD(msg=False))
+
+    if pl.LpStatus[status] not in ["Optimal", "Feasible"]:
+        value = None
+    else:
+        value = pl.value(model.objective)
+
+    print(f"FINAL_OBJ: {value}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,128 @@
+[MODELER]:
+Here is a linear programming model of the problem.
+
+## Decision variables
+Let  
+- \(x\) = number of large art pieces to make  
+- \(y\) = number of small art pieces to make  
+
+Both must be nonnegative and (in practice) integers:
+- \(x \ge 5,\; y \ge 5\) and often \(x, y \in \mathbb{Z}\).
+
+## Objective
+Maximize total profit:
+\[
+\text{Maximize } Z = 30x + 15y
+\]
+
+## Constraints
+
+### Resource (material) constraints
+
+Paint (100 units available):  
+\[
+4x + 2y \le 100
+\]
+
+Glitter (50 units available):  
+\[
+3x + y \le 50
+\]
+
+Glue (70 units available):  
+\[
+5x + 2y \le 70
+\]
+
+### Minimum production requirements
+
+At least 5 of each size:
+\[
+x \ge 5
+\]
+\[
+y \ge 5
+\]
+
+### Nonnegativity (and optionally integrality)
+\[
+x \ge 0,\quad y \ge 0
+\]
+Typically we also enforce:
+\[
+x, y \in \mathbb{Z}
+\]
+
+## Solving the model (outline)
+
+This is a small linear program with 2 variables and 6 constraints. It can be solved with standard LP or MILP solvers.
+
+### Suitable Python libraries
+
+Any of these are appropriate:
+
+- `PuLP` (simple LP/MILP modeling, open source)
+- `scipy.optimize.linprog` (continuous LP; you’d relax integrality)
+- `ortools.linear_solver` from Google OR-Tools (LP/MILP, very good for integer constraints)
+- `Pyomo` (more general algebraic modeling)
+
+### Example using PuLP (continuous or integer)
+
+```python
+import pulp as pl
+
+# Create problem: maximize profit
+prob = pl.LpProblem("Art_Store_Profit_Max", pl.LpMaximize)
+
+# Decision variables (integer; use cat=pl.LpContinuous if integrality not needed)
+x = pl.LpVariable('x_large', lowBound=5, cat=pl.LpInteger)
+y = pl.LpVariable('y_small', lowBound=5, cat=pl.LpInteger)
+
+# Objective function
+prob += 30 * x + 15 * y
+
+# Constraints
+prob += 4 * x + 2 * y <= 100    # paint
+prob += 3 * x + 1 * y <= 50     # glitter
+prob += 5 * x + 2 * y <= 70     # glue
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal large pieces (x):", x.value())
+print("Optimal small pieces (y):", y.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This fully specifies the mathematical model and a standard way to solve it programmatically.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Create problem: maximize profit
+    prob = pl.LpProblem("Art_Store_Profit_Max", pl.LpMaximize)
+
+    # Decision variables (integer, minimum 5 each)
+    x = pl.LpVariable('x_large', lowBound=5, cat=pl.LpInteger)
+    y = pl.LpVariable('y_small', lowBound=5, cat=pl.LpInteger)
+
+    # Objective function
+    prob += 30 * x + 15 * y
+
+    # Constraints
+    prob += 4 * x + 2 * y <= 100    # paint
+    prob += 3 * x + y <= 50         # glitter
+    prob += 5 * x + 2 * y <= 70     # glue
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    final_obj = pl.value(prob.objective)
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

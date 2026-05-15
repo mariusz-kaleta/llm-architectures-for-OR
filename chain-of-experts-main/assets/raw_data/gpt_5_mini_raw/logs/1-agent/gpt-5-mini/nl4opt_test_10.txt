@@ -1,0 +1,69 @@
+[MONOLITH]:
+import math
+
+# Try to solve using PuLP; if not available, fall back to brute-force enumeration
+try:
+    import pulp
+
+    # Define the problem
+    prob = pulp.LpProblem("Magic_School_Delivery", pulp.LpMaximize)
+
+    # Decision variables: number of carrier pigeons (x) and owls (y)
+    x = pulp.LpVariable("pigeons", lowBound=20, cat="Integer")  # at least 20 pigeons
+    y = pulp.LpVariable("owls", lowBound=0, cat="Integer")
+
+    # Objective: maximize total letters delivered (2 per pigeon, 5 per owl)
+    prob += 2 * x + 5 * y, "Total_Letters"
+
+    # Constraints:
+    # Treats: 3 treats per pigeon, 5 per owl, at most 1000 treats
+    prob += 3 * x + 5 * y <= 1000, "Treats_Limit"
+
+    # At most 40% of the birds can be owls -> y <= 0.4*(x+y) -> 3y <= 2x
+    prob += 3 * y <= 2 * x, "Owls_Percentage"
+
+    # Solve
+    prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+    pigeons_val = int(pulp.value(x))
+    owls_val = int(pulp.value(y))
+    objective_val = int(pulp.value(2 * x + 5 * y))
+
+    # Print solution details
+    print(f"Number of carrier pigeons: {pigeons_val}")
+    print(f"Number of owls: {owls_val}")
+    print(f"Total letters delivered: {objective_val}")
+
+except Exception:
+    # Fallback brute-force search (integer enumeration)
+    best_obj = -1
+    best_x = None
+    best_y = None
+    # x at least 20. Upper bound for x from treats: 3x <= 1000 -> x <= 333
+    for x_val in range(20, 334):
+        # y must be nonnegative integer and satisfy 3y <= 2x_val and treats
+        # From treats: 5y <= 1000 - 3x_val -> y <= floor((1000-3x_val)/5)
+        y_max_by_treats = (1000 - 3 * x_val) // 5
+        if y_max_by_treats < 0:
+            continue
+        # Also 3y <= 2x_val -> y <= floor(2*x_val/3)
+        y_max_by_pct = (2 * x_val) // 3
+        y_max = min(y_max_by_treats, y_max_by_pct)
+        for y_val in range(0, y_max + 1):
+            obj = 2 * x_val + 5 * y_val
+            if obj > best_obj:
+                best_obj = obj
+                best_x = x_val
+                best_y = y_val
+
+    pigeons_val = best_x
+    owls_val = best_y
+    objective_val = best_obj
+
+    # Print solution details
+    print(f"Number of carrier pigeons: {pigeons_val}")
+    print(f"Number of owls: {owls_val}")
+    print(f"Total letters delivered: {objective_val}")
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {objective_val}")

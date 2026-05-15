@@ -1,0 +1,184 @@
+[MODELER]:
+Let’s turn this word problem into a clear optimization model.
+
+### 1. Decision variables
+
+Let  
+- \(x_1\) = number of times **demonstration 1** is performed  
+- \(x_2\) = number of times **demonstration 2** is performed  
+
+We will assume \(x_1, x_2 \ge 0\) and can be real numbers (continuous model). If they must be whole numbers, we’ll handle that as an integer program.
+
+---
+
+### 2. Objective function
+
+Each demonstration produces minty foam:
+
+- Demo 1: 25 units of foam per performance  
+- Demo 2: 18 units of foam per performance  
+
+We want to **maximize total foam**:
+
+\[
+\text{Maximize } Z = 25x_1 + 18x_2
+\]
+
+---
+
+### 3. Constraints
+
+#### Mint constraint
+
+Each demo uses mint:
+
+- Demo 1 uses 10 units  
+- Demo 2 uses 12 units  
+Available mint = 120 units  
+
+\[
+10x_1 + 12x_2 \le 120
+\]
+
+#### Active ingredient constraint
+
+Each demo uses active ingredient:
+
+- Demo 1 uses 20 units  
+- Demo 2 uses 15 units  
+Available active ingredient = 100 units  
+
+\[
+20x_1 + 15x_2 \le 100
+\]
+
+#### Black tar constraint
+
+Each demo produces black tar:
+
+- Demo 1 produces 5 units  
+- Demo 2 produces 3 units  
+At most 50 units of black tar allowed:
+
+\[
+5x_1 + 3x_2 \le 50
+\]
+
+#### Non-negativity
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+If you must perform an integer number of demonstrations:
+
+\[
+x_1, x_2 \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+### 4. Complete mathematical model
+
+Maximize:
+\[
+Z = 25x_1 + 18x_2
+\]
+
+Subject to:
+\[
+\begin{align}
+10x_1 + 12x_2 &\le 120 &\text{(mint)}\\
+20x_1 + 15x_2 &\le 100 &\text{(active ingredient)}\\
+5x_1 + 3x_2 &\le 50 &\text{(black tar)}\\
+x_1, x_2 &\ge 0 &\text{(non-negativity)}
+\end{align}
+\]
+
+Optionally:
+\[
+x_1, x_2 \in \mathbb{Z}_{\ge 0} \quad \text{(if integer is required)}
+\]
+
+---
+
+### 5. Suitable Python libraries
+
+For this linear optimization problem:
+
+- **PuLP** – Simple modeling for LP/MILP; integrates with CBC, GLPK, etc.  
+- **OR-Tools (Linear Solver or MIP Solver)** – From Google; fast and well-documented.  
+- **SciPy (`scipy.optimize.linprog`)** – For continuous linear programs (no integrality).  
+
+If you need integer solutions, prefer **PuLP** or **OR-Tools**.  
+
+---
+
+### 6. Example PuLP formulation (continuous version)
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Minty_Foam_Maximization", pl.LpMaximize)
+
+# Decision variables (continuous, >= 0)
+x1 = pl.LpVariable('x1', lowBound=0)
+x2 = pl.LpVariable('x2', lowBound=0)
+
+# Objective function
+prob += 25 * x1 + 18 * x2, "Total_Minty_Foam"
+
+# Constraints
+prob += 10 * x1 + 12 * x2 <= 120, "Mint_limit"
+prob += 20 * x1 + 15 * x2 <= 100, "Active_limit"
+prob += 5 * x1 + 3 * x2 <= 50, "Tar_limit"
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("x1 (demo 1):", x1.varValue)
+print("x2 (demo 2):", x2.varValue)
+print("Max foam:", pl.value(prob.objective))
+```
+
+To enforce integer numbers of demonstrations, just change:
+
+```python
+x1 = pl.LpVariable('x1', lowBound=0, cat='Integer')
+x2 = pl.LpVariable('x2', lowBound=0, cat='Integer')
+```
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Create problem (maximize)
+    prob = pl.LpProblem("Minty_Foam_Maximization", pl.LpMaximize)
+
+    # Decision variables (continuous, >= 0)
+    x1 = pl.LpVariable('x1', lowBound=0)
+    x2 = pl.LpVariable('x2', lowBound=0)
+
+    # Objective function: maximize total foam
+    prob += 25 * x1 + 18 * x2, "Total_Minty_Foam"
+
+    # Constraints
+    prob += 10 * x1 + 12 * x2 <= 120, "Mint_limit"
+    prob += 20 * x1 + 15 * x2 <= 100, "Active_limit"
+    prob += 5 * x1 + 3 * x2 <= 50, "Tar_limit"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,187 @@
+[MODELER]:
+Let’s turn the description into a clear optimization model.
+
+## 1. Decision variables
+
+Let  
+- \(x \ge 0\): number of times experiment alpha is conducted  
+- \(y \ge 0\): number of times experiment beta is conducted  
+
+(These can be real numbers if fractional experiments are allowed, integer if not.)
+
+## 2. Objective function
+
+Each experiment alpha produces 8 units of electricity.  
+Each experiment beta produces 10 units of electricity.
+
+Maximize total electricity:
+\[
+\max Z = 8x + 10y
+\]
+
+## 3. Constraints
+
+### Metal constraint
+Each alpha uses 3 units of metal.  
+Each beta uses 5 units of metal.  
+Total metal available: 800 units.
+\[
+3x + 5y \le 800
+\]
+
+### Acid constraint
+Each alpha uses 5 units of acid.  
+Each beta uses 4 units of acid.  
+Total acid available: 750 units.
+\[
+5x + 4y \le 750
+\]
+
+### Non-negativity
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+This is a linear programming problem.
+
+## 4. Solving the model analytically (continuous case)
+
+Solve the system where both resource constraints are tight (binding):
+
+\[
+\begin{cases}
+3x + 5y = 800 \\
+5x + 4y = 750
+\end{cases}
+\]
+
+From the first equation:
+\[
+x = \frac{800 - 5y}{3}
+\]
+
+Substitute into the second:
+\[
+5\left(\frac{800 - 5y}{3}\right) + 4y = 750
+\]
+\[
+\frac{4000 - 25y}{3} + 4y = 750
+\]
+Multiply by 3:
+\[
+4000 - 25y + 12y = 2250
+\]
+\[
+4000 - 13y = 2250
+\]
+\[
+13y = 1750 \Rightarrow y = \frac{1750}{13} \approx 134.615
+\]
+
+Then
+\[
+x = \frac{800 - 5 \cdot 1750/13}{3}
+= \frac{800 - 8750/13}{3}
+= \frac{10400/13 - 8750/13}{3}
+= \frac{1650/13}{3}
+= \frac{550}{13} \approx 42.308
+\]
+
+Check constraints:
+- Metal: \(3x + 5y = 800\) (binding)
+- Acid: \(5x + 4y = 750\) (binding)
+
+So, in the continuous LP:
+
+- Optimal solution:  
+  \[
+  x^* = \frac{550}{13} \approx 42.31,\quad
+  y^* = \frac{1750}{13} \approx 134.62
+  \]
+- Maximum electricity:
+  \[
+  Z^* = 8x^* + 10y^* = 8\cdot\frac{550}{13} + 10\cdot\frac{1750}{13}
+  = \frac{4400 + 17500}{13} = \frac{21900}{13} \approx 1684.62
+  \]
+
+If only whole numbers of experiments are allowed, you’d typically choose nearby integers that satisfy the constraints and use an integer programming solver.
+
+## 5. Suitable Python libraries
+
+You can model and solve this in Python using:
+
+- **PuLP** (simple LP/MIP modeling):  
+  `pulp.LpProblem`, `pulp.LpVariable`, `pulp.PULP_CBC_CMD`
+- **SciPy**: `scipy.optimize.linprog` (for continuous LP only)
+- **OR-Tools**:  
+  - `ortools.linear_solver.pywraplp` for LP/MIP (supports integer variables easily)
+- **Pyomo**: more advanced algebraic modeling language for LP/MIP/NLP.
+
+### Example with PuLP (continuous version)
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Electricity_Maximization", pl.LpMaximize)
+
+# Decision variables (continuous, nonnegative)
+x = pl.LpVariable('x_alpha', lowBound=0)
+y = pl.LpVariable('y_beta', lowBound=0)
+
+# Objective
+prob += 8*x + 10*y
+
+# Constraints
+prob += 3*x + 5*y <= 800    # metal
+prob += 5*x + 4*y <= 750    # acid
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("x (alpha) =", x.value())
+print("y (beta)  =", y.value())
+print("Max electricity =", pl.value(prob.objective))
+```
+
+To force integer numbers of experiments, just declare:
+
+```python
+x = pl.LpVariable('x_alpha', lowBound=0, cat="Integer")
+y = pl.LpVariable('y_beta', lowBound=0, cat="Integer")
+```
+
+and re-solve.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the optimization problem (maximize)
+    prob = pl.LpProblem("Electricity_Maximization", pl.LpMaximize)
+
+    # Decision variables (continuous, nonnegative)
+    x = pl.LpVariable('x_alpha', lowBound=0)
+    y = pl.LpVariable('y_beta', lowBound=0)
+
+    # Objective function: maximize 8x + 10y
+    prob += 8 * x + 10 * y
+
+    # Constraints
+    prob += 3 * x + 5 * y <= 800    # metal constraint
+    prob += 5 * x + 4 * y <= 750    # acid constraint
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the optimal objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

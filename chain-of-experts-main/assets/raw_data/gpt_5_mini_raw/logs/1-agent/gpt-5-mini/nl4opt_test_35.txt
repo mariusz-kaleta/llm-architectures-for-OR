@@ -1,0 +1,49 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization based on the problem statement
+# Variables:
+# A = servings of almonds
+# C = servings of cashews
+calories_per_almond = 200
+protein_per_almond = 20
+fat_per_almond = 15
+
+calories_per_cashew = 300
+protein_per_cashew = 25
+fat_per_cashew = 12
+
+required_calories = 10000
+required_protein = 800
+
+# Define LP problem: minimize total fat
+prob = pulp.LpProblem("Minimize_Fat_Intake", pulp.LpMinimize)
+
+# Decision variables (continuous, non-negative)
+A = pulp.LpVariable("Almond_servings", lowBound=0, cat='Continuous')
+C = pulp.LpVariable("Cashew_servings", lowBound=0, cat='Continuous')
+
+# Objective: minimize fat
+prob += fat_per_almond * A + fat_per_cashew * C, "Total_Fat"
+
+# Constraints
+prob += A >= 2 * C, "Almonds_at_least_twice_cashews"
+prob += calories_per_almond * A + calories_per_cashew * C >= required_calories, "Calories_requirement"
+prob += protein_per_almond * A + protein_per_cashew * C >= required_protein, "Protein_requirement"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract results
+A_val = A.varValue if A.varValue is not None else 0.0
+C_val = C.varValue if C.varValue is not None else 0.0
+final_obj = pulp.value(prob.objective)
+
+# Print solution details
+print(f"Almond servings (A): {A_val}")
+print(f"Cashew servings (C): {C_val}")
+print(f"Total fat (objective): {final_obj}")
+
+# Final required print line (must be the last output)
+print(f"FINAL_OBJ: {final_obj}")

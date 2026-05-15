@@ -1,0 +1,152 @@
+[MODELER]:
+Here is a formal optimization model for your problem.
+
+---
+
+## 1. Decision variables
+
+Let  
+
+- \(x_1 \ge 0\): number of first-dose vaccines to produce  
+- \(x_2 \ge 0\): number of second-dose vaccines to produce  
+
+(These will be integers in reality, but the problem as stated is linear and will usually be solved as a linear program; you can add integrality if required.)
+
+---
+
+## 2. Objective function
+
+Each first-dose uses 20 mg of gelatine, each second-dose uses 60 mg.
+
+We want to **minimize total gelatine used**:
+
+\[
+\min \; G = 20x_1 + 60x_2
+\]
+
+---
+
+## 3. Constraints
+
+### a) Antibiotics constraint
+
+Available antibiotics: 35,000 units.  
+Usage: 30 units per first-dose, 65 units per second-dose.
+
+\[
+30x_1 + 65x_2 \le 35000
+\]
+
+### b) Dose ordering constraint
+
+There must be strictly more first-dose than second-dose vaccines made:
+
+\[
+x_1 > x_2
+\]
+
+In a linear programming solver (which typically only supports \(\le, =, \ge\)), you usually approximate this as:
+
+- If integrality is enforced (integer \(x_1, x_2\)):  
+  \[
+  x_1 \ge x_2 + 1
+  \]
+
+- If solving as a continuous LP and you only care about conceptual solution:  
+  \[
+  x_1 \ge x_2
+  \]
+  (Under the given constraints, the optimum will naturally be with \(x_1 > x_2\) anyway.)
+
+### c) Minimum second-dose requirement
+
+At least 40 second-dose vaccines must be produced:
+
+\[
+x_2 \ge 40
+\]
+
+### d) Non-negativity (and integrality if desired)
+
+\[
+x_1 \ge 0, \quad x_2 \ge 0
+\]
+
+Optionally, require integers:
+
+\[
+x_1, x_2 \in \mathbb{Z}
+\]
+
+---
+
+## 4. Model summary
+
+**Mathematical program:**
+
+\[
+\begin{aligned}
+\min_{x_1, x_2} \quad & 20x_1 + 60x_2 \\
+\text{s.t.} \quad & 30x_1 + 65x_2 \le 35000 \\
+& x_1 \ge x_2 + 1 \quad (\text{to ensure more first-dose than second-dose})\\
+& x_2 \ge 40 \\
+& x_1, x_2 \ge 0 \\
+& x_1, x_2 \in \mathbb{Z} \quad (\text{if integer solutions are required})
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+To solve this linear/integer optimization problem in Python, the following libraries are well-suited:
+
+- **PuLP**  
+  - User-friendly for linear and integer programming.  
+  - Works with open-source and commercial solvers.
+- **OR-Tools (Google OR-Tools)**  
+  - Excellent for integer programming (MIP) and CP-SAT; very fast.
+- **Pyomo**  
+  - More general algebraic modeling language, works well with many solvers.
+- **scipy.optimize.linprog**  
+  - For continuous linear programming only (no integrality, no strict inequalities).
+
+For a clean and straightforward implementation, **PuLP** or **OR-Tools** are particularly good choices.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: minimize total gelatine
+    prob = pulp.LpProblem("Vaccine_Production", pulp.LpMinimize)
+
+    # Decision variables (integers, non-negative)
+    x1 = pulp.LpVariable('x1', lowBound=0, cat='Integer')  # first-dose
+    x2 = pulp.LpVariable('x2', lowBound=0, cat='Integer')  # second-dose
+
+    # Objective function: minimize 20x1 + 60x2
+    prob += 20 * x1 + 60 * x2
+
+    # Constraints
+    # Antibiotics: 30x1 + 65x2 <= 35000
+    prob += 30 * x1 + 65 * x2 <= 35000
+
+    # Dose ordering: x1 >= x2 + 1
+    prob += x1 >= x2 + 1
+
+    # Minimum second-dose requirement: x2 >= 40
+    prob += x2 >= 40
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

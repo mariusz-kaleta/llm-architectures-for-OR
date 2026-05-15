@@ -1,0 +1,99 @@
+[MODELER]:
+Below is a clear linear-programming formulation, plus the (simple) solution and solver suggestions.
+
+Decision variables
+- R = number of servings of Rice (>= 0)
+- K = number of servings of Kebab (>= 0)
+
+Objective
+- Minimize total cost: minimize Z = 3R + 2K
+
+Constraints
+- Calories requirement: 300R + 200K >= 2200
+- Protein requirement: 4.5R + 4K >= 30
+- Nonnegativity: R >= 0, K >= 0
+
+Mathematical formulation
+Minimize
+  Z = 3R + 2K
+subject to
+  300R + 200K >= 2200
+  4.5R + 4K >= 30
+  R, K >= 0
+
+Remarks / solution insight
+- Solve graphically or with an LP solver. Checking corner solutions:
+  - If K = 0, R must be >= 2200/300 = 7.333... (calories constraint dominates), cost = 3 * 7.333... = $22.
+  - If R = 0, K must be >= 2200/200 = 11 (calories dominates), cost = 2 * 11 = $22.
+- The LP has optimal cost Z* = $22. There are multiple optimal combinations (any feasible (R,K) on the minimal-cost segment); two simple optimal points are:
+  - R = 7.333..., K = 0  (cost $22)
+  - R = 0, K = 11        (cost $22)
+
+Solver recommendations (Python)
+- pulp (easy to model and solve mixed/linear problems)
+- scipy.optimize.linprog (lightweight LP solver)
+- OR-Tools (Google OR-Tools) for larger/industrial problems
+
+Example (sketch using scipy.optimize.linprog)
+- minimize c = [3, 2] s.t. A_ub = -[[300,200],[4.5,4]] , b_ub = -[2200,30], bounds = [(0,None),(0,None)]
+
+This LP is straightforward and any of the recommended libraries will solve it instantly. If you want, I can provide a runnable code snippet (pulp or scipy) to solve it and list all extreme optimal solutions.
+
+---
+
+[CODER]:
+import math
+
+# Problem data
+c = [3.0, 2.0]  # objective coefficients for R, K
+# Constraints (>=) converted to <= for scipy.linprog by multiplying by -1:
+# 300 R + 200 K >= 2200  ->  -300 R -200 K <= -2200
+# 4.5 R + 4 K >= 30      ->  -4.5 R -4 K <= -30
+A_ub = [[-300.0, -200.0],
+        [-4.5,   -4.0]]
+b_ub = [-2200.0, -30.0]
+bounds = [(0, None), (0, None)]  # R, K >= 0
+
+value = None
+
+# Try to solve with scipy.linprog if available
+try:
+    from scipy.optimize import linprog
+    res = linprog(c=c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method='highs')
+    if res.success:
+        value = res.fun
+except Exception:
+    value = None
+
+# Fallback analytic solution if solver not available or failed
+if value is None:
+    # Evaluate corner (axis) feasible points:
+    # If K = 0, R must satisfy both constraints: R >= max(2200/300, 30/4.5)
+    R_k0 = max(2200.0/300.0, 30.0/4.5)
+    K_k0 = 0.0
+    cost_k0 = 3.0 * R_k0 + 2.0 * K_k0
+
+    # If R = 0, K must satisfy both constraints: K >= max(2200/200, 30/4)
+    R_r0 = 0.0
+    K_r0 = max(2200.0/200.0, 30.0/4.0)
+    cost_r0 = 3.0 * R_r0 + 2.0 * K_r0
+
+    # Intersection of equalities (may be infeasible if negative)
+    # Solve:
+    # 300 R + 200 K = 2200
+    # 4.5 R + 4 K = 30
+    det = 300.0 * 4.0 - 200.0 * 4.5  # = 1200 - 900 = 300
+    if abs(det) > 1e-12:
+        R_int = (2200.0 * 4.0 - 200.0 * 30.0) / det
+        K_int = (300.0 * 30.0 - 2200.0 * 4.5) / det
+        if R_int >= -1e-12 and K_int >= -1e-12:
+            cost_int = 3.0 * R_int + 2.0 * K_int
+        else:
+            cost_int = float('inf')
+    else:
+        cost_int = float('inf')
+
+    value = min(cost_k0, cost_r0, cost_int)
+
+# Print final objective value as required
+print(f"FINAL_OBJ: {value}")

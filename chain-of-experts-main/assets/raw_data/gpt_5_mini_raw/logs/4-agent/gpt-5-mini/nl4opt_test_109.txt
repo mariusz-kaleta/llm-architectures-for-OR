@@ -1,0 +1,141 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Minimise the total number of boxes used (small boxes + large boxes) while meeting the mask demand and the box-ratio & minimum-large-box requirements.
+
+2. Suggested model type
+- Model: Integer Linear Programming (ILP) with two integer decision variables. Because box counts must be whole numbers and there are simple linear constraints, an ILP solver or an explicit small enumeration will be efficient.
+
+3. Main decision variables
+- s = number of small boxes (integer, >= 0)
+- l = number of large boxes (integer, >= 0)
+
+4. Key constraints to consider (conceptual)
+- Capacity constraint: total masks carried must be at least the demand (each small box = 25 masks, each large box = 45 masks). So the combination of s and l must provide ≥ 750 masks.
+- Ratio constraint: small boxes must be used at least three times the number of large boxes (s ≥ 3·l).
+- Minimum-large constraint: at least five large boxes must be used (l ≥ 5).
+- Integrality and non-negativity: s and l are non‑negative integers.
+- Practical variable bounds (for solver efficiency): derive feasible bounds for l (and s) to limit search. For example:
+  - Upper bound for l: if only large boxes were used, l need not exceed ceil(750/45) = 17 (because 17 large boxes already meet demand).
+  - Lower bound for l is 5 (given), and capacity+ratio implies l will not be lower than ceil(750/120) = 7 if s is at the minimal 3·l; still keep l search from 5 to 17.
+
+5. Recommended solution approach (steps for the Modeller)
+- Option A — direct ILP: encode objective (minimise s + l) and the linear constraints into an ILP solver and solve.
+- Option B — small enumeration (simpler, deterministic): iterate integer l from the lower bound (5) up to the upper bound (17). For each candidate l:
+  - Compute the minimum s that satisfies both the ratio constraint (s ≥ 3·l) and the capacity constraint (25·s + 45·l ≥ 750). That minimal s is the larger of the two required amounts.
+  - Compute total boxes (s + l).
+- Choose the (s, l) pair with smallest total boxes. If ties occur, return all tied optimal solutions or apply a secondary criterion (e.g., prefer fewer small boxes or fewer large boxes).
+- Verify solution meets all constraints.
+
+6. Outputs to produce
+- Optimal counts of small and large boxes (s*, l*).
+- Total masks delivered and total number of boxes.
+- Brief check that all constraints (capacity, ratio, minimum large) are satisfied.
+
+This plan will yield the exact integer optimal solution quickly; enumeration over l is simplest and guaranteed small.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- s ∈ Z≥0 : number of small boxes.
+- l ∈ Z≥0 : number of large boxes.
+
+Objective
+- Minimise total boxes: minimize Z = s + l.
+
+Constraints
+1. Capacity: 25 s + 45 l ≥ 750.
+2. Ratio: s ≥ 3 l.
+3. Minimum large: l ≥ 5.
+4. Integrality/nonnegativity: s, l ∈ Z, s ≥ 0, l ≥ 0.
+
+Feasible bounds (useful for solvers / enumeration)
+- l_min = 5 (by constraint).
+- l_max ≤ ceil(750 / 45) = 17 (if using only large boxes).
+- For each l, s_min = max(3 l, ceil((750 − 45 l) / 25), 0).
+
+Solution approaches
+Option A — Integer Linear Programming (ILP)
+- Encode variables s, l as integer variables, objective s + l, and linear constraints above.
+- Solvers/libraries: pulp (CBC), OR-Tools (CP-SAT), scipy.optimize (not integer), gurobi or CPLEX (commercial).
+- Example libraries: pulp, ortools.
+
+Option B — Small enumeration (simpler)
+- For l from 5 to 17:
+  - Compute required s = max(3·l, ceil((750 − 45·l)/25), 0).
+  - Compute total boxes = s + l.
+- Pick l (and corresponding s) achieving minimal total boxes. If multiple ties, apply tie-breaker (e.g., prefer exact capacity, or fewer large boxes).
+
+Recommended: enumeration is trivial and guaranteed fast here.
+
+Short Python-style enumeration (concept)
+- For l in range(5, 18):
+    need_s_from_capacity = ceil(max(0, 750 - 45*l) / 25)
+    s = max(3*l, need_s_from_capacity)
+    record (l, s, total = l+s)
+- Select minimal total.
+
+Optimal solution (result of enumeration or ILP)
+- Two combinations yield the minimum total number of boxes = 26:
+  1. s = 21 small boxes, l = 5 large boxes → 21*25 + 5*45 = 750 masks (exactly), total boxes = 26.
+  2. s = 20 small boxes, l = 6 large boxes → 20*25 + 6*45 = 770 masks, total boxes = 26.
+- Preference: choose s = 21, l = 5 because it meets the capacity exactly and uses fewer large boxes.
+
+Final answer (recommended)
+- Use 21 small boxes and 5 large boxes.
+- Total masks delivered: 750.
+- Total boxes used: 26.
+- All constraints satisfied: capacity 750≥750, ratio 21≥3·5, l≥5, integrality holds.
+
+Suggested solver/libraries
+- For quick coding: Python enumeration (built-in math.ceil).
+- For ILP: pulp (open-source CBC), OR-Tools CP-SAT (good performance), or commercial solvers Gurobi/CPLEX if available.
+
+---
+
+[CODER]:
+```python
+import math
+
+# Problem data
+demand = 750
+cap_small = 25
+cap_large = 45
+
+# Feasible range for l
+l_min = 5
+l_max = math.ceil(demand / cap_large)
+
+best = None  # tuple for best (total_boxes, tie_breaker..., s, l, capacity)
+
+for l in range(l_min, l_max + 1):
+    # s required by capacity (ceil of remaining demand divided by small box capacity)
+    remaining = max(0, demand - cap_large * l)
+    s_from_capacity = math.ceil(remaining / cap_small)
+    # s required by ratio s >= 3*l
+    s = max(3 * l, s_from_capacity)
+    capacity = cap_small * s + cap_large * l
+    total_boxes = s + l
+
+    # tie-breaker:
+    # prefer exact capacity (capacity == demand) over over-capacity
+    exact_flag = 0 if capacity == demand else 1
+    # prefer fewer large boxes
+    tie = (total_boxes, exact_flag, l, s)
+
+    if best is None or tie < best[0]:
+        best = (tie, s, l, capacity, total_boxes)
+
+# Unpack best solution
+_, best_s, best_l, best_capacity, best_total = best
+
+# Print solution details (optional)
+print(f"s = {best_s}, l = {best_l}")
+print(f"Total masks delivered = {best_capacity}")
+print(f"Total boxes used = {best_total}")
+
+# Final required line with objective value
+print(f"FINAL_OBJ: {best_total}")
+```

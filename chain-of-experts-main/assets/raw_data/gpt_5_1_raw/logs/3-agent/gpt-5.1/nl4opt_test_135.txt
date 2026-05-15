@@ -1,0 +1,123 @@
+[MODELER]:
+Here is a clean mathematical model of the problem.
+
+## 1. Decision variables
+
+Let
+
+- \( x \): number of seasonal snow removers hired (nonnegative integer)  
+- \( y \): number of permanent snow removers hired (nonnegative integer)
+
+## 2. Objective
+
+Minimize the total number of workers hired:
+
+\[
+\min \; x + y
+\]
+
+## 3. Constraints
+
+### Labor-hours requirement
+
+Each seasonal worker provides 6 hours; each permanent worker provides 10 hours.  
+The city needs at least 300 hours of snow-removal labor:
+
+\[
+6x + 10y \;\ge\; 300
+\]
+
+### Budget constraint
+
+Each seasonal worker costs \$120; each permanent worker costs \$250.  
+The city has a budget of at most \$6500:
+
+\[
+120x + 250y \;\le\; 6500
+\]
+
+### Nonnegativity and integrality
+
+You cannot hire a negative or fractional number of workers:
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+## 4. Problem type
+
+This is an **integer linear programming (ILP)** problem:
+
+- Objective function is linear: \(x + y\)
+- Constraints are linear in \(x\) and \(y\)
+- Variables must be integers
+
+## 5. Suitable Python libraries
+
+You can model and solve this ILP using any of the following:
+
+- **PuLP** (`pulp`): Very convenient for small to medium linear/integer problems.
+- **OR-Tools** (`ortools.linear_solver` or `ortools.sat.python.cp_model`): Powerful and efficient; good for both LP and MIP/CP-SAT.
+- **Pyomo**: More general modeling language for optimization, supports many solvers.
+- **SciPy**’s `scipy.optimize.linprog` is not ideal here because it does **not** directly handle integrality; for exact integer solutions, prefer PuLP or OR-Tools.
+
+### Example outline in PuLP
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Snow_Remover_Staffing", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('seasonal', lowBound=0, cat='Integer')
+y = pl.LpVariable('permanent', lowBound=0, cat='Integer')
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 6*x + 10*y >= 300          # labor-hours
+prob += 120*x + 250*y <= 6500      # budget
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Seasonal:", pl.value(x))
+print("Permanent:", pl.value(y))
+print("Minimum total workers:", pl.value(x + y))
+```
+
+This directly encodes the model above and will return the optimal numbers of seasonal and permanent workers to minimize the total number hired.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Snow_Remover_Staffing", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('seasonal', lowBound=0, cat='Integer')
+    y = pl.LpVariable('permanent', lowBound=0, cat='Integer')
+
+    # Objective: minimize total workers
+    prob += x + y
+
+    # Constraints
+    prob += 6 * x + 10 * y >= 300        # Labor-hours requirement
+    prob += 120 * x + 250 * y <= 6500    # Budget constraint
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    final_obj = pl.value(x + y)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

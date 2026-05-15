@@ -1,0 +1,197 @@
+[MODELER]:
+Here is a clean optimization model of your problem.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_c \ge 0\): number of children’s vaccines to produce  
+- \(x_a \ge 0\): number of adult vaccines to produce  
+
+We will assume these can later be constrained to integers (since they count vaccines).
+
+---
+
+## 2. Objective: minimize fever suppressant used
+
+Each vaccine dose (child or adult) uses 50 mg or 75 mg of fever suppressant, respectively:
+
+- Children’s: 50 mg per dose  
+- Adult: 75 mg per dose  
+
+Total fever suppressant used:
+
+\[
+F = 50 x_c + 75 x_a
+\]
+
+**Objective**:  
+
+\[
+\min\; 50 x_c + 75 x_a
+\]
+
+---
+
+## 3. Constraints
+
+### a) mRNA availability
+
+Total mRNA available: 20,000 mg  
+
+- Children’s vaccine uses 50 mg mRNA per dose  
+- Adult vaccine uses 75 mg mRNA per dose  
+
+So:
+
+\[
+50 x_c + 75 x_a \le 20000
+\]
+
+---
+
+### b) Adult vaccines are at least 70% of all vaccines
+
+Adult vaccines must be at least 70% of the total produced:
+
+\[
+x_a \ge 0.7(x_c + x_a)
+\]
+
+Rewriting:
+
+\[
+x_a \ge 0.7x_c + 0.7x_a
+\]
+\[
+x_a - 0.7x_a \ge 0.7x_c
+\]
+\[
+0.3x_a \ge 0.7x_c
+\]
+\[
+3x_a \ge 7x_c
+\]
+
+So this can be written as:
+
+\[
+3 x_a - 7 x_c \ge 0
+\]
+
+---
+
+### c) Minimum number of children’s vaccines
+
+At least 50 children’s vaccines:
+
+\[
+x_c \ge 50
+\]
+
+---
+
+### d) Nonnegativity (and integrality if enforced)
+
+\[
+x_c \ge 0,\quad x_a \ge 0
+\]
+
+Optionally, if integer solutions are required:
+
+\[
+x_c, x_a \in \mathbb{Z}
+\]
+
+---
+
+## 4. Summary of the mathematical model
+
+\[
+\begin{aligned}
+\min\quad & 50 x_c + 75 x_a \\
+\text{s.t.}\quad
+& 50 x_c + 75 x_a \le 20000 \\
+& 3 x_a - 7 x_c \ge 0 \\
+& x_c \ge 50 \\
+& x_c, x_a \ge 0 \\
+& x_c, x_a \in \mathbb{Z} \quad\text{(if integer solutions are enforced)}
+\end{aligned}
+\]
+
+---
+
+## 5. Solving in Python: recommended libraries
+
+This is a small linear optimization problem. Any linear programming (LP) / mixed-integer LP solver will work:
+
+- `PuLP` (very user-friendly, pure Python interface to various solvers)  
+- `ortools.linear_solver` (Google OR-Tools; fast, industrial-grade)  
+- `scipy.optimize.linprog` (good for continuous LP, not integer)  
+
+If you want integer solutions, prefer `PuLP` or OR-Tools.
+
+---
+
+## 6. Quick analytic solution (continuous case)
+
+Note that mRNA and fever suppressant are used in the same proportion for each vaccine type (50:75 = 2:3), so **minimizing fever suppressant is equivalent to minimizing total mRNA used**, subject to the same constraints. Under those constraints, the minimal-fever-suppressant solution is to produce as few vaccines as possible while still satisfying the adult fraction and minimum children constraints.
+
+The active constraints at optimum:
+
+- \(x_c = 50\) (minimum children)
+- adult share: \(x_a = \frac{7}{3} x_c = \frac{7}{3} \times 50 = 116.\overline{6}\)
+
+Check mRNA:
+
+\[
+50(50) + 75(116.\overline{6}) = 2{,}500 + 8{,}750 = 11{,}250 \le 20{,}000
+\]
+
+Total fever suppressant:
+
+\[
+F = 50(50) + 75(116.\overline{6}) = 11{,}250 \text{ mg}
+\]
+
+If you need integer solutions, nearby integer pairs that satisfy all constraints (e.g., \(x_c = 50, x_a = 117\)) can be obtained with an integer LP solver.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: minimize fever suppressant
+    prob = pulp.LpProblem("Vaccine_Production", pulp.LpMinimize)
+
+    # Decision variables (integer, non-negative)
+    x_c = pulp.LpVariable('x_c', lowBound=0, cat='Integer')  # children's vaccines
+    x_a = pulp.LpVariable('x_a', lowBound=0, cat='Integer')  # adult vaccines
+
+    # Objective function: minimize total fever suppressant
+    prob += 50 * x_c + 75 * x_a
+
+    # Constraints
+    # mRNA availability
+    prob += 50 * x_c + 75 * x_a <= 20000
+
+    # Adult vaccines at least 70% of all: 3 x_a - 7 x_c >= 0
+    prob += 3 * x_a - 7 * x_c >= 0
+
+    # Minimum number of children's vaccines
+    prob += x_c >= 50
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

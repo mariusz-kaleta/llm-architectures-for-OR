@@ -1,0 +1,148 @@
+[MODELER]:
+Let’s turn this into a clear optimization model and then solve it.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of small suitcases (integer, \(x \ge 0\))  
+- \(y\) = number of large suitcases (integer, \(y \ge 0\))
+
+## 2. Objective function
+
+Each small suitcase holds 50 snacks, each large suitcase holds 80 snacks.  
+We want to maximize the total number of snacks:
+
+\[
+\text{Maximize } Z = 50x + 80y
+\]
+
+## 3. Constraints
+
+1. **Preference for small suitcases**  
+   At least twice as many small suitcases as large suitcases:
+   \[
+   x \ge 2y
+   \]
+
+2. **Availability of small suitcases**  
+   At most 70 small suitcases available:
+   \[
+   x \le 70
+   \]
+
+3. **Availability of large suitcases**  
+   At most 50 large suitcases available:
+   \[
+   y \le 50
+   \]
+
+4. **Minimum large suitcases**  
+   Must send at least 15 large suitcases:
+   \[
+   y \ge 15
+   \]
+
+5. **Total number of suitcases**  
+   At most 70 suitcases in total:
+   \[
+   x + y \le 70
+   \]
+
+6. **Non-negativity and integrality**  
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+This is an integer linear programming (ILP) problem.
+
+## 4. Solving logically
+
+From \(x \ge 2y\) and \(x + y \le 70\):
+
+- Substitute \(x = 2y\) into \(x + y \le 70\) to see how large \(y\) can be:
+  \[
+  2y + y \le 70 \Rightarrow 3y \le 70 \Rightarrow y \le \frac{70}{3} \approx 23.33
+  \]
+  So, with the “twice as many small” rule and total ≤ 70, we must have:
+  \[
+  y \le 23
+  \]
+
+We also have \(y \ge 15\) and \(y \le 50\), so effectively:
+\[
+15 \le y \le 23
+\]
+
+To maximize snacks, we should usually send as many large suitcases as possible (they carry more snacks per suitcase), but we are constrained by the ratio and total. We push \(y\) to its highest feasible value, \(y = 23\).
+
+Then:
+- \(x \ge 2y = 46\)
+- Total suitcases constraint: \(x + 23 \le 70 \Rightarrow x \le 47\)
+- Also, \(x \le 70\) from availability, so effective bound for \(x\) is:
+  \[
+  46 \le x \le 47
+  \]
+
+To maximize snacks, choose the largest feasible \(x\): \(x = 47\).
+
+Check all constraints:
+
+- Ratio: \(x = 47 \ge 2 \cdot 23 = 46\) ✓  
+- Small availability: \(x = 47 \le 70\) ✓  
+- Large availability: \(y = 23 \le 50\) ✓  
+- Minimum large: \(y = 23 \ge 15\) ✓  
+- Total suitcases: \(x + y = 47 + 23 = 70 \le 70\) ✓  
+
+Total snacks:
+\[
+Z = 50(47) + 80(23) = 2350 + 1840 = 4190
+\]
+
+No other feasible \(y\) (15–22) with corresponding \(x\) will beat this, since lower \(y\) or lower \(x\) reduces total snacks.
+
+### Optimal solution
+
+- Small suitcases: **47**
+- Large suitcases: **23**
+- Maximum total snacks: **4190 snacks**
+
+## 5. Suitable Python libraries
+
+To model and solve this as an ILP in Python, use:
+
+- **PuLP** – simple syntax for linear/integer programming.
+- **OR-Tools (Google OR-Tools)** – powerful CP-SAT solver, very efficient for integer problems.
+- **Pyomo** – more general modeling framework, supports many solvers.
+
+For a quick start, **PuLP** or **OR-Tools** would be ideal.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+# Define the problem
+problem = pulp.LpProblem("Suitcase_Snacks_Optimization", pulp.LpMaximize)
+
+# Decision variables
+x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # small suitcases
+y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # large suitcases
+
+# Objective function: Maximize total snacks
+problem += 50 * x + 80 * y
+
+# Constraints
+problem += x >= 2 * y          # Preference for small suitcases
+problem += x <= 70             # Availability of small suitcases
+problem += y <= 50             # Availability of large suitcases
+problem += y >= 15             # Minimum large suitcases
+problem += x + y <= 70         # Total number of suitcases
+
+# Solve the problem
+problem.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract the objective value
+final_obj_value = pulp.value(problem.objective)
+
+# Print the final objective value as required
+print(f"FINAL_OBJ: {final_obj_value}")

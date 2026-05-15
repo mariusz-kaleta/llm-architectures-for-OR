@@ -1,0 +1,193 @@
+[MODELER]:
+Here is a clear mathematical model of the problem and how to solve it.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of regular vans (nonnegative, integer)  
+- \(y\) = number of hybrid vans (nonnegative, integer)
+
+---
+
+## 2. Objective
+
+Minimize the **total number of vans**:
+
+\[
+\min \; Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Delivery capacity (at least 20,000 packages/day)
+
+Each regular van delivers 500 packages/day, each hybrid delivers 300 packages/day:
+
+\[
+500x + 300y \;\geq\; 20000
+\]
+
+### b) Pollution limit (at most 7,000 units/day)
+
+Each regular van produces 200 pollution units, each hybrid 100 units:
+
+\[
+200x + 100y \;\leq\; 7000
+\]
+
+### c) Non-negativity and integrality
+
+\[
+x \ge 0,\; y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+This is an **integer linear programming (ILP)** problem.
+
+---
+
+## 4. Solving the model (outline)
+
+You can solve this as an ILP with standard solvers. For a small 2-variable problem like this, you can also solve by hand.
+
+### By hand (checking intersections and integer points)
+
+1. From the pollution constraint:
+   \[
+   200x + 100y \le 7000 \;\Rightarrow\; 2x + y \le 70 \;\Rightarrow\; y \le 70 - 2x
+   \]
+
+2. From the delivery constraint:
+   \[
+   500x + 300y \ge 20000 \;\Rightarrow\; 5x + 3y \ge 200 \;\Rightarrow\; 3y \ge 200 - 5x \;\Rightarrow\; y \ge \frac{200 - 5x}{3}
+   \]
+
+3. For feasibility, we need:
+   \[
+   \frac{200 - 5x}{3} \le 70 - 2x
+   \]
+
+4. The intersection of the two boundary lines:
+   \[
+   \begin{cases}
+   5x + 3y = 200 \\
+   2x + y = 70
+   \end{cases}
+   \Rightarrow y = 70 - 2x
+   \]
+   Substitute into the first:
+   \[
+   5x + 3(70 - 2x) = 200 \Rightarrow 5x + 210 - 6x = 200 \Rightarrow -x = -10 \Rightarrow x = 10
+   \]
+   Then:
+   \[
+   y = 70 - 2(10) = 50
+   \]
+
+So the point \((x, y) = (10, 50)\) is at the intersection and satisfies both constraints exactly. Check objective:
+
+\[
+x + y = 10 + 50 = 60
+\]
+
+To see if we can use fewer than 60 vans, try a smaller total \(x + y < 60\). If \(x + y = 59\), then with the pollution constraint:
+
+\[
+2x + y \le 70 \Rightarrow y \le 70 - 2x
+\]
+and \(y = 59 - x\), so:
+\[
+59 - x \le 70 - 2x \Rightarrow x \le 11
+\]
+
+Max deliveries at total 59 vans occurs using as many regular vans as possible (\(x = 11, y = 48\)):
+
+\[
+500(11) + 300(48) = 5500 + 14400 = 19900 < 20000
+\]
+
+So 59 vans are not enough. Thus 60 is the minimal total.
+
+**Optimal solution:**
+- Regular vans: \(x^* = 10\)  
+- Hybrid vans: \(y^* = 50\)  
+- Minimum total vans: \(10 + 50 = 60\)
+
+---
+
+## 5. Suitable Python libraries
+
+To model and solve this ILP in Python, you can use:
+
+- **PuLP** – simple interface for linear and integer programming.
+- **OR-Tools (Google)** – powerful, good for larger discrete optimization problems.
+- **Pyomo** – flexible modeling environment, works with various solvers.
+- **SciPy** – good for continuous optimization; would need a custom integer search for integrality.
+
+### Example in PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Van_Purchase_Problem", pl.LpMinimize)
+
+# Variables
+x = pl.LpVariable('regular_vans', lowBound=0, cat='Integer')
+y = pl.LpVariable('hybrid_vans', lowBound=0, cat='Integer')
+
+# Objective
+prob += x + y, "Total_Vans"
+
+# Constraints
+prob += 500*x + 300*y >= 20000, "Delivery_Capacity"
+prob += 200*x + 100*y <= 7000,  "Pollution_Limit"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Regular vans:", x.value())
+print("Hybrid vans:", y.value())
+print("Total vans:", x.value() + y.value())
+```
+
+This will return:
+- Regular vans: 10  
+- Hybrid vans: 50  
+- Total vans: 60
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Van_Purchase_Problem", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('regular_vans', lowBound=0, cat='Integer')
+    y = pl.LpVariable('hybrid_vans', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of vans
+    prob += x + y, "Total_Vans"
+
+    # Constraints
+    prob += 500 * x + 300 * y >= 20000, "Delivery_Capacity"
+    prob += 200 * x + 100 * y <= 7000, "Pollution_Limit"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    total_vans = x.value() + y.value()
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {total_vans}")
+
+if __name__ == "__main__":
+    main()

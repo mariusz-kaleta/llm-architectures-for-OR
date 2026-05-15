@@ -1,0 +1,160 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Minimise the total fat consumed while meeting the bodybuilder’s protein and carbohydrate requirements and respecting the turkey-share limit.
+
+2. Suggested model type
+- Model: Integer Linear Programming (ILP).  
+  Rationale: objective and all constraints are linear; the decision variables are counts of meals so integrality is appropriate. If fractional meals are allowed, a plain Linear Program (LP) is sufficient.
+
+3. Main decision variables
+- Number of turkey dinners to eat (non‑negative integer).
+- Number of tuna salad sandwiches to eat (non‑negative integer).
+
+4. Key constraints to consider
+- Protein requirement: the combined protein from the chosen meals must be at least 150 grams.
+- Carbohydrate requirement: the combined carbs from the chosen meals must be at least 200 grams.
+- Turkey share limit: at most 40% of the total meals may be turkey dinners (i.e., turkey count ≤ 0.4 × total meals). Note for linear modelling this can be expressed in an equivalent linear form so the model remains linear.
+- Non‑negativity and integrality: meal counts cannot be negative and should be integer (unless fractional meals are allowed).
+- (Optional practical bound) Upper bounds: impose reasonable upper limits on meal counts to bound the search (e.g., limit total meals to a realistic number) — useful for solvers or enumeration.
+
+5. Modelling / solution notes for the modeller
+- Objective expression (in words): minimise the sum of fat contributions, i.e., 12 grams fat per turkey dinner plus 8 grams fat per tuna sandwich.
+- Linearisation of turkey-share constraint: keep the constraint linear so standard LP/ILP solvers can be used (replace “turkey ≤ 0.4 × total” with its equivalent linear inequality when implementing).
+- Solver choice: for integrality use an ILP solver (CBC, Gurobi, CPLEX, etc.). For a quick solution, because there are only two variables you can also inspect corner solutions of the LP relaxation and/or enumerate feasible integer pairs up to a reasonable bound.
+- Output to report: optimal number of each meal, total fat (grams), total protein and carbs achieved, and the fraction that are turkey dinners (verify the 40% limit).
+
+That plan provides all components needed to implement and solve the problem as an LP/ILP.
+
+---
+
+[MODELER]:
+Below I give a clear mathematical model, the linearisation of the turkey-share constraint, solver recommendations, and the optimal solution (both integer and continuous relaxations).
+
+1) Decision variables
+- t ∈ Z≥0 : number of turkey dinners
+- s ∈ Z≥0 : number of tuna salad sandwiches
+
+(If fractional meals are allowed, t, s ∈ R≥0.)
+
+2) Parameters (from problem statement)
+- Protein per turkey = 20 (g)
+- Carbs per turkey = 30 (g)
+- Fat per turkey = 12 (g)
+- Protein per tuna = 18 (g)
+- Carbs per tuna = 25 (g)
+- Fat per tuna = 8 (g)
+- Required protein ≥ 150 (g)
+- Required carbs ≥ 200 (g)
+- Turkey share ≤ 40% of total meals
+
+3) Objective
+Minimise total fat: minimize F = 12 t + 8 s.
+
+4) Constraints (linear)
+- Protein: 20 t + 18 s ≥ 150
+- Carbohydrates: 30 t + 25 s ≥ 200
+- Turkey share: t ≤ 0.4 (t + s)
+
+To keep linearity, rewrite the turkey-share constraint:
+t ≤ 0.4 t + 0.4 s  => 0.6 t ≤ 0.4 s  => multiply by 5: 3 t ≤ 2 s
+(or equivalently s ≥ 1.5 t).
+
+- Non-negativity and integrality (if integer): t, s ≥ 0 and integers.
+
+Optionally add reasonable upper bounds (e.g., t, s ≤ 20) to help some solvers, but they are not necessary here.
+
+5) Final LP/ILP model (compact)
+minimise 12 t + 8 s
+subject to
+20 t + 18 s ≥ 150
+30 t + 25 s ≥ 200
+3 t ≤ 2 s
+t, s ≥ 0 (and integers if ILP)
+
+6) Recommended solver libraries
+- For integer variables (ILP): PuLP (CBC backend), OR-Tools (CP-SAT), Gurobi, CPLEX.
+- For continuous LP only: scipy.optimize.linprog, PuLP (continuous), CVXOPT.
+- Because there are only two variables, a direct enumeration over small integer ranges (or inspecting LP corner points) is also practical.
+
+7) Optimal solutions
+- ILP (integer meals): t = 0 turkey dinners, s = 9 tuna sandwiches.
+  - Total fat = 12·0 + 8·9 = 72 grams.
+  - Total protein = 18·9 = 162 g (≥150).
+  - Total carbs = 25·9 = 225 g (≥200).
+  - Turkey fraction = 0 / 9 = 0% (≤ 40%).
+
+- LP relaxation (fractional meals allowed): t = 0, s = 150/18 = 8 1/3 (8.333...)
+  - The protein constraint is binding at s = 150/18; carbs constraint (8.333·25 = 208.33) is satisfied as well.
+  - Total fat = 8 · 8.333... = 66.666... grams (lower than integer solution because fractional meals allowed).
+
+8) Notes and modelling tips
+- Since tuna sandwiches have lower fat per meal and provide slightly lower protein per meal than turkey but better protein/fat and carbs/fat ratios, the model prefers tuna and sets t = 0.
+- The turkey-share constraint here does not force any turkey consumption (it only caps the turkey proportion), so zero turkey is feasible.
+- If integrality is required, use an ILP solver; otherwise LP will give fractional solution described above.
+- If you want solver-ready code: PuLP with two integer variables and the three constraints solves this instantly.
+
+If you want, I can provide a short PuLP or OR-Tools Python script that implements and solves the ILP and prints the results.
+
+---
+
+[CODER]:
+```python
+# Self-contained solver for the described ILP (minimize fat subject to nutrition and turkey-share constraints).
+# Uses simple enumeration since there are only two integer decision variables.
+
+from math import inf, ceil
+
+# Parameters
+protein_t, carbs_t, fat_t = 20, 30, 12   # turkey per meal
+protein_s, carbs_s, fat_s = 18, 25, 8    # tuna per meal
+
+req_protein = 150
+req_carbs = 200
+
+# Turkey-share constraint linearised: 3 t <= 2 s  (i.e., s >= 1.5 t)
+
+# Search bounds (reasonable upper bound)
+MAX_MEALS = 50
+
+best_obj = inf
+best_t = None
+best_s = None
+
+for t in range(0, MAX_MEALS + 1):
+    # We can derive a lower bound for s from constraints to reduce checks
+    # From protein: 18 s >= 150 - 20 t  => s >= max(0, ceil((150-20t)/18))
+    need_s_from_protein = 0
+    rem_protein = req_protein - protein_t * t
+    if rem_protein > 0:
+        need_s_from_protein = ceil(rem_protein / protein_s)
+    # From carbs: 25 s >= 200 - 30 t => s >= max(0, ceil((200-30t)/25))
+    need_s_from_carbs = 0
+    rem_carbs = req_carbs - carbs_t * t
+    if rem_carbs > 0:
+        need_s_from_carbs = ceil(rem_carbs / carbs_s)
+    # From turkey-share: 2 s >= 3 t => s >= ceil(3t/2)
+    need_s_from_share = ceil(3 * t / 2)
+
+    s_start = max(0, need_s_from_protein, need_s_from_carbs, need_s_from_share)
+    # iterate s from s_start up to MAX_MEALS
+    for s in range(s_start, MAX_MEALS + 1):
+        # Check constraints precisely (redundant given s_start but safe)
+        if protein_t * t + protein_s * s < req_protein:
+            continue
+        if carbs_t * t + carbs_s * s < req_carbs:
+            continue
+        if 3 * t > 2 * s:
+            continue
+        obj = fat_t * t + fat_s * s
+        if obj < best_obj:
+            best_obj = obj
+            best_t = t
+            best_s = s
+
+# If no feasible integer solution found within bounds, raise an error
+if best_t is None:
+    raise RuntimeError("No feasible integer solution found within search bounds.")
+
+# Print final objective value as required (final printed line)
+print(f"FINAL_OBJ: {best_obj}")
+```

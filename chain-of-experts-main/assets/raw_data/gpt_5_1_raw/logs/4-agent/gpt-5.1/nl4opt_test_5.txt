@@ -1,0 +1,273 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximise total weekly profit from producing hardwood and vinyl flooring, subject to demand, contract, and capacity limits.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with two decision variables. The feasible region is defined by linear inequalities representing minimum demand, contract requirement, and production capacity.
+
+3. Main decision variables  
+Let:
+- Variable 1: Weekly production quantity of engineered hardwood flooring (in square feet).  
+- Variable 2: Weekly production quantity of vinyl planks (in square feet).
+
+4. Objective function (conceptual description)  
+- Maximise:  
+  (profit per sq ft of hardwood × hardwood quantity)  
+  + (profit per sq ft of vinyl × vinyl quantity)
+
+5. Key constraints to consider  
+
+a. Minimum demand constraints  
+- Hardwood production must be at least the forecast demand for hardwood.  
+- Vinyl production must be at least the forecast demand for vinyl.
+
+b. Shipping contract constraint  
+- Total flooring shipped each week (hardwood + vinyl) must be at least the contractual minimum total square footage.
+
+c. Production capacity (upper bound) constraints  
+- Hardwood production cannot exceed the weekly maximum hardwood capacity (labor-limited).  
+- Vinyl production cannot exceed the weekly maximum vinyl capacity (labor-limited).
+
+d. Non-negativity constraints  
+- Both decision variables must be ≥ 0.
+
+6. Modelling strategy / solution approach  
+
+a. Build the LP  
+- Define the two variables explicitly (H for hardwood, V for vinyl).  
+- Write the objective function in terms of H and V using given per-unit profits.  
+- Encode all given lower and upper bounds as linear inequalities.
+
+b. Feasible region analysis  
+- Identify all constraints graphically (if solving by hand) or through LP software.  
+- Find intersection (corner) points of constraint lines because the optimal LP solution will occur at a corner of the feasible region.  
+- Check which corner points satisfy all constraints.
+
+c. Optimal solution identification  
+- Evaluate the objective function at each feasible corner point.  
+- Choose the H and V combination that yields the highest profit while satisfying all constraints.
+
+d. Sensitivity / sanity checks (optional for modeller)  
+- Check whether any constraints are binding at the optimum (e.g., capacity, contract total, or demand minimums).  
+- Optionally explore how changes in capacity or profit per square foot might affect the recommended production plan.
+
+---
+
+[MODELER]:
+Here is a clear mathematical model of the problem, plus how you would solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(H\) = square feet of engineered hardwood flooring produced per week  
+- \(V\) = square feet of vinyl planks produced per week  
+
+Units: square feet (sq ft).
+
+Both variables are continuous and nonnegative.
+
+---
+
+## 2. Objective function
+
+Profit per sq ft:
+
+- Hardwood: \$2.50  
+- Vinyl: \$3.00  
+
+Maximise total weekly profit:
+
+\[
+\max Z = 2.5H + 3V
+\]
+
+---
+
+## 3. Constraints
+
+### a) Minimum demand constraints
+
+At least the forecast demand must be produced:
+
+\[
+H \;\ge\; 20{,}000
+\]
+\[
+V \;\ge\; 10{,}000
+\]
+
+### b) Shipping contract constraint
+
+Total square footage shipped (assumed equal to total produced) must be at least 60,000 sq ft:
+
+\[
+H + V \;\ge\; 60{,}000
+\]
+
+### c) Production capacity (upper bounds)
+
+Due to labor limits:
+
+\[
+H \;\le\; 50{,}000
+\]
+\[
+V \;\le\; 30{,}000
+\]
+
+### d) Non-negativity constraints
+
+\[
+H \;\ge\; 0,\quad V \;\ge\; 0
+\]
+
+(These are redundant given the demand constraints but are standard in LP models.)
+
+---
+
+## 4. Complete LP formulation
+
+\[
+\begin{aligned}
+\text{Maximise} \quad & Z = 2.5H + 3V \\
+\text{subject to} \quad
+& H \ge 20{,}000 \\
+& V \ge 10{,}000 \\
+& H + V \ge 60{,}000 \\
+& H \le 50{,}000 \\
+& V \le 30{,}000 \\
+& H, V \ge 0
+\end{aligned}
+\]
+
+---
+
+## 5. Solving and interpreting the optimum (conceptual)
+
+Because vinyl has higher profit per sq ft than hardwood (\$3 vs \$2.5), the model will try to:
+
+1. Satisfy lower bounds (demand, contract), and  
+2. Use as much vinyl as possible (up to its capacity), then  
+3. Use hardwood as needed to hit the contract requirement.
+
+Key corner points defined by intersecting constraints are, for example:
+
+- \(V = 30{,}000\) (max vinyl), then to satisfy \(H + V \ge 60{,}000\):
+  \[
+  H \ge 60{,}000 - 30{,}000 = 30{,}000
+  \]
+  This also respects \(H \ge 20{,}000\) and \(H \le 50{,}000\).  
+  So one candidate is \((H,V) = (30{,}000,\;30{,}000)\).
+
+Profit at this point:
+\[
+Z = 2.5(30{,}000) + 3(30{,}000) = 75{,}000 + 90{,}000 = 165{,}000
+\]
+
+Other feasible corners (e.g., hitting minimum demands and/or contract with lower vinyl) will yield lower profit because they shift production from the more profitable vinyl to less profitable hardwood, while still satisfying constraints.
+
+Thus, the profit-maximising plan is:
+
+- \(H^* = 30{,}000\) sq ft hardwood per week  
+- \(V^* = 30{,}000\) sq ft vinyl per week  
+- Maximum profit \(Z^* = \$165{,}000\) per week
+
+Binding constraints at the optimum:
+
+- \(H + V = 60{,}000\) (contract)
+- \(V = 30{,}000\) (vinyl capacity)
+
+Non-binding (slack present):
+
+- \(H \ge 20{,}000\) (we produce more: 30,000)
+- \(V \ge 10{,}000\) (we produce more: 30,000)
+- \(H \le 50{,}000\) (we are below max: 30,000)
+
+---
+
+## 6. Suitable Python tools and skeleton code
+
+Any LP solver will work well. Common, accessible choices:
+
+- `pulp` (very simple and pure Python)  
+- `ortools.linear_solver` (Google OR-Tools, powerful and fast)  
+- `scipy.optimize.linprog` (general-purpose scientific stack)
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# 1. Define the problem
+model = pl.LpProblem("Flooring_Production", pl.LpMaximize)
+
+# 2. Decision variables
+H = pl.LpVariable("Hardwood", lowBound=0)
+V = pl.LpVariable("Vinyl", lowBound=0)
+
+# 3. Objective
+model += 2.5 * H + 3.0 * V, "Total_Weekly_Profit"
+
+# 4. Constraints
+model += H >= 20000, "Min_Hardwood_Demand"
+model += V >= 10000, "Min_Vinyl_Demand"
+model += H + V >= 60000, "Min_Contract_Shipment"
+model += H <= 50000, "Max_Hardwood_Capacity"
+model += V <= 30000, "Max_Vinyl_Capacity"
+
+# 5. Solve
+model.solve(pl.PULP_CBC_CMD(msg=False))
+
+# 6. Results
+H_opt = pl.value(H)
+V_opt = pl.value(V)
+Z_opt = pl.value(model.objective)
+
+print(f"Optimal hardwood (sq ft): {H_opt:.0f}")
+print(f"Optimal vinyl (sq ft): {V_opt:.0f}")
+print(f"Max weekly profit: ${Z_opt:,.2f}")
+```
+
+This will return approximately:
+
+- Hardwood: 30000  
+- Vinyl: 30000  
+- Max weekly profit: \$165,000.00
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    model = pl.LpProblem("Flooring_Production", pl.LpMaximize)
+
+    # Decision variables
+    H = pl.LpVariable("Hardwood", lowBound=0)
+    V = pl.LpVariable("Vinyl", lowBound=0)
+
+    # Objective function: Maximise profit
+    model += 2.5 * H + 3.0 * V
+
+    # Constraints
+    model += H >= 20000          # Minimum hardwood demand
+    model += V >= 10000          # Minimum vinyl demand
+    model += H + V >= 60000      # Shipping contract
+    model += H <= 50000          # Hardwood capacity
+    model += V <= 30000          # Vinyl capacity
+
+    # Solve
+    model.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    Z_opt = pl.value(model.objective)
+
+    # Final required print
+    print(f"FINAL_OBJ: {Z_opt}")
+
+if __name__ == "__main__":
+    main()

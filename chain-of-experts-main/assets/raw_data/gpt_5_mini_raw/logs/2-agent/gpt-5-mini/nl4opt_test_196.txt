@@ -1,0 +1,106 @@
+[MODELER]:
+Below is a clear mathematical formulation of the problem, a feasibility check, and practical suggestions for solving (and for what to change because the problem as stated is infeasible).
+
+1) Decision variables
+- x = number of radio ads (integer)
+- y = number of social-media ads (integer)
+
+2) Objective
+Maximize total exposure:
+Maximize Z = 60,500 x + 50,000 y
+
+3) Constraints
+- Budget: 5,000 x + 9,150 y ≤ 250,000
+- Radio bounds: 15 ≤ x ≤ 40 (x integer)
+- Social minimum: y ≥ 35 (y integer)
+- x, y ≥ 0 and integer
+
+4) Feasibility check (analytical)
+Check the minimum possible cost implied by the constraints:
+- Minimum cost of social ads alone (y = 35): 35 × 9,150 = 320,250
+That already exceeds the total budget of 250,000. Therefore no (x,y) can satisfy all constraints simultaneously. Conclusion: the problem as stated is infeasible.
+
+5) Quantitative consequences and alternatives
+- Minimum combined cost if radio at its minimum 15 and social at 35: 15×5,000 + 35×9,150 = 75,000 + 320,250 = 395,250. So to satisfy all stated minimums requires a budget of at least 395,250.
+- If the budget of 250,000 is fixed, the maximum number of social ads possible with zero radios is floor(250,000/9,150) = 27 (< 35), so the y ≥ 35 constraint is incompatible.
+- If the company wants a feasible plan under 250,000 and keeps radio bounds 15–40, the largest y that can be afforded when x is at its minimum 15 is floor((250,000 − 15×5,000) / 9,150) = floor(175,000 / 9,150) = 19. So the social minimum would need to be reduced to ≤ 19 in that case.
+
+6) How to proceed / recommendations
+- Option A (if minimums must hold): raise the budget to at least 395,250.
+- Option B (if budget fixed): relax y ≥ 35 to y ≤ 27 (or to the smaller feasible bound given any enforced x lower bound).
+- Option C: Remove the social minimum and solve the integer program — because radio ads give more exposure per dollar (60,500/5,000 = 12.10 viewers/dollar vs 50,000/9,150 ≈ 5.46 viewers/dollar), the solver would allocate as many radio ads as allowed by the radio upper bound and remaining budget.
+
+7) Solving tools & short solver example
+- Recommended libraries: pulp (simple ILP modelling), OR-Tools (CP-SAT for integer problems), or pyomo + a solver (CBC, Gurobi, CPLEX).
+- A pulp/OR-Tools model will immediately report infeasible for the problem as stated. If you relax the y ≥ 35 constraint, you can solve for the optimal integer solution.
+
+Example (pulp) snippet to detect infeasibility:
+- Define LpVariables x,y as Integers with bounds.
+- Add constraints and objective as above.
+- Call solver (default CBC).
+- Check problem status: it will return infeasible.
+
+If you want, I can:
+- Provide exact Python code (pulp or OR-Tools) to run the check and/or solve a relaxed/alternate formulation, or
+- Compute the minimum additional budget required or the best feasible plan under a changed constraint (e.g., maximize exposure under budget 250,000 with y free or with a lowered social minimum). Which would you like?
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data
+cost_radio = 5000        # cost per radio ad
+cost_social = 9150       # cost per social-media ad
+expo_radio = 60500       # exposure per radio ad
+expo_social = 50000      # exposure per social ad
+
+budget = 250_000
+
+# Given bounds
+x_min = 15
+x_max = 40
+y_min_given = 35  # the original (infeasible) social minimum
+
+# 1) Feasibility check for the original problem
+min_cost_social = y_min_given * cost_social
+if min_cost_social > budget:
+    print("Original problem is infeasible because minimum social cost exceeds budget.")
+    required_budget_for_mins = x_min * cost_radio + y_min_given * cost_social
+    extra_needed = required_budget_for_mins - budget
+    print(f"Minimum total budget required to satisfy x>=15 and y>=35 is: {required_budget_for_mins}")
+    print(f"Additional budget required: {extra_needed}")
+else:
+    print("Original problem may be feasible with given minimums (unexpected).")
+
+# 2) Best feasible plan under fixed budget = 250,000 with relaxed social minimum (y >= 0, integer)
+#    Keep radio bounds 15 <= x <= 40 as stated.
+best_obj = -1
+best_plan = None
+
+for x in range(x_min, x_max + 1):
+    remaining_budget = budget - cost_radio * x
+    if remaining_budget < 0:
+        continue
+    y = remaining_budget // cost_social  # maximize y given remaining budget (integer)
+    obj = expo_radio * x + expo_social * y
+    if obj > best_obj:
+        best_obj = obj
+        best_plan = (x, y, remaining_budget, obj)
+
+# Print the best plan details
+if best_plan is not None:
+    x_opt, y_opt, rem_budget_after_x, obj_opt = best_plan
+    spent = budget - rem_budget_after_x - (rem_budget_after_x % cost_social)  # amount actually spent on social
+    print("Best feasible plan under budget=250,000 with y free (y >= 0):")
+    print(f"  x (radio ads) = {x_opt}")
+    print(f"  y (social ads) = {y_opt}")
+    print(f"  Exposure (objective) = {obj_opt}")
+    print(f"  Total cost used on radios = {x_opt * cost_radio}")
+    print(f"  Total cost used on socials = {y_opt * cost_social}")
+    print(f"  Unused budget = {budget - (x_opt * cost_radio + y_opt * cost_social)}")
+else:
+    print("No feasible plan found under the relaxed formulation.")
+
+# FINAL required print with the final objective value (only this line must be in this format)
+print(f"FINAL_OBJ: {int(best_obj)}")

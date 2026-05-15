@@ -1,0 +1,130 @@
+[MODELER]:
+Here is a linear programming formulation of the problem.
+
+## Decision variables
+
+Let  
+- \(x_L \ge 0\): number of (possibly fractional) tanks of **light oil** to process  
+- \(x_N \ge 0\): number of (possibly fractional) tanks of **non-sticky oil** to process  
+- \(x_H \ge 0\): number of (possibly fractional) tanks of **heavy oil** to process  
+
+(“Full or partial tanks” means the variables are continuous, not restricted to integers.)
+
+## Objective
+
+Maximize total net revenue:
+
+\[
+\max Z = 550x_L + 750x_N + 950x_H
+\]
+
+## Constraints
+
+The compounds A and B are limited.
+
+### Compound A usage
+Each tank uses:
+- Light: 3 units of A  
+- Non-sticky: 6 units of A  
+- Heavy: 9 units of A  
+
+Total A available: 250 units:
+
+\[
+3x_L + 6x_N + 9x_H \le 250
+\]
+
+### Compound B usage
+Each tank uses:
+- Light: 3 units of B  
+- Non-sticky: 2 units of B  
+- Heavy: 3 units of B  
+
+Total B available: 150 units:
+
+\[
+3x_L + 2x_N + 3x_H \le 150
+\]
+
+### Nonnegativity
+
+\[
+x_L \ge 0,\quad x_N \ge 0,\quad x_H \ge 0
+\]
+
+That is the full LP model.
+
+---
+
+## Suitable Python libraries
+
+You can solve this model with several libraries:
+
+- **PuLP** (simple and good for teaching / small problems)
+- **OR-Tools Linear Solver** (`ortools.linear_solver.pywraplp`) from Google
+- **SciPy** (`scipy.optimize.linprog`) for general LPs
+
+### Example skeleton in PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("MapleOil", pl.LpMaximize)
+
+# Variables
+x_L = pl.LpVariable('x_L', lowBound=0)
+x_N = pl.LpVariable('x_N', lowBound=0)
+x_H = pl.LpVariable('x_H', lowBound=0)
+
+# Objective
+prob += 550*x_L + 750*x_N + 950*x_H
+
+# Constraints
+prob += 3*x_L + 6*x_N + 9*x_H <= 250   # Compound A
+prob += 3*x_L + 2*x_N + 3*x_H <= 150   # Compound B
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("x_L =", pl.value(x_L))
+print("x_N =", pl.value(x_N))
+print("x_H =", pl.value(x_H))
+print("Max revenue =", pl.value(prob.objective))
+```
+
+This code directly implements the mathematical model above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("MapleOil", pl.LpMaximize)
+
+    # Decision variables
+    x_L = pl.LpVariable('x_L', lowBound=0)
+    x_N = pl.LpVariable('x_N', lowBound=0)
+    x_H = pl.LpVariable('x_H', lowBound=0)
+
+    # Objective function
+    prob += 550 * x_L + 750 * x_N + 950 * x_H
+
+    # Constraints
+    prob += 3 * x_L + 6 * x_N + 9 * x_H <= 250   # Compound A constraint
+    prob += 3 * x_L + 2 * x_N + 3 * x_H <= 150   # Compound B constraint
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract the optimal objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

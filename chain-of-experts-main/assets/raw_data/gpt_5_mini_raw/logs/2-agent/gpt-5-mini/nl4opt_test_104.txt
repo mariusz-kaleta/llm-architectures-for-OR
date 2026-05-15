@@ -1,0 +1,105 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - L ∈ Z_{\ge 0}: number of limousines
+  - B ∈ Z_{\ge 0}: number of buses
+
+- Objective
+  - Minimize total number of vehicles N = L + B
+
+- Constraints
+  1. Capacity: 12L + 18B ≥ 400 (must transport at least 400 people)
+  2. Limousine proportion: L ≥ 0.70 (L + B)  (at least 70% of vehicles are limousines)
+     - equivalently 0.3 L ≥ 0.7 B → 3L ≥ 7B (integer linear form)
+  3. L, B integers ≥ 0
+
+Formal integer program
+  minimize   L + B
+  subject to 12L + 18B ≥ 400
+             3L − 7B ≥ 0
+             L, B ∈ Z_{\ge 0}
+
+Solving (simple enumeration / reasoning)
+For each integer B compute the minimum L required:
+  L ≥ max( ceil(7B/3), ceil((400 − 18B)/12), 0 ).
+
+Evaluating B = 0,1,2,... gives the minimal total L + B. The minimum total found is 30 vehicles. There are three optimal integer solutions:
+  - L = 23, B = 7  (23 + 7 = 30)
+  - L = 22, B = 8  (22 + 8 = 30)
+  - L = 21, B = 9  (21 + 9 = 30)
+
+All three satisfy the constraints; L = 21, B = 9 meets the 70% exactly (21/30 = 0.70). If you prefer to maximize the number of limousines among optimal totals (since limousines are more attractive), choose L = 23, B = 7.
+
+Suggested Python solvers/libraries
+- For integer linear programming: pulp, OR-Tools (ortools.linear_solver), pyomo (with a MILP solver like CBC, GLPK, Gurobi)
+- For small problems brute force is trivial with plain Python (loop on B and compute minimal L)
+
+Example (sketch) using PuLP
+  import pulp
+  L = pulp.LpVariable('L', lowBound=0, cat='Integer')
+  B = pulp.LpVariable('B', lowBound=0, cat='Integer')
+  prob = pulp.LpProblem('Transport', pulp.LpMinimize)
+  prob += L + B
+  prob += 12*L + 18*B >= 400
+  prob += 3*L - 7*B >= 0
+  prob.solve()
+  print(pulp.value(L), pulp.value(B), pulp.value(L)+pulp.value(B))
+
+Answer summary
+- Minimum total vehicles = 30.
+- Feasible optimal mixes: (L,B) = (23,7), (22,8), or (21,9).
+- If you want the most limousines among those, use 23 limousines and 7 buses.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Data / parameters (initialized directly)
+capacity_needed = 400
+cap_L = 12
+cap_B = 18
+
+# Constraints:
+# 1) 12L + 18B >= 400
+# 2) 3L - 7B >= 0  (i.e., L >= ceil(7B/3))
+
+solutions = []
+min_total = None
+
+# Reasonable search bound for B: up to capacity_needed // cap_B + some margin
+max_B = capacity_needed // cap_B + 50
+
+for B in range(0, max_B + 1):
+    # From proportion constraint: L >= ceil(7B/3)
+    L_min_prop = math.ceil(7 * B / 3)
+    # From capacity constraint: L >= ceil((400 - 18B)/12)
+    remaining = capacity_needed - cap_B * B
+    if remaining <= 0:
+        L_min_cap = 0
+    else:
+        L_min_cap = math.ceil(remaining / cap_L)
+    L = max(L_min_prop, L_min_cap, 0)
+    # Check feasibility explicitly
+    if 12 * L + 18 * B >= capacity_needed and 3 * L - 7 * B >= 0:
+        total = L + B
+        solutions.append((total, L, B))
+        if min_total is None or total < min_total:
+            min_total = total
+
+# Filter optimal solutions (minimal total)
+optimal_sols = [(t, L, B) for (t, L, B) in solutions if t == min_total]
+
+# Choose the optimal solution with maximum number of limousines (if multiple)
+best = max(optimal_sols, key=lambda x: x[1])  # maximize L
+best_total, best_L, best_B = best
+
+# Print summary (optional)
+print("All optimal solutions (total, L, B):")
+for t, L, B in sorted(optimal_sols):
+    print((t, L, B))
+print(f"Chosen optimal (maximizing limousines): L={best_L}, B={best_B}, total={best_total}")
+
+# Final required output line (must be the very last printed line)
+print(f"FINAL_OBJ: {best_total}")

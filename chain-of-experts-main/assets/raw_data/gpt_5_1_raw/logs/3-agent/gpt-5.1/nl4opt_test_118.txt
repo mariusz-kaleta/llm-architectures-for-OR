@@ -1,0 +1,171 @@
+[MODELER]:
+Here is a clean optimization model of the problem.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x \in \mathbb{Z}_{\ge 0}\): number of helicopter trips  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of car trips  
+
+(They must be integers because you can’t take fractional trips.)
+
+---
+
+## 2. Objective: minimize total time
+
+Each helicopter trip takes 40 minutes, each car trip 30 minutes.
+
+\[
+\text{Minimize } \; T = 40x + 30y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Fish transport requirement
+
+Each helicopter trip carries 30 fish, each car trip carries 20 fish. At least 300 fish must be transported:
+
+\[
+30x + 20y \;\ge\; 300
+\]
+
+### b) Limit on helicopter trips
+
+At most 5 helicopter trips:
+
+\[
+x \;\le\; 5
+\]
+
+### c) At least 60% of trips must be by car
+
+“Trips” = helicopter + car = \(x + y\).
+
+At least 60% of these must be car trips:
+
+\[
+y \;\ge\; 0.6(x + y)
+\]
+
+Rearrange:
+
+\[
+y \;\ge\; 0.6x + 0.6y
+\]
+\[
+0.4y \;\ge\; 0.6x
+\]
+\[
+y \;\ge\; 1.5x
+\]
+
+So:
+
+\[
+y - 1.5x \;\ge\; 0
+\]
+
+### d) Non-negativity and integrality
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete model
+
+\[
+\begin{aligned}
+\min_{x,y} \quad & 40x + 30y \\
+\text{s.t.} \quad 
+& 30x + 20y \ge 300 \\
+& x \le 5 \\
+& y \ge 1.5x \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a **mixed-integer linear program** (MILP), though in this case both variables are integer so it is an ILP.
+
+---
+
+## 5. Suitable Python libraries
+
+You can solve this model using:
+
+- **PuLP** (`pulp`) – user-friendly LP/MIP modeling in Python; works with CBC (default), GLPK, or commercial solvers.
+- **OR-Tools Linear Solver** (`ortools.linear_solver.pywraplp`) – Google’s library supporting MIP with CBC, GLOP, SCIP, etc.
+- **Pyomo** – general-purpose optimization modeling, supports many solvers.
+- **SciPy** (`scipy.optimize`) is *not* ideal here because it doesn’t natively support integer variables; you’d need extra work or a different solver.
+
+---
+
+## 6. Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Fish_Transport", pl.LpMinimize)
+
+# Decision variables (integer, >= 0)
+x = pl.LpVariable('helicopter_trips', lowBound=0, cat='Integer')
+y = pl.LpVariable('car_trips',         lowBound=0, cat='Integer')
+
+# Objective: minimize total time (minutes)
+prob += 40 * x + 30 * y
+
+# Constraints
+prob += 30 * x + 20 * y >= 300        # fish requirement
+prob += x <= 5                        # max helicopter trips
+prob += y >= 1.5 * x                  # at least 60% of trips by car
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Helicopter trips (x):", x.value())
+print("Car trips (y):", y.value())
+print("Total time (minutes):", pl.value(prob.objective))
+```
+
+This directly implements the mathematical model and will give the optimal number of helicopter and car trips.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Fish_Transport", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('helicopter_trips', lowBound=0, cat='Integer')
+    y = pl.LpVariable('car_trips', lowBound=0, cat='Integer')
+
+    # Objective function: minimize total time
+    prob += 40 * x + 30 * y
+
+    # Constraints
+    prob += 30 * x + 20 * y >= 300      # fish requirement
+    prob += x <= 5                      # max helicopter trips
+    prob += y >= 1.5 * x                # at least 60% of trips by car
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    value = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {value}")
+
+if __name__ == "__main__":
+    main()

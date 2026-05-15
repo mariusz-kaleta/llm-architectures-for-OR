@@ -1,0 +1,126 @@
+[MODELER]:
+Let’s turn this into a linear optimization model.
+
+## 1. Decision variables
+
+Let  
+- \(x_1 \ge 0\): minutes machine 1 is used  
+- \(x_2 \ge 0\): minutes machine 2 is used  
+
+## 2. Objective: minimize total waste
+
+- Machine 1 creates 0.3 units of waste per minute → total waste from machine 1 = \(0.3 x_1\)  
+- Machine 2 creates 0.5 units of waste per minute → total waste from machine 2 = \(0.5 x_2\)
+
+Total waste:
+\[
+\text{Minimize } Z = 0.3 x_1 + 0.5 x_2
+\]
+
+## 3. Constraints
+
+### Heart medicine constraint (at most 8 units)
+- Machine 1: 0.5 units/min
+- Machine 2: 0.3 units/min  
+
+Total to heart:
+\[
+0.5 x_1 + 0.3 x_2 \le 8
+\]
+
+### Brain medicine constraint (at least 4 units)
+- Machine 1: 0.8 units/min
+- Machine 2: 1.0 units/min  
+
+Total to brain:
+\[
+0.8 x_1 + 1.0 x_2 \ge 4
+\]
+
+### Nonnegativity
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+So the complete linear program is:
+
+\[
+\begin{aligned}
+\min_{x_1, x_2} \quad & 0.3 x_1 + 0.5 x_2 \\
+\text{s.t.} \quad 
+& 0.5 x_1 + 0.3 x_2 \le 8, \\
+& 0.8 x_1 + 1.0 x_2 \ge 4, \\
+& x_1 \ge 0, \; x_2 \ge 0.
+\end{aligned}
+\]
+
+## 4. Solving / suitable Python libraries
+
+This is a small linear program; suitable libraries include:
+
+- `PuLP` (very simple to set up, pure Python interface)
+- `scipy.optimize.linprog` (SciPy linear programming)
+- `ortools.linear_solver` (Google OR-Tools LP solver)
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Medicine_Delivery", pl.LpMinimize)
+
+# Decision variables
+x1 = pl.LpVariable('x1', lowBound=0)  # minutes machine 1
+x2 = pl.LpVariable('x2', lowBound=0)  # minutes machine 2
+
+# Objective function: minimize waste
+prob += 0.3 * x1 + 0.5 * x2
+
+# Constraints
+prob += 0.5 * x1 + 0.3 * x2 <= 8     # heart constraint
+prob += 0.8 * x1 + 1.0 * x2 >= 4     # brain constraint
+
+# Solve
+prob.solve()
+
+# Results
+print("Status:", pl.LpStatus[prob.status])
+print("Minutes machine 1 (x1):", x1.value())
+print("Minutes machine 2 (x2):", x2.value())
+print("Minimum total waste:", pl.value(prob.objective))
+```
+
+That code exactly implements the mathematical model described above.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Medicine_Delivery", pl.LpMinimize)
+
+    # Decision variables
+    x1 = pl.LpVariable('x1', lowBound=0)  # minutes machine 1
+    x2 = pl.LpVariable('x2', lowBound=0)  # minutes machine 2
+
+    # Objective function: minimize waste
+    prob += 0.3 * x1 + 0.5 * x2
+
+    # Constraints
+    prob += 0.5 * x1 + 0.3 * x2 <= 8     # heart constraint
+    prob += 0.8 * x1 + 1.0 * x2 >= 4     # brain constraint
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print final objective as required
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

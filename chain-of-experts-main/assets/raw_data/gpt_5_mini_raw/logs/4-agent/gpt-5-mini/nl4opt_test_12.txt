@@ -1,0 +1,150 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Minimise the total number of cars used.
+
+2) Suggested model type
+- Model: Integer Linear Program (ILP) with two integer decision variables (or a small discrete search/enumeration, since variable ranges are small).
+
+3) Main decision variables
+- V = number of vans to use (integer, >= 0).
+- C = number of cars to use (integer, >= 0).
+
+4) Key constraints and modelling notes
+- Capacity constraint: the chosen vans and cars must carry at least 200 voters (each van carries 6, each car carries 3).
+- Vans-percentage constraint: at most 30% of the vehicles may be vans. Model this as a linear inequality relating V and C (interpretation: V ≤ 0.3*(V + C)). For a solver, rearrange this to a linear form (equivalently it enforces a minimum number of cars per van).
+- Integrality and nonnegativity: V and C must be nonnegative integers.
+- Variable bounds to tighten the model / speed up search:
+  - Upper bound on V: floor(200 / 6) (no point using more vans than needed to reach 200 capacity alone).
+  - Upper bound on C: ceil(200 / 3).
+- Feasibility check: ensure the percentage constraint does not rule out all feasible combinations; include a check for feasibility before optimisation.
+
+5) Solution approach suggestions
+- Direct ILP: feed the linear objective (minimise C), the linear constraints and integrality into any ILP solver.
+- Enumeration (simple and reliable here): loop V over its feasible integer range and, for each V, compute the minimum integer C that satisfies both the capacity constraint and the percentage constraint; pick the (V,C) pair with smallest C (apply tie-breaker if desired, e.g., minimize total vehicles).
+- When implementing the percentage constraint numerically, avoid floating precision issues: either multiply both sides by 10 or 100 to work in integers, or rearrange to C >= (7/3) * V (and take integer ceiling as needed).
+
+6) Optional diagnostics / extensions
+- Report whether the capacity constraint or the vans-percentage constraint is binding at the optimum.
+- If multiple solutions have the same minimal number of cars, you may add a secondary objective (e.g., minimize total vehicles V + C, or minimize vans) to break ties.
+- Provide sensitivity info: how the minimal number of cars changes if the 30% cap is relaxed/tightened or if required voters change.
+
+Deliverable expected from the Modeller
+- Implement the ILP or enumeration, return the optimal integer values of V and C, confirm constraints are satisfied, and report which constraints are binding and any tie-breaker used.
+
+---
+
+[MODELER]:
+Below I convert the textual description into a compact ILP, show a simple exact solution approach (enumeration) and give the optimal integer solution.
+
+1) Decision variables
+- V ∈ Z≥0 : number of vans used.
+- C ∈ Z≥0 : number of cars used.
+
+2) Objective
+- Minimize the number of cars C.
+
+3) Constraints (linear)
+- Capacity: 6 V + 3 C ≥ 200.
+- Vans-percentage (at most 30% vans): V ≤ 0.3 (V + C).
+  To keep everything integer/linear, multiply both sides by 10:
+  10 V ≤ 3 (V + C)  ⇒  7 V ≤ 3 C  ⇒  3 C − 7 V ≥ 0.
+- Integrality and nonnegativity: V, C integers ≥ 0.
+- Useful bounds to tighten search:
+  V ≤ floor(200/6) = 33
+  C ≤ ceil(200/3) = 67
+
+Full ILP formulation
+Minimize: C
+subject to:
+  6 V + 3 C ≥ 200
+  3 C − 7 V ≥ 0
+  V, C ∈ Z≥0, V ≤ 33, C ≤ 67
+
+4) Simple solution approach (enumeration, reliable here)
+For each integer V in 0..33:
+  - Capacity requirement gives C_capacity = max(0, ceil((200 − 6 V)/3)).
+  - Percentage requirement gives C_percent = ceil(7 V / 3).
+  - Feasible C is C = max(C_capacity, C_percent).
+Choose the (V, C) pair with smallest C; if tie, break ties by secondary objective (e.g., minimize V + C).
+
+5) Optimal solution (exact)
+Using the enumeration above (or any ILP solver) yields:
+- V* = 15 vans
+- C* = 37 cars
+Check:
+- Capacity: 6*15 + 3*37 = 90 + 111 = 201 ≥ 200 (satisfied; slack 1 seat).
+- Vans-percentage: V ≤ 0.3*(V + C) -> 15 ≤ 0.3*52 = 15.6 (satisfied).
+
+Total vehicles = 15 + 37 = 52. The minimized number of cars is 37.
+
+Which constraint is binding?
+- The chosen C comes from the capacity requirement (for V = 15 the capacity condition determines C via the ceiling), so the capacity constraint is the active (controlling) constraint for the optimal C. The vans-percentage constraint is not tight at the integer solution (there is a small slack).
+
+6) Solver / implementation suggestions
+- For enumeration (short, simple): plain Python with math.ceil is sufficient.
+- For ILP: use pulp, OR-Tools (ortools.linear_solver), or cvxopt (with integer extensions). Example libraries:
+  - pulp (easy Python API)
+  - ortools (Google OR-Tools CP-SAT/linear solver)
+  - scipy.optimize is not ideal for integer problems; prefer pulp or ortools.
+
+7) Short Python sketch (enumeration)
+  from math import ceil
+  best = None
+  for V in range(0, 34):
+      C_capacity = max(0, ceil((200 - 6*V)/3))
+      C_percent = ceil(7*V/3)
+      C = max(C_capacity, C_percent)
+      if C <= 67:
+          if best is None or C < best[1] or (C == best[1] and (V + C) < (best[0] + best[1])):
+              best = (V, C)
+  print(best)  # prints (15, 37)
+
+If you want, I can provide a ready-to-run pulp or ortools implementation and a short sensitivity analysis (e.g., how the minimal C changes if the vans cap is changed from 30% to a different value or if required voters change).
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data
+TOTAL_SEATS = 200
+SEATS_VAN = 6
+SEATS_CAR = 3
+MAX_V = 33  # floor(200/6)
+MAX_C = 67  # ceil(200/3)
+
+best = None  # will store tuple (V, C)
+
+for V in range(0, MAX_V + 1):
+    # Capacity requirement: 6V + 3C >= 200  =>  C >= ceil((200 - 6V)/3)
+    required_seats = TOTAL_SEATS - SEATS_VAN * V
+    if required_seats <= 0:
+        C_capacity = 0
+    else:
+        C_capacity = math.ceil(required_seats / SEATS_CAR)
+    # Vans-percentage requirement: 7V <= 3C  =>  C >= ceil(7V/3)
+    C_percent = math.ceil((7 * V) / 3)
+    # Feasible C is the max of the two requirements
+    C = max(C_capacity, C_percent)
+    if C > MAX_C:
+        continue
+    # Choose solution minimizing C; tie-breaker: minimize total vehicles (V + C), then minimize V
+    if best is None:
+        best = (V, C)
+    else:
+        best_C = best[1]
+        best_sum = best[0] + best[1]
+        if (C < best_C) or (C == best_C and (V + C) < best_sum) or (C == best_C and (V + C) == best_sum and V < best[0]):
+            best = (V, C)
+
+if best is None:
+    raise RuntimeError("No feasible solution found within bounds.")
+
+V_opt, C_opt = best
+value = C_opt
+
+# Final required print line (must be the last output line)
+print(f"FINAL_OBJ: {value}")
+```

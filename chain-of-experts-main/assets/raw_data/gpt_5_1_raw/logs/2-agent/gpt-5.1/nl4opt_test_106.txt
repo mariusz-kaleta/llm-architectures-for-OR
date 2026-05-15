@@ -1,0 +1,203 @@
+[MODELER]:
+Model this as a linear program.
+
+**Decision variables**
+
+Let  
+- \(x\) = acres of potatoes  
+- \(y\) = acres of cucumbers  
+
+Both are continuous and nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+**Objective**
+
+Maximize total profit:
+\[
+\text{Maximize } Z = 500x + 650y
+\]
+
+**Constraints**
+
+1. Total land:
+\[
+x + y \le 50
+\]
+
+2. Contract requirements:
+\[
+x \ge 12 \quad (\text{potatoes})  
+\]
+\[
+y \ge 15 \quad (\text{cucumbers})
+\]
+
+3. “More cucumbers than potatoes”:
+\[
+y \ge x
+\]
+
+4. “At most twice the amount of cucumbers as potatoes”:
+\[
+y \le 2x
+\]
+
+This is a linear program (LP).
+
+---
+
+### Solving analytically
+
+Because cucumbers are more profitable (\$650/acre > \$500/acre), Mark will want as many cucumbers as possible, subject to constraints.
+
+From land and minimums:
+- From \(x \ge 12\) and \(y \ge 15\): minimum used land is \(12 + 15 = 27\) acres.
+- To use all the land (which will increase profit):
+  \[
+  x + y = 50 \Rightarrow y = 50 - x
+  \]
+
+Along the boundary \(x + y = 50\), add other constraints:
+
+1. \(y \ge x\):
+   \[
+   50 - x \ge x \Rightarrow 50 \ge 2x \Rightarrow x \le 25
+   \]
+2. \(y \le 2x\):
+   \[
+   50 - x \le 2x \Rightarrow 50 \le 3x \Rightarrow x \ge \frac{50}{3} \approx 16.67
+   \]
+3. Minimums:
+   \[
+   x \ge 12,\quad y = 50 - x \ge 15 \Rightarrow x \le 35
+   \]
+   So the binding bounds on \(x\) are:
+   \[
+   \frac{50}{3} \le x \le 25
+   \]
+
+The **feasible segment** on the boundary \(x + y = 50\) is:
+\[
+x \in [50/3, 25],\quad y = 50 - x
+\]
+
+Substitute \(y = 50 - x\) into the objective:
+\[
+Z = 500x + 650(50 - x) = 500x + 32500 - 650x = 32500 - 150x
+\]
+
+This is **decreasing in \(x\)** (coefficient \(-150\)), so to maximize \(Z\), choose the **smallest feasible \(x\)**:
+
+\[
+x^* = \frac{50}{3} \approx 16.67,\quad y^* = 50 - \frac{50}{3} = \frac{100}{3} \approx 33.33
+\]
+
+Check constraints:
+
+- Land: \(x^* + y^* = 50\) ✓  
+- Minimums: \(x^* \approx 16.67 \ge 12\), \(y^* \approx 33.33 \ge 15\) ✓  
+- More cucumbers: \(y^* \approx 33.33 \ge 16.67 = x^*\) ✓  
+- At most twice: \(y^* \approx 33.33 \le 2 \cdot 16.67 \approx 33.33\) ✓ (binding)
+
+**Optimal solution**
+
+- Potatoes:  
+  \[
+  x^* = \frac{50}{3} \text{ acres} \approx 16.67 \text{ acres}
+  \]
+- Cucumbers:  
+  \[
+  y^* = \frac{100}{3} \text{ acres} \approx 33.33 \text{ acres}
+  \]
+
+**Maximum profit**
+
+\[
+Z^* = 500\cdot \frac{50}{3} + 650\cdot \frac{100}{3}
+   = \frac{1}{3}(25{,}000 + 65{,}000)
+   = \frac{90{,}000}{3}
+   = 30{,}000
+\]
+
+So:
+
+- **He should grow** \( \boxed{\frac{50}{3} \text{ acres of potatoes and } \frac{100}{3} \text{ acres of cucumbers}} \)  
+- **Maximum profit**: \( \boxed{\$30{,}000} \)
+
+---
+
+### Python libraries suitable for solving this
+
+You can implement and solve this LP using:
+
+- `PuLP` (`pulp`): very straightforward for teaching/learning LP.
+- `ortools.linear_solver` from Google OR-Tools: powerful and fast.
+- `scipy.optimize.linprog`: good for continuous LPs, part of SciPy.
+
+Example with PuLP:
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Farm_Profit_Max", pl.LpMaximize)
+
+# Variables
+x = pl.LpVariable('potatoes', lowBound=0)
+y = pl.LpVariable('cucumbers', lowBound=0)
+
+# Objective
+prob += 500*x + 650*y
+
+# Constraints
+prob += x + y <= 50
+prob += x >= 12
+prob += y >= 15
+prob += y >= x
+prob += y <= 2*x
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Potatoes (acres):", x.value())
+print("Cucumbers (acres):", y.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the linear programming problem
+    prob = pl.LpProblem("Farm_Profit_Max", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('potatoes', lowBound=0)   # acres of potatoes
+    y = pl.LpVariable('cucumbers', lowBound=0)  # acres of cucumbers
+
+    # Objective function: Maximize profit
+    prob += 500 * x + 650 * y
+
+    # Constraints
+    prob += x + y <= 50        # Total land
+    prob += x >= 12            # Minimum potatoes
+    prob += y >= 15            # Minimum cucumbers
+    prob += y >= x             # More cucumbers than potatoes
+    prob += y <= 2 * x         # At most twice as many cucumbers as potatoes
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    objective_value = pl.value(prob.objective)
+
+    # Print final objective as required
+    print(f"FINAL_OBJ: {objective_value}")
+
+if __name__ == "__main__":
+    main()

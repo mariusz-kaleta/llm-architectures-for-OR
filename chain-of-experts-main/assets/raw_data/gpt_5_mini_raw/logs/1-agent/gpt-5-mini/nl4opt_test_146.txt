@@ -1,0 +1,49 @@
+[MONOLITH]:
+import pulp
+
+# Data (from problem statement)
+dough_per_large = 12
+dough_per_medium = 8
+topping_per_large = 5
+topping_per_medium = 4
+bake_time_large = 12
+bake_time_medium = 8
+
+min_dough = 10000
+min_topping = 4400
+min_medium = 200
+
+# Define the LP: minimize total baking time
+prob = pulp.LpProblem("Pizza_Baking_Time_Minimization", pulp.LpMinimize)
+
+# Decision variables: number of large (L) and medium (M) pizzas (integers)
+L = pulp.LpVariable("L", lowBound=0, cat="Integer")
+M = pulp.LpVariable("M", lowBound=0, cat="Integer")
+
+# Objective: minimize total baking time
+prob += bake_time_large * L + bake_time_medium * M
+
+# Constraints
+prob += dough_per_large * L + dough_per_medium * M >= min_dough, "DoughRequirement"
+prob += topping_per_large * L + topping_per_medium * M >= min_topping, "ToppingRequirement"
+prob += M >= min_medium, "MinMediumRequirement"
+prob += L >= 2 * M, "LargeAtLeastTwiceMedium"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract solution
+L_val = pulp.value(L)
+M_val = pulp.value(M)
+obj_val = pulp.value(prob.objective)
+
+# Print solution (decision variables)
+print(f"Large pizzas (L) = {int(L_val)}")
+print(f"Medium pizzas (M) = {int(M_val)}")
+
+# Final objective value printed exactly as required at the very end
+# If objective is effectively integer, print as integer for cleanliness
+if abs(obj_val - round(obj_val)) < 1e-6:
+    obj_val = int(round(obj_val))
+print(f"FINAL_OBJ: {obj_val}")

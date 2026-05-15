@@ -1,0 +1,181 @@
+[MODELER]:
+Here is a clean optimization model for your problem.
+
+---
+
+### 1. Decision variables
+
+Let:
+
+- \(L\) = number of large bags (25 kg each)  
+- \(T\) = number of tiny bags (6 kg each)
+
+We assume \(L, T\) are nonnegative integers.
+
+\[
+L, T \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+### 2. Objective function
+
+Maximize the total amount of grain (in kg):
+
+\[
+\text{Maximize } Z = 25L + 6T
+\]
+
+---
+
+### 3. Constraints
+
+1. **Energy constraint**
+
+Each large bag needs 4 units of energy, each tiny bag 1.5 units. Total energy cannot exceed 110 units:
+
+\[
+4L + 1.5T \le 110
+\]
+
+2. **Popularity (bag ratio) constraint**
+
+There must be twice as many large bags as tiny bags:
+
+\[
+L = 2T
+\]
+
+3. **Minimum tiny bags constraint**
+
+There must be at least 20 tiny bags:
+
+\[
+T \ge 20
+\]
+
+4. **Integrality and non-negativity**
+
+\[
+L \ge 0, \quad T \ge 0,\quad L, T \in \mathbb{Z}
+\]
+
+---
+
+### 4. Simplified model
+
+Substitute \(L = 2T\) into the other constraints and objective:
+
+- Objective:
+
+\[
+Z = 25(2T) + 6T = 56T
+\]
+
+- Energy constraint:
+
+\[
+4(2T) + 1.5T \le 110 \quad \Rightarrow \quad 8T + 1.5T \le 110
+\]
+\[
+9.5T \le 110 \quad \Rightarrow \quad T \le \frac{110}{9.5} \approx 11.58
+\]
+
+- Minimum tiny bags:
+
+\[
+T \ge 20
+\]
+
+So we have:
+
+\[
+T \ge 20, \quad T \le 11.58
+\]
+
+These constraints are inconsistent. There is **no feasible solution** that simultaneously:
+
+- uses at most 110 units of energy,
+- has twice as many large bags as tiny bags,
+- and has at least 20 tiny bags.
+
+Therefore, the optimization problem as stated has **no feasible solution**.
+
+---
+
+### 5. Suitable Python libraries
+
+To formulate and check feasibility programmatically, you could use any mixed-integer linear programming (MILP) library:
+
+- `PuLP` (simple and educational, pure Python)
+- `ortools.linear_solver` (Google OR-Tools, efficient and well-documented)
+- `Pyomo` (more general algebraic modeling language)
+- `scipy.optimize` is **not** ideal here because it does not handle integer variables natively.
+
+---
+
+### 6. Example model with PuLP (for feasibility check)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Grain_Transport", pl.LpMaximize)
+
+# Variables
+L = pl.LpVariable('L', lowBound=0, cat='Integer')
+T = pl.LpVariable('T', lowBound=0, cat='Integer')
+
+# Objective
+prob += 25*L + 6*T, "Total_Grain"
+
+# Constraints
+prob += 4*L + 1.5*T <= 110, "Energy"
+prob += L == 2*T, "Ratio"
+prob += T >= 20, "MinTiny"
+
+# Solve
+status = prob.solve(pl.PULP_CBC_CMD(msg=False))
+print("Status:", pl.LpStatus[status])
+if pl.LpStatus[status] == 'Optimal':
+    print("L =", pl.value(L), "T =", pl.value(T))
+else:
+    print("No feasible solution.")
+```
+
+This will report “Infeasible” (no feasible solution), confirming the analytic result.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the MILP problem: maximize total grain
+    prob = pl.LpProblem("Grain_Bag_Problem", pl.LpMaximize)
+
+    # Decision variables: numbers of large and tiny bags
+    L = pl.LpVariable('L', lowBound=0, cat='Integer')
+    T = pl.LpVariable('T', lowBound=0, cat='Integer')
+
+    # Objective: maximize total grain 25L + 6T
+    prob += 25 * L + 6 * T, "Total_Grain"
+
+    # Constraints
+    prob += 4 * L + 1.5 * T <= 110, "Energy"
+    prob += L == 2 * T, "Bag_Ratio"
+    prob += T >= 20, "Min_Tiny"
+
+    # Solve the problem
+    status = prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # If infeasible, define objective value appropriately (e.g., None or 0)
+    if pl.LpStatus[status] != 'Optimal':
+        final_obj = float('nan')
+    else:
+        final_obj = pl.value(prob.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

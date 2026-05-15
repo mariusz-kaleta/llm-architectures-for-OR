@@ -1,0 +1,164 @@
+[MODELER]:
+Here is a linear optimization model for the farmer’s problem.
+
+### 1. Decision variables
+
+Let  
+- \(x_T \ge 0\): acres of turnips planted  
+- \(x_P \ge 0\): acres of pumpkins planted  
+
+### 2. Objective function
+
+Maximize total revenue:
+
+\[
+\max \; Z = 300 x_T + 450 x_P
+\]
+
+where 300 and 450 are the revenue per acre of turnips and pumpkins, respectively.
+
+### 3. Constraints
+
+1. **Land constraint** (at most 500 acres total):
+
+\[
+x_T + x_P \le 500
+\]
+
+2. **Watering time constraint** (40,000 minutes available):
+
+\[
+50 x_T + 90 x_P \le 40{,}000
+\]
+
+3. **Pesticide budget constraint** (\$34,000 available):
+
+\[
+80 x_T + 50 x_P \le 34{,}000
+\]
+
+4. **Nonnegativity**:
+
+\[
+x_T \ge 0,\quad x_P \ge 0
+\]
+
+This is a linear programming (LP) problem.
+
+---
+
+### 4. Solving and optimal solution (analytical sketch)
+
+The optimal solution will lie at a corner (intersection of constraints).  
+The binding constraints at optimum are:
+
+- Watering: \(50x_T + 90x_P = 40{,}000\)  
+- Pesticide: \(80x_T + 50x_P = 34{,}000\)
+
+Solve this system:
+
+\[
+\begin{cases}
+50x_T + 90x_P = 40{,}000 \\
+80x_T + 50x_P = 34{,}000
+\end{cases}
+\]
+
+From this system you obtain:
+
+\[
+x_T = 100,\quad x_P = 400
+\]
+
+Check land use: \(100 + 400 = 500\) (exactly uses all land, so land is also tight).
+
+Revenue:
+
+\[
+Z = 300(100) + 450(400) = 30{,}000 + 180{,}000 = 210{,}000
+\]
+
+So the farmer should plant:
+- **100 acres of turnips**
+- **400 acres of pumpkins**
+
+to maximize revenue.
+
+---
+
+### 5. Suitable Python libraries
+
+To solve this LP in Python, any of the following are appropriate:
+
+- **PuLP** (`pulp`): very straightforward for teaching and small LPs.
+- **OR-Tools Linear Solver** (`ortools.linear_solver`): efficient, industrial-grade solvers.
+- **SciPy** (`scipy.optimize.linprog`): general-purpose optimization, suitable for basic LPs.
+
+---
+
+### 6. Example model in PuLP
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Farm_Profit_Maximization", pl.LpMaximize)
+
+# Decision variables
+x_T = pl.LpVariable('Turnips_acres', lowBound=0)
+x_P = pl.LpVariable('Pumpkins_acres', lowBound=0)
+
+# Objective function
+prob += 300 * x_T + 450 * x_P
+
+# Constraints
+prob += x_T + x_P <= 500                     # Land
+prob += 50 * x_T + 90 * x_P <= 40000         # Watering time
+prob += 80 * x_T + 50 * x_P <= 34000         # Pesticide budget
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal acres of turnips:", x_T.value())
+print("Optimal acres of pumpkins:", x_P.value())
+print("Maximum revenue:", pl.value(prob.objective))
+```
+
+This will return approximately:
+- Turnips_acres = 100  
+- Pumpkins_acres = 400  
+- Maximum revenue = 210000
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Farm_Profit_Maximization", pl.LpMaximize)
+
+    # Decision variables
+    x_T = pl.LpVariable('Turnips_acres', lowBound=0)
+    x_P = pl.LpVariable('Pumpkins_acres', lowBound=0)
+
+    # Objective function
+    prob += 300 * x_T + 450 * x_P
+
+    # Constraints
+    prob += x_T + x_P <= 500                     # Land
+    prob += 50 * x_T + 90 * x_P <= 40000         # Watering time
+    prob += 80 * x_T + 50 * x_P <= 34000         # Pesticide budget
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    objective_value = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {objective_value}")
+
+if __name__ == "__main__":
+    main()

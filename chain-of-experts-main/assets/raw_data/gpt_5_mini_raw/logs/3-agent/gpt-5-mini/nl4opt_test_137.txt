@@ -1,0 +1,87 @@
+[MODELER]:
+Model type
+- Integer linear program (minimisation).
+
+Decision variables
+- h ∈ Z_{\ge 0}: number of helicopter trips.
+- t ∈ Z_{\ge 0}: number of truck trips.
+
+Objective
+- Minimise total pollution P = 5h + 10t.
+
+Constraints
+- Capacity: 3h + 7t ≥ 80 (must transport at least 80 cows).
+- Truck trip limit: t ≤ 8.
+- Integrality: h, t integers (you cannot take fractional trips).
+- Nonnegativity: h ≥ 0, t ≥ 0.
+
+Mathematical formulation
+Minimise:   P = 5h + 10t
+Subject to: 3h + 7t ≥ 80
+            t ≤ 8
+            h, t ∈ Z_{\ge 0}
+
+Analytical reasoning (quick)
+- Pollution per cow: helicopter = 5/3 ≈ 1.667, truck = 10/7 ≈ 1.429. Trucks cause less pollution per cow, so use as many trucks as allowed (t = 8), then fill the rest with helicopters.
+- With t = 8, trucks carry 7·8 = 56 cows; remaining cows = 24 → h = 24/3 = 8 trips.
+- Pollution = 5·8 + 10·8 = 40 + 80 = 120 units.
+- Checking other integer t (0..8) confirms this is minimal.
+
+Optimal solution
+- Truck trips t = 8
+- Helicopter trips h = 8
+- Minimum pollution = 120 units
+
+Suggested Python libraries to solve
+- pulp (simple, pure-Python LP/MIP)
+- ortools (Google OR-Tools CP-SAT for integer programs)
+- python-mip (based on CBC/Gurobi backends)
+- scipy.optimize (for continuous relaxation only; not suitable for integer trips)
+
+Example (pulp) code snippet
+(from which you can verify the result)
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpInteger, value
+
+prob = LpProblem("Cows", LpMinimize)
+h = LpVariable('h', lowBound=0, cat=LpInteger)
+t = LpVariable('t', lowBound=0, upBound=8, cat=LpInteger)
+prob += 5*h + 10*t
+prob += 3*h + 7*t >= 80
+prob.solve()
+print(int(value(h)), int(value(t)), value(prob.objective))
+
+This will return h=8, t=8, objective=120.
+
+---
+
+[CODER]:
+import math
+
+# Data initialization
+min_cows = 80
+pollution_per_h = 5
+pollution_per_t = 10
+capacity_h = 3
+capacity_t = 7
+t_max = 8
+
+best_obj = None
+best_h = None
+best_t = None
+
+# Enumerate feasible integer t (0..8), compute minimal integer h to meet capacity
+for t in range(t_max + 1):
+    cows_by_t = capacity_t * t
+    remaining = max(0, min_cows - cows_by_t)
+    # minimal integer h to cover remaining cows
+    h = math.ceil(remaining / capacity_h)
+    if h < 0:
+        h = 0
+    obj = pollution_per_h * h + pollution_per_t * t
+    if (best_obj is None) or (obj < best_obj):
+        best_obj = obj
+        best_h = h
+        best_t = t
+
+# Final output line (required exact format)
+print(f"FINAL_OBJ: {best_obj}")

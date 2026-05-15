@@ -1,0 +1,133 @@
+[MODELER]:
+Here is a concise mathematical model of the problem.
+
+---
+
+### 1. Decision variables
+
+Let  
+- \(x\) = number of retail stores to open (integer, \(x \ge 0\))  
+- \(y\) = number of factory outlets to open (integer, \(y \ge 0\))
+
+---
+
+### 2. Objective
+
+Minimize the total number of stores:
+
+\[
+\min \; z = x + y
+\]
+
+---
+
+### 3. Constraints
+
+**Customer requirement (at least 1200 customers/day):**
+
+Each retail store brings 200 customers/day, and each factory outlet brings 80 customers/day:
+
+\[
+200x + 80y \;\ge\; 1200
+\]
+
+**Employee (staff) constraint (no more than 50 employees):**
+
+Each retail store requires 6 employees, each factory outlet requires 4:
+
+\[
+6x + 4y \;\le\; 50
+\]
+
+**Non‑negativity and integrality:**
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+This is an integer linear programming (ILP) problem.
+
+---
+
+### 4. Suitable Python libraries
+
+Any standard MILP/LP solver interface can handle this:
+
+- `PuLP` – simple, pure Python, works well for small ILPs like this.  
+- `ortools.linear_solver` (Google OR-Tools) – powerful, good for integer and combinatorial optimization.  
+- `Pyomo` – more general modeling language for optimization.  
+
+For this particular problem, `PuLP` or OR-Tools is more than sufficient.
+
+---
+
+### 5. Example formulation in PuLP
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Store_Planning", pl.LpMinimize)
+
+# Decision variables (integer, non-negative)
+x = pl.LpVariable('retail_stores', lowBound=0, cat='Integer')
+y = pl.LpVariable('factory_outlets', lowBound=0, cat='Integer')
+
+# Objective: minimize number of stores
+prob += x + y
+
+# Constraints
+prob += 200*x + 80*y >= 1200, "Customer_requirement"
+prob += 6*x + 4*y <= 50, "Employee_limit"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Retail stores (x):", pl.value(x))
+print("Factory outlets (y):", pl.value(y))
+print("Total stores:", pl.value(x + y))
+```
+
+This code directly implements the mathematical model above and will return the optimal distribution of retail stores and factory outlets.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import itertools
+
+def is_feasible(x, y):
+    # Constraints:
+    # 200x + 80y >= 1200  (customer requirement)
+    # 6x + 4y <= 50       (employee limit)
+    if 200 * x + 80 * y < 1200:
+        return False
+    if 6 * x + 4 * y > 50:
+        return False
+    return True
+
+best_obj = None
+best_solution = None
+
+# Brute force search over a reasonable range
+# From constraints:
+# 6x + 4y <= 50 => x <= 50/6 ≈ 8.33 and y <= 50/4 = 12.5
+# So search x in [0, 9], y in [0, 13]
+for x, y in itertools.product(range(0, 10), range(0, 14)):
+    if is_feasible(x, y):
+        obj = x + y
+        if best_obj is None or obj < best_obj:
+            best_obj = obj
+            best_solution = (x, y)
+
+# Print intermediate details (not required but useful)
+if best_solution is not None:
+    x_opt, y_opt = best_solution
+    # Uncomment the following lines if you want to inspect:
+    # print(f"Optimal x (retail stores): {x_opt}")
+    # print(f"Optimal y (factory outlets): {y_opt}")
+    # print(f"Minimum total stores: {best_obj}")
+else:
+    best_obj = float('inf')
+
+print(f"FINAL_OBJ: {best_obj}")

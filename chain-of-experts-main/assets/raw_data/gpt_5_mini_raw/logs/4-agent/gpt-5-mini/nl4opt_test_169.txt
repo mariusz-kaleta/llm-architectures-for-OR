@@ -1,0 +1,121 @@
+[PLANNER]:
+1) Key optimisation goal:
+- Minimise the total number of carts used.
+
+2) Suggested model type:
+- Integer Linear Program (ILP) (small, so can also be solved by simple enumeration or integer search).
+
+3) Main decision variables (describe verbally):
+- Number of golf carts to use (integer, ≥ 0).
+- Number of pull carts to use (integer, ≥ 0).
+(Optionally use total number of carts as an auxiliary integer variable and relate the two.)
+
+4) Key constraints to include (describe verbally):
+- Capacity constraint: total passenger capacity provided by the chosen carts must be at least 80 guests (each golf cart carries 4, each pull cart carries 1).
+- Golf-cart proportion constraint: at most 60% of the total carts may be golf carts (i.e., the count of golf carts cannot exceed 60% of total carts).
+- Integrality and nonnegativity: both numbers of carts must be nonnegative integers.
+- Practical bounds to speed solving: lower bound on total carts is at least the ceiling of required guests divided by the largest cart capacity; upper bound is the number of guests (if all are single-seat pull carts).
+
+Modeling/solution notes for the Modeller:
+- Two equivalent formulations are convenient: (A) directly use golf-cart and pull-cart counts; or (B) use total carts plus golf-cart count with the golf-cart count limited to 60% of the total. Both are ILPs.
+- Because the problem is small and discrete, a simple integer search (iterate total carts from the theoretical lower bound upward and check feasibility under the 60% rule) will quickly find the optimum.
+- Ensure rounding is handled correctly when enforcing the “at most 60%” rule (the golf-cart count must be ≤ floor(0.6 × total carts) when using integer arithmetic).
+- Return the optimal integer counts for golf carts and pull carts and the minimum total carts.
+
+---
+
+[MODELER]:
+Below is a compact, precise mathematical model of the problem, suggested solving approaches, and the optimal integer solution.
+
+Problem summary
+- Two cart types: golf cart (capacity 4), pull cart (capacity 1).
+- At most 60% of the carts may be golf carts.
+- Need to transport at least 80 guests.
+- Minimise total number of carts.
+
+Decision variables
+- g ∈ Z≥0 : number of golf carts.
+- p ∈ Z≥0 : number of pull carts.
+(Optionally t ∈ Z≥0 := g + p total carts.)
+
+Objective
+- Minimise total carts: minimize t = g + p.
+
+Constraints (integer linear)
+1) Capacity: 4g + p ≥ 80.
+2) Proportion (60% max golf carts): g ≤ 0.6 · (g + p). This is linearized as
+   2g − 3p ≤ 0  (equivalently 2g ≤ 3p).  
+   (If using t, use 5g − 3t ≤ 0, since g ≤ 3/5·t.)
+3) Integrality and nonnegativity: g, p ∈ Z≥0 (and t ∈ Z≥0 if used).
+
+Useful bounds (practical)
+- Lower bound on total carts: ceil(80/4) = 20 (if unrestricted by the 60% rule).
+- Upper bound on total carts: 80 (all pull carts).
+These bounds keep a small search space.
+
+ILP formulation (compact)
+- min g + p
+- s.t. 4g + p ≥ 80
+       2g − 3p ≤ 0
+       g, p ∈ Z≥0
+
+Solution method suggestions
+- Small problem — either:
+  - Direct ILP solver (pulp, ortools, mip-python, or gurobipy if available).
+  - Simple integer search: iterate feasible g (0..20) and set p = max(0, 80 − 4g, ceil(2g/3)), choose combination with smallest g+p.
+- If using the 60% rule with t, avoid floating-point rounding by using 5g ≤ 3t (all integers).
+
+Recommended Python libraries
+- pulp (simple, pure-Python ILP)
+- ortools (Google OR-Tools MIP solver)
+- mip (Python-MIP)
+- For brute-force search: plain Python with math.ceil is enough
+
+Optimal result (checked by enumeration / ILP)
+- g* = 17 golf carts
+- p* = 12 pull carts
+- t* = 29 total carts
+
+Verification
+- Capacity: 4·17 + 12 = 68 + 12 = 80 (meets requirement).
+- Proportion: 17 ≤ 0.6·29 = 17.4 → integer constraint g ≤ floor(0.6·29) = 17 satisfied.
+- No feasible combination yields fewer than 29 carts under the 60% rule, so 29 is minimal.
+
+If you want, I can:
+- provide a short Python script (pulp or plain search) that finds this solution, or
+- produce the equivalent model in OR-Tools format.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data
+required_capacity = 80
+
+best_t = None
+best_g = None
+best_p = None
+
+# Search reasonable range for golf carts (0..80)
+for g in range(0, 81):
+    # Minimum pull carts to meet capacity
+    p_cap = max(0, required_capacity - 4 * g)
+    # Minimum pull carts to satisfy proportion 2g - 3p <= 0 -> p >= ceil(2g/3)
+    p_prop = math.ceil((2 * g) / 3)
+    # Choose the larger of the two minima
+    p = max(p_cap, p_prop)
+    # Ensure integers and nonnegativity (already ensured)
+    t = g + p
+    # Verify feasibility explicitly
+    if 4 * g + p >= required_capacity and 2 * g - 3 * p <= 0:
+        if best_t is None or t < best_t:
+            best_t = t
+            best_g = g
+            best_p = p
+
+# Print final objective as required
+print(f"FINAL_OBJ: {best_t}")
+```

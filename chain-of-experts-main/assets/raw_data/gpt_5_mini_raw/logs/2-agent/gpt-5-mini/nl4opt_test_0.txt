@@ -1,0 +1,118 @@
+[MODELER]:
+Model
+
+Decision variables
+- x ∈ Z≥0 : number of boat trips (integer)
+- y ∈ Z≥0 : number of canoe trips (integer)
+
+Parameters (given)
+- boat capacity = 10 ducks/trip
+- canoe capacity = 8 ducks/trip
+- boat time = 20 minutes/trip
+- canoe time = 40 minutes/trip
+- boat trip limit: x ≤ 12
+- at least 60% of trips are canoe: y ≥ 0.60(x + y)
+- need to carry at least 300 ducks: 10x + 8y ≥ 300
+
+Constraints (rewritten)
+- x ≤ 12
+- y ≥ 1.5 x (since y ≥ 0.6(x+y) ⇒ 0.4y ≥ 0.6x ⇒ y ≥ 1.5x)
+- 10x + 8y ≥ 300
+- x, y integers ≥ 0
+
+Objective
+Minimize total time (minutes):
+minimize Z = 20 x + 40 y
+
+This is an integer linear program (ILP).
+
+Remarks: dividing objective and constraints by 20 gives equivalent objective minimize x + 2 y (fewer big coefficients) subject to same constraints.
+
+Solution (short reasoning)
+Because boats are faster per duck (20/10 = 2 min/duck) than canoes (40/8 = 5 min/duck), the objective tends to favor boats, but the 60% canoe-trip requirement and the limit of at most 12 boat trips restrict x. For each feasible x (0..12) take the smallest y that satisfies both y ≥ 1.5 x and 10x + 8y ≥ 300. Evaluating yields the optimal integer solution:
+
+Optimal solution:
+- x = 12 boat trips
+- y = 23 canoe trips
+
+Check:
+- trips total = 35, canoe fraction = 23/35 ≈ 65.7% ≥ 60%
+- ducks carried = 12*10 + 23*8 = 304 ≥ 300
+- total time = 20*12 + 40*23 = 1160 minutes
+
+So the minimum total (cumulative) transport time is 1160 minutes (19 hours 20 minutes).
+
+Suggested Python libraries to solve
+- pulp (open-source LP/MIP modeling, default CBC solver)
+- OR-Tools (Google, excellent MIP solver)
+- mip (python-mip, interfaces to CBC/Gurobi)
+- if you have a commercial solver: Gurobi or CPLEX for faster solves on larger problems
+
+Example using pulp
+(from pulp import LpProblem, LpVariable, LpInteger, lpSum, LpMinimize, PULP_CBC_CMD)
+- create integer variables x,y
+- add constraints x <= 12, y >= 1.5*x, 10*x + 8*y >= 300
+- set objective 20*x + 40*y and solve
+(you can also enforce y >= ceil(1.5*x) by using integer arithmetic or linear constraints as above)
+
+If you want, I can provide a ready-to-run pulp or OR-Tools script that implements this model and prints the optimal solution.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data
+boat_capacity = 10   # ducks per boat trip
+canoe_capacity = 8   # ducks per canoe trip
+boat_time = 20       # minutes per boat trip
+canoe_time = 40      # minutes per canoe trip
+boat_limit = 12
+required_ducks = 300
+canoe_fraction_req = 0.60  # at least 60% of trips are canoe
+
+best_obj = None
+best_x = None
+best_y = None
+
+# Enumerate possible integer x (boats) from 0 to boat_limit
+for x in range(0, boat_limit + 1):
+    # Constraint y >= 1.5 x (derived from y >= 0.6(x+y))
+    y_min_frac = math.ceil(1.5 * x)
+    # Constraint 10x + 8y >= 300  ->  y >= (300 - 10x) / 8
+    remaining_ducks = required_ducks - boat_capacity * x
+    if remaining_ducks <= 0:
+        y_min_capacity = 0
+    else:
+        y_min_capacity = math.ceil(remaining_ducks / canoe_capacity)
+    # y must satisfy both and be nonnegative integer
+    y = max(0, y_min_frac, y_min_capacity)
+    # Verify canoe fraction constraint explicitly to avoid rounding issues
+    if x + y == 0:
+        # No trips, cannot satisfy canoe fraction or capacity unless ducks==0; skip
+        continue
+    if not (y >= canoe_fraction_req * (x + y) - 1e-9):
+        # If not satisfied, skip (shouldn't happen due to y_min_frac but safe)
+        continue
+    # Verify capacity constraint
+    if 10 * x + 8 * y < required_ducks:
+        continue
+    # Compute objective
+    obj = boat_time * x + canoe_time * y
+    # Update best
+    if best_obj is None or obj < best_obj:
+        best_obj = obj
+        best_x = x
+        best_y = y
+
+# Print results
+if best_obj is None:
+    # No feasible solution found
+    print("No feasible solution found.")
+else:
+    print(f"Optimal solution found: x (boats) = {best_x}, y (canoes) = {best_y}")
+    print(f"Total ducks carried = {10*best_x + 8*best_y}")
+    print(f"Total time (minutes) = {best_obj}")
+
+# Final required output line (must be the very last line)
+print(f"FINAL_OBJ: {best_obj}")

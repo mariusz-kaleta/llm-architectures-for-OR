@@ -1,0 +1,254 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Minimise total diesel consumption used by both shipping companies, subject to meeting delivery and policy requirements.
+
+2. Suggested model type  
+   - Model: Integer Linear Programming (ILP)  
+   Rationale:  
+   - Decision variables (number of trips) must be integers.  
+   - Objective and constraints are all linear in those variables.
+
+3. Main decision variables  
+   Define integer, non‑negative variables:  
+   - NewCompanyTrips = number of trips made by the new company  
+   - OldCompanyTrips = number of trips made by the old company  
+
+4. Key constraints to consider  
+
+   a) Delivery requirement (capacity constraint)  
+   - Gifts delivered by new company: 50 per trip  
+   - Gifts delivered by old company: 70 per trip  
+   - Total gifts delivered must be at least 1000.  
+   - Constraint: 50·NewCompanyTrips + 70·OldCompanyTrips ≥ 1000
+
+   b) Trip limit for new company  
+   - New company can make at most 15 trips.  
+   - Constraint: NewCompanyTrips ≤ 15
+
+   c) Minimum share of trips for the old company (40% rule)  
+   - At least 40% of all trips must be made by the old company.  
+   - Let TotalTrips = NewCompanyTrips + OldCompanyTrips.  
+   - Requirement: OldCompanyTrips ≥ 0.4·TotalTrips  
+   - This becomes a linear constraint in the two trip variables.  
+   - Ensure the modeller correctly rearranges this into standard linear form.
+
+   d) Non-negativity and integrality  
+   - NewCompanyTrips ≥ 0, OldCompanyTrips ≥ 0  
+   - Both must be integer-valued.
+
+5. Objective function components  
+
+   a) Diesel use per trip  
+   - New company uses 30 liters per trip.  
+   - Old company uses 40 liters per trip.
+
+   b) Total diesel to minimise  
+   - TotalDiesel = 30·NewCompanyTrips + 40·OldCompanyTrips  
+   - Objective: Minimise TotalDiesel.
+
+6. Modelling strategy notes for the Modeller  
+
+   - Treat this as a small ILP with only two integer variables; exact solution via enumeration or any standard ILP solver is straightforward.  
+   - The 40% requirement is the only slightly non-obvious constraint—express it directly in terms of the two variables and simplify to maintain linearity.  
+   - After solving, verify that:  
+     - The gift requirement is satisfied (≥ 1000).  
+     - The new company trip upper bound is not violated.  
+     - The old company’s share of trips is at least 40%.  
+   - Because the variable set is tiny, the modeller may also check the optimal solution manually as a sanity check.
+
+---
+
+[MODELER]:
+Below is a complete mathematical model of the problem and guidance on how to solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_N \in \mathbb{Z}_{\ge 0}\): number of trips made by the new company  
+- \(x_O \in \mathbb{Z}_{\ge 0}\): number of trips made by the old company  
+
+Both must be non‑negative integers.
+
+---
+
+## 2. Objective
+
+Minimise the total diesel used:
+
+\[
+\text{Minimise } Z = 30\,x_N + 40\,x_O
+\]
+
+where:
+- 30 = liters of diesel per trip (new company)
+- 40 = liters of diesel per trip (old company)
+
+---
+
+## 3. Constraints
+
+### 3.1 Delivery requirement (capacity)
+
+Each trip delivers:
+
+- New company: 50 gifts per trip  
+- Old company: 70 gifts per trip  
+
+At least 1000 gifts must be delivered:
+
+\[
+50\,x_N + 70\,x_O \;\ge\; 1000
+\]
+
+---
+
+### 3.2 Trip limit for the new company
+
+At most 15 trips can be made by the new company:
+
+\[
+x_N \;\le\; 15
+\]
+
+---
+
+### 3.3 Minimum share of trips for the old company (40% rule)
+
+Let total trips be:
+
+\[
+T = x_N + x_O
+\]
+
+At least 40% of trips must be made by the old company:
+
+\[
+x_O \;\ge\; 0.4 \, (x_N + x_O)
+\]
+
+Rearrange to a standard linear form:
+
+\[
+x_O \;\ge\; 0.4x_N + 0.4x_O
+\]
+
+\[
+x_O - 0.4x_O \;\ge\; 0.4x_N
+\]
+
+\[
+0.6x_O \;\ge\; 0.4x_N
+\]
+
+\[
+3x_O \;\ge\; 2x_N
+\]
+
+So the linear constraint to use is:
+
+\[
+3x_O - 2x_N \;\ge\; 0
+\]
+
+---
+
+### 3.4 Non‑negativity and integrality
+
+\[
+x_N \in \mathbb{Z}_{\ge 0}, \qquad x_O \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Formal model summary
+
+\[
+\begin{aligned}
+\min_{x_N, x_O} \quad & 30x_N + 40x_O \\
+\text{s.t.} \quad 
+& 50x_N + 70x_O \ge 1000 \quad &\text{(delivery requirement)} \\
+& x_N \le 15 \quad &\text{(new company trip limit)} \\
+& 3x_O - 2x_N \ge 0 \quad &\text{(old company \(\ge 40\%\) of trips)} \\
+& x_N, x_O \in \mathbb{Z}_{\ge 0} \quad &\text{(non-negativity, integrality)}
+\end{aligned}
+\]
+
+This is an Integer Linear Programming (ILP) problem with 2 integer decision variables and linear objective/constraints.
+
+---
+
+## 5. Suitable Python libraries
+
+All of the following can easily solve this model:
+
+- **PuLP** (`pulp`) – Simple, pure‑Python modeling library; good for teaching and small problems.  
+- **OR-Tools** (`ortools.linear_solver`) – Google’s optimization suite; very efficient, nice for ILP.  
+- **Pyomo** – More general algebraic modeling language; good if you want extensibility.  
+
+For this problem, **PuLP** or **OR-Tools** are the most straightforward.
+
+---
+
+## 6. Example in Python (using PuLP)
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Gift_Delivery", pl.LpMinimize)
+
+# Decision variables (non-negative integers)
+x_N = pl.LpVariable('NewCompanyTrips', lowBound=0, cat='Integer')
+x_O = pl.LpVariable('OldCompanyTrips', lowBound=0, cat='Integer')
+
+# Objective: minimize total diesel
+prob += 30 * x_N + 40 * x_O, "Total_Diesel"
+
+# Constraints
+prob += 50 * x_N + 70 * x_O >= 1000, "DeliveryRequirement"
+prob += x_N <= 15, "NewCompanyTripLimit"
+prob += 3 * x_O - 2 * x_N >= 0, "OldCompanyShare"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("New company trips:", pl.value(x_N))
+print("Old company trips:", pl.value(x_O))
+print("Minimum diesel used:", pl.value(prob.objective))
+```
+
+You can use an analogous formulation in OR-Tools or Pyomo by directly translating the objective and constraints above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create problem
+    prob = pl.LpProblem("Gift_Delivery", pl.LpMinimize)
+
+    # Decision variables (non-negative integers)
+    x_N = pl.LpVariable('NewCompanyTrips', lowBound=0, cat='Integer')
+    x_O = pl.LpVariable('OldCompanyTrips', lowBound=0, cat='Integer')
+
+    # Objective: minimize total diesel
+    prob += 30 * x_N + 40 * x_O, "Total_Diesel"
+
+    # Constraints
+    prob += 50 * x_N + 70 * x_O >= 1000, "DeliveryRequirement"
+    prob += x_N <= 15, "NewCompanyTripLimit"
+    prob += 3 * x_O - 2 * x_N >= 0, "OldCompanyShare"
+
+    # Solve using CBC (default solver in PuLP)
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    obj_value = pl.value(prob.objective)
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

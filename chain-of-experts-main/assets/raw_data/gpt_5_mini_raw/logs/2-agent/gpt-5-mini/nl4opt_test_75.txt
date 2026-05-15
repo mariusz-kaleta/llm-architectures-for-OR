@@ -1,0 +1,68 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- v ∈ Z_{\ge 0}: number of vans.
+- t ∈ Z_{\ge 0}: number of trucks.
+
+Objective
+- Minimize v.
+
+Constraints
+1. Demand: 50 v + 100 t ≥ 2000.
+2. Fleet relation: t ≤ v.
+3. Integrality: v, t integers ≥ 0.
+
+Remarks on structure
+- For a given v, constraint (2) lets t be as large as v. Trucks carry more per vehicle (100 vs 50), so to satisfy the demand with the fewest vans you should maximize t subject to t ≤ v, i.e. take t = v.
+- Substituting t = v into the demand: 50v + 100v = 150v ≥ 2000 ⇒ v ≥ 2000/150 = 13.333...
+- With integer v the minimum is v = ceil(2000/150) = 14. Then t = 14 and capacity = 50·14 + 100·14 = 2100 ≥ 2000.
+
+Answer
+- Minimum number of vans = 14 (with 14 trucks).
+
+Suggested solvers / libraries
+- For small hand calculation: reasoning above suffices.
+- For integer programming: PuLP (with CBC), OR-Tools (CP-SAT), or scipy.optimize (for continuous relaxations only).
+- Example quick implementations:
+  - PuLP: pulp.LpProblem with pulp.LpInteger variables.
+  - OR-Tools CP-SAT: ortools.sat.python.cp_model.CpModel with IntVar and Add/Minimize.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+# Self-contained script to solve the integer optimization described.
+# Decision variables:
+#   v (nonnegative integer): number of vans (objective: minimize)
+#   t (nonnegative integer): number of trucks
+# Constraints:
+#   50*v + 100*t >= 2000
+#   t <= v
+
+# We'll perform a simple brute-force search over reasonable bounds to find the minimal v.
+
+demand = 2000
+cap_van = 50
+cap_truck = 100
+
+max_search = 500  # generous upper bound for vehicles
+
+min_v = None
+min_solution = None
+
+for v in range(0, max_search + 1):
+    # For given v, trucks can be 0..v. To maximize capacity, check t = v first (greedy).
+    # But we'll check all t in case other combinations matter (they don't here).
+    feasible = False
+    for t in range(0, v + 1):
+        if cap_van * v + cap_truck * t >= demand:
+            feasible = True
+            min_v = v
+            min_solution = (v, t)
+            break
+    if feasible:
+        break
+
+# If not found within bounds, indicate infeasible by setting min_v to None (shouldn't happen here).
+value = min_v
+print(f"FINAL_OBJ: {value}")

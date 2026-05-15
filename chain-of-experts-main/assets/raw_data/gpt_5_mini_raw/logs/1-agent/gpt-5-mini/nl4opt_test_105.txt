@@ -1,0 +1,46 @@
+[MONOLITH]:
+```python
+import pulp
+
+# Data initialization
+# Time required per batch (hours)
+slicer_time = {'hams': 4.0, 'ribs': 2.0}
+packer_time = {'hams': 2.5, 'ribs': 3.5}
+
+# Available machine hours per year
+slicer_capacity = 4000.0
+packer_capacity = 4000.0
+
+# Profit per batch
+profit = {'hams': 150.0, 'ribs': 300.0}
+
+# Define the problem
+prob = pulp.LpProblem("Meat_Processing_Profit_Maximization", pulp.LpMaximize)
+
+# Decision variables: number of batches (continuous, non-negative)
+h = pulp.LpVariable('hams_batches', lowBound=0, cat='Continuous')
+r = pulp.LpVariable('ribs_batches', lowBound=0, cat='Continuous')
+
+# Objective: maximize total profit
+prob += profit['hams'] * h + profit['ribs'] * r, "Total_Profit"
+
+# Constraints: machine hour capacities
+prob += slicer_time['hams'] * h + slicer_time['ribs'] * r <= slicer_capacity, "Slicer_Capacity"
+prob += packer_time['hams'] * h + packer_time['ribs'] * r <= packer_capacity, "Packer_Capacity"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Gather results
+h_opt = h.varValue
+r_opt = r.varValue
+obj_value = pulp.value(prob.objective)
+
+# Print results
+print(f"Optimal number of hams batches: {h_opt}")
+print(f"Optimal number of ribs batches: {r_opt}")
+print(f"Total profit: {obj_value}")
+
+# Final required line (must be the last print)
+print(f"FINAL_OBJ: {obj_value}")
+```

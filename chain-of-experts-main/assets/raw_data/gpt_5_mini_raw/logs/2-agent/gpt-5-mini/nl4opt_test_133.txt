@@ -1,0 +1,126 @@
+[MODELER]:
+Model
+
+- Variables
+  - x = number of times process J is performed (≥ 0)
+  - y = number of times process P is performed (≥ 0)
+
+- Objective
+  - Maximize total metal extracted: maximize Z = 5x + 9y
+
+- Constraints
+  - Water limit: 8x + 6y ≤ 1500
+  - Pollution limit: 3x + 5y ≤ 1350
+  - Nonnegativity: x ≥ 0, y ≥ 0
+
+Solve (continuous or integer): this is a linear program. Observe profit per unit water: J gives 5/8 = 0.625 metal per water, P gives 9/6 = 1.5 metal per water, so P is more efficient and water is the limiting resource. The pollution constraint is not binding on the feasible region (3x+5y ≤ 1350 is satisfied for the water-bound points).
+
+Feasible corner points:
+- (x,y) = (0,0) → Z = 0
+- (x,y) = (187.5,0) from 8x = 1500 → Z = 5·187.5 = 937.5
+- (x,y) = (0,250) from 6y = 1500 → Z = 9·250 = 2250
+
+Maximum occurs at (x,y) = (0,250) with Z = 2250 units of metal. If x,y must be integers, y = 250 is integer, so the integer-optimal solution is the same.
+
+Suggested Python libraries for solving this:
+- pulp (for LP/ILP modeling and solving)
+- ortools.linear_solver (for LP/ILP with Google OR-Tools)
+- scipy.optimize.linprog (for continuous LP)
+
+Example using pulp:
+
+from pulp import LpMaximize, LpProblem, LpVariable, lpSum, value
+prob = LpProblem("metal", LpMaximize)
+x = LpVariable("x", lowBound=0)
+y = LpVariable("y", lowBound=0)
+prob += 5*x + 9*y
+prob += 8*x + 6*y <= 1500
+prob += 3*x + 5*y <= 1350
+prob.solve()
+print(value(x), value(y), value(prob.objective))
+
+Conclusion
+- Perform 0 runs of process J and 250 runs of process P to maximize metal extraction: 2250 units.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import itertools
+import math
+
+# Problem data
+# Maximize Z = 5x + 9y
+# Subject to:
+# 8x + 6y <= 1500
+# 3x + 5y <= 1350
+# x >= 0, y >= 0
+
+tol = 1e-9
+
+# Define constraint equations as tuples (a, b, c) representing a*x + b*y = c when treated as equality
+constraints = [
+    (8.0, 6.0, 1500.0),  # water
+    (3.0, 5.0, 1350.0),  # pollution
+    (1.0, 0.0, 0.0),     # x = 0 (y-axis)
+    (0.0, 1.0, 0.0),     # y = 0 (x-axis)
+]
+
+def is_feasible(x, y):
+    if x < -tol or y < -tol:
+        return False
+    if 8.0*x + 6.0*y - 1500.0 > tol:
+        return False
+    if 3.0*x + 5.0*y - 1350.0 > tol:
+        return False
+    return True
+
+def solve_two_eq(e1, e2):
+    a1, b1, c1 = e1
+    a2, b2, c2 = e2
+    det = a1*b2 - a2*b1
+    if abs(det) < tol:
+        return None
+    x = (c1*b2 - c2*b1) / det
+    y = (a1*c2 - a2*c1) / det
+    return (x, y)
+
+# Collect feasible vertices
+vertices = set()
+
+# Include origin explicitly
+if is_feasible(0.0, 0.0):
+    vertices.add((0.0, 0.0))
+
+for e1, e2 in itertools.combinations(constraints, 2):
+    sol = solve_two_eq(e1, e2)
+    if sol is None:
+        continue
+    x, y = sol
+    # treat tiny negatives as zero
+    if abs(x) < tol:
+        x = 0.0
+    if abs(y) < tol:
+        y = 0.0
+    if is_feasible(x, y):
+        # round small numerical noise
+        x_r = round(x, 12)
+        y_r = round(y, 12)
+        vertices.add((x_r, y_r))
+
+# Evaluate objective at vertices
+best_val = -math.inf
+best_point = None
+for x, y in vertices:
+    val = 5.0*x + 9.0*y
+    if val > best_val + tol:
+        best_val = val
+        best_point = (x, y)
+
+# If best_val is very close to an integer, present it as integer
+if abs(best_val - round(best_val)) < 1e-8:
+    value = int(round(best_val))
+else:
+    value = float(best_val)
+
+# Final required print (only this line should be the final output line)
+print(f"FINAL_OBJ: {value}")

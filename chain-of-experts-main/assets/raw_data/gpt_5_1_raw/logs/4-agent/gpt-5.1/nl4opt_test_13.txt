@@ -1,0 +1,240 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Determine how long to use each beam so that the total dose to the pancreas is minimized, while ensuring:
+- The skin does not receive more than its allowed dose.
+- The tumor receives at least its required dose.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with two continuous decision variables (treatment times).
+
+3. Main decision variables  
+Define nonnegative continuous variables:
+- \(x_1\): minutes Beam 1 is used.  
+- \(x_2\): minutes Beam 2 is used.
+
+4. Objective function (what to minimize)  
+Pancreas dose per minute:
+- From Beam 1: 0.3 units/min.
+- From Beam 2: 0.2 units/min.
+
+Total pancreas dose to minimize:
+- Objective: minimize \(0.3 x_1 + 0.2 x_2\).
+
+5. Key constraints to consider  
+
+a) Tumor dose requirement (minimum dose)  
+Tumor dose per minute:
+- From Beam 1: 0.6 units/min.
+- From Beam 2: 0.4 units/min.
+
+Constraint: at least 3 units to tumor:
+- Tumor dose constraint: \(0.6 x_1 + 0.4 x_2 \ge 3\).
+
+b) Skin dose limit (maximum dose)  
+Skin dose per minute:
+- From Beam 1: 0.2 units/min.
+- From Beam 2: 0.1 units/min.
+
+Constraint: at most 4 units to skin:
+- Skin dose constraint: \(0.2 x_1 + 0.1 x_2 \le 4\).
+
+c) Nonnegativity  
+- \(x_1 \ge 0\).  
+- \(x_2 \ge 0\).
+
+6. Modelling / solution strategy for the Modeller  
+
+- Formulate the LP with:
+  - Objective: minimize pancreas dose.
+  - Constraints: tumor minimum, skin maximum, and nonnegativity.
+- Because there are only two variables, you can:
+  - Either solve graphically (find the feasible region, identify corner points), or
+  - Use any standard LP solver.
+- Identify all corner (extreme) points of the feasible region formed by:
+  - Intersection of the tumor and skin constraints (as equalities).
+  - Intersections with the axes (when one of \(x_1, x_2\) is zero).
+- Evaluate the objective \(0.3 x_1 + 0.2 x_2\) at each feasible corner point.
+- Select the corner point with the smallest objective as the optimal solution.
+- Report:
+  - Optimal minutes for each beam (\(x_1^*, x_2^*\)).
+  - Total pancreas dose at optimum.
+  - Check and confirm both skin and tumor dose constraints are satisfied exactly or with slack.
+
+---
+
+[MODELER]:
+Here is the optimisation model extracted and formalised from the problem.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_1 \ge 0\): minutes Beam 1 is used  
+- \(x_2 \ge 0\): minutes Beam 2 is used  
+
+These are continuous (real-valued) variables.
+
+---
+
+## 2. Objective: minimize pancreas dose
+
+Pancreas dose per minute:
+- Beam 1: 0.3 units/min  
+- Beam 2: 0.2 units/min  
+
+Total pancreas dose:
+\[
+\text{PancreasDose} = 0.3 x_1 + 0.2 x_2
+\]
+
+Objective:
+\[
+\min\; 0.3 x_1 + 0.2 x_2
+\]
+
+---
+
+## 3. Constraints
+
+### a) Tumor dose requirement (minimum)
+
+Tumor dose per minute:
+- Beam 1: 0.6 units/min  
+- Beam 2: 0.4 units/min  
+
+Total tumor dose:
+\[
+0.6 x_1 + 0.4 x_2
+\]
+
+Requirement: at least 3 units:
+\[
+0.6 x_1 + 0.4 x_2 \;\ge\; 3
+\]
+
+---
+
+### b) Skin dose limit (maximum)
+
+Skin dose per minute:
+- Beam 1: 0.2 units/min  
+- Beam 2: 0.1 units/min  
+
+Total skin dose:
+\[
+0.2 x_1 + 0.1 x_2
+\]
+
+Constraint: at most 4 units:
+\[
+0.2 x_1 + 0.1 x_2 \;\le\; 4
+\]
+
+---
+
+### c) Nonnegativity
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+---
+
+## 4. Full LP formulation
+
+\[
+\begin{aligned}
+\min_{x_1, x_2} \quad & 0.3 x_1 + 0.2 x_2 \\
+\text{s.t.} \quad
+& 0.6 x_1 + 0.4 x_2 \;\ge\; 3 && \text{(tumor min dose)} \\
+& 0.2 x_1 + 0.1 x_2 \;\le\; 4 && \text{(skin max dose)} \\
+& x_1, x_2 \;\ge\; 0 && \text{(nonnegativity)}
+\end{aligned}
+\]
+
+This is a standard linear program in two continuous variables.
+
+---
+
+## 5. Suitable Python libraries
+
+Any LP solver is appropriate. Good choices:
+
+- **PuLP** (`pulp`): simple LP modeling library in pure Python, can use CBC (built-in) or external solvers.
+- **OR-Tools Linear Solver** (`ortools.linear_solver.pywraplp` with solver "GLOP" or "CBC_MIXED_INTEGER_PROGRAMMING").
+- **SciPy** (`scipy.optimize.linprog`): for small LPs, convenient but less modeling-friendly than PuLP/OR-Tools.
+- **Pyomo**: more general algebraic modeling, scalable to larger problems.
+
+For this particular small LP, `pulp` or `scipy.optimize.linprog` is more than sufficient.
+
+---
+
+## 6. Example using PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Radiation_Plan", pl.LpMinimize)
+
+# Variables
+x1 = pl.LpVariable('x1', lowBound=0)  # minutes beam 1
+x2 = pl.LpVariable('x2', lowBound=0)  # minutes beam 2
+
+# Objective: minimize pancreas dose
+prob += 0.3 * x1 + 0.2 * x2
+
+# Constraints
+prob += 0.6 * x1 + 0.4 * x2 >= 3, "Tumor_min_dose"
+prob += 0.2 * x1 + 0.1 * x2 <= 4, "Skin_max_dose"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("x1 (minutes Beam 1):", x1.value())
+print("x2 (minutes Beam 2):", x2.value())
+print("Total pancreas dose:", 0.3 * x1.value() + 0.2 * x2.value())
+print("Tumor dose:", 0.6 * x1.value() + 0.4 * x2.value())
+print("Skin dose:", 0.2 * x1.value() + 0.1 * x2.value())
+```
+
+This code exactly implements the model described above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the LP problem
+    prob = pl.LpProblem("Radiation_Plan", pl.LpMinimize)
+
+    # Decision variables (minutes of each beam, non-negative)
+    x1 = pl.LpVariable('x1', lowBound=0)  # minutes Beam 1
+    x2 = pl.LpVariable('x2', lowBound=0)  # minutes Beam 2
+
+    # Objective: minimize pancreas dose
+    prob += 0.3 * x1 + 0.2 * x2
+
+    # Constraints
+    # Tumor dose requirement (minimum 3 units)
+    prob += 0.6 * x1 + 0.4 * x2 >= 3, "Tumor_min_dose"
+    # Skin dose limit (maximum 4 units)
+    prob += 0.2 * x1 + 0.1 * x2 <= 4, "Skin_max_dose"
+
+    # Solve the problem using CBC (default solver in PuLP)
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute final objective value (total pancreas dose)
+    x1_val = x1.value()
+    x2_val = x2.value()
+    final_obj = 0.3 * x1_val + 0.2 * x2_val
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

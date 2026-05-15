@@ -1,0 +1,176 @@
+[MODELER]:
+Let’s model this as an optimization (linear programming) problem.
+
+### Decision variables
+
+Let  
+- \(x\) = number of salinity tests  
+- \(y\) = number of pH tests  
+
+Both should be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+### Objective
+
+Each salinity test uses 3 probes; each pH test uses 2 probes.  
+We want to **minimize total number of probes**:
+\[
+\min\; Z = 3x + 2y
+\]
+
+### Constraints
+
+1. **Minimum number of pH tests**:  
+   At least 250 pH tests:
+   \[
+   y \ge 250
+   \]
+
+2. **Total number of tests**:  
+   At least 400 tests in total:
+   \[
+   x + y \ge 400
+   \]
+
+3. **Limit relative number of pH vs salinity tests**:  
+   “There must be at most 1.5 times more pH tests than salinity tests” means:  
+   \[
+   y \le 1.5x
+   \]
+
+   or equivalently, in fractional form:
+   \[
+   y \le \frac{3}{2}x
+   \]
+
+### Complete model
+
+\[
+\begin{aligned}
+\min \quad & Z = 3x + 2y \\
+\text{s.t.} \quad 
+& y \ge 250 \\
+& x + y \ge 400 \\
+& y \le 1.5x \\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+### Solving the model (outline)
+
+This is a linear program with 2 variables and linear constraints. Suitable Python libraries include:
+
+- **PuLP** (`pulp`) – easy modeling of small LPs.
+- **SciPy** (`scipy.optimize.linprog`) – standard LP solver interface.
+- **OR-Tools** (`ortools.linear_solver`) – Google’s optimization suite.
+
+### Quick analytic solution
+
+Because this is a linear problem in 2 variables, the optimum will occur at a corner (intersection of constraints):
+
+Use:
+\[
+x + y = 400,\quad y = 1.5x
+\]
+From \(y = 1.5x\):
+\[
+x + 1.5x = 400 \Rightarrow 2.5x = 400 \Rightarrow x = 160
+\]
+Then:
+\[
+y = 1.5 \cdot 160 = 240
+\]
+
+But this violates \(y \ge 250\). So we must enforce \(y = 250\) or greater.
+
+Try intersecting:
+\[
+y = 250,\quad x + y = 400 \Rightarrow x = 150
+\]
+Check the ratio constraint:
+\[
+y \le 1.5x \Rightarrow 250 \le 1.5 \cdot 150 = 225 \quad \text{(false)}
+\]
+So \((x,y)=(150,250)\) is infeasible.
+
+Instead, enforce:
+\[
+y = 250,\quad y \le 1.5x \Rightarrow 250 \le 1.5x \Rightarrow x \ge \frac{250}{1.5} \approx 166.\overline{6}
+\]
+And we also need:
+\[
+x + y \ge 400 \Rightarrow x \ge 150
+\]
+
+So the tightest \(x\) is:
+\[
+x = \max\left(150, \frac{250}{1.5}\right) = \frac{250}{1.5} \approx 166.\overline{6}
+\]
+
+To minimize probes, keep \(y\) as small as allowed (\(y=250\)) and \(x\) as small as allowed (that still satisfies \(y \le 1.5x\)), i.e., \(x = 250/1.5\).
+
+If we require integer numbers of tests, then:
+\[
+x = 167,\quad y = 250
+\]
+Total probes:
+\[
+3(167) + 2(250) = 501 + 500 = 1001
+\]
+
+If fractional tests are allowed (mathematical solution):
+\[
+x = \frac{500}{3} \approx 166.67,\quad y = 250
+\]
+Total probes:
+\[
+3\cdot\frac{500}{3} + 2\cdot 250 = 500 + 500 = 1000
+\]
+
+---
+
+### Summary
+
+- **Model type**: Linear program  
+- **Variables**:  
+  \(x\) = salinity tests, \(y\) = pH tests  
+- **Objective**: Minimize \(3x + 2y\)  
+- **Constraints**:
+  - \(y \ge 250\)  
+  - \(x + y \ge 400\)  
+  - \(y \le 1.5x\)  
+  - \(x, y \ge 0\)
+
+**Recommended Python libraries**: PuLP, SciPy’s `linprog`, or OR-Tools `linear_solver`.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+# Create the LP problem: minimize total number of probes
+prob = pulp.LpProblem("Salinity_pH_Tests_Optimization", pulp.LpMinimize)
+
+# Decision variables: x = salinity tests, y = pH tests
+# Assuming integer numbers of tests
+x = pulp.LpVariable('x', lowBound=0, cat='Integer')
+y = pulp.LpVariable('y', lowBound=0, cat='Integer')
+
+# Objective function: minimize 3x + 2y
+prob += 3 * x + 2 * y
+
+# Constraints
+prob += y >= 250              # Minimum number of pH tests
+prob += x + y >= 400          # Minimum total number of tests
+prob += y <= 1.5 * x          # pH tests at most 1.5 times salinity tests
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Get objective value
+final_obj = pulp.value(prob.objective)
+
+# Print final objective as required
+print(f"FINAL_OBJ: {final_obj}")

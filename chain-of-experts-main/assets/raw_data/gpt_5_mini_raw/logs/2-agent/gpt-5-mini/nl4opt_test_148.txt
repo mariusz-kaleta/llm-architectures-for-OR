@@ -1,0 +1,121 @@
+[MODELER]:
+I will model this as a linear program, state variables, objective and constraints, then give the optimal solution and suggest solver libraries (with a short example).
+
+1) Decision variables
+- x = hours to run the northern factory (>= 0)
+- y = hours to run the western factory (>= 0)
+
+2) Objective
+Minimize total running time:
+minimize Z = x + y
+
+3) Constraints
+- Injection production (need at least 800,000 g):
+800 x + 650 y >= 800000
+- Cream production (need at least 700,000 g):
+700 x + 750 y >= 700000
+- Plastic availability (at most 60,000 units):
+40 x + 35 y <= 60000
+- Nonnegativity:
+x >= 0, y >= 0
+
+4) Remarks on feasibility / optimality
+This is a linear program in two variables. You can check analytically that the injection and cream requirement lines intersect at
+800x + 650y = 800000
+700x + 750y = 700000
+Solving these gives y = 0, x = 1000. That point satisfies the plastic constraint (40·1000 = 40000 ≤ 60000). The LP lower bound argument (convex-combination / corner-point reasoning) shows the minimum possible x + y is 1000 hours, so the optimal solution is:
+- x = 1000 hours (northern factory)
+- y = 0 hours (western factory)
+Total time = 1000 hours.
+
+5) Suggested libraries to solve this LP
+- pulp (simple modeling + CBC solver)
+- scipy.optimize.linprog (simple LP solver)
+- OR-Tools (for larger LP/MIP models)
+- cvxpy (convex optimization modeling)
+
+6) Example using PuLP (Python)
+(Conceptual code — paste into a Python environment with pulp installed)
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("FactoryScheduling", LpMinimize)
+x = LpVariable("x", lowBound=0)
+y = LpVariable("y", lowBound=0)
+
+prob += x + y                       # objective
+prob += 800*x + 650*y >= 800000    # injections
+prob += 700*x + 750*y >= 700000    # cream
+prob += 40*x + 35*y <= 60000       # plastic
+
+prob.solve(PULP_CBC_CMD(msg=0))
+print(x.varValue, y.varValue, "total hours", x.varValue + y.varValue)
+
+This returns x = 1000, y = 0.
+
+If you want integer-hour constraints, set cat='Integer' on LpVariable; here continuous hours were assumed.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import numpy as np
+
+# Define constraint lines in form: a*x + b*y = c
+lines = [
+    (800.0, 650.0, 800000.0),  # injections: 800x + 650y = 800000
+    (700.0, 750.0, 700000.0),  # cream:      700x + 750y = 700000
+    (40.0,  35.0,  60000.0),   # plastic:    40x  + 35y  = 60000
+    (1.0,   0.0,   0.0),       # x = 0
+    (0.0,   1.0,   0.0)        # y = 0
+]
+
+tol = 1e-8
+candidates = []
+
+# compute intersections of every pair of lines
+for i in range(len(lines)):
+    a1, b1, c1 = lines[i]
+    for j in range(i+1, len(lines)):
+        a2, b2, c2 = lines[j]
+        A = np.array([[a1, b1], [a2, b2]], dtype=float)
+        rhs = np.array([c1, c2], dtype=float)
+        det = np.linalg.det(A)
+        if abs(det) < 1e-12:
+            continue
+        sol = np.linalg.solve(A, rhs)
+        x, y = sol[0], sol[1]
+        candidates.append((x, y))
+
+# Also include origin explicitly
+candidates.append((0.0, 0.0))
+
+# Define constraint checks
+def feasible(x, y):
+    if x < -tol or y < -tol:
+        return False
+    if 800.0*x + 650.0*y < 800000.0 - tol:
+        return False
+    if 700.0*x + 750.0*y < 700000.0 - tol:
+        return False
+    if 40.0*x + 35.0*y > 60000.0 + tol:
+        return False
+    return True
+
+# Evaluate candidates
+feasible_points = []
+for x, y in candidates:
+    if feasible(x, y):
+        obj = x + y
+        feasible_points.append((obj, x, y))
+
+if not feasible_points:
+    raise RuntimeError("No feasible solution found.")
+
+# pick minimum objective
+feasible_points.sort(key=lambda t: t[0])
+best_obj, best_x, best_y = feasible_points[0]
+
+# For neatness, if objective is near integer, cast to int
+if abs(best_obj - round(best_obj)) < 1e-8:
+    best_obj = int(round(best_obj))
+
+print(f"FINAL_OBJ: {best_obj}")

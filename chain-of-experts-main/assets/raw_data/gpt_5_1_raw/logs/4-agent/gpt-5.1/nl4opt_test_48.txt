@@ -1,0 +1,253 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximise total earnings per shift from the fleet choice (motorcycles and sedans).
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with two decision variables.
+
+3. Main decision variables  
+   Define decision variables as the number of each vehicle type in the fleet:
+   - Variable 1: Number of motorcycles to purchase (and use per shift).
+   - Variable 2: Number of sedans to purchase (and use per shift).
+
+4. Objective function (conceptual)  
+   - Maximise:  
+     - Earnings from motorcycles = (earnings per motorcycle per shift) × (number of motorcycles).  
+     - Earnings from sedans = (earnings per sedan per shift) × (number of sedans).  
+   - Total earnings is the sum of both.
+
+5. Key constraints to consider  
+
+   a) Service (capacity) requirement  
+   - Each motorcycle transports a fixed number of people per shift.  
+   - Each sedan transports a fixed number of people per shift.  
+   - Total transported people from all vehicles must be at least the required minimum per shift.
+
+   b) Pollution limit  
+   - Each motorcycle generates a fixed amount of pollution units per shift.  
+   - Each sedan generates a fixed amount of pollution units per shift.  
+   - Total pollution from all vehicles must be strictly less than or at most a given pollution limit (treat “less than 200” as ≤ for LP feasibility, but note this interpretation).
+
+   c) Motorcycle share limit (fleet composition)  
+   - At most 25% of all vehicles in the fleet can be motorcycles.  
+   - Express this as:  
+     - Number of motorcycles ≤ 25% × (total number of vehicles).  
+     - Total number of vehicles = motorcycles + sedans.  
+   - Rearrange to a linear inequality in terms of the two decision variables.
+
+   d) Non-negativity and integrality  
+   - Number of motorcycles ≥ 0.  
+   - Number of sedans ≥ 0.  
+   - If appropriate, enforce they are integers (Integer Linear Programming). If a purely continuous LP is desired, treat them as continuous and round/interpret afterward.
+
+6. Structure for the Modeller  
+
+   - Step 1: Define two decision variables representing fleet counts.  
+   - Step 2: Build the objective function as a linear combination of these variables using the given earnings coefficients.  
+   - Step 3: Add the capacity constraint using per-vehicle passenger capacities to ensure total passengers ≥ transport requirement.  
+   - Step 4: Add the pollution constraint using per-vehicle pollution units to ensure total pollution < (or ≤) the limit.  
+   - Step 5: Translate the “at most 25% motorcycles” into a linear inequality linking motorcycles and sedans.  
+   - Step 6: Add non-negativity (and optionally integrality) constraints.  
+   - Step 7: Solve the LP/ILP and interpret the optimal counts of motorcycles and sedans as the recommended fleet mix to maximise earnings while satisfying service, pollution, and composition constraints.
+
+---
+
+[MODELER]:
+Below is a complete optimisation model for the problem and how you could implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x \in \mathbb{Z}_{\ge 0}\): number of motorcycles to purchase (and use per shift).  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of sedans to purchase (and use per shift).
+
+(You can relax integrality and treat them as continuous if an LP approximation is acceptable.)
+
+---
+
+## 2. Objective function
+
+Each vehicle’s earnings per shift:
+
+- Motorcycle: \$100 per shift.  
+- Sedan: \$225 per shift.
+
+Maximise total earnings per shift:
+
+\[
+\max \; Z = 100x + 225y
+\]
+
+---
+
+## 3. Constraints
+
+### (a) Service (capacity) requirement
+
+Each motorcycle transports 30 people, each sedan 70 people.  
+Total transported people must be at least 1200:
+
+\[
+30x + 70y \;\ge\; 1200
+\]
+
+---
+
+### (b) Pollution limit
+
+Each motorcycle: 4 units of pollution.  
+Each sedan: 15 units of pollution.  
+Total pollution must be less than 200; for LP modelling we use “≤ 200”:
+
+\[
+4x + 15y \;\le\; 200
+\]
+
+---
+
+### (c) Motorcycle share ≤ 25% of fleet
+
+At most 25% of vehicles can be motorcycles:
+
+\[
+x \;\le\; 0.25(x + y)
+\]
+
+Rearrange into a standard linear inequality:
+
+\[
+x \le 0.25x + 0.25y \\
+x - 0.25x \le 0.25y \\
+0.75x \le 0.25y \\
+3x \le y
+\]
+
+So the constraint is:
+
+\[
+3x - y \;\le\; 0
+\]
+
+---
+
+### (d) Non-negativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+Optionally, integrality:
+
+\[
+x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete mathematical model
+
+\[
+\begin{aligned}
+\max\quad & 100x + 225y \\
+\text{s.t.}\quad 
+& 30x + 70y \ge 1200 \quad &&\text{(capacity)} \\
+& 4x + 15y \le 200 \quad &&\text{(pollution)} \\
+& 3x - y \le 0 \quad &&\text{(motorcycle share)} \\
+& x \ge 0,\; y \ge 0 \quad &&\text{(non-negativity)} \\
+& x,y \in \mathbb{Z} \quad &&\text{(integrality, if enforced)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard LP / MILP solver can handle this small model:
+
+- **PuLP** (pure Python, easy to use, can call CBC, GLPK, etc.).
+- **OR-Tools** (Google OR-Tools CP-SAT / linear solver).
+- **Pyomo** (more general modelling framework).
+- **scipy.optimize.linprog** (for continuous LP only, no integer constraints; you’d then round and check feasibility).
+
+For an integer model with minimal setup, **PuLP** or **OR-Tools** is recommended.
+
+---
+
+## 6. Example implementation in Python (PuLP)
+
+```python
+import pulp as pl
+
+# Create problem: maximize
+prob = pl.LpProblem("Taxi_Fleet_Optimization", pl.LpMaximize)
+
+# Decision variables: integers ≥ 0
+x = pl.LpVariable("motorcycles", lowBound=0, cat="Integer")
+y = pl.LpVariable("sedans", lowBound=0, cat="Integer")
+
+# Objective: maximize earnings
+prob += 100 * x + 225 * y, "Total_Earnings"
+
+# Constraints
+
+# Capacity: at least 1200 people
+prob += 30 * x + 70 * y >= 1200, "Capacity"
+
+# Pollution: at most 200 units
+prob += 4 * x + 15 * y <= 200, "Pollution"
+
+# Motorcycle share: at most 25% motorcycles -> 3x <= y
+prob += 3 * x <= y, "Motorcycle_Share"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal number of motorcycles:", x.value())
+print("Optimal number of sedans:", y.value())
+print("Maximum earnings per shift:", pl.value(prob.objective))
+```
+
+This code directly implements the model above and returns the recommended numbers of motorcycles and sedans to maximise earnings under the given constraints.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create problem: maximize total earnings
+    prob = pl.LpProblem("Taxi_Fleet_Optimization", pl.LpMaximize)
+
+    # Decision variables: integers ≥ 0
+    x = pl.LpVariable("motorcycles", lowBound=0, cat="Integer")
+    y = pl.LpVariable("sedans", lowBound=0, cat="Integer")
+
+    # Objective: maximize earnings
+    prob += 100 * x + 225 * y, "Total_Earnings"
+
+    # Constraints
+
+    # Capacity: at least 1200 people
+    prob += 30 * x + 70 * y >= 1200, "Capacity"
+
+    # Pollution: at most 200 units
+    prob += 4 * x + 15 * y <= 200, "Pollution"
+
+    # Motorcycle share: at most 25% motorcycles -> 3x <= y
+    prob += 3 * x <= y, "Motorcycle_Share"
+
+    # Solve using CBC (default solver in PuLP)
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_val = pl.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {obj_val}")
+
+if __name__ == "__main__":
+    main()

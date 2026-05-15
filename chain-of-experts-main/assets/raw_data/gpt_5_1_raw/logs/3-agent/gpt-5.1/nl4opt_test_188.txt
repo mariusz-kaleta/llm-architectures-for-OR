@@ -1,0 +1,144 @@
+[MODELER]:
+Here is a clean mathematical model of the problem.
+
+## Decision variables
+
+Let  
+- \(x\) = number of **new model** furnaces (integer, \(x \ge 0\))  
+- \(y\) = number of **old model** furnaces (integer, \(y \ge 0\))
+
+## Objective
+
+Minimize the **total number of furnaces**:
+
+\[
+\min \; Z = x + y
+\]
+
+## Constraints
+
+1. **Heating capacity constraint** (must heat at least 200 apartments):  
+   Each new furnace heats 10 apartments, each old furnace heats 15:
+   \[
+   10x + 15y \;\ge\; 200
+   \]
+
+2. **Electricity consumption constraint** (limited to 3500 kWh):  
+   Each new furnace uses 200 kWh/day, each old furnace uses 250 kWh/day:
+   \[
+   200x + 250y \;\le\; 3500
+   \]
+
+3. **Old model availability constraint** (at most 35% of furnaces are old):  
+   \[
+   y \;\le\; 0.35(x + y)
+   \]
+   This can be rewritten (to avoid fractions) as:
+   \[
+   100y \;\le\; 35x + 35y \;\;\Rightarrow\;\; 65y \;\le\; 35x
+   \]
+   or equivalently:
+   \[
+   y \;\le\; \frac{35}{65}x = \frac{7}{13}x
+   \]
+
+4. **Minimum new furnaces constraint** (at least 5 new models):  
+   \[
+   x \;\ge\; 5
+   \]
+
+5. **Integrality**:  
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+This is a **mixed-integer linear programming** (MILP) problem with two integer variables and linear constraints.
+
+## Suitable Python libraries
+
+Any MILP or LP solver that handles integer variables and linear constraints will work well. Recommended options:
+
+- **PuLP** (easy to use, pure Python interface; can use CBC or other solvers)
+- **OR-Tools Linear Solver** (`ortools.linear_solver.pywraplp`) from Google (very efficient, supports CBC, GLOP, SCIP, etc.)
+- **Pyomo** (more general algebraic modeling language)
+- **SciPy** is *not* ideal here because `scipy.optimize.linprog` does not natively support integrality.
+
+### Example: PuLP formulation sketch
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Furnace_Selection", pl.LpMinimize)
+
+# Decision variables (integer)
+x = pl.LpVariable('x_new', lowBound=0, cat='Integer')
+y = pl.LpVariable('y_old', lowBound=0, cat='Integer')
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 10*x + 15*y >= 200      # heating requirement
+prob += 200*x + 250*y <= 3500   # electricity limit
+prob += y <= (7/13)*x           # at most 35% old
+prob += x >= 5                  # at least 5 new
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("New furnaces (x):", x.value())
+print("Old furnaces (y):", y.value())
+print("Total furnaces:", x.value() + y.value())
+```
+
+You can use a similar structure in OR-Tools or Pyomo; the formulation (objective and constraints) remains the same.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("Furnace_Selection", pl.LpMinimize)
+
+    # Decision variables (integer)
+    x = pl.LpVariable('x_new', lowBound=0, cat='Integer')
+    y = pl.LpVariable('y_old', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of furnaces
+    prob += x + y
+
+    # Constraints
+    # Heating capacity: at least 200 apartments
+    prob += 10 * x + 15 * y >= 200
+
+    # Electricity consumption: at most 3500 kWh/day
+    prob += 200 * x + 250 * y <= 3500
+
+    # Old model availability: at most 35% old
+    # Use equivalent linear form: 65y <= 35x
+    prob += 65 * y <= 35 * x
+
+    # Minimum new furnaces
+    prob += x >= 5
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    x_val = x.value()
+    y_val = y.value()
+    total_furnaces = x_val + y_val
+
+    # Optionally print solution details (not required by the spec)
+    # print("Status:", pl.LpStatus[prob.status])
+    # print("New furnaces (x):", x_val)
+    # print("Old furnaces (y):", y_val)
+    # print("Total furnaces:", total_furnaces)
+
+    print(f"FINAL_OBJ: {total_furnaces}")
+
+if __name__ == "__main__":
+    main()

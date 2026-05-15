@@ -1,0 +1,176 @@
+[MODELER]:
+Here’s a clean mathematical model of the problem, followed by how to solve it using Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of cars used (integer, \(x \ge 0\))
+- \(y\) = number of buses used (integer, \(y \ge 0\))
+
+---
+
+## 2. Objective (minimize total pollution)
+
+Each car produces 10 units of pollution, each bus 30 units.
+
+\[
+\text{Minimize } Z = 10x + 30y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Transport capacity
+
+Each car carries 4 employees, each bus carries 20 employees. At least 300 employees must be transported:
+
+\[
+4x + 20y \;\ge\; 300
+\]
+
+### b) Maximum number of buses
+
+At most 4 buses can be used:
+
+\[
+y \;\le\; 4
+\]
+
+### c) Non-negativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Model type
+
+This is a small **integer linear programming (ILP)** problem:
+
+- Linear objective
+- Linear constraints
+- Integer decision variables
+
+---
+
+## 5. Manual reasoning (optional check)
+
+Pollution per employee:
+- Car: \(10/4 = 2.5\) units per employee
+- Bus: \(30/20 = 1.5\) units per employee
+
+Buses are more efficient (less pollution/employee), so we should use as many buses as allowed: \(y = 4\).
+
+Then capacity from 4 buses:
+
+\[
+20 \cdot 4 = 80 \text{ employees}
+\]
+
+Remaining employees to transport:
+
+\[
+300 - 80 = 220
+\]
+
+Cars needed:
+
+\[
+4x \ge 220 \;\Rightarrow\; x \ge 55
+\]
+
+So \(x = 55\) is the minimum feasible integer. Pollution:
+
+\[
+Z = 10 \cdot 55 + 30 \cdot 4 = 550 + 120 = 670
+\]
+
+Thus, the optimal solution is:
+
+- **Cars:** 55  
+- **Buses:** 4  
+
+---
+
+## 6. Suitable Python libraries
+
+To solve this ILP in Python, you can use:
+
+- **PuLP** (`pulp`) – simple modeling syntax, good for teaching/exercises.
+- **OR-Tools** (`ortools.linear_solver`) – very efficient Google library for LP/MIP.
+- **Pyomo** – more general modeling framework.
+- **SciPy** (`scipy.optimize`) is not ideal here because it doesn’t natively handle integer variables.
+
+For this problem, **PuLP** or **OR-Tools** are both excellent.
+
+---
+
+## 7. Example PuLP implementation
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Transport_Min_Pollution", pl.LpMinimize)
+
+# Decision variables (integer, non-negative)
+x = pl.LpVariable('cars', lowBound=0, cat='Integer')
+y = pl.LpVariable('buses', lowBound=0, cat='Integer')
+
+# Objective function
+prob += 10 * x + 30 * y, "Total_Pollution"
+
+# Constraints
+prob += 4 * x + 20 * y >= 300, "Capacity"
+prob += y <= 4, "Max_Buses"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Cars:", pl.value(x))
+print("Buses:", pl.value(y))
+print("Min pollution:", pl.value(10 * x + 30 * y))
+```
+
+This will return:
+- Cars = 55  
+- Buses = 4  
+- Min pollution = 670
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Transport_Min_Pollution", pl.LpMinimize)
+
+    # Decision variables (integer, non-negative)
+    x = pl.LpVariable('cars', lowBound=0, cat='Integer')
+    y = pl.LpVariable('buses', lowBound=0, cat='Integer')
+
+    # Objective function: Minimize total pollution
+    prob += 10 * x + 30 * y, "Total_Pollution"
+
+    # Constraints
+    prob += 4 * x + 20 * y >= 300, "Capacity"
+    prob += y <= 4, "Max_Buses"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute final objective value
+    final_obj = pl.value(10 * x + 30 * y)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

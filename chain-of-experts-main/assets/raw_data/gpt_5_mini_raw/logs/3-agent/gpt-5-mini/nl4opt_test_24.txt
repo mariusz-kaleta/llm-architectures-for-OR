@@ -1,0 +1,104 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- L ∈ Z≥0 : number of large mobile production units.
+- S ∈ Z≥0 : number of small mobile production units.
+
+Objective
+- Minimize total parking spots: minimize Z = 2L + S.
+
+Constraints
+1. Capacity: 6L + 2S ≥ 80 (must carry 80 people).
+2. Stars' preference: S ≥ 5 (at least 5 small units).
+3. Large units fraction: L/(L + S) ≥ 0.75, i.e. L ≥ 0.75(L + S). This linearizes to
+   0.25 L ≥ 0.75 S  ⇔  L ≥ 3 S.
+4. Integrality and nonnegativity: L, S ∈ Z≥0 and L + S ≥ 1 (to avoid division by zero if the fraction were written).
+
+Simplified model (using L ≥ 3S)
+- Minimize Z = 2L + S
+- subject to
+    6L + 2S ≥ 80
+    L ≥ 3S
+    S ≥ 5
+    L, S integers ≥ 0
+
+Analytic solution (small search / reasoning)
+- Because 2L + S is increasing in both L and S, and L must be at least 3S, increasing S increases the minimum feasible L (L ≥ 3S) and thus increases Z. Therefore choose the smallest admissible S: S = 5.
+- Then L ≥ max(ceil((80 − 2S)/6), 3S) = max(ceil((80 − 10)/6), 15) = max(12, 15) = 15.
+- So optimal integer solution: S = 5, L = 15.
+- Objective value: Z = 2·15 + 5 = 35 parking spots.
+
+So the minimum number of parking spots required is 35 (using 15 large units and 5 small units).
+
+Suggested Python solvers/libraries
+- pulp (with CBC solver) — simple integer programming.
+- OR-Tools CP-SAT — fast for small integer programs.
+- mip (Python-MIP) — good if you have commercial solvers (Gurobi, CPLEX) or use CBC.
+- pyomo — for more complex modeling and different solvers.
+
+Example (PuLP) — quick formulation you can run
+'''
+import pulp
+
+L = pulp.LpVariable('L', lowBound=0, cat='Integer')
+S = pulp.LpVariable('S', lowBound=0, cat='Integer')
+
+prob = pulp.LpProblem('ParkingMin', pulp.LpMinimize)
+prob += 2*L + S
+prob += 6*L + 2*S >= 80
+prob += L >= 3*S
+prob += S >= 5
+
+prob.solve()
+print('L =', int(pulp.value(L)), 'S =', int(pulp.value(S)), 'Spots =', pulp.value(prob.objective))
+'''
+
+Notes and potential clarifications
+- The constraint “large units must make up at least 75% of all vehicles” is interpreted as L/(L+S) ≥ 0.75. If the intended meaning was instead “at least 75% of parking spots are occupied by large vehicles” the constraint would be different and should be stated explicitly.
+
+---
+
+[CODER]:
+import math
+
+# Brute-force search over integer decision variables L (large units) and S (small units)
+best_obj = None
+best_solution = None
+
+# Bounds for search:
+# S must be at least 5. Upper bound for S: capacity of only small units would require 40, but L >= 3S will force larger L.
+# We'll search S up to 100 which is more than sufficient for this small problem.
+for S in range(5, 101):
+    # Constraint L >= 3S
+    L_min_from_fraction = 3 * S
+
+    # Capacity constraint: 6L + 2S >= 80 => L >= ceil((80 - 2S)/6)
+    required = 80 - 2 * S
+    if required <= 0:
+        L_min_from_capacity = 0
+    else:
+        L_min_from_capacity = math.ceil(required / 6)
+
+    L_min = max(L_min_from_fraction, L_min_from_capacity, 0)
+
+    # Ensure integrality and nonnegativity (already integers in loop and L_min is integer)
+    L = L_min
+
+    # Ensure at least one vehicle (L + S >= 1) - this is satisfied since S >= 5
+    if L + S < 1:
+        continue
+
+    # Compute objective
+    obj = 2 * L + S
+
+    if (best_obj is None) or (obj < best_obj):
+        best_obj = obj
+        best_solution = (L, S)
+
+# Final objective value
+if best_obj is None:
+    # Should not happen for given data, but handle just in case
+    best_obj = float('inf')
+
+print(f"FINAL_OBJ: {int(best_obj)}")

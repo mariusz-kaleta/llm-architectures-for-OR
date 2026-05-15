@@ -1,0 +1,116 @@
+[MODELER]:
+Formulate this as an integer linear program (ILP).
+
+### Decision variables
+
+Let  
+- \(x\) = number of small wagons (integer, \(\ge 0\))  
+- \(y\) = number of large wagons (integer, \(\ge 0\))
+
+### Objective
+
+Minimize the total number of wagons:
+\[
+\min \; x + y
+\]
+
+### Constraints
+
+1. **Ore requirement (at least 2000 units)**  
+   - Each small wagon carries 20 units; each large wagon carries 50 units.  
+   \[
+   20x + 50y \ge 2000
+   \]
+
+2. **Small wagons at least double large wagons**  
+   \[
+   x \ge 2y
+   \]
+
+3. **At least 10 large wagons**  
+   \[
+   y \ge 10
+   \]
+
+4. **Integrality and non-negativity**  
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+---
+
+### Suitable Python libraries
+
+Any standard MILP/ILP solver library can handle this easily, for example:
+
+- `PuLP` (pure Python, simple to use)
+- `ortools.linear_solver` (Google OR-Tools, very efficient)
+- `pyomo` (more general algebraic modeling)
+
+For a small problem like this, `PuLP` or OR-Tools is ideal.
+
+---
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Wagon_Minimization", pl.LpMinimize)
+
+# Variables
+x = pl.LpVariable('small_wagons', lowBound=0, cat='Integer')
+y = pl.LpVariable('large_wagons', lowBound=0, cat='Integer')
+
+# Objective: minimize total wagons
+prob += x + y
+
+# Constraints
+prob += 20*x + 50*y >= 2000         # ore requirement
+prob += x >= 2*y                    # small at least twice large
+prob += y >= 10                     # at least 10 large
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Small wagons:", x.value())
+print("Large wagons:", y.value())
+print("Total wagons:", x.value() + y.value())
+```
+
+This code implements the mathematical model exactly as described.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Wagon_Minimization", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('small_wagons', lowBound=0, cat='Integer')
+    y = pl.LpVariable('large_wagons', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of wagons
+    prob += x + y
+
+    # Constraints
+    prob += 20 * x + 50 * y >= 2000      # Ore requirement
+    prob += x >= 2 * y                   # Small wagons at least double large wagons
+    prob += y >= 10                      # At least 10 large wagons
+
+    # Solve the ILP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute objective value
+    obj_value = x.value() + y.value()
+
+    # Final required print
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

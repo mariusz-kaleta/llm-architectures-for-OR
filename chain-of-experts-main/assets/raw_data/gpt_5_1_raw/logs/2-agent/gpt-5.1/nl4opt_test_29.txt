@@ -1,0 +1,148 @@
+[MODELER]:
+Here is a mathematical optimization model for the problem.
+
+---
+
+## 1. Decision variables
+
+Let:
+
+- \( x \) = number of top-loading machines (integer, \(x \ge 0\))
+- \( y \) = number of front-loading machines (integer, \(y \ge 0\))
+
+---
+
+## 2. Objective
+
+Minimize the total number of washing machines:
+
+\[
+\min \; Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### (a) Washing capacity (at least 5000 items/day)
+
+Each top-loader washes 50 items/day, each front-loader 75 items/day:
+
+\[
+50x + 75y \;\ge\; 5000
+\]
+
+### (b) Energy consumption (at most 7000 kWh/day)
+
+Each top-loader uses 85 kWh/day, each front-loader 100 kWh/day:
+
+\[
+85x + 100y \;\le\; 7000
+\]
+
+### (c) At most 40% of the machines are top-loading
+
+Top-loaders are at most 40% of all machines:
+
+\[
+x \;\le\; 0.4(x + y)
+\]
+
+Rearrange:
+
+\[
+x \le 0.4x + 0.4y  
+\Rightarrow 0.6x \le 0.4y  
+\Rightarrow 3x \le 2y
+\]
+
+So:
+
+\[
+3x \;\le\; 2y
+\]
+
+### (d) At least 10 front-loading machines
+
+\[
+y \;\ge\; 10
+\]
+
+### (e) Integrality and non-negativity
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Full model summary
+
+\[
+\begin{aligned}
+\min \quad & x + y \\
+\text{s.t.} \quad 
+& 50x + 75y \;\ge\; 5000 \\
+& 85x + 100y \;\le\; 7000 \\
+& 3x \;\le\; 2y \\
+& y \;\ge\; 10 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a **mixed-integer linear program (MILP)** (in fact, a pure integer linear program).
+
+---
+
+## 5. Suitable Python libraries
+
+You can model and solve this with any standard MILP library. Good options:
+
+- **PuLP**: simple, pure-Python modeling interface with built-in CBC solver.
+- **OR-Tools (Google OR-Tools)**: `ortools.linear_solver` or `ortools.sat.python.cp_model` for integer programming.
+- **Pyomo**: more general algebraic modeling, works with various solvers (CBC, GLPK, Gurobi, CPLEX, etc.).
+- **SciPy**: not ideal here, since `scipy.optimize.linprog` does not handle integrality; you’d have to relax integrality or add your own branch-and-bound.
+
+For this small integer linear program, **PuLP** or **OR-Tools** is very suitable.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# We will solve the MILP directly using brute force enumeration,
+# since the problem is very small and has only two integer variables.
+
+best_obj = None
+best_x = None
+best_y = None
+
+# Reasonable bounds:
+# From capacity: 50x + 75y >= 5000
+# Minimal machines if all front-loading: 75y >= 5000 -> y >= 66.67 -> y up to maybe 100
+# From energy: 85x + 100y <= 7000 -> if y=0, x<=82.35; if x=0, y<=70
+# We'll search a bit wider but safe: x in [0,100], y in [10,100]
+for x in range(0, 101):
+    for y in range(10, 101):  # y >= 10
+        # Constraints:
+        # 1) Capacity: 50x + 75y >= 5000
+        if 50 * x + 75 * y < 5000:
+            continue
+        # 2) Energy: 85x + 100y <= 7000
+        if 85 * x + 100 * y > 7000:
+            continue
+        # 3) 3x <= 2y
+        if 3 * x > 2 * y:
+            continue
+
+        obj = x + y
+        if best_obj is None or obj < best_obj:
+            best_obj = obj
+            best_x = x
+            best_y = y
+
+# In a more complex setting, we'd verify feasibility and uniqueness, but for this
+# search the best found feasible point is our optimal solution.
+
+# Print final objective as required
+print(f"FINAL_OBJ: {best_obj}")

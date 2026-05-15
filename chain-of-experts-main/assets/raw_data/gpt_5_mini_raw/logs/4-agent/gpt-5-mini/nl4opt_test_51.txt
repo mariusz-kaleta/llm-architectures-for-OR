@@ -1,0 +1,309 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Maximise daily total profit from producing graph-paper reams and music-paper reams.
+
+2. Suggested model type
+- Model: Linear Programming (LP). (Two decision variables — graphical solution or simplex will work; if integer reams are required, use an Integer LP but start with LP relaxation.)
+
+3. Main decision variables
+- Let G = number of reams of graph paper produced per day.
+- Let M = number of reams of music paper produced per day.
+(Units: reams. Specify whether these must be integer; otherwise treat as continuous.)
+
+4. Objective components (to be implemented in the model)
+- Profit contribution per unit: graph paper = $4 per ream, music paper = $2.50 per ream.
+- Objective: maximise total profit = (4 × G) + (2.5 × M).
+
+5. Key constraints to include
+- Printing machine capacity: total printing time used by G and M cannot exceed 350 minutes per day. (Parameter: graph uses 3 min/ream; music uses 1.5 min/ream.)
+- Scanning machine capacity: total scanning time used by G and M cannot exceed 350 minutes per day. (Parameter: graph uses 5.5 min/ream; music uses 3 min/ream.)
+- Nonnegativity: G ≥ 0, M ≥ 0.
+- (Optional) Integrality: if the company must produce whole reams, add integer constraints on G and M.
+
+6. Data/parameters to pass into the modeller
+- Printing time per graph ream = 3 minutes.
+- Printing time per music ream = 1.5 minutes.
+- Scanning time per graph ream = 5.5 minutes.
+- Scanning time per music ream = 3 minutes.
+- Available printing time = 350 minutes/day.
+- Available scanning time = 350 minutes/day.
+- Profit per graph ream = $4.
+- Profit per music ream = $2.50.
+
+7. Recommended solution procedure and checks
+- Solve the LP (2 variables → can use graphical method or simplex). Identify corner (binding) solutions where one or both machine constraints bind.
+- Evaluate profit at each relevant corner and at the axes intersections (i.e., all G, zero M; all M, zero G; intersection of the two machine constraints).
+- If integer solutions are needed, solve the integer LP or round nearby feasible integer points and compare profits.
+- Perform sensitivity analysis / compute shadow prices for machine capacities to understand marginal value of extra minutes on each machine.
+
+8. Assumptions to state explicitly
+- Processing times and profits are linear and constant per unit.
+- No other bottlenecks (labor, materials, demand) beyond the two machines.
+- All production can be sold (unlimited demand).
+- Production within a single day; no carryover inventory.
+
+Deliverable expected from the modeller
+- Formulated LP (objective and constraints) using the parameters above.
+- Numerical optimal production plan (G and M) and resulting maximum profit.
+- Indication whether constraints binding and basic sensitivity (shadow prices). If integrality required, give integer-optimal plan.
+
+---
+
+[MODELER]:
+Below I convert the textual statement into a formal LP, solve it, and give interpretation and solver suggestions.
+
+1) Decision variables
+- G ≥ 0 : number of reams of graph paper produced per day.
+- M ≥ 0 : number of reams of music paper produced per day.
+(If reams must be integer, add integrality constraints G, M ∈ Z≥0.)
+
+2) Objective
+Maximise total profit:
+Maximise Z = 4·G + 2.5·M
+
+3) Constraints
+Printing-machine time (≤ 350 min):
+3·G + 1.5·M ≤ 350
+
+Scanning-machine time (≤ 350 min):
+5.5·G + 3·M ≤ 350
+
+Nonnegativity:
+G ≥ 0, M ≥ 0
+
+4) Solve the LP (continuous variables)
+Examine corner points of the feasible region:
+- (G, M) = (0, 0): Z = 0
+- All G, M = 0: scanning limits G to G ≤ 350/5.5 = 63.6364 → Z = 4·63.6364 = 254.5455
+- All M, G = 0: scanning limits M to M ≤ 350/3 = 116.6667 → Z = 2.5·116.6667 = 291.6667
+- Intersection of the two equality lines 3G+1.5M =350 and 5.5G+3M =350 gives G = 700, M = −1166.67 (not feasible with nonnegativity). That means the printing constraint is redundant for the nonnegative region — the scanning constraint dominates.
+
+Compare profit per unit of scanning time:
+- Graph: 4 / 5.5 = 0.72727 $ per scanning-minute
+- Music: 2.5 / 3 = 0.83333 $ per scanning-minute
+
+Since music paper offers greater profit per minute of the binding resource (scanning), allocate all scanning capacity to music.
+
+Optimal continuous solution:
+G* = 0
+M* = 350 / 3 = 116.6666667 reams
+Maximum profit Z* = 2.5 × 116.6666667 = $291.6666667
+
+5) Integer (reams must be whole) solution
+If reams must be integer, choose the best integer feasible point. Because scanning binds and 3·116 = 348 ≤ 350 but 3·117 = 351 > 350, the best integer solution is:
+G = 0, M = 116 → Profit = 2.5 × 116 = $290
+
+6) Binding constraints and shadow prices
+- Binding: scanning constraint (5.5G + 3M ≤ 350) is binding at the continuous optimum.
+- Non-binding (redundant) : printing constraint (3G + 1.5M ≤ 350) has slack (not binding).
+- Shadow price (dual value) for scanning capacity: π_scanning = profit per scanning-minute of the chosen product = 2.5/3 = $0.833333 per additional scanning-minute. Interpretation: one extra minute of scanning capacity would increase maximum profit by about $0.8333 (within the range where the product mix remains the same).
+- Shadow price for printing = 0 (no value while it is nonbinding).
+
+7) Assumptions (explicit)
+- Processing times and profits are linear and constant per ream.
+- No other bottlenecks (labor, raw materials, demand) beyond the two machines.
+- All production can be sold (unlimited demand).
+- Single-day planning, no carryover.
+
+8) Suggested solution methods / Python libraries
+- For LP (continuous): scipy.optimize.linprog, PuLP, CVXOPT, OR-Tools linear solver, or cvxpy (with a linear objective).
+- For integer reams (ILP): PuLP with LpInteger, OR-Tools CP-SAT, or CBC/Gurobi via their Python APIs.
+- For a 2-variable LP a direct analytic solution or graphical method is trivial; simplex via these libraries is straightforward.
+
+9) Quick sample (PuLP) outline
+- Define variables G ≥ 0, M ≥ 0 (optionally LpInteger).
+- Define objective 4*G + 2.5*M to maximize.
+- Add constraints 3*G + 1.5*M ≤ 350 and 5.5*G + 3*M ≤ 350.
+- Solve and read G.value(), M.value(), problem.objective.value().
+
+Summary (final answers)
+- Continuous LP optimum: produce G = 0 reams, M = 116.6667 reams; maximum profit ≈ $291.67.
+- If integer reams required: produce G = 0, M = 116; profit = $290.
+- Scanning machine is the bottleneck (binding); its marginal value ≈ $0.8333 per extra minute.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data
+# Decision variables: G (graph reams), M (music reams)
+c = (4.0, 2.5)  # objective coefficients (profit per ream)
+# Constraints: a11*G + a12*M <= b1, a21*G + a22*M <= b2
+A = ((3.0, 1.5),
+     (5.5, 3.0))
+b = (350.0, 350.0)
+
+tol = 1e-9
+
+# Helper: check feasibility of a point (G, M)
+def is_feasible(point):
+    G, M = point
+    if G < -tol or M < -tol:
+        return False
+    # check constraints
+    if A[0][0]*G + A[0][1]*M - b[0] > tol:
+        return False
+    if A[1][0]*G + A[1][1]*M - b[1] > tol:
+        return False
+    return True
+
+# Generate candidate corner points by intersecting pairs of constraints among:
+# G=0, M=0, c1 (A[0] equality), c2 (A[1] equality)
+candidates = []
+
+# G=0 & M=0
+candidates.append((0.0, 0.0))
+
+# G=0 with each constraint
+# If G=0, solve for M from equality A[i][1]*M = b[i]
+for i in range(2):
+    ai1 = A[i][1]
+    if abs(ai1) > tol:
+        M = b[i] / ai1
+        candidates.append((0.0, M))
+
+# M=0 with each constraint
+# If M=0, solve for G from equality A[i][0]*G = b[i]
+for i in range(2):
+    ai0 = A[i][0]
+    if abs(ai0) > tol:
+        G = b[i] / ai0
+        candidates.append((G, 0.0))
+
+# Intersection of the two constraint lines (c1 and c2)
+# Solve linear system A * [G, M] = b
+det = A[0][0]*A[1][1] - A[0][1]*A[1][0]
+if abs(det) > tol:
+    G_sol = (b[0]*A[1][1] - b[1]*A[0][1]) / det
+    M_sol = (A[0][0]*b[1] - A[1][0]*b[0]) / det
+    candidates.append((G_sol, M_sol))
+
+# Evaluate feasible candidates
+feasible_points = []
+for pt in candidates:
+    G, M = pt
+    if is_feasible((G, M)):
+        Z = c[0]*G + c[1]*M
+        feasible_points.append((G, M, Z))
+
+# Remove duplicates (within tol)
+unique_feasible = []
+for G, M, Z in feasible_points:
+    found = False
+    for UG, UM, UZ in unique_feasible:
+        if abs(G-UG) < 1e-7 and abs(M-UM) < 1e-7:
+            found = True
+            break
+    if not found:
+        unique_feasible.append((G, M, Z))
+
+feasible_points = unique_feasible
+
+# If no feasible points found (shouldn't happen), fallback to origin
+if not feasible_points:
+    feasible_points = [(0.0, 0.0, 0.0)]
+
+# Find continuous optimum
+best_cont = max(feasible_points, key=lambda x: x[2])
+G_cont, M_cont, Z_cont = best_cont
+
+# For completeness, perform a fine search along the boundary as well
+# (not necessary for this small LP but helps guard against numerical issues)
+# We'll sample G from 0..max_G sampled and compute best M satisfying constraints.
+# Compute simple upper bounds
+G_upper = math.floor(min(b[0]/A[0][0], b[1]/A[1][0])) + 1
+M_upper = math.floor(min(b[0]/A[0][1], b[1]/A[1][1])) + 1
+G_upper = max(G_upper, 1)
+M_upper = max(M_upper, 1)
+
+sample_best_Z = Z_cont
+sample_best_pt = (G_cont, M_cont)
+# sample G in small increments
+for Gs in [i * 0.1 for i in range(0, int((max(b)/min(A[0][0], A[1][0]))*10)+1)]:
+    # For given Gs, compute max feasible M (min over constraints)
+    M1 = (b[0] - A[0][0]*Gs)/A[0][1] if A[0][1] != 0 else float('inf')
+    M2 = (b[1] - A[1][0]*Gs)/A[1][1] if A[1][1] != 0 else float('inf')
+    Mmax = min(M1, M2)
+    if Mmax < -tol:
+        continue
+    Mmax = max(Mmax, 0.0)
+    Zs = c[0]*Gs + c[1]*Mmax
+    if Zs > sample_best_Z + 1e-9:
+        sample_best_Z = Zs
+        sample_best_pt = (Gs, Mmax)
+
+# Update continuous solution if sample found better
+if sample_best_Z > Z_cont + 1e-9:
+    G_cont, M_cont, Z_cont = sample_best_pt[0], sample_best_pt[1], sample_best_Z
+
+# Compute integer solution by brute-force search
+# Determine reasonable integer bounds
+G_int_max = int(math.floor(min(b[0]/A[0][0], b[1]/A[1][0])))
+M_int_max = int(math.floor(min(b[0]/A[0][1], b[1]/A[1][1])))
+G_int_max = max(G_int_max, 0)
+M_int_max = max(M_int_max, 0)
+
+best_int_Z = -1.0
+best_int_pt = (0, 0)
+for Gi in range(0, G_int_max+1):
+    for Mi in range(0, M_int_max+1):
+        if A[0][0]*Gi + A[0][1]*Mi - b[0] > tol:
+            continue
+        if A[1][0]*Gi + A[1][1]*Mi - b[1] > tol:
+            continue
+        Zi = c[0]*Gi + c[1]*Mi
+        if Zi > best_int_Z + 1e-9:
+            best_int_Z = Zi
+            best_int_pt = (Gi, Mi)
+
+# Print results (informational)
+print("Continuous LP solution (may be fractional):")
+print(f" G* = {G_cont:.10f}")
+print(f" M* = {M_cont:.10f}")
+print(f" Objective Z* = {Z_cont:.10f}")
+print()
+print("Best integer solution (G, M integers):")
+print(f" G = {best_int_pt[0]}")
+print(f" M = {best_int_pt[1]}")
+print(f" Objective Z = {best_int_Z:.10f}")
+print()
+# Identify binding constraints at continuous optimum
+bindings = []
+if abs(A[0][0]*G_cont + A[0][1]*M_cont - b[0]) <= 1e-6:
+    bindings.append("printing")
+if abs(A[1][0]*G_cont + A[1][1]*M_cont - b[1]) <= 1e-6:
+    bindings.append("scanning")
+if not bindings:
+    bindings_desc = "none (both constraints slack)"
+else:
+    bindings_desc = ", ".join(bindings)
+print(f"Binding constraints at continuous optimum: {bindings_desc}")
+
+# Compute shadow price for scanning if it is binding and solution uses single product
+shadow_scanning = None
+if "scanning" in bindings:
+    # approximate shadow price as marginal profit per unit of scanning time:
+    # If current mix is purely one product, it equals that product's profit / scanning time per unit.
+    if G_cont <= tol and M_cont > tol:
+        shadow_scanning = c[1] / A[1][1]  # profit per minute for music
+    elif M_cont <= tol and G_cont > tol:
+        shadow_scanning = c[0] / A[1][0]  # profit per minute for graph (using scanning times)
+    else:
+        # For mixed, compute dual by solving small system:
+        # Solve for duals (pi1, pi2) from A^T * pi = c
+        # But only if binding constraints = both; here if only scanning binds, dual for printing = 0
+        # We'll compute approximate dual using binding constraints only.
+        pass
+
+if shadow_scanning is not None:
+    print(f"Approximate shadow price (scanning) = {shadow_scanning:.10f} per minute")
+else:
+    print("Shadow price (scanning) not computed (not a single-product binding solution).")
+
+# Final required print line (must be the last line)
+# As the LP in the prompt is the continuous LP, we print the continuous optimum objective value.
+print(f"FINAL_OBJ: {Z_cont}")
+```

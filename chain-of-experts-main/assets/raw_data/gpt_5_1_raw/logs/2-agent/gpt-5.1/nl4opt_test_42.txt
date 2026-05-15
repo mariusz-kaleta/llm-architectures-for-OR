@@ -1,0 +1,250 @@
+[MODELER]:
+Below is a clean mathematical model of your problem as a linear optimization problem, plus guidance on how to solve it in Python.
+
+---
+
+## 1. Decision Variables
+
+Let
+
+- \( C \ge 0 \): number of units of coconut oil in the body wash  
+- \( L \ge 0 \): number of units of lavender in the body wash  
+
+(Units are the same as in the problem statement.)
+
+---
+
+## 2. Objective Function
+
+Each unit of:
+
+- Coconut oil takes 0.7 minutes to be effective.
+- Lavender takes 0.9 minutes to be effective.
+
+We want to **minimize the total time** for the mixture to be effective.  
+Given the wording "one must be added before the other", but no explicit dependence of the *finishing* time on the order is given, the natural and standard interpretation is that the **total time** is the sum of the times contributed per unit:
+
+\[
+\text{Total time} = 0.7C + 0.9L
+\]
+
+So the objective is:
+
+\[
+\min \; Z = 0.7C + 0.9L
+\]
+
+---
+
+## 3. Constraints
+
+1. **Minimum coconut oil requirement**  
+   At least 300 units of coconut oil:
+   \[
+   C \ge 300
+   \]
+
+2. **Total amount constraint**  
+   The body wash must contain at most 550 units of both ingredients together:
+   \[
+   C + L \le 550
+   \]
+
+3. **Coconut oil not too dominant**  
+   There can be at most three times as much coconut oil as lavender:
+   \[
+   C \le 3L
+   \]
+
+4. **Non-negativity**  
+   \[
+   C \ge 0, \quad L \ge 0
+   \]
+
+---
+
+## 4. Complete Linear Program
+
+\[
+\begin{aligned}
+\min \quad & Z = 0.7C + 0.9L \\
+\text{s.t.} \quad 
+& C \ge 300 \\
+& C + L \le 550 \\
+& C \le 3L \\
+& C \ge 0,\; L \ge 0
+\end{aligned}
+\]
+
+This is a standard linear program (LP) with two decision variables.
+
+---
+
+## 5. Solving and Interpreting the Solution (Analytically)
+
+Because this is a small LP, we can reason about the solution structure:
+
+- Coconut oil is “cheaper” in time per unit (0.7 min) than lavender (0.9 min).
+- To minimize total time, we want **as much coconut oil and as little lavender as the constraints allow.**
+
+So lavender will be at its **minimum feasible value** as long as all constraints are satisfied.
+
+Key constraints:
+
+1. \( C \ge 300 \)
+2. \( C + L \le 550 \Rightarrow L \le 550 - C \)
+3. \( C \le 3L \Rightarrow L \ge \frac{C}{3} \)
+
+So lavender must satisfy:
+
+\[
+\frac{C}{3} \le L \le 550 - C
+\]
+
+For feasibility, we need:
+
+\[
+\frac{C}{3} \le 550 - C
+\;\Rightarrow\;
+\frac{C}{3} + C \le 550
+\;\Rightarrow\;
+\frac{4C}{3} \le 550
+\;\Rightarrow\;
+C \le \frac{3}{4} \cdot 550 = 412.5
+\]
+
+And we also have \( C \ge 300 \).  
+Thus feasible \( C \) lies in:
+
+\[
+300 \le C \le 412.5
+\]
+
+Given lavender is more “expensive”, for a fixed \(C\) we want **minimum** \(L\):
+
+\[
+L = \frac{C}{3}
+\]
+
+Plug into the total cap constraint to check feasibility:
+
+\[
+C + \frac{C}{3} = \frac{4C}{3} \le 550 \Rightarrow C \le 412.5
+\]
+
+So with \( L = \frac{C}{3} \), and \( 300 \le C \le 412.5 \), all constraints hold.  
+Objective as a function of \(C\):
+
+\[
+Z(C) = 0.7C + 0.9\cdot\frac{C}{3} = 0.7C + 0.3C = 1.0C
+\]
+
+Thus:
+
+\[
+Z(C) = C
+\]
+
+So \(Z\) is minimized by taking the **smallest feasible C**, i.e., \( C = 300 \).
+
+Then \( L = C/3 = 100 \).
+
+Check all constraints:
+
+- \(C = 300 \ge 300\) ✓  
+- \(C + L = 300 + 100 = 400 \le 550\) ✓  
+- \(C \le 3L \Rightarrow 300 \le 3\cdot100 = 300\) ✓  
+
+Total time:
+
+\[
+Z = 0.7\cdot 300 + 0.9\cdot 100 = 210 + 90 = 300 \text{ minutes}
+\]
+
+**Optimal solution:**
+
+- Coconut oil: \( C^* = 300 \) units  
+- Lavender: \( L^* = 100 \) units  
+- Minimum total “effective” time: \( 300 \) minutes
+
+---
+
+## 6. Python Implementation Suggestions
+
+This is a small linear program. Good Python choices:
+
+- `pulp` (very simple LP modeling)
+- `ortools.linear_solver` (Google OR-Tools)
+- `scipy.optimize.linprog` (for continuous LPs)
+
+### Example using PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Body_Wash_Optimization", pl.LpMinimize)
+
+# Decision variables (continuous and non-negative)
+C = pl.LpVariable('C', lowBound=0)
+L = pl.LpVariable('L', lowBound=0)
+
+# Objective function: minimize total time
+prob += 0.7 * C + 0.9 * L
+
+# Constraints
+prob += C >= 300, "Min_coconut"
+prob += C + L <= 550, "Total_cap"
+prob += C <= 3 * L, "Coconut_to_lavender_ratio"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal C (coconut):", C.value())
+print("Optimal L (lavender):", L.value())
+print("Minimum total time:", pl.value(prob.objective))
+```
+
+This will output approximately:
+
+- C ≈ 300  
+- L ≈ 100  
+- Minimum total time ≈ 300
+
+---
+
+If you’d like, I can also show the equivalent formulation for `scipy.optimize.linprog` or OR-Tools.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("Body_Wash_Optimization", pl.LpMinimize)
+
+    # Decision variables
+    C = pl.LpVariable('C', lowBound=0)
+    L = pl.LpVariable('L', lowBound=0)
+
+    # Objective function: minimize total time
+    prob += 0.7 * C + 0.9 * L
+
+    # Constraints
+    prob += C >= 300          # Minimum coconut oil
+    prob += C + L <= 550      # Total amount constraint
+    prob += C <= 3 * L        # Ratio constraint
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective as required
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

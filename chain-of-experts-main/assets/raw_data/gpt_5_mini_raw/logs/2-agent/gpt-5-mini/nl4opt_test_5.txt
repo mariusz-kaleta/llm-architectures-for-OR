@@ -1,0 +1,132 @@
+[MODELER]:
+Model
+
+Decision variables
+- H = square feet of engineered hardwood produced per week (ft^2)
+- V = square feet of vinyl planks produced per week (ft^2)
+
+Objective
+Maximize weekly profit:
+maximize Z = 2.5 H + 3.0 V
+
+Constraints
+- Demand minimums:
+  H ≥ 20,000
+  V ≥ 10,000
+- Shipping contract (total shipped at least 60,000 ft^2):
+  H + V ≥ 60,000
+- Production capacity (upper bounds due to labor shortage):
+  H ≤ 50,000
+  V ≤ 30,000
+- Nonnegativity:
+  H, V ≥ 0
+
+Discussion / solving
+All coefficients in the objective are positive, so it is never harmful to produce up to the upper capacity limits provided the other constraints remain satisfied. The capacity upper bounds (H ≤ 50,000, V ≤ 30,000) together with the lower bounds already satisfy the shipping constraint if both are produced at capacity (50,000 + 30,000 = 80,000 ≥ 60,000). Therefore the optimum is at the capacity upper bounds:
+
+Optimal solution:
+- H* = 50,000 ft^2 (hardwood)
+- V* = 30,000 ft^2 (vinyl)
+
+Maximum profit:
+Z* = 2.5·50,000 + 3.0·30,000 = 125,000 + 90,000 = $215,000 per week
+
+Suggested solver libraries
+- PuLP (simple, pure-Python LP modeling; uses CBC by default)
+- OR-Tools (Google; fast, supports LP/MIP)
+- scipy.optimize.linprog (for small LPs)
+- CVXOPT (convex optimization)
+
+Example (PuLP) code
+(from pulp import LpProblem, LpVariable, LpMaximize, lpSum, PULP_CBC_CMD)
+problem = LpProblem("Flooring", LpMaximize)
+H = LpVariable("H", lowBound=0)
+V = LpVariable("V", lowBound=0)
+problem += 2.5*H + 3.0*V
+problem += H >= 20000
+problem += V >= 10000
+problem += H + V >= 60000
+problem += H <= 50000
+problem += V <= 30000
+problem.solve(PULP_CBC_CMD(msg=0))
+print(H.varValue, V.varValue, "Profit =", 2.5*H.varValue+3.0*V.varValue)
+
+This will return H = 50000, V = 30000, Profit = 215000.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained script to solve the LP described and print the final objective value.
+
+# Problem data
+c_H = 2.5  # profit per ft^2 for H
+c_V = 3.0  # profit per ft^2 for V
+
+# Bounds and constraints
+H_min, H_max = 20000, 50000
+V_min, V_max = 10000, 30000
+shipping_min = 60000  # H + V >= 60000
+
+# Collect candidate corner points: rectangle corners and intersections with H+V = shipping_min
+candidates = []
+
+# Rectangle corners
+candidates.append((H_min, V_min))
+candidates.append((H_min, V_max))
+candidates.append((H_max, V_min))
+candidates.append((H_max, V_max))
+
+# Intersections of H+V = shipping_min with rectangle edges
+# 1) intersect with H = H_min => V = shipping_min - H_min
+v_at_hmin = shipping_min - H_min
+candidates.append((H_min, v_at_hmin))
+
+# 2) intersect with H = H_max => V = shipping_min - H_max
+v_at_hmax = shipping_min - H_max
+candidates.append((H_max, v_at_hmax))
+
+# 3) intersect with V = V_min => H = shipping_min - V_min
+h_at_vmin = shipping_min - V_min
+candidates.append((h_at_vmin, V_min))
+
+# 4) intersect with V = V_max => H = shipping_min - V_max
+h_at_vmax = shipping_min - V_max
+candidates.append((h_at_vmax, V_max))
+
+# Filter feasible points (respecting all bounds and shipping constraint)
+feasible = []
+for H, V in candidates:
+    # Must be numeric and within bounds
+    if not (isinstance(H, (int, float)) and isinstance(V, (int, float))):
+        continue
+    if H < H_min - 1e-9 or H > H_max + 1e-9:
+        continue
+    if V < V_min - 1e-9 or V > V_max + 1e-9:
+        continue
+    if H + V < shipping_min - 1e-9:
+        continue
+    feasible.append((H, V))
+
+# Evaluate objective at feasible points and pick best
+best_obj = None
+best_point = None
+for H, V in feasible:
+    obj = c_H * H + c_V * V
+    if (best_obj is None) or (obj > best_obj):
+        best_obj = obj
+        best_point = (H, V)
+
+# As a fallback (shouldn't be needed), consider producing at upper bounds if feasible
+if best_obj is None:
+    H, V = H_max, V_max
+    if H + V >= shipping_min:
+        best_obj = c_H * H + c_V * V
+        best_point = (H, V)
+
+# Ensure final objective is numeric
+final_obj = best_obj if best_obj is not None else 0.0
+
+# Print final objective exactly in required format
+print(f"FINAL_OBJ: {int(final_obj) if abs(final_obj - round(final_obj)) < 1e-9 else final_obj}")
+```

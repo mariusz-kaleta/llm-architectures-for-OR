@@ -1,0 +1,256 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- **Goal:** Minimize the *total time* for the mixture to become effective, given that:
+  - Each unit of coconut oil requires 0.7 minutes to be effective.
+  - Each unit of lavender requires 0.9 minutes to be effective.
+  - One ingredient is added before the other, so the overall completion time is effectively the time when both ingredients have finished “becoming effective.”
+
+Model this as:
+- Either minimizing a weighted sum of units (if interpreting “total time” as cumulative effectiveness time across all units), or
+- More realistically for sequencing, minimizing the **completion time** (makespan) when two “batches” must both complete, with one batch started only after the other has finished.
+
+Because of the phrase “one must be added before the other,” favour a model where:
+- The process time for coconut = 0.7 × (units of coconut),
+- The process time for lavender = 0.9 × (units of lavender),
+- Total process time = time of first ingredient + time of second (serial processing).
+
+2. **Suggested model type**
+
+- **Model:** Linear Programming (LP) if we treat only the quantities and the total time as a linear function (ignoring explicit sequencing choice), or
+- **Mixed-Integer Linear Programming (MILP)** if we also want to model:
+  - The order (coconut first vs. lavender first),
+  - With a binary variable representing which is processed first.
+
+If the order doesn’t affect constraints or objective structure (because time is just sum of both processing times regardless of order), an LP is sufficient.
+
+3. **Main decision variables**
+
+Define continuous non-negative variables:
+
+- \( C \): number of units of coconut oil to add.
+- \( L \): number of units of lavender to add.
+
+If explicitly modelling order:
+
+- \( T \): total process time (to be minimized).
+- \( y \): binary variable, where:
+  - \( y = 1 \): coconut processed first, then lavender.
+  - \( y = 0 \): lavender processed first, then coconut.
+  - However, if total time is simply sum of both processing times and does not depend on order, you may omit \( y \) and just define:
+    - \( T = 0.7C + 0.9L \).
+
+4. **Key constraints to consider**
+
+Use these as the structural constraints for the Modeller:
+
+1. **Minimum coconut requirement**
+   - At least 300 units of coconut oil:
+     - \( C \ge 300 \).
+
+2. **Total ingredient capacity**
+   - At most 550 total units of both ingredients:
+     - \( C + L \le 550 \).
+
+3. **Coconut dominance limit**
+   - Coconut can be at most three times lavender:
+     - \( C \le 3L \).
+
+4. **Non-negativity**
+   - \( C \ge 0\),
+   - \( L \ge 0\).
+
+5. **Time definition (objective linkage)**
+   Two options:
+
+   a) **Simple LP (no explicit sequence dependence):**
+   - Total time is linear in units:
+     - \( T = 0.7C + 0.9L \).
+   - Objective: minimize \( T \).
+
+   b) **MILP with explicit sequencing (if desired):**
+   - Process time for coconut batch: \( 0.7C \).
+   - Process time for lavender batch: \( 0.9L \).
+   - If they are strictly in series and there is no idle time, total time is:
+     - \( T = 0.7C + 0.9L \) regardless of order,
+   so order may actually be irrelevant. You could still introduce \( y \) if the problem were extended (e.g., different setup times or constraints depending on which is first), but for the base problem the simpler linear form suffices.
+
+5. **Modelling strategy**
+
+- Formulate an LP with variables \( C, L \).
+- Objective: Minimize \( 0.7C + 0.9L \).
+- Subject to:
+  - \( C \ge 300 \),
+  - \( C + L \le 550 \),
+  - \( C \le 3L \),
+  - \( C, L \ge 0 \).
+- Solve the LP (a 2-variable linear program), likely by examining the feasible polygon’s corner points.
+
+No need for integer restrictions unless the context demands integrality (e.g., “units” must be whole numbers); if so, round or impose integer constraints and treat as a small MILP.
+
+---
+
+[MODELER]:
+Here is a clean mathematical formulation of the problem, followed by suitable Python tools to solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(C \ge 0\): number of units of coconut oil in the body wash.  
+- \(L \ge 0\): number of units of lavender in the body wash.
+
+(If “units” must be whole numbers, then \(C, L\) would be integers, but the model is linear either way.)
+
+---
+
+## 2. Objective: minimize total effectiveness time
+
+Each unit has a processing (effectiveness) time:
+
+- Coconut: 0.7 minutes per unit  
+- Lavender: 0.9 minutes per unit  
+
+Because one ingredient is added, then the other, and there is no overlap in processing (full batch of one, then full batch of the other), the total processing time is:
+
+- Time for coconut batch: \(0.7C\)  
+- Time for lavender batch: \(0.9L\)
+
+They are in series, so the total time is the sum:
+
+\[
+T = 0.7C + 0.9L
+\]
+
+We want to minimize this:
+
+\[
+\min\ T = 0.7C + 0.9L
+\]
+
+Note: the phrase “one must be added before the other” does not affect the objective numerically here, because there is no setup time or dependency—just serial addition. So the order doesn’t change \(T\); the problem is a standard linear program.
+
+---
+
+## 3. Constraints
+
+1. **Minimum coconut requirement**
+
+   At least 300 units of coconut oil:
+
+   \[
+   C \ge 300
+   \]
+
+2. **Total capacity of ingredients**
+
+   At most 550 total units of coconut oil + lavender:
+
+   \[
+   C + L \le 550
+   \]
+
+3. **Coconut dominance limit**
+
+   Coconut cannot exceed 3 times lavender:
+
+   \[
+   C \le 3L
+   \]
+
+4. **Non-negativity**
+
+   \[
+   C \ge 0, \quad L \ge 0
+   \]
+
+There is no separate variable for the order because the order does not affect the total time under these assumptions.
+
+---
+
+## 4. Complete LP model
+
+**Variables:** \(C, L \ge 0\)
+
+**Objective:**
+
+\[
+\min\ T = 0.7C + 0.9L
+\]
+
+**Subject to:**
+
+\[
+\begin{aligned}
+C &\ge 300 \\
+C + L &\le 550 \\
+C &\le 3L \\
+C, L &\ge 0
+\end{aligned}
+\]
+
+If integrality is required:
+
+\[
+C, L \in \mathbb{Z}_{\ge 0}
+\]
+
+then it becomes a small Mixed-Integer Linear Program (MILP); otherwise, it is a linear program (LP).
+
+---
+
+## 5. Suitable Python libraries
+
+To implement and solve this model in Python:
+
+- **PuLP**  
+  - Very convenient for small-to-medium LP/MILP models.  
+  - Syntax is close to the math formulation and easy to read.
+
+- **OR-Tools (from Google)** – `ortools.linear_solver`  
+  - Efficient LP/MIP solvers, good for both teaching and production-scale models.
+
+- **SciPy** – `scipy.optimize.linprog`  
+  - Good for continuous LPs; no direct integer support.
+
+For this problem:
+
+- If you treat \(C, L\) as continuous: `scipy.optimize.linprog`, PuLP, or OR-Tools are all fine.
+- If you require \(C, L\) to be integers: use **PuLP** or **OR-Tools** (they support integer variables easily).
+
+Example choice:  
+- **Recommended for clarity and ease of use:** PuLP or OR-Tools linear solver.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: Minimize total time
+    prob = pulp.LpProblem("BodyWashMix", pulp.LpMinimize)
+
+    # Decision variables: C and L as continuous non-negative variables
+    C = pulp.LpVariable('C', lowBound=0, cat='Continuous')
+    L = pulp.LpVariable('L', lowBound=0, cat='Continuous')
+
+    # Objective function: Minimize 0.7C + 0.9L
+    prob += 0.7 * C + 0.9 * L, "Total_Time"
+
+    # Constraints
+    prob += C >= 300, "Min_Coconut"
+    prob += C + L <= 550, "Total_Capacity"
+    prob += C <= 3 * L, "Coconut_Dominance"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    final_obj = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

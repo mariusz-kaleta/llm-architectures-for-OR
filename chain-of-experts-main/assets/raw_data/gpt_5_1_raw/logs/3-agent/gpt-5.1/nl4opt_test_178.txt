@@ -1,0 +1,181 @@
+[MODELER]:
+Here is a clear optimization model for the problem.
+
+---
+
+## Decision variables
+
+Let  
+
+- \(x \in \mathbb{Z}_{\ge 0}\): number of motion-activated machines  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of manual machines  
+
+---
+
+## Objective
+
+Minimize the total number of machines:
+
+\[
+\min \; x + y
+\]
+
+---
+
+## Constraints
+
+1. **Drop delivery capacity**  
+   Total drops per minute must be at least 1000:
+
+\[
+50x + 75y \;\ge\; 1000
+\]
+
+2. **Power consumption**  
+   Total power usage per minute cannot exceed 500 kWh:
+
+\[
+30x + 20y \;\le\; 500
+\]
+
+3. **Hygiene requirement (manual machines at most 40%)**  
+   At most 40% of the machines can be manual:
+
+\[
+y \;\le\; 0.4(x + y)
+\]
+
+Rewriting:
+
+\[
+y \le 0.4x + 0.4y 
+\quad\Rightarrow\quad
+0.6y \le 0.4x 
+\quad\Rightarrow\quad
+3y \le 2x
+\]
+
+So the constraint is:
+
+\[
+3y \;\le\; 2x
+\]
+
+4. **At least 3 motion-activated machines**
+
+\[
+x \;\ge\; 3
+\]
+
+5. **Integrality and non-negativity**
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## Complete model
+
+\[
+\begin{aligned}
+\text{Minimize:} \quad & x + y \\
+\text{subject to:} \quad
+& 50x + 75y \;\ge\; 1000, \\
+& 30x + 20y \;\le\; 500, \\
+& 3y \;\le\; 2x, \\
+& x \;\ge\; 3, \\
+& x, y \in \mathbb{Z}_{\ge 0}.
+\end{aligned}
+\]
+
+This is an **integer linear programming (ILP)** problem.
+
+---
+
+## Suitable Python libraries
+
+To solve this model in Python, you can use any MILP/LP solver interface. Good options:
+
+- **PuLP**  
+  - Simple and pure-Python.  
+  - Models ILP problems naturally.  
+  - Can use CBC (default) or external solvers (e.g., GLPK, CPLEX, Gurobi).
+
+- **OR-Tools (Google OR-Tools)**  
+  - `ortools.linear_solver` module for MILP.  
+  - High-performance; has its own MIP solver.
+
+- **Pyomo**  
+  - More general modeling framework; can express large and complex models.  
+  - Needs an external solver (e.g., CBC, GLPK, Gurobi).
+
+For this small ILP, **PuLP** or **OR-Tools** is the most straightforward.
+
+---
+
+## Example structure in PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Sanitizer_Machine_Selection", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('x', lowBound=0, cat='Integer')  # motion-activated
+y = pl.LpVariable('y', lowBound=0, cat='Integer')  # manual
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 50*x + 75*y >= 1000         # drops per minute
+prob += 30*x + 20*y <= 500          # kWh per minute
+prob += 3*y <= 2*x                  # at most 40% manual
+prob += x >= 3                      # at least 3 motion-activated
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Motion-activated (x):", x.value())
+print("Manual (y):", y.value())
+print("Total machines:", x.value() + y.value())
+```
+
+This code directly implements the mathematical model above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Sanitizer_Machine_Selection", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('x', lowBound=0, cat='Integer')  # motion-activated
+    y = pl.LpVariable('y', lowBound=0, cat='Integer')  # manual
+
+    # Objective: minimize total number of machines
+    prob += x + y
+
+    # Constraints
+    prob += 50 * x + 75 * y >= 1000      # Drop delivery capacity
+    prob += 30 * x + 20 * y <= 500      # Power consumption
+    prob += 3 * y <= 2 * x              # Hygiene: manual at most 40%
+    prob += x >= 3                      # At least 3 motion-activated
+
+    # Solve the ILP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_val = pl.value(prob.objective)
+
+    # Required final output
+    print(f"FINAL_OBJ: {obj_val}")
+
+if __name__ == "__main__":
+    main()

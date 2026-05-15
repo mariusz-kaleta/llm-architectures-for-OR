@@ -1,0 +1,132 @@
+[MODELER]:
+Model type
+- Linear program (LP). If taco counts must be whole numbers, it is an integer linear program (ILP); here the LP solution is integral, so integrality is not an issue.
+
+Decision variables
+- x1 = number of regular tacos produced (units), x1 ≥ 0
+- x2 = number of deluxe tacos produced (units), x2 ≥ 0
+
+Objective
+- Maximize total profit: maximize Z = 2.50 x1 + 3.55 x2
+
+Constraints
+- Demand limits:
+  - x1 ≤ 50
+  - x2 ≤ 40
+- Supply limit (total tacos):
+  - x1 + x2 ≤ 70
+
+Mathematical formulation
+- maximize Z = 2.50 x1 + 3.55 x2
+- subject to:
+  - x1 ≤ 50
+  - x2 ≤ 40
+  - x1 + x2 ≤ 70
+  - x1 ≥ 0, x2 ≥ 0
+
+Solution (analysis)
+- Deluxe tacos yield higher profit per unit (3.55 > 2.50), so produce the maximum deluxe allowed: x2 = 40.
+- Remaining supply capacity: 70 − 40 = 30, so produce x1 = 30 (demand limit for regular is 50, so 30 ≤ 50 is fine).
+- Optimal solution: x1 = 30, x2 = 40.
+- Maximum profit: Z = 2.50·30 + 3.55·40 = 75 + 142 = $217.00
+
+Recommended Python libraries to solve this
+- pulp (simple LP/ILP modeling and CBC solver): easy to model and read.
+- scipy.optimize.linprog (for continuous LPs).
+- ortools.linear_solver (Google OR-Tools) for LP/ILP with good solvers.
+- cvxpy (convex optimization modeling).
+
+Minimal example with pulp
+- Create variables, add constraints, set objective, solve. (pulp handles this LP directly; if you require integer variables, set cat='Integer' — not necessary here because the LP solution is integer.)
+
+---
+
+[CODER]:
+```python
+# Self-contained script to solve the taco production LP
+# Maximize Z = 2.50 x1 + 3.55 x2
+# subject to:
+#   x1 <= 50
+#   x2 <= 40
+#   x1 + x2 <= 70
+#   x1, x2 >= 0
+
+# Initialize parameters
+profit_x1 = 2.50
+profit_x2 = 3.55
+x1_max = 50
+x2_max = 40
+total_max = 70
+
+# Generate candidate vertices from intersections of constraints:
+# possible equality constraints: x1=0, x2=0, x1=x1_max, x2=x2_max, x1+x2=total_max
+candidates = []
+
+# Helper to add feasible candidate
+def add_candidate(x1, x2):
+    # enforce numerical tolerance and feasibility
+    if x1 is None or x2 is None:
+        return
+    if x1 < -1e-9 or x2 < -1e-9:
+        return
+    if x1 - x1_max > 1e-9:
+        return
+    if x2 - x2_max > 1e-9:
+        return
+    if x1 + x2 - total_max > 1e-9:
+        return
+    # clip tiny negatives to zero
+    x1c = 0.0 if abs(x1) < 1e-9 else x1
+    x2c = 0.0 if abs(x2) < 1e-9 else x2
+    candidates.append((x1c, x2c))
+
+# List all intersections
+# combinations:
+# x1=0 with x2=0, x2=x2_max, x1+x2=total_max
+add_candidate(0.0, 0.0)
+add_candidate(0.0, x2_max)
+add_candidate(0.0, total_max)  # may be infeasible due to x2_max
+
+# x2=0 with x1=0, x1=x1_max, x1+x2=total_max
+add_candidate(x1_max, 0.0)
+add_candidate(total_max, 0.0)  # may be infeasible due to x1_max
+
+# x1 = x1_max with x2 = 0, x2 = x2_max, x1+x2 = total_max -> x2 = total_max - x1_max
+add_candidate(x1_max, x2_max)
+add_candidate(x1_max, total_max - x1_max)
+
+# x2 = x2_max with x1 = 0, x1 = x1_max, x1+x2 = total_max -> x1 = total_max - x2_max
+add_candidate(total_max - x2_max, x2_max)
+
+# Also include intersections of x1+x2=total_max with axes already included above.
+# Remove duplicates
+unique_candidates = []
+seen = set()
+for x1, x2 in candidates:
+    key = (round(x1, 9), round(x2, 9))
+    if key not in seen:
+        seen.add(key)
+        unique_candidates.append((x1, x2))
+
+# Evaluate objective at each feasible candidate
+best_obj = None
+best_x1 = None
+best_x2 = None
+for x1, x2 in unique_candidates:
+    obj = profit_x1 * x1 + profit_x2 * x2
+    if (best_obj is None) or (obj > best_obj + 1e-9):
+        best_obj = obj
+        best_x1 = x1
+        best_x2 = x2
+
+# As a sanity, if no candidate found (shouldn't happen), compute greedy solution
+if best_obj is None:
+    # produce as many deluxe as possible then regular
+    x2 = min(x2_max, total_max)
+    x1 = min(x1_max, total_max - x2)
+    best_x1, best_x2 = x1, x2
+    best_obj = profit_x1 * x1 + profit_x2 * x2
+
+value = best_obj
+print(f"FINAL_OBJ: {value}")
+```

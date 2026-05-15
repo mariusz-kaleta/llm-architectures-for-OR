@@ -1,0 +1,163 @@
+[MODELER]:
+Here is a clean optimization model for the problem.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(T \in \mathbb{Z}_{\ge 0}\): number of taxi rides  
+- \(C \in \mathbb{Z}_{\ge 0}\): number of company car rides  
+
+Both are integer (nonnegative) variables.
+
+---
+
+## 2. Objective
+
+The goal: **minimize the total number of taxi rides**.
+
+\[
+\min T
+\]
+
+---
+
+## 3. Constraints
+
+### a) Capacity (transport at least 500 employees)
+
+Each taxi carries 2 employees, each company car carries 3 employees:
+
+\[
+2T + 3C \;\ge\; 500
+\]
+
+---
+
+### b) Company car rides are at most 60% of all rides
+
+“at most 60% of the rides can be company car rides” means:
+
+\[
+C \;\le\; 0.6(T + C)
+\]
+
+Multiply both sides by 10 to avoid decimals:
+
+\[
+10C \;\le\; 6T + 6C
+\]
+
+\[
+4C \;\le\; 6T
+\]
+
+\[
+2C \;\le\; 3T
+\]
+
+or equivalently:
+
+\[
+C \;\le\; 1.5T
+\]
+
+But in linear form we typically keep:
+
+\[
+2C - 3T \;\le\; 0
+\]
+
+---
+
+### c) At least 30 company car rides
+
+\[
+C \;\ge\; 30
+\]
+
+---
+
+### d) Integrality and nonnegativity
+
+\[
+T \in \mathbb{Z}_{\ge 0},\quad C \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Full model summary
+
+**Decision variables**
+
+- \(T \in \mathbb{Z}_{\ge 0}\): number of taxi rides  
+- \(C \in \mathbb{Z}_{\ge 0}\): number of company car rides  
+
+**Objective**
+
+\[
+\min T
+\]
+
+**Subject to**
+
+\[
+\begin{aligned}
+2T + 3C &\ge 500 &\text{(transport at least 500 employees)}\\[4pt]
+2C - 3T &\le 0   &\text{(company cars ≤ 60% of rides)}\\[4pt]
+C &\ge 30        &\text{(at least 30 company car rides)}\\[4pt]
+T, C &\in \mathbb{Z}_{\ge 0} &\text{(integer, nonnegative)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+This is a small integer linear program (ILP). Appropriate Python libraries:
+
+- **PuLP** (`pulp`): Simple interface for linear and integer programming.  
+- **OR-Tools** (`ortools.linear_solver`): Google’s optimization library, good for ILP.  
+- **SciPy** (`scipy.optimize.linprog`): Can solve the LP relaxation; for integrality you’d need extra handling or another library.  
+
+For an exact solution respecting integrality, **PuLP** or **OR-Tools** is recommended.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def solve_optimization():
+    # Create the problem: minimize T
+    prob = pulp.LpProblem("Taxi_CompanyCar_Problem", pulp.LpMinimize)
+
+    # Decision variables: T, C >= 0, integer
+    T = pulp.LpVariable('T', lowBound=0, cat='Integer')
+    C = pulp.LpVariable('C', lowBound=0, cat='Integer')
+
+    # Objective: minimize number of taxi rides
+    prob += T
+
+    # Constraints
+    # Capacity: 2T + 3C >= 500
+    prob += 2 * T + 3 * C >= 500
+
+    # Company cars at most 60% of rides: 2C - 3T <= 0
+    prob += 2 * C - 3 * T <= 0
+
+    # At least 30 company car rides: C >= 30
+    prob += C >= 30
+
+    # Solve the model
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pulp.value(T)
+
+    return final_obj
+
+if __name__ == "__main__":
+    value = solve_optimization()
+    print(f"FINAL_OBJ: {value}")

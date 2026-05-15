@@ -1,0 +1,47 @@
+[MONOLITH]:
+import pulp
+
+# Data
+land_available = 500  # acres
+fuel_available = 9000  # liters
+waste_capacity = 6000  # kg
+
+# Per-acre parameters
+trad_yield = 30  # kg tea per acre (traditional)
+trad_waste = 10  # kg waste per acre (traditional)
+trad_fuel = 20   # liters fuel per acre (traditional)
+
+mod_yield = 40   # kg tea per acre (modern)
+mod_waste = 15   # kg waste per acre (modern)
+mod_fuel = 15    # liters fuel per acre (modern)
+
+# Decision variables: acres assigned to each machine (continuous)
+prob = pulp.LpProblem("Tea_Picking", pulp.LpMaximize)
+x = pulp.LpVariable("acres_traditional", lowBound=0)
+y = pulp.LpVariable("acres_modern", lowBound=0)
+
+# Objective: maximize total tea picked
+prob += trad_yield * x + mod_yield * y
+
+# Constraints
+prob += x + y <= land_available, "Land_limit"
+prob += trad_fuel * x + mod_fuel * y <= fuel_available, "Fuel_limit"
+prob += trad_waste * x + mod_waste * y <= waste_capacity, "Waste_limit"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+acres_traditional = x.varValue
+acres_modern = y.varValue
+total_tea = pulp.value(prob.objective)
+status = pulp.LpStatus[prob.status]
+
+# Print results
+print(f"Status: {status}")
+print(f"Acres using traditional machine: {acres_traditional}")
+print(f"Acres using modern machine: {acres_modern}")
+print(f"Total tea picked (kg): {total_tea}")
+
+# Final required line (must be the very last output)
+print(f"FINAL_OBJ: {total_tea}")

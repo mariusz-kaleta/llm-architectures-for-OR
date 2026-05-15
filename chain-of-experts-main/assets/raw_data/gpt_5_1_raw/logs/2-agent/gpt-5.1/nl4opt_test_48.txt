@@ -1,0 +1,174 @@
+[MODELER]:
+Here is a mathematical optimization model for the taxi company’s problem.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of motorcycles purchased (and used per shift)  
+- \(y\) = number of sedans purchased (and used per shift)  
+
+Assume \(x, y \ge 0\) and integer.
+
+---
+
+## 2. Objective function
+
+Each motorcycle earns \$100 per shift, each sedan earns \$225 per shift.  
+Maximize total earnings:
+
+\[
+\max Z = 100x + 225y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Capacity (people transported)
+
+Each motorcycle transports 30 people, each sedan transports 70 people.  
+The company must transport at least 1200 people per shift:
+
+\[
+30x + 70y \;\ge\; 1200
+\]
+
+---
+
+### b) Pollution limit
+
+Each motorcycle produces 4 units of pollution, each sedan 15 units.  
+Total pollution must be less than 200 units:
+
+- Usually in linear programming we convert “less than” to “less than or equal”:
+
+\[
+4x + 15y \;\le\; 200
+\]
+
+(If you want a strict inequality, you typically handle it as \(\le 199\) or \(\le 199.999\) in practice.)
+
+---
+
+### c) Motorcycle proportion constraint
+
+At most 25% of the vehicles can be motorcycles. That is:
+
+\[
+\frac{x}{x + y} \;\le\; 0.25
+\]
+
+Assuming \(x + y > 0\), multiply both sides by \(x + y\):
+
+\[
+x \;\le\; 0.25(x + y)
+\]
+
+\[
+x \;\le\; 0.25x + 0.25y
+\]
+
+\[
+0.75x \;\le\; 0.25y
+\]
+
+\[
+3x \;\le\; y
+\]
+
+So the linear form used in the model is:
+
+\[
+y \;\ge\; 3x
+\]
+
+---
+
+### d) Non-negativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full model
+
+\[
+\begin{aligned}
+\max \quad & 100x + 225y \\
+\text{s.t.} \quad 
+& 30x + 70y \;\ge\; 1200 \quad\text{(capacity)}\\
+& 4x + 15y \;\le\; 200 \quad\text{(pollution)}\\
+& y \;\ge\; 3x \quad\text{(≤ 25% motorcycles)}\\
+& x, y \ge 0,\; x, y \in \mathbb{Z}
+\end{aligned}
+\]
+
+This is a 2-variable integer linear program (ILP). If you relax integrality, it becomes a simple linear program (LP).
+
+---
+
+## 5. Suitable Python libraries
+
+You can solve this with several Python optimization libraries:
+
+- **PuLP**  
+  - Simple modeling interface for linear and integer programs.  
+  - Good for educational and small–medium-sized problems.  
+  - Can use CBC (default), GLPK, or commercial solvers if installed.
+
+- **OR-Tools (Google)**  
+  - `ortools.linear_solver` for linear/MIP problems.  
+  - Very capable MIP solver with a Python API.
+
+- **Pyomo**  
+  - More general modeling environment, supports LP, MIP, NLP, etc.  
+  - Good for building larger or more complex models.
+
+- **SciPy (`scipy.optimize.linprog`)**  
+  - Can handle the LP relaxation (continuous \(x, y\)), but not integer constraints.  
+  - Use this only if integrality is not required.
+
+For this specific problem, **PuLP** or **OR-Tools** would be the most straightforward choice.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import itertools
+
+def objective(x, y):
+    return 100 * x + 225 * y
+
+best_val = None
+best_sol = None
+
+# Brute-force search over plausible bounds
+# Pollution: 4x + 15y <= 200  => x <= 50, y <= 13.33
+max_x = 50
+max_y = 50
+
+for x, y in itertools.product(range(max_x + 1), range(max_y + 1)):
+    # Capacity constraint
+    if 30 * x + 70 * y < 1200:
+        continue
+    # Pollution constraint
+    if 4 * x + 15 * y > 200:
+        continue
+    # Motorcycle proportion: y >= 3x
+    if y < 3 * x:
+        continue
+
+    val = objective(x, y)
+    if best_val is None or val > best_val:
+        best_val = val
+        best_sol = (x, y)
+
+# If no feasible solution found, set objective to very low number
+if best_val is None:
+    best_val = float('-inf')
+
+print(f"FINAL_OBJ: {best_val}")

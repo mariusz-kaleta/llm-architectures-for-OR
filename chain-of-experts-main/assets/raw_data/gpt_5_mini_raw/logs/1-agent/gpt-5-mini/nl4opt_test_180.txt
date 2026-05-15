@@ -1,0 +1,51 @@
+[MONOLITH]:
+```python
+import pulp
+
+# Data initialization
+# Nutrient contents and sugar per fruit
+vitC_orange = 5
+vitA_orange = 3
+sugar_orange = 5
+
+vitC_grapefruit = 7
+vitA_grapefruit = 5
+sugar_grapefruit = 6
+
+# Requirements
+min_vitC = 80
+min_vitA = 70
+
+# Problem: minimize sugar intake
+prob = pulp.LpProblem("Minimize_Sugar", pulp.LpMinimize)
+
+# Decision variables: number of oranges (x) and grapefruits (y)
+# They must be nonnegative integers (can't eat fractional fruits)
+x = pulp.LpVariable('oranges', lowBound=0, cat=pulp.LpInteger)
+y = pulp.LpVariable('grapefruits', lowBound=0, cat=pulp.LpInteger)
+
+# Objective: minimize total sugar
+prob += sugar_orange * x + sugar_grapefruit * y, "Total_Sugar"
+
+# Constraints
+prob += vitC_orange * x + vitC_grapefruit * y >= min_vitC, "VitaminC_requirement"
+prob += vitA_orange * x + vitA_grapefruit * y >= min_vitA, "VitaminA_requirement"
+prob += x >= 2 * y, "Preference_oranges"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract results
+oranges_opt = int(pulp.value(x))
+grapefruits_opt = int(pulp.value(y))
+total_sugar = pulp.value(prob.objective)
+
+# Print solution
+print(f"Optimal number of oranges: {oranges_opt}")
+print(f"Optimal number of grapefruits: {grapefruits_opt}")
+print(f"Total sugar (grams): {total_sugar}")
+
+# Final required output line
+print(f"FINAL_OBJ: {total_sugar}")
+```

@@ -1,0 +1,100 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of small boxes (integer, x >= 0)
+  - y = number of large boxes (integer, y >= 0)
+
+- Objective
+  - Minimize total number of boxes: minimize Z = x + y
+
+- Constraints
+  1. Mask requirement: 25x + 45y >= 750
+  2. Small-boxs-to-large-boxes ratio: x >= 3y
+  3. Minimum large boxes: y >= 5
+  4. Integrality: x, y integers
+
+Mathematical formulation
+  minimize Z = x + y
+  subject to
+    25x + 45y >= 750
+    x - 3y >= 0
+    y >= 5
+    x, y ∈ Z_{\ge 0}
+
+Solution reasoning (integer problem)
+- For a given y (integer >= 5) the minimum feasible x is x = max(3y, ceil((750 − 45y) / 25)).
+- Evaluate y = 5, 6, 7, ... until totals start increasing:
+
+  y = 5 → x = max(15, ceil((750 − 225)/25) = 21) = 21 → total boxes = 21 + 5 = 26 (masks = 750)
+  y = 6 → x = max(18, ceil((750 − 270)/25) = 20) = 20 → total boxes = 20 + 6 = 26 (masks = 770)
+  y = 7 → x = max(21, ceil((750 − 315)/25) = 18) = 21 → total boxes = 21 + 7 = 28
+  y ≥ 8 → totals are larger
+
+Optimal solutions
+- Minimum total boxes = 26, attained by two integer solutions:
+  - x = 21 small boxes and y = 5 large boxes (exactly 750 masks)
+  - x = 20 small boxes and y = 6 large boxes (770 masks)
+
+(If a tie-breaker is desired, e.g., prefer fewer small boxes or fewer large boxes, choose (20,6) to minimize small boxes or (21,5) to minimize large boxes.)
+
+Recommended solvers / Python libraries
+- For small integer problems: direct brute-force loop (simple and fast).
+- For integer programming:
+  - pulp (uses CBC by default): easy to model MILP
+  - ortools (CP-SAT): very fast for integer problems
+  - mip or gurobipy (if commercial Gurobi available)
+- For continuous relaxations (not needed here): scipy.optimize
+
+Example (conceptual) solver approaches
+- Simple brute-force: loop y from 5..20 compute minimal x as above and pick minimal x+y.
+- MILP with pulp or ortools: define integer variables x,y, objective and constraints and solve.
+
+If you want, I can provide a short Python example (pulp or plain brute-force) that finds these solutions.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data
+mask_requirement = 750
+small_mask = 25
+large_mask = 45
+min_large = 5
+
+# Search bounds
+y_min = min_large
+y_max = 200  # generous upper bound to ensure coverage
+
+best_obj = None
+best_solutions = []
+
+for y in range(y_min, y_max + 1):
+    # minimum x from mask constraint: ceil((750 - 45y)/25)
+    remaining = mask_requirement - large_mask * y
+    if remaining <= 0:
+        x_from_masks = 0
+    else:
+        x_from_masks = math.ceil(remaining / small_mask)
+    x_from_ratio = 3 * y
+    x = max(x_from_masks, x_from_ratio)
+    if x < 0:
+        x = 0
+    # verify feasibility
+    if small_mask * x + large_mask * y >= mask_requirement and x >= x_from_ratio and y >= min_large:
+        obj = x + y
+        if best_obj is None or obj < best_obj:
+            best_obj = obj
+            best_solutions = [(x, y)]
+        elif obj == best_obj:
+            best_solutions.append((x, y))
+
+# Print found optimal solutions (optional informational output)
+for sol in best_solutions:
+    x, y = sol
+    masks = small_mask * x + large_mask * y
+    print(f"Solution: x={x}, y={y}, total_boxes={x+y}, masks={masks}")
+
+# Final objective line (required exact format)
+print(f"FINAL_OBJ: {best_obj}")

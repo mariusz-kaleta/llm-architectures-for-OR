@@ -1,0 +1,43 @@
+[MONOLITH]:
+import pulp
+
+# Problem data (from the prompt)
+employees_total = 150
+employees_per_small = 3
+employees_per_large = 5
+area_small = 50
+area_large = 80
+min_large = 6
+min_small = 10
+# small teams must be at least 3 times large teams: S >= 3L
+
+# Define the LP problem (maximize area mowed)
+prob = pulp.LpProblem("LawnMowingMaxArea", pulp.LpMaximize)
+
+# Decision variables: number of small teams (S) and large teams (L)
+S = pulp.LpVariable("SmallTeams", lowBound=0, cat="Integer")
+L = pulp.LpVariable("LargeTeams", lowBound=0, cat="Integer")
+
+# Objective: maximize total area mowed
+prob += area_small * S + area_large * L, "TotalAreaMowed"
+
+# Constraints
+prob += employees_per_small * S + employees_per_large * L <= employees_total, "EmployeeLimit"
+prob += S >= 3 * L, "SmallAtLeastThreeTimesLarge"
+prob += L >= min_large, "MinLargeTeams"
+prob += S >= min_small, "MinSmallTeams"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve results
+S_val = int(pulp.value(S))
+L_val = int(pulp.value(L))
+obj_val = int(pulp.value(prob.objective))
+
+# Print solution details (decision variables)
+print(f"Small teams (S): {S_val}")
+print(f"Large teams (L): {L_val}")
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {obj_val}")

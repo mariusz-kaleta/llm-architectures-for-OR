@@ -1,0 +1,157 @@
+[MODELER]:
+Here is a clean mathematical model of the problem, and how to solve it.
+
+---
+
+## 1. Decision variables
+
+Let:
+
+- \(x\) = number of bike shifts  
+- \(y\) = number of scooter shifts  
+
+Both are integer and nonnegative:
+- \(x \ge 0,\; y \ge 0\)
+- \(x, y \in \mathbb{Z}\)
+
+---
+
+## 2. Objective function (maximize total tips)
+
+Tips per shift:
+- Bike shift: \$50  
+- Scooter shift: \$43  
+
+Maximize total tips:
+\[
+\max \; Z = 50x + 43y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Shift availability (at most 40 shifts in total)
+\[
+x + y \le 40
+\]
+
+### b) Energy limit (at most 230 energy units)
+- Bike shift uses 5 units
+- Scooter shift uses 6 units
+\[
+5x + 6y \le 230
+\]
+
+### c) Minimum number of orders (at least 320 orders)
+- Bike shift delivers 10 orders
+- Scooter shift delivers 7 orders
+\[
+10x + 7y \ge 320
+\]
+
+### d) Minimum scooter shifts (at least 5)
+\[
+y \ge 5
+\]
+
+### e) Nonnegativity and integrality
+\[
+x \ge 0,\; y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full model (Integer Linear Program)
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 50x + 43y \\
+\text{subject to} \quad
+& x + y \le 40 \\
+& 5x + 6y \le 230 \\
+& 10x + 7y \ge 320 \\
+& y \ge 5 \\
+& x \ge 0,\; y \ge 0,\; x, y \in \mathbb{Z}
+\end{aligned}
+\]
+
+This is a small integer linear programming (ILP) problem.
+
+---
+
+## 5. Suitable Python libraries
+
+You can solve this with standard MILP / LP libraries:
+
+- **PuLP** (`pulp`) – very straightforward for small linear/integer models.
+- **OR-Tools** (`ortools.linear_solver`) – efficient, industrial-grade solver.
+- **SciPy** (`scipy.optimize.linprog`) – for continuous LP only (would need to relax integrality or handle it manually). Better to use PuLP or OR-Tools here.
+
+---
+
+## 6. Example using PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Delivery_Shifts", pl.LpMaximize)
+
+# Decision variables (nonnegative integers)
+x = pl.LpVariable("bike_shifts", lowBound=0, cat="Integer")
+y = pl.LpVariable("scooter_shifts", lowBound=0, cat="Integer")
+
+# Objective
+prob += 50 * x + 43 * y, "Total_Tips"
+
+# Constraints
+prob += x + y <= 40, "Shift_limit"
+prob += 5 * x + 6 * y <= 230, "Energy_limit"
+prob += 10 * x + 7 * y >= 320, "Orders_min"
+prob += y >= 5, "Min_scooter_shifts"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Bike shifts (x):", pl.value(x))
+print("Scooter shifts (y):", pl.value(y))
+print("Maximum tips: $", pl.value(prob.objective))
+```
+
+This will give you the optimal number of bike and scooter shifts and the maximum tips.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Delivery_Shifts", pl.LpMaximize)
+
+    # Decision variables (nonnegative integers)
+    x = pl.LpVariable("bike_shifts", lowBound=0, cat="Integer")
+    y = pl.LpVariable("scooter_shifts", lowBound=0, cat="Integer")
+
+    # Objective: maximize total tips
+    prob += 50 * x + 43 * y, "Total_Tips"
+
+    # Constraints
+    prob += x + y <= 40, "Shift_limit"
+    prob += 5 * x + 6 * y <= 230, "Energy_limit"
+    prob += 10 * x + 7 * y >= 320, "Orders_min"
+    prob += y >= 5, "Min_scooter_shifts"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective strictly in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

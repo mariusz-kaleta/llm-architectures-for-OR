@@ -1,0 +1,42 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+tooth_total = 2000
+small_tooth = 10
+large_tooth = 15
+small_meat = 12
+large_meat = 15
+min_large = 30
+
+# Define problem
+prob = pulp.LpProblem("Dog_Hospital_Bones", pulp.LpMinimize)
+
+# Decision variables: number of small (x) and large (y) bones (integer)
+x = pulp.LpVariable("small_bones", lowBound=0, cat="Integer")
+y = pulp.LpVariable("large_bones", lowBound=0, cat="Integer")
+
+# Objective: minimize meat used
+prob += small_meat * x + large_meat * y
+
+# Constraints
+prob += small_tooth * x + large_tooth * y <= tooth_total          # tooth medication limit
+prob += x - y >= 0                                                # at least 50% small => x >= y
+prob += y >= min_large                                             # at least 30 large bones
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+small_count = int(pulp.value(x))
+large_count = int(pulp.value(y))
+obj_val = pulp.value(prob.objective)
+# Clean objective for printing (integer if effectively integer)
+if abs(obj_val - round(obj_val)) < 1e-6:
+    obj_val = int(round(obj_val))
+
+# Output results (final print must be the FINAL_OBJ line)
+print(f"Small bones: {small_count}")
+print(f"Large bones: {large_count}")
+print(f"Meat used: {obj_val}")
+print(f"FINAL_OBJ: {obj_val}")

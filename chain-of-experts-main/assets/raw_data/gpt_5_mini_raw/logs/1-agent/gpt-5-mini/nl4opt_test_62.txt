@@ -1,0 +1,65 @@
+[MONOLITH]:
+import math
+
+# Try to solve with PuLP; if not available, fall back to brute-force integer search
+try:
+    import pulp
+
+    # Define problem
+    prob = pulp.LpProblem("Handbag_Profit", pulp.LpMaximize)
+
+    # Decision variables: number of regular (x) and premium (y) handbags (integers)
+    x = pulp.LpVariable('regular', lowBound=0, cat='Integer')
+    y = pulp.LpVariable('premium', lowBound=0, cat='Integer')
+
+    # Objective: maximize profit 30x + 180y
+    prob += 30 * x + 180 * y
+
+    # Constraints
+    prob += 200 * x + 447 * y <= 250000  # budget constraint
+    prob += x + y <= 475                 # sales limit
+    # Non-negativity enforced by variable bounds
+
+    # Solve
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    xv = int(pulp.value(x))
+    yv = int(pulp.value(y))
+    obj_val = pulp.value(prob.objective)
+
+    # Adjust to integer if very close
+    if abs(obj_val - round(obj_val)) < 1e-6:
+        obj_val = int(round(obj_val))
+
+except Exception:
+    # Fallback integer brute-force (guaranteed small search space)
+    best_profit = -1
+    best_x = 0
+    best_y = 0
+    for xi in range(0, 476):  # x from 0 to 475
+        # Max y limited by sales
+        y_by_sales = 475 - xi
+        # Max y limited by budget
+        remaining_budget = 250000 - 200 * xi
+        if remaining_budget < 0:
+            continue
+        y_by_budget = remaining_budget // 447
+        yi = min(y_by_sales, y_by_budget)
+        if yi < 0:
+            continue
+        # Profit increases with y (positive coefficient), so pick yi
+        profit = 30 * xi + 180 * yi
+        if profit > best_profit:
+            best_profit = profit
+            best_x = xi
+            best_y = yi
+
+    xv = best_x
+    yv = best_y
+    obj_val = best_profit
+
+# Print results (decision variables) then final objective as required
+print(f"Optimal regular handbags: {xv}")
+print(f"Optimal premium handbags: {yv}")
+print(f"Total profit: {obj_val}")
+print(f"FINAL_OBJ: {obj_val}")

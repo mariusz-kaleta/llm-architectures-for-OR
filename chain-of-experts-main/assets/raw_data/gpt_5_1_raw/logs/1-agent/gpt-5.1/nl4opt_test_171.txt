@@ -1,0 +1,43 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Honey_Jars_Problem", pulp.LpMaximize)
+
+# Decision variables
+G = pulp.LpVariable('Glass_Jars', lowBound=0, cat='Integer')
+P = pulp.LpVariable('Plastic_Jars', lowBound=0, cat='Integer')
+
+# Parameters
+total_honey = 20000  # in ml
+glass_capacity = 250
+plastic_capacity = 300
+
+# Objective: maximize total number of jars
+prob += G + P, "Total_Jars"
+
+# Constraints
+# Honey volume constraint
+prob += glass_capacity * G + plastic_capacity * P <= total_honey, "Honey_Volume"
+
+# At least twice as many plastic jars as glass jars
+prob += P >= 2 * G, "Plastic_Twice_Glass"
+
+# At least 20 glass jars
+prob += G >= 20, "Min_Glass"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+# Extract results
+glass_jars = int(pulp.value(G))
+plastic_jars = int(pulp.value(P))
+total_jars = int(pulp.value(G + P))
+
+# Print detailed results
+print(f"Glass jars (250 ml): {glass_jars}")
+print(f"Plastic jars (300 ml): {plastic_jars}")
+print(f"Total jars filled: {total_jars}")
+
+# Final objective value print as required
+print(f"FINAL_OBJ: {total_jars}")

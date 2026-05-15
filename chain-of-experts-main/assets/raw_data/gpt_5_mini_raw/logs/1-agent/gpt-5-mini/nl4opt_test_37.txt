@@ -1,0 +1,57 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+profit_thin = 5      # profit per thin jar
+profit_stubby = 9    # profit per stubby jar
+
+shaping_thin = 50    # minutes shaping per thin jar
+shaping_stubby = 30  # minutes shaping per stubby jar
+shaping_available = 3000
+
+baking_thin = 90     # minutes baking per thin jar
+baking_stubby = 150  # minutes baking per stubby jar
+baking_available = 4000
+
+# Continuous LP (allow fractional jars)
+prob = pulp.LpProblem("Terracotta_Jars_Continuous", pulp.LpMaximize)
+
+x = pulp.LpVariable("thin_jars", lowBound=0, cat="Continuous")     # thin jars
+y = pulp.LpVariable("stubby_jars", lowBound=0, cat="Continuous")   # stubby jars
+
+# Objective
+prob += profit_thin * x + profit_stubby * y
+
+# Constraints
+prob += shaping_thin * x + shaping_stubby * y <= shaping_available
+prob += baking_thin * x + baking_stubby * y <= baking_available
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+cont_x = x.varValue
+cont_y = y.varValue
+cont_obj = pulp.value(prob.objective)
+
+# Integer (realistic) MILP solution for comparison
+prob_int = pulp.LpProblem("Terracotta_Jars_Integer", pulp.LpMaximize)
+
+xi = pulp.LpVariable("thin_jars_int", lowBound=0, cat="Integer")
+yi = pulp.LpVariable("stubby_jars_int", lowBound=0, cat="Integer")
+
+prob_int += profit_thin * xi + profit_stubby * yi
+prob_int += shaping_thin * xi + shaping_stubby * yi <= shaping_available
+prob_int += baking_thin * xi + baking_stubby * yi <= baking_available
+
+prob_int.solve(pulp.PULP_CBC_CMD(msg=False))
+
+int_x = xi.varValue
+int_y = yi.varValue
+int_obj = pulp.value(prob_int.objective)
+
+# Print results
+print(f"Continuous solution: thin_jars = {cont_x}, stubby_jars = {cont_y}, profit = {cont_obj}")
+print(f"Integer solution:    thin_jars = {int_x}, stubby_jars = {int_y}, profit = {int_obj}")
+
+# Final required print (objective value of the continuous LP)
+print(f"FINAL_OBJ: {cont_obj}")

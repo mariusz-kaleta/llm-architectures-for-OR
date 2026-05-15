@@ -1,0 +1,55 @@
+[MONOLITH]:
+```python
+# Optimization for advertising mix (radio ads and social media ads)
+# The problem may be infeasible given the provided data; this script detects that.
+
+import pulp
+
+# Data (initialized directly from the problem statement)
+cost_radio = 5000        # cost per radio ad
+cost_social = 9150       # cost per social media ad
+exposure_radio = 60500   # exposure per radio ad
+exposure_social = 50000  # exposure per social media ad
+budget = 250000
+
+min_radio = 15
+max_radio = 40
+min_social = 35
+
+# Define the problem
+prob = pulp.LpProblem("MaxExposure", pulp.LpMaximize)
+
+# Decision variables (integers)
+r = pulp.LpVariable("radio_ads", lowBound=min_radio, upBound=max_radio, cat='Integer')
+s = pulp.LpVariable("social_ads", lowBound=min_social, cat='Integer')
+
+# Objective: maximize total exposure
+prob += exposure_radio * r + exposure_social * s, "TotalExposure"
+
+# Budget constraint
+prob += cost_radio * r + cost_social * s <= budget, "Budget"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+result_status = prob.solve(solver)
+
+status = pulp.LpStatus.get(result_status, "Undefined")
+
+# Prepare outputs
+if status == 'Optimal':
+    radio_count = int(pulp.value(r))
+    social_count = int(pulp.value(s))
+    objective_value = pulp.value(prob.objective)
+    # Print solution details (optional)
+    print(f"Status: {status}")
+    print(f"Radio ads: {radio_count}")
+    print(f"Social media ads: {social_count}")
+    print(f"Total cost: {cost_radio * radio_count + cost_social * social_count}")
+    # Final required print (must be the very last print)
+    print(f"FINAL_OBJ: {objective_value}")
+else:
+    # No feasible or optimal solution
+    print(f"Status: {status}")
+    # Indicate infeasibility / no solution; final required print must appear last
+    print(f"FINAL_OBJ: INFEASIBLE")
+```

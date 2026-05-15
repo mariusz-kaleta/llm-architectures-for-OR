@@ -1,0 +1,158 @@
+[MODELER]:
+Here is a clean mathematical model of your problem.
+
+---
+
+### 1. Decision variables
+
+Let  
+- \(x\) = number of seasonal volunteers (integer, \(x \ge 0\))  
+- \(y\) = number of full-time volunteers (integer, \(y \ge 0\))
+
+---
+
+### 2. Objective
+
+Maximize the total number of gifts delivered.
+
+- Seasonal volunteer delivers 5 gifts → total from seasonal = \(5x\)  
+- Full-time volunteer delivers 8 gifts → total from full-time = \(8y\)
+
+**Objective function:**
+\[
+\max \; Z = 5x + 8y
+\]
+
+---
+
+### 3. Constraints
+
+1. **Points budget constraint**
+
+   - Seasonal volunteer gets 2 points → total points from seasonal = \(2x\)  
+   - Full-time volunteer gets 5 points → total points from full-time = \(5y\)  
+   - Total points cannot exceed 200:
+
+   \[
+   2x + 5y \le 200
+   \]
+
+2. **Seasonal volunteers at most 30% of all volunteers**
+
+   Seasonal volunteers are at most 30% of total volunteers:
+
+   \[
+   x \le 0.3(x + y)
+   \]
+
+   Simplify:
+
+   \[
+   x \le 0.3x + 0.3y \\
+   x - 0.3x \le 0.3y \\
+   0.7x \le 0.3y \\
+   7x \le 3y
+   \]
+
+3. **At least 10 full-time volunteers**
+
+   \[
+   y \ge 10
+   \]
+
+4. **Non-negativity and integrality**
+
+   \[
+   x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+   \]
+
+---
+
+### 4. Full model summary (Integer Linear Program)
+
+\[
+\begin{aligned}
+\text{Maximize}\quad & 5x + 8y \\
+\text{subject to}\quad
+& 2x + 5y \le 200, \\
+& 7x \le 3y, \\
+& y \ge 10, \\
+& x \ge 0,\; y \ge 0, \\
+& x, y \in \mathbb{Z}.
+\end{aligned}
+\]
+
+This is an integer linear programming (ILP) problem.
+
+---
+
+### 5. Solving this in Python
+
+Suitable libraries for solving this ILP include:
+
+- **PuLP** (`pulp`): Very straightforward modeling of linear and integer programs.
+- **OR-Tools** (`ortools.linear_solver`): Google’s optimization suite, good performance and flexibility.
+- **Pyomo**: More general algebraic modeling language, good for larger or more complex models.
+- **SciPy** (`scipy.optimize`) is not ideal here because it does not natively handle integer constraints; you’d need an external MILP solver.
+
+---
+
+### 6. Example with PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("ToyStoreVolunteers", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('seasonal', lowBound=0, cat='Integer')
+y = pl.LpVariable('full_time', lowBound=0, cat='Integer')
+
+# Objective
+prob += 5 * x + 8 * y
+
+# Constraints
+prob += 2 * x + 5 * y <= 200           # points budget
+prob += 7 * x <= 3 * y                 # seasonal <= 30% of total
+prob += y >= 10                        # at least 10 full-time
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Seasonal volunteers (x):", pl.value(x))
+print("Full-time volunteers (y):", pl.value(y))
+print("Maximum gifts:", pl.value(5*x + 8*y))
+```
+
+This will give you the optimal numbers of seasonal and full-time volunteers to maximize the total gifts delivered under the given constraints.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("ToyStoreVolunteers", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('seasonal', lowBound=0, cat='Integer')
+y = pl.LpVariable('full_time', lowBound=0, cat='Integer')
+
+# Objective function: maximize total gifts
+prob += 5 * x + 8 * y
+
+# Constraints
+prob += 2 * x + 5 * y <= 200       # Points budget
+prob += 7 * x <= 3 * y             # Seasonal at most 30% of total
+prob += y >= 10                    # At least 10 full-time volunteers
+
+# Solve the problem
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Extract objective value
+final_obj = pl.value(5 * x + 8 * y)
+
+# Print final objective value in required format
+print(f"FINAL_OBJ: {final_obj}")

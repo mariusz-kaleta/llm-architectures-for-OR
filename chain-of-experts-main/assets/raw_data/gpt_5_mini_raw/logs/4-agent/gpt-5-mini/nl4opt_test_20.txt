@@ -1,0 +1,133 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Minimise total sodium intake (milligrams) while meeting calorie and protein requirements and respecting the ramen-percentage limit.
+
+2. Suggested model type
+- Model: Mixed-Integer Linear Program (MILP).  
+  Reason: decision variables are counts of discrete packs (integers). All relationships (calories, protein, sodium, and the at-most-30%-ramen rule) are linear, so an MILP is appropriate. If fractional packs were allowed, a plain LP would suffice.
+
+3. Main decision variables
+- r = number of ramen packs consumed (nonnegative integer)  
+- f = number of fries packs consumed (nonnegative integer)
+
+(Optionally include T = r + f to simplify some formulations or reporting.)
+
+4. Key constraints to include (description-level)
+- Calorie requirement: the total calories from r and f must be at least 3000.
+- Protein requirement: the total protein from r and f must be at least 80 grams.
+- Ramen proportion limit: at most 30% of his meals can be ramen. Implement this as a linear constraint (no division): r <= 0.3*(r + f). For integer/solver stability express with integer coefficients (equivalently 0.7 r <= 0.3 f or 7 r <= 3 f after multiplying by 10).
+- Nonnegativity and integrality: r and f must be nonnegative integers (r, f ∈ Z≥0).
+- (Optional) Upper bounds for search efficiency: impose reasonable upper bounds on r and f (e.g., based on calorie constraint upper bound if all packs were the cheaper option) to speed up the solver and avoid unbounded search.
+
+5. Objective (description-level)
+- Minimise total sodium = sodium_per_ramen * r + sodium_per_fries * f (i.e., 100 mg * r + 75 mg * f).
+
+6. Implementation notes and modelling tips
+- Because sodium per calorie is identical for both packs (100/400 = 75/300 = 0.25 mg per calorie), the calorie constraint alone does not prefer one pack over the other; the protein requirement and the ramen-percentage cap will drive which mix is required. The solver must therefore consider both constraints simultaneously.
+- Solve as MILP with a solver such as CBC, Gurobi, CPLEX, or GLPK. Optionally solve LP relaxation first to get a lower bound then enforce integrality.
+- If multiple optimal solutions exist (same sodium), you can enforce a tie-breaker (secondary objective) such as minimising total packs (r + f) or minimising ramen count.
+- Provide feasible bounds for r and f before solving (e.g., upper bound = ceil(3000 / min_calories_per_pack) or a small multiple) to reduce solve time.
+
+Deliver these elements to the modeller so they can implement the MILP: define integer variables r and f, encode the linear calorie and protein constraints, encode the ramen proportion as 7r <= 3f (or the equivalent), set the linear objective 100r + 75f to minimise, add nonnegativity and reasonable upper bounds, and solve.
+
+---
+
+[MODELER]:
+Below is a clear, solver-ready MILP formulation, implementation tips, and the optimal integer solution.
+
+1) Decision variables
+- r ∈ Z≥0 : number of ramen packs eaten.
+- f ∈ Z≥0 : number of fries packs eaten.
+
+(Optional reporting variable)
+- T = r + f (total packs / meals) — not required for the solver.
+
+2) Objective
+Minimise total sodium (mg):
+minimize Z = 100·r + 75·f
+
+3) Constraints (linear)
+- Calorie requirement:
+400·r + 300·f ≥ 3000
+
+- Protein requirement:
+20·r + 10·f ≥ 80
+(equivalently 2·r + f ≥ 8)
+
+- Ramen-percentage limit (at most 30% of meals ramen):
+r ≤ 0.3·(r + f)
+Rewrite without division for numerical stability:
+7·r ≤ 3·f
+
+- Nonnegativity and integrality:
+r, f ∈ Z≥0
+
+- (Recommended finite upper bounds to speed up the solver)
+r ≤ 8 (since 8·400 = 3200 ≥ 3000)
+f ≤ 10 (since 10·300 = 3000)
+You can tighten these if you like; these are safe small bounds.
+
+4) Notes on modelling
+- All relationships are linear; variables are integer → MILP.
+- Because sodium per calorie is equal for both packs (100/400 = 75/300 = 0.25 mg per calorie), the sodium objective is proportional to total calories. Minimising sodium is therefore equivalent to minimising total calories subject to the constraints. Thus the calorie constraint will be tight at optimum unless the protein or ramen-share constraint forces extra calories.
+- If you want a secondary tie-break objective (e.g., fewer total packs or fewer ramen packs) use a lexicographic objective or add a very small weight to the secondary objective.
+
+5) Suggested solvers / Python libraries
+- pulp (open-source, uses CBC by default)
+- OR-Tools CP-SAT (Google OR-Tools) — good performance for small MILPs
+- Pyomo with GLPK/CBC/Gurobi/Cplex
+- Gurobi or CPLEX (commercial, very fast if available)
+
+6) Small analytic check and optimal solution
+Check feasibility with only fries: r = 0, f = 10
+- Calories: 3000 (meets 3000)
+- Protein: 10·10 = 100 g (meets ≥ 80 g)
+- Ramen share: 0% ≤ 30% (ok)
+- Sodium: 75·10 = 750 mg
+
+Any solution with r > 0 increases sodium (see enumerations) because the ramen-share constraint forces additional fries or increases total calories; therefore the minimum sodium is achieved at r = 0, f = 10.
+
+Answer: Eat 0 packs of ramen and 10 packs of fries. Total sodium = 750 mg.
+
+7) Example (sketch) using pulp
+- Define integer variables r and f, add constraints listed above, set objective 100*r + 75*f and solve with pulp.PULP_CBC_CMD(). Use bounds r ≤ 8, f ≤ 10 for efficiency.
+
+If you want, I can produce the exact Python (pulp or OR-Tools) code to solve this MILP.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# MILP to minimize sodium from ramen (r) and fries (f)
+# Using PuLP with CBC solver (open-source)
+
+import pulp
+
+# Define problem
+prob = pulp.LpProblem("Ramen_Fries_Min_Sodium", pulp.LpMinimize)
+
+# Decision variables (integers, non-negative) with recommended upper bounds
+r = pulp.LpVariable('r', lowBound=0, upBound=8, cat='Integer')   # ramen packs
+f = pulp.LpVariable('f', lowBound=0, upBound=10, cat='Integer')  # fries packs
+
+# Objective: minimize sodium (mg)
+prob += 100 * r + 75 * f
+
+# Constraints
+prob += 400 * r + 300 * f >= 3000       # calorie requirement
+prob += 20 * r + 10 * f >= 80           # protein requirement
+prob += 7 * r <= 3 * f                  # ramen share at most 30%
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Obtain objective value
+obj = pulp.value(prob.objective)
+# Ensure integer display (objective is integer here)
+value = int(round(obj))
+
+# Final required print (exact format)
+print(f"FINAL_OBJ: {value}")
+```

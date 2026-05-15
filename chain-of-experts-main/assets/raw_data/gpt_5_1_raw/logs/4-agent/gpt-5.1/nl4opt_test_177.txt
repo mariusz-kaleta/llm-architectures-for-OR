@@ -1,0 +1,206 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total number of transport trips (sum of canoes and diesel boats) needed to move at least 1000 fish to shore, while respecting environmental rules on fleet composition.
+
+---
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP) / Integer Programming  
+- Variables are counts of boats used, which must be non-negative integers.  
+- Objective and constraints are linear.
+
+---
+
+3. Main decision variables  
+Define decision variables as integer counts:
+
+- \(C\): number of canoes used  
+- \(D\): number of diesel boats used  
+
+(If the modeller prefers, can add a derived variable for total boats \(T = C + D\), but it is not strictly necessary.)
+
+---
+
+4. Key constraints to consider  
+
+a) Capacity / demand satisfaction  
+- Each canoe transports 10 fish.  
+- Each diesel boat transports 15 fish.  
+- Need to transport at least 1000 fish.
+
+Constraint:  
+- Total transported fish ≥ 1000:
+  - \(10C + 15D \ge \text{required\_fish}\) (here, 1000)
+
+b) Environmental rule (fleet composition)  
+- Number of canoes must be at least 3 times the number of diesel boats.
+
+Constraint:  
+- \(C \ge 3D\)
+
+c) Non-negativity and integrality  
+- Both decision variables must be non-negative integers, representing counts of boats:
+
+Constraints:  
+- \(C \ge 0\), integer  
+- \(D \ge 0\), integer  
+
+---
+
+5. Objective function (conceptual description)  
+- Minimize total number of boats used:
+  - Minimize \(C + D\)
+
+---
+
+6. Modelling notes / variants  
+
+- The “at least 1000 fish” requirement is a typical “≥ demand” constraint. No upper bound is necessary unless imposed later (e.g., maximum available fleet).  
+- If a maximum number of canoes or diesel boats available is implied or later introduced, add upper bound constraints, e.g., \(C \le C^{\max}\), \(D \le D^{\max}\).  
+- This is a small, simple ILP that could also be solved by enumeration, but the formulation should remain generic ILP.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model and how you could solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(C \in \mathbb{Z}_{\ge 0}\): number of canoes used  
+- \(D \in \mathbb{Z}_{\ge 0}\): number of diesel boats used  
+
+These are non-negative integers (counts of boats).
+
+---
+
+## 2. Objective
+
+Minimize the total number of transport trips (boats):
+
+\[
+\min \; C + D
+\]
+
+---
+
+## 3. Constraints
+
+### a) Capacity / demand constraint
+
+Each canoe carries 10 fish; each diesel boat carries 15 fish.  
+At least 1000 fish must reach shore:
+
+\[
+10C + 15D \;\ge\; 1000
+\]
+
+### b) Environmental (fleet composition) rule
+
+The number of canoes must be at least 3 times the number of diesel boats:
+
+\[
+C \;\ge\; 3D
+\]
+
+### c) Non-negativity and integrality
+
+\[
+C \ge 0,\quad D \ge 0,\quad C, D \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete ILP formulation
+
+\[
+\begin{align}
+\min \quad & C + D \\
+\text{s.t.} \quad
+& 10C + 15D \ge 1000 \\
+& C \ge 3D \\
+& C, D \in \mathbb{Z}_{\ge 0}
+\end{align}
+\]
+
+---
+
+## 5. Suggested Python tools
+
+Any standard MILP/ILP solver can handle this easily. Good options:
+
+- `PuLP` (pure Python interface, can use CBC, GLPK, etc.)
+- `ortools.linear_solver` from Google OR-Tools
+- `Pyomo` with a MILP solver (e.g., CBC, GLPK, Gurobi, CPLEX)
+- `mip` (Python-MIP) or `gurobipy` if you have Gurobi
+
+A minimal `PuLP` example:
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("FishTransport", pl.LpMinimize)
+
+# Decision variables (non-negative integers)
+C = pl.LpVariable('C', lowBound=0, cat='Integer')  # canoes
+D = pl.LpVariable('D', lowBound=0, cat='Integer')  # diesel boats
+
+# Objective: minimize total number of boats
+prob += C + D
+
+# Constraints
+prob += 10*C + 15*D >= 1000    # fish capacity
+prob += C >= 3*D               # environmental rule
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Canoes (C):", pl.value(C))
+print("Diesel boats (D):", pl.value(D))
+print("Total boats:", pl.value(C + D))
+print("Total fish capacity:", 10*pl.value(C) + 15*pl.value(D))
+```
+
+This code directly implements the ILP model above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the ILP problem
+    prob = pl.LpProblem("FishTransport", pl.LpMinimize)
+
+    # Decision variables (non-negative integers)
+    C = pl.LpVariable('C', lowBound=0, cat='Integer')  # canoes
+    D = pl.LpVariable('D', lowBound=0, cat='Integer')  # diesel boats
+
+    # Objective: minimize total number of boats
+    prob += C + D
+
+    # Constraints
+    prob += 10 * C + 15 * D >= 1000   # fish capacity constraint
+    prob += C >= 3 * D                # environmental rule
+
+    # Solve the problem using CBC (default PuLP solver)
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    C_val = pl.value(C)
+    D_val = pl.value(D)
+    obj_val = pl.value(C + D)
+
+    # Optionally, you could check feasibility/status here if desired
+    # status = pl.LpStatus[prob.status]
+
+    # Print final objective value as required
+    print(f"FINAL_OBJ: {obj_val}")
+
+if __name__ == "__main__":
+    main()

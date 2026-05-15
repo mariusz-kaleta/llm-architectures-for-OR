@@ -1,0 +1,81 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - V ∈ Z≥0 : number of vans (capacity 6 each)
+  - C ∈ Z≥0 : number of cars (capacity 3 each)
+
+- Objective
+  - Minimize C (the total number of cars used)
+
+- Constraints
+  1. Capacity: 6V + 3C ≥ 200 (transport at least 200 voters)
+  2. Vans ≤ 30% of vehicles: V ≤ 0.3 (V + C). This is linearized as
+     7V ≤ 3C  (multiply both sides by 10 and rearrange)
+  3. Integrality: V, C integers ≥ 0
+
+So the ILP is
+  minimize C
+  subject to
+    6V + 3C ≥ 200
+    7V ≤ 3C
+    V, C ∈ Z≥0
+
+Analytical solution (short)
+- From constraints C ≥ 7V/3 and C ≥ (200 − 6V)/3. For fixed integer V the minimal feasible C is
+  C(V) = ceil( max( (200 − 6V)/3 , 7V/3 , 0 ) ).
+- The two bounds cross at V = 200/13 ≈ 15.3846, so check integers near that:
+  - V = 15 → C = ceil(max(110/3≈36.667, 35)) = 37
+  - V = 16 → C = ceil(max(104/3≈34.667, 112/3≈37.333)) = 38
+  - Neighbors give larger C.
+- Thus the minimum number of cars is 37, achieved with V = 15 vans and C = 37 cars.
+
+Verification
+- Capacity: 6*15 + 3*37 = 90 + 111 = 201 ≥ 200
+- Vans share: 15/(15+37) = 15/52 ≈ 28.85% ≤ 30%
+
+Recommended Python libraries to solve this
+- pulp (easy-to-use MILP modeling)
+- OR-Tools (CP-SAT for integer/CP optimization)
+- For a simple brute-force integer search: plain Python with math.ceil suffices
+- (scipy.optimize is not suitable for integer programming)
+
+Example approach (brief)
+- Use pulp or OR-Tools to encode the ILP above and solve.
+- Or brute-force V from 0..floor(200/6)=33 and compute minimal feasible C(V) as shown, then pick the pair with smallest C.
+
+Final answer: Use 15 vans and 37 cars (minimizes cars to 37).
+
+---
+
+[CODER]:
+import math
+
+# Problem data (directly initialized)
+total_voters = 200
+
+# Search range for number of vans (V)
+# It's safe to search a reasonable upper bound, e.g., 0..200
+V_max = 200
+
+best = None  # (C, V)
+
+for V in range(V_max + 1):
+    # Lower bound from capacity: 6V + 3C >= 200 --> C >= (200 - 6V)/3
+    c_capacity = math.ceil((total_voters - 6 * V) / 3)
+    # Lower bound from vans share: 7V <= 3C --> C >= 7V/3
+    c_share = math.ceil(7 * V / 3)
+    # C must be non-negative integer
+    C = max(c_capacity, c_share, 0)
+    # Verify feasibility
+    if 6 * V + 3 * C >= total_voters and 7 * V <= 3 * C:
+        if best is None or C < best[0] or (C == best[0] and V < best[1]):
+            best = (C, V)
+
+if best is None:
+    raise RuntimeError("No feasible solution found")
+
+min_c, best_v = best
+
+# Final required output (only this exact line at the end)
+print(f"FINAL_OBJ: {min_c}")

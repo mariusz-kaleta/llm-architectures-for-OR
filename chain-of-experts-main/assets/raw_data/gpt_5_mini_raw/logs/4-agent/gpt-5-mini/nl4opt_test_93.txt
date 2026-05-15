@@ -1,0 +1,166 @@
+[PLANNER]:
+1) Key optimisation goal:
+- Maximise the total number of catered guests at the fair.
+
+2) Suggested model type:
+- Integer Linear Programming (ILP) / Mixed Integer Programming (MIP) (decision variables are counts of tables and must be integer). You may first solve the LP relaxation to get bounds, then solve the ILP (branch-and-bound).
+
+3) Main decision variables (describe, not formalised):
+- Number of circular tables to set up (non‑negative integer).
+- Number of rectangular tables to set up (non‑negative integer).
+- (Optional derived quantities to compute/report) total catered guests, total participant seats, total poster boards provided, total space used.
+
+4) Key constraints and modelling components (describe in words):
+- Objective composition: total catered guests is the sum of guests contributed by each table type (circular contributes 8 guests each; rectangular contributes 12 guests each). Maximise that total.
+- Participant-seat requirement: total participant seats provided by the chosen tables must be at least 500 (circular gives 5 participant seats, rectangular gives 4).
+- Poster-board requirement: total poster boards provided must be at least 300 (both table types provide 4 poster boards each).
+- Space limit: total space used by the selected tables must not exceed 1900 units (circular uses 15 units each, rectangular uses 20 units each).
+- Integrality and non-negativity: table counts must be whole numbers >= 0.
+- Practical variable bounds for solver efficiency: upper bounds from space limit (e.g., max circular = floor(1900/15), max rectangular = floor(1900/20)) and from poster/participant minima (use these to tighten the search region).
+
+5) Implementation notes and modelling tips:
+- Because poster boards per table are identical (4 each), you can add the simple derived constraint that total number of tables must be at least 75 (since 4 boards/table => total tables >= 300/4 = 75). Use this to tighten bounds.
+- Evaluate guests-per-unit-space as a heuristic: rectangular tables provide 12 guests / 20 space = 0.6 guests per space; circular provide 8/15 ≈ 0.533 guests per space. That suggests rectangular tables are more space‑efficient for the objective, but participant-seat and poster-board minima may force a mix—let the ILP determine the best combination.
+- Solver choice: use any standard ILP solver (CBC, GLPK, Gurobi, CPLEX) or perform an exhaustive integer search (feasible here because maximum table counts are small).
+- Output to report: optimal counts of each table type, achieved total guests, used space, provided participant seats and poster boards, and slack on each constraint.
+- Optional secondary objective / tie-breaker: if multiple optima exist, you may prefer the solution that uses less space or fewer tables; model this as a lexicographic objective or add a small penalty on total tables/space.
+
+This plan supplies all components needed to formulate and solve the ILP that maximises catered guests while meeting participant, poster and space constraints.
+
+---
+
+[MODELER]:
+Below is a concise, formal modelling of the planning text and a recommended way to solve it (including the optimal integer solution).
+
+1) Decision variables
+- c ∈ Z≥0 : number of circular tables
+- r ∈ Z≥0 : number of rectangular tables
+
+2) Objective
+Maximise total catered guests:
+Maximise Z = 8c + 12r
+
+3) Constraints
+- Participant-seat requirement:
+5c + 4r ≥ 500
+
+- Poster-board requirement (both table types give 4 boards):
+4c + 4r ≥ 300
+(or equivalently c + r ≥ 75)
+
+- Space limit:
+15c + 20r ≤ 1900
+
+- Integrality and non-negativity:
+c, r ∈ Z, c ≥ 0, r ≥ 0
+
+4) Useful variable bounds (tighten search)
+- From space: c ≤ floor(1900/15) = 126, r ≤ floor(1900/20) = 95
+- From posters: c + r ≥ 75 (so at least 75 tables)
+- From participants: c ≥ ceil((500 - 4r)/5) when RHS > 0 (can be used in search)
+
+5) Solver choices / Python libraries
+- For ILP: pulp (CBC default), OR-Tools (CP-SAT or linear solver), scipy.optimize (for LP relaxations only), or commercial solvers Gurobi / CPLEX if available.
+- Recommendation: use pulp or OR-Tools for clarity; solve LP relaxation first for bounds if desired, then the ILP.
+
+6) Short PuLP example (sketch)
+- Create integer variables c, r
+- Add constraints listed above
+- Maximise 8*c + 12*r
+- Solve with CBC and report c, r and derived totals
+
+(Example code outline — adapt as needed)
+from pulp import LpProblem, LpMaximize, LpVariable, lpSum, LpInteger, PULP_CBC_CMD
+
+prob = LpProblem("tables", LpMaximize)
+c = LpVariable('c', lowBound=0, cat=LpInteger)
+r = LpVariable('r', lowBound=0, cat=LpInteger)
+prob += 8*c + 12*r
+prob += 5*c + 4*r >= 500
+prob += c + r >= 75
+prob += 15*c + 20*r <= 1900
+prob.solve(PULP_CBC_CMD(msg=False))
+print(c.value(), r.value())
+
+7) Analytical / computational solution (optimal)
+Solving the ILP gives the optimal integer solution:
+- c = 60 circular tables
+- r = 50 rectangular tables
+
+Check:
+- Participants: 5*60 + 4*50 = 300 + 200 = 500 (meets requirement exactly)
+- Poster boards: 4*(60 + 50) = 4*110 = 440 ≥ 300
+- Space used: 15*60 + 20*50 = 900 + 1000 = 1900 (uses full available space)
+- Total catered guests: 8*60 + 12*50 = 480 + 600 = 1080 (maximum)
+
+Slack:
+- Participant slack = 0 (binding)
+- Poster-board slack = 440 - 300 = 140
+- Space slack = 0 (binding)
+
+8) Modelling tips / extensions
+- If multiple optima are possible, include a secondary objective to minimise total tables (c + r) or used space (15c + 20r) — implement as lexicographic objective or add a small penalty term (e.g., maximise 8c + 12r − ε*(c + r) with tiny ε).
+- You can solve LP relaxation first to get bounds; here the ILP optimum is integral at (c=60, r=50) and uses full space and meets participants exactly.
+
+If you want, I can:
+- Provide a runnable Python script (pulp or OR-Tools) that prints the full report (counts, guests, slack),
+- Or show the LP relaxation solution and branch-and-bound trace.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the table planning ILP and report results.
+# Uses PuLP (CBC) as solver.
+
+from pulp import LpProblem, LpMaximize, LpVariable, LpInteger, PULP_CBC_CMD, value, LpStatus
+
+# Problem data (from the model)
+# Decision variables:
+# c : number of circular tables (integer, >=0)
+# r : number of rectangular tables (integer, >=0)
+# Objective: maximize 8*c + 12*r
+# Constraints:
+# 5c + 4r >= 500       (participant-seat requirement)
+# c + r >= 75          (poster-board requirement, since each table gives 4 boards)
+# 15c + 20r <= 1900    (space limit)
+
+# Build the problem
+prob = LpProblem("Table_Planning", LpMaximize)
+
+c = LpVariable("c", lowBound=0, cat=LpInteger)
+r = LpVariable("r", lowBound=0, cat=LpInteger)
+
+# Objective
+prob += 8 * c + 12 * r, "Total_Catered_Guests"
+
+# Constraints
+prob += 5 * c + 4 * r >= 500, "Participant_Seat_Requirement"
+prob += c + r >= 75, "Poster_Board_Requirement"
+prob += 15 * c + 20 * r <= 1900, "Space_Limit"
+
+# Solve with CBC (silent)
+solver = PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Retrieve solution values (cast to int for reporting)
+c_val = int(round(value(c)))
+r_val = int(round(value(r)))
+total_guests = 8 * c_val + 12 * r_val
+participants_supplied = 5 * c_val + 4 * r_val
+poster_boards = 4 * (c_val + r_val)
+space_used = 15 * c_val + 20 * r_val
+
+# Print a short report
+print(f"Status: {LpStatus[prob.status]}")
+print(f"c (circular tables): {c_val}")
+print(f"r (rectangular tables): {r_val}")
+print(f"Total catered guests (objective): {total_guests}")
+print(f"Participants supplied (seats): {participants_supplied}")
+print(f"Poster boards available: {poster_boards}")
+print(f"Space used: {space_used} / 1900")
+
+# Final required single-line output
+print(f"FINAL_OBJ: {total_guests}")
+```

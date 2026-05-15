@@ -1,0 +1,203 @@
+[MODELER]:
+Here is a clean mathematical model of the problem and how you’d solve it.
+
+---
+
+## 1. Decision Variables
+
+Let  
+- \( x \) = number of small bins  
+- \( y \) = number of large bins  
+
+Both must be nonnegative integers:
+- \( x \ge 0,\; y \ge 0 \)
+- \( x, y \in \mathbb{Z} \)
+
+---
+
+## 2. Objective Function
+
+A small bin holds 25 units; a large bin holds 60 units. We want to maximize the total amount of recycling collected:
+
+\[
+\text{Maximize } Z = 25x + 60y
+\]
+
+---
+
+## 3. Constraints
+
+1. **Worker availability**
+
+   - Each small bin uses 2 workers  
+   - Each large bin uses 5 workers  
+   - At most 100 workers available  
+
+   \[
+   2x + 5y \le 100
+   \]
+
+2. **Relationship between numbers of bins**
+
+   The number of small bins must be three times the number of large bins:
+
+   \[
+   x = 3y
+   \]
+
+3. **Minimum numbers of bins**
+
+   - At least 10 small bins:
+
+     \[
+     x \ge 10
+     \]
+
+   - At least 4 large bins:
+
+     \[
+     y \ge 4
+     \]
+
+4. **Integrality**
+
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+---
+
+## 4. Simplified Model Using the Relationship \(x = 3y\)
+
+Substitute \( x = 3y \) into the constraints:
+
+- Worker constraint:
+
+  \[
+  2(3y) + 5y \le 100 \Rightarrow 6y + 5y \le 100 \Rightarrow 11y \le 100
+  \Rightarrow y \le \frac{100}{11} \approx 9.09
+  \]
+
+  Since \( y \) must be integer: \( y \le 9 \).
+
+- Minimum bins:
+
+  - From \( x \ge 10 \Rightarrow 3y \ge 10 \Rightarrow y \ge \frac{10}{3} \Rightarrow y \ge 4 \) (with integrality).
+  - Also we already have \( y \ge 4 \) directly.
+
+So:
+
+\[
+4 \le y \le 9,\quad y \in \mathbb{Z},\quad x = 3y.
+\]
+
+The objective becomes:
+
+\[
+Z = 25x + 60y = 25(3y) + 60y = 75y + 60y = 135y.
+\]
+
+Maximize \( 135y \) over integer \( y \in [4,9] \). This is clearly maximized at the largest allowed \( y \), i.e., \( y = 9 \).
+
+Then:
+
+- \( y = 9 \)
+- \( x = 3y = 27 \)
+
+Check workers:
+
+\[
+2x + 5y = 2(27) + 5(9) = 54 + 45 = 99 \le 100 \quad \text{(feasible)}
+\]
+
+Total recycling:
+
+\[
+Z = 25(27) + 60(9) = 675 + 540 = 1215 \text{ units}
+\]
+
+---
+
+## 5. Final Answer
+
+- Small bins: \( x = 27 \)  
+- Large bins: \( y = 9 \)  
+This combination respects all constraints and maximizes the total recycling collected (1215 units).
+
+---
+
+## 6. Suitable Python Libraries
+
+To solve or reproduce this as an optimization model in Python, you can use:
+
+- **PuLP** (`pulp`) – simple, great for teaching and small linear/integer programs.
+- **OR-Tools** (`ortools.linear_solver`) – efficient mixed-integer solver from Google.
+- **Pyomo** – more general modeling framework for LP/MIP.
+
+---
+
+### Example Using PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("RecyclingBins", pl.LpMaximize)
+
+# Decision variables (integer)
+x = pl.LpVariable('small_bins', lowBound=0, cat='Integer')
+y = pl.LpVariable('large_bins', lowBound=0, cat='Integer')
+
+# Objective
+prob += 25*x + 60*y
+
+# Constraints
+prob += 2*x + 5*y <= 100           # worker limit
+prob += x == 3*y                   # small bins = 3 * large bins
+prob += x >= 10                    # at least 10 small
+prob += y >= 4                     # at least 4 large
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Small bins:", x.value())
+print("Large bins:", y.value())
+print("Total recycling:", 25*x.value() + 60*y.value())
+```
+
+This will output 27 small bins, 9 large bins, and 1215 units of recycling.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("RecyclingBins", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('small_bins', lowBound=0, cat='Integer')
+    y = pl.LpVariable('large_bins', lowBound=0, cat='Integer')
+
+    # Objective function: Maximize total recycling
+    prob += 25 * x + 60 * y
+
+    # Constraints
+    prob += 2 * x + 5 * y <= 100      # Worker availability
+    prob += x == 3 * y                # Relationship between bins
+    prob += x >= 10                   # Minimum small bins
+    prob += y >= 4                    # Minimum large bins
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

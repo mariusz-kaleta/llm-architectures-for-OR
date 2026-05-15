@@ -1,0 +1,47 @@
+[MONOLITH]:
+import pulp
+
+# Data (from problem statement)
+# Times in minutes per ream
+printing_time_graph = 3.0
+scanning_time_graph = 5.5
+printing_time_music = 1.5
+scanning_time_music = 3.0
+
+# Available machine minutes per day
+printing_available = 350.0
+scanning_available = 350.0
+
+# Profits per ream
+profit_graph = 4.0
+profit_music = 2.5
+
+# Define LP problem: maximize profit
+prob = pulp.LpProblem("ForestPaper_Profit_Maximization", pulp.LpMaximize)
+
+# Decision variables: number of reams (can be fractional)
+graph = pulp.LpVariable("graph_reams", lowBound=0)
+music = pulp.LpVariable("music_reams", lowBound=0)
+
+# Objective
+prob += profit_graph * graph + profit_music * music
+
+# Constraints
+prob += printing_time_graph * graph + printing_time_music * music <= printing_available, "Printing_Time"
+prob += scanning_time_graph * graph + scanning_time_music * music <= scanning_available, "Scanning_Time"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract solution
+graph_val = graph.varValue if graph.varValue is not None else 0.0
+music_val = music.varValue if music.varValue is not None else 0.0
+final_obj = pulp.value(prob.objective)
+
+# Print results
+print(f"Optimal graph reams: {graph_val}")
+print(f"Optimal music reams: {music_val}")
+print(f"Optimal profit: {final_obj}")
+
+# Required final output line (must be the last line)
+print(f"FINAL_OBJ: {final_obj}")

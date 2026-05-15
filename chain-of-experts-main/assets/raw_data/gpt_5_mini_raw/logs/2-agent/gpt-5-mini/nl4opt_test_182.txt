@@ -1,0 +1,81 @@
+[MODELER]:
+Model
+
+Decision variables
+- S ∈ Z≥0 : number of ship trips.
+- P ∈ Z≥0 : number of plane trips.
+
+Objective
+- Minimize total fuel: minimize F = 500·S + 300·P.
+
+Constraints
+1. Capacity requirement: 40·S + 20·P ≥ 500 (at least 500 containers).
+   Equivalent: 2·S + P ≥ 25.
+2. Plane trip upper bound: P ≤ 10.
+3. At least 50% of trips by ship: S ≥ 0.5·(S + P) ⇒ S ≥ P.
+4. Integrality and nonnegativity: S, P integers ≥ 0.
+
+Solution (small integer program)
+- Evaluate feasible integer (S,P) pairs satisfying 2S + P ≥ 25, P ≤ 10, P ≤ S.
+- The optimal integer solution is S = 12 ship trips and P = 1 plane trip.
+- Total fuel consumed: 500·12 + 300·1 = 6,300 liters.
+
+Remarks
+- Fuel per container: ship = 500/40 = 12.5 L/container; plane = 300/20 = 15 L/container. Ships are more efficient per container, but because of the discrete trip sizes it is optimal to use 12 ships and 1 plane rather than 13 ships.
+- If fractional trips were allowed (continuous relaxation), the LP optimum would be S = 12.5, P = 0 with fuel 6,250 L, but fractional trips are not realistic here.
+
+Suggested Python libraries to solve
+- pulp (uses CBC by default) — easy to model and solve small ILPs.
+- OR-Tools (CP-SAT) — robust integer solver.
+- mip (python-mip) — convenient interface to CBC/Gurobi.
+- pyomo — for more advanced modeling or using different solvers.
+
+Example (pulp) code
+- The following sketch solves the integer program with pulp:
+
+from pulp import LpProblem, LpMinimize, LpVariable, LpInteger, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("Transport", LpMinimize)
+S = LpVariable("S", lowBound=0, cat=LpInteger)
+P = LpVariable("P", lowBound=0, upBound=10, cat=LpInteger)
+
+prob += 500*S + 300*P                        # objective
+prob += 40*S + 20*P >= 500                   # capacity
+prob += S >= P                               # at least 50% trips by ship
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print("S =", int(S.value()), "P =", int(P.value()), "Fuel =", 500*int(S.value()) + 300*int(P.value()))
+
+This returns S = 12, P = 1, Fuel = 6300.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained script to solve the integer program by enumeration
+
+# Decision variables:
+# S >= 0 integer (ship trips)
+# P >= 0 integer (plane trips, <= 10)
+# Constraints:
+# 2*S + P >= 25
+# P <= 10
+# S >= P
+
+min_fuel = None
+best_S = None
+best_P = None
+
+# Search bounds: S from 0 to 100 (plenty), P from 0 to 10
+for S in range(0, 101):
+    for P in range(0, 11):
+        if 2 * S + P >= 25 and P <= 10 and S >= P:
+            fuel = 500 * S + 300 * P
+            if (min_fuel is None) or (fuel < min_fuel):
+                min_fuel = fuel
+                best_S = S
+                best_P = P
+
+# Print the final objective value in the required format
+print(f"FINAL_OBJ: {min_fuel}")
+```

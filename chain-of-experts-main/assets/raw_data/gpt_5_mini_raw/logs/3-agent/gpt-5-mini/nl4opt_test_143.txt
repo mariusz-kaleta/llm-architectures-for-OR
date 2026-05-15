@@ -1,0 +1,94 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x ∈ Z≥0 : number of camel caravan trips (each trip delivers 50 units and takes 12 hours).
+- y ∈ Z≥0 : number of desert truck trips (each trip delivers 150 units and takes 5 hours).
+
+Objective
+- Minimize total hours used:
+  minimize Z = 12x + 5y
+
+Constraints
+1. Demand constraint: all goods must be delivered
+   50x + 150y ≥ 1500
+   (equivalently x + 3y ≥ 30)
+
+2. Preference constraint: prefer more camel caravans than trucks
+   x ≥ y
+
+3. Integrality and nonnegativity
+   x, y ∈ Z≥0
+
+Analytical solution
+- From x + 3y ≥ 30 we get x ≥ 30 − 3y.
+- With the preference x ≥ y, the minimal feasible x is x = max(30 − 3y, y).
+- Consider ranges:
+  - If y ≤ 7, then x = 30 − 3y and objective Z = 360 − 31y (decreases with y). Best in this range at y=7 → x=9 → Z=143.
+  - If y ≥ 8, then x = y and feasibility requires 4y ≥ 30 ⇒ y ≥ 7.5 ⇒ minimal integer y = 8. Then x = 8 and Z = 17·8 = 136.
+- The minimum Z occurs at x = 8, y = 8 with total hours Z = 136. Capacity delivered = 50·8 + 150·8 = 1600 ≥ 1500.
+
+Recommended solvers/libraries
+- For exact integer solutions: PuLP (CBC solver), OR-Tools (CP-SAT), mip (CBC/Gurobi), Pyomo + a MILP solver, or commercial solvers (Gurobi, CPLEX).
+- For continuous relaxation or quick LP checks: scipy.optimize.linprog (note: not for integer constraints).
+
+Example (PuLP) model sketch in Python
+- Use PuLP or OR-Tools CP-SAT to implement:
+  import pulp
+  x = pulp.LpVariable('x', lowBound=0, cat='Integer')
+  y = pulp.LpVariable('y', lowBound=0, cat='Integer')
+  prob = pulp.LpProblem('transport', pulp.LpMinimize)
+  prob += 12*x + 5*y
+  prob += 50*x + 150*y >= 1500
+  prob += x >= y
+  prob.solve()
+
+Answer
+- Organize 8 camel caravan trips and 8 desert truck trips (total hours = 136).
+
+---
+
+[CODER]:
+#!/usr/bin/env python3
+# Self-contained solver for the caravan/truck integer optimization problem.
+# Decision vars:
+#   x (int >=0): number of camel caravan trips (50 units, 12 hours each)
+#   y (int >=0): number of desert truck trips  (150 units, 5 hours each)
+# Minimize Z = 12*x + 5*y
+# s.t. 50*x + 150*y >= 1500
+#      x >= y
+
+def main():
+    # Data initialization
+    cap_camel = 50
+    cap_truck = 150
+    time_camel = 12
+    time_truck = 5
+    demand = 1500
+
+    # Reasonable search bounds:
+    # max trips if only smallest vehicle used + some buffer
+    max_trips = demand // min(cap_camel, cap_truck) + 50
+
+    best_Z = None
+    best_x = None
+    best_y = None
+
+    for x in range(0, max_trips + 1):
+        for y in range(0, max_trips + 1):
+            # constraints
+            if x < y:
+                continue
+            if cap_camel * x + cap_truck * y < demand:
+                continue
+            Z = time_camel * x + time_truck * y
+            if (best_Z is None) or (Z < best_Z) or (Z == best_Z and (x + y) < (best_x + best_y)):
+                best_Z = Z
+                best_x = x
+                best_y = y
+
+    # Final objective value must be printed in the exact required format
+    print(f"FINAL_OBJ: {best_Z}")
+
+if __name__ == "__main__":
+    main()

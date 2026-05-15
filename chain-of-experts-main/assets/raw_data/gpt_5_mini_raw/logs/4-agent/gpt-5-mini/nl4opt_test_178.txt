@@ -1,0 +1,119 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Minimise the total number of sanitizer machines purchased (motion + manual) while satisfying minimum drops/minute, maximum energy consumption, the hygiene proportion rule, and the minimum number of motion units.
+
+2) Suggested model type
+- Model: Integer Linear Programming (ILP / MILP). All constraints are linear and decision variables are integer counts (numbers of machines).
+
+3) Main decision variables
+- M = number of motion-activated machines (integer >= 0)
+- N = number of manual machines (integer >= 0)
+
+4) Key constraints to include (described so modeller can implement them directly)
+- Drop-rate requirement: Combined output must meet at least 1000 drops/min (motion contributes 50 drops/min each, manual 75 drops/min each).
+- Energy budget: Combined energy use must not exceed 500 kWh/min (motion uses 30 kWh/min each, manual 20 kWh/min each).
+- Hygiene proportion: Manual machines may be at most 40% of the total machines. (This is linearizable; equivalently enforce N <= 0.4*(M+N), which can be written in integer-linear form as 3*N <= 2*M.)
+- Minimum motion machines: At least 3 motion-activated units (M >= 3).
+- Domain and integrality: M and N are non-negative integers.
+
+5) Practical modelling / solver notes for the modeller
+- Provide simple upper bounds to narrow search: e.g., from energy alone M <= floor(500/30)=16, N <= floor(500/20)=25; from drops alone max if only one type (M <= floor(1000/50)=20, N <= floor(1000/75)=13). Use tight bounds when solving.
+- Solve with a MILP solver (CBC, Gurobi, CPLEX, or similar). Because there are only two integer variables a brute-force enumeration over small feasible integer ranges is also trivial and fast.
+- Optional: compute LP relaxation first for a lower bound, then enforce integrality.
+- Output should be the optimal (M,N) pair and the minimum M+N value, plus verification that all constraints are satisfied.
+
+---
+
+[MODELER]:
+Formal model (MILP)
+
+Decision variables
+- M ∈ Z, M ≥ 0 : number of motion-activated machines.
+- N ∈ Z, N ≥ 0 : number of manual machines.
+
+Objective
+- Minimise the total number of machines:
+  minimize Z = M + N.
+
+Constraints (linear)
+1) Drop-rate requirement (at least 1000 drops/min):
+   50 M + 75 N ≥ 1000
+   (equivalently 2 M + 3 N ≥ 40 after dividing by 25)
+
+2) Energy budget (at most 500 kWh/min):
+   30 M + 20 N ≤ 500
+   (equivalently 3 M + 2 N ≤ 50 after dividing by 10)
+
+3) Hygiene proportion (manual ≤ 40% of total):
+   N ≤ 0.4 (M + N)
+   This is linearized to integer-linear form:
+   3 N ≤ 2 M
+   (derived: N ≤ 0.4M + 0.4N → 0.6N ≤ 0.4M → multiply by 5 → 3N ≤ 2M)
+
+4) Minimum motion units:
+   M ≥ 3
+
+5) Integrality and non-negativity:
+   M, N ∈ Z, M ≥ 3, N ≥ 0.
+
+Practical (tight) bounds to reduce search
+- From energy alone: M ≤ floor(500/30) = 16, N ≤ floor(500/20) = 25.
+- From drops alone: M ≤ floor(1000/50) = 20, N ≤ floor(1000/75) = 13.
+- Combine to use tighter bounds: M ∈ [3,16], N ∈ [0,13].
+
+Suggested solvers / Python libraries
+- pulp (with CBC), or-tools (CP-SAT for integer programs), Pyomo (with CBC/Gurobi/CPLEX), or Gurobi/CPLEX directly if available.
+- Because there are only two integer variables and small bounds, a simple brute-force enumeration over M ∈ [3,16], N ∈ [0,13] is trivial and fast.
+
+Optimal solution (computed)
+- Optimal (M, N) = (11, 6).
+- Minimum number of machines = M + N = 17.
+
+Verification of constraints for (11, 6)
+- Drops: 50·11 + 75·6 = 550 + 450 = 1000 ≥ 1000 ✓
+- Energy: 30·11 + 20·6 = 330 + 120 = 450 ≤ 500 ✓
+- Hygiene: 3·6 = 18 ≤ 2·11 = 22 (i.e., N/(M+N) = 6/17 ≈ 35.29% ≤ 40%) ✓
+- Minimum motion units: M = 11 ≥ 3 ✓
+
+Notes and solver strategy
+- You can solve the MILP directly with pulp or or-tools. With pulp, set integer variables and the objective as above; the CBC solver will find (11,6).
+- Alternatively enumerate feasible (M,N) pairs in the small bounded ranges and pick the one with smallest M+N (breaking ties arbitrarily).
+- Optionally solve the LP relaxation (drop integrality) to get a lower bound before integer solve; but for 2 variables enumeration is simplest.
+
+---
+
+[CODER]:
+# Self-contained script to solve the MILP by enumeration
+# Decision variables:
+#  M integer >= 3
+#  N integer >= 0
+# Objective: minimize Z = M + N
+# Constraints:
+#  50*M + 75*N >= 1000
+#  30*M + 20*N <= 500
+#  3*N <= 2*M
+
+best_obj = None
+best_solution = None
+
+# Bounds from problem statement
+M_min, M_max = 3, 16  # inclusive
+N_min, N_max = 0, 13  # inclusive
+
+for M in range(M_min, M_max + 1):
+    for N in range(N_min, N_max + 1):
+        # Check constraints
+        if 50 * M + 75 * N < 1000:
+            continue
+        if 30 * M + 20 * N > 500:
+            continue
+        if 3 * N > 2 * M:
+            continue
+        # feasible
+        obj = M + N
+        if best_obj is None or obj < best_obj:
+            best_obj = obj
+            best_solution = (M, N)
+
+# At this point best_obj should be found
+print(f"FINAL_OBJ: {best_obj}")

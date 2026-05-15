@@ -1,0 +1,112 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of 4-wheeler vehicles (integer, x >= 0)
+  - y = number of 3-wheeler vehicles (integer, y >= 0)
+
+- Objective
+  - Minimize total number of vehicles: minimize Z = x + y
+
+- Constraints
+  1. Capacity: 60 x + 40 y >= 1000
+  2. Pollution: 30 x + 15 y <= 430
+  3. Integrality and nonnegativity: x, y ∈ Z_{\ge 0}
+
+You can simplify the constraints by dividing by common factors:
+- Capacity: 3x + 2y >= 50
+- Pollution: 2x + y <= 28.666... → because left side is integer, this is equivalent to 2x + y <= 28.
+
+Solution by simple enumeration (small integer domain)
+From 2x + y ≤ 28 we get x ≤ 6. Check x = 0..6 and for each take smallest feasible y ≥ ceil((50 − 3x)/2) that also satisfies 2x + y ≤ 28.
+
+Computed feasible minima:
+- x = 6, y = 16 gives capacity 60·6 + 40·16 = 1000 and pollution 30·6 + 15·16 = 420 ≤ 430.
+- Total vehicles = 22.
+
+This is the minimum: x = 6 four-wheelers and y = 16 three-wheelers (22 vehicles).
+
+Recommended solvers / Python libraries
+- pulp (simple MILP formulation and solver interfaces)
+- OR-Tools (CP-SAT or linear solver for integer problems)
+- mip (Python-MIP)
+- pyomo (with a MILP solver backend)
+- cvxpy (supports integer variables with some solvers)
+
+Example using pulp (quick)
+(You can run this in a Python environment with pulp installed.)
+
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("AirportVehicles", LpMinimize)
+x = LpVariable('x', lowBound=0, cat='Integer')  # 4-wheelers
+y = LpVariable('y', lowBound=0, cat='Integer')  # 3-wheelers
+
+prob += x + y                    # objective
+prob += 60*x + 40*y >= 1000      # capacity
+prob += 30*x + 15*y <= 430       # pollution
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print("x =", int(x.value()), "y =", int(y.value()), "total =", int(x.value() + y.value()))
+
+This will output x = 6, y = 16, total = 22.
+
+If you want, I can provide the full solver output, or a variant using OR-Tools or pyomo.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem:
+# Minimize Z = x + y
+# s.t.
+# 60x + 40y >= 1000   (capacity)
+# 30x + 15y <= 430    (pollution)
+# x, y are nonnegative integers
+
+best_obj = None
+best_solution = None
+
+# From pollution: 30x + 15y <= 430  -> 2x + y <= 28 (integer form)
+# So y <= 28 - 2x and y >= 0, which implies 2x <= 28 -> x <= 14
+for x in range(0, 15):
+    # capacity: 60x + 40y >= 1000 -> 3x + 2y >= 50 -> 2y >= 50 - 3x -> y >= ceil((50-3x)/2)
+    a = 50 - 3*x
+    if a <= 0:
+        min_y = 0
+    else:
+        min_y = (a + 1) // 2  # ceil division for positive a
+    
+    max_y = 28 - 2*x
+    if max_y < 0:
+        continue
+    if min_y > max_y:
+        continue
+    
+    # choose smallest feasible y to minimize x+y
+    y = min_y
+    obj = x + y
+    # verify original constraints just to be safe
+    if 60*x + 40*y >= 1000 and 30*x + 15*y <= 430:
+        if best_obj is None or obj < best_obj:
+            best_obj = obj
+            best_solution = (x, y)
+
+# If no solution found in bounds, expand search (fallback)
+if best_obj is None:
+    for x in range(0, 101):
+        for y in range(0, 101):
+            if 60*x + 40*y >= 1000 and 30*x + 15*y <= 430:
+                obj = x + y
+                if best_obj is None or obj < best_obj:
+                    best_obj = obj
+                    best_solution = (x, y)
+
+# Final objective value
+if best_obj is None:
+    final_value = None
+else:
+    final_value = best_obj
+
+print(f"FINAL_OBJ: {final_value}")

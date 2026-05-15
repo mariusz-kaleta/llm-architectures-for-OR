@@ -1,0 +1,195 @@
+[MODELER]:
+**Model interpretation**
+
+We need to choose numbers of vans and trucks so that:
+
+- At least 2000 pairs of shoes are transported.
+- The number of trucks does not exceed the number of vans.
+- The total number of vehicles (vans + trucks) is minimized.
+- All numbers are nonnegative integers.
+
+---
+
+### 1. Decision variables
+
+Let:
+
+- \(v \in \mathbb{Z}_{\ge 0}\): number of vans used  
+- \(t \in \mathbb{Z}_{\ge 0}\): number of trucks used  
+
+---
+
+### 2. Parameters
+
+- Van capacity: 50 pairs of shoes  
+- Truck capacity: 100 pairs of shoes  
+- Required minimum supply: 2000 pairs of shoes  
+
+---
+
+### 3. Constraints
+
+1. **Capacity constraint (minimum 2000 pairs):**
+\[
+50v + 100t \;\ge\; 2000
+\]
+
+2. **Truck–van relationship constraint:**
+\[
+t \;\le\; v
+\]
+
+3. **Nonnegativity and integrality:**
+\[
+v, t \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+### 4. Objective function
+
+We want to **minimize the total number of vehicles**:
+
+\[
+\min \; v + t
+\]
+
+This is an **integer linear programming problem**.
+
+---
+
+### 5. Solving analytically
+
+From the capacity constraint:
+\[
+50v + 100t \ge 2000 \;\Rightarrow\; v + 2t \ge 40
+\]
+
+Minimize \(v + t\) subject to:
+- \(v + 2t \ge 40\)
+- \(t \le v\)
+- \(v, t \ge 0\) integers
+
+To use as many trucks as possible (since each truck carries more), set \(v = t\) (maximizes trucks under \(t \le v\)).
+
+Then:
+\[
+v + 2t = v + 2v = 3v \ge 40 \Rightarrow v \ge \frac{40}{3} \Rightarrow v \ge 14 \text{ (integer)}
+\]
+
+Check \(v = t = 14\):
+- Capacity: \(50(14) + 100(14) = 700 + 1400 = 2100 \ge 2000\)
+- Total vehicles: \(v + t = 14 + 14 = 28\)
+
+Try one less: \(v = t = 13\):
+- Capacity: \(50(13) + 100(13) = 650 + 1300 = 1950 < 2000\) (not feasible)
+
+We should also check around this solution to ensure we don’t get fewer vehicles:
+Use \(v + 2t \ge 40\) and \(t \le v\).
+
+For each total vehicles \(N = v + t\), the maximum trucks occur when \(t\) is as large as allowed by \(t \le v\), i.e., \(t \le \lfloor N/2 \rfloor\). You need at least 40 “capacity units” \(v + 2t\), so:
+
+- With \(N = 27\), maximum possible \(t = 13\), \(v = 14\) gives \(v + 2t = 14 + 26 = 40\) but then \(t = 13 \le v = 14\) and \(v + t = 27\). However, check the original capacity: \(50(14) + 100(13) = 700 + 1300 = 2000\). This is feasible and uses 27 vehicles, fewer than 28.
+
+Correcting the computation: the best is:
+
+Take \(t = 13\). Then from \(v + 2t \ge 40\):
+\[
+v + 26 \ge 40 \Rightarrow v \ge 14
+\]
+Use \(v = 14\). Then:
+- Capacity: \(50\cdot14 + 100\cdot13 = 700 + 1300 = 2000\)
+- Vehicles: \(14 + 13 = 27\)
+- Constraint: \(t = 13 \le 14 = v\) satisfied.
+
+Try to reduce total vehicles to 26:
+- If \(v + t = 26\) and \(t \le v\), then \(t \le 13\).
+- Best capacity is with \(t = 13\), \(v = 13\):
+  - Capacity: \(50\cdot13 + 100\cdot13 = 1950 < 2000\) (infeasible).
+- Any other split (fewer trucks) produces even lower capacity, so 26 vehicles cannot satisfy constraints.
+
+Thus, the optimal solution is:
+- \(v = 14\), \(t = 13\)
+- Minimum number of vans: **14**
+
+---
+
+### 6. Suitable Python libraries
+
+This is a small integer linear program, easily solved with:
+
+- **PuLP** (`pulp`): simple interface for linear and integer programming.
+- **OR-Tools** (`ortools.linear_solver`): Google’s optimization suite with MILP support.
+- **Pyomo**: for more general algebraic modeling of optimization problems.
+
+For this problem, **PuLP** or **OR-Tools** is sufficient and straightforward.
+
+---
+
+### 7. Example with PuLP
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Shoe_Transport", pl.LpMinimize)
+
+# Decision variables
+v = pl.LpVariable('vans', lowBound=0, cat='Integer')
+t = pl.LpVariable('trucks', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of vehicles
+prob += v + t
+
+# Constraints
+prob += 50*v + 100*t >= 2000       # capacity
+prob += t <= v                     # trucks not more than vans
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal vans:", pl.value(v))
+print("Optimal trucks:", pl.value(t))
+print("Minimum total vehicles:", pl.value(v + t))
+```
+
+This will return `vans = 14`, `trucks = 13`.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Shoe_Transport", pl.LpMinimize)
+
+    # Decision variables
+    v = pl.LpVariable('vans', lowBound=0, cat='Integer')
+    t = pl.LpVariable('trucks', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of vehicles
+    prob += v + t
+
+    # Constraints
+    prob += 50 * v + 100 * t >= 2000  # capacity
+    prob += t <= v                    # trucks not more than vans
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    optimal_vans = pl.value(v)
+    optimal_trucks = pl.value(t)
+    min_total_vehicles = pl.value(v + t)
+
+    # Print intermediate results (not required by instructions but useful)
+    print(f"Optimal vans: {optimal_vans}")
+    print(f"Optimal trucks: {optimal_trucks}")
+    print(f"Minimum total vehicles: {min_total_vehicles}")
+
+    # Final required output
+    print(f"FINAL_OBJ: {min_total_vehicles}")
+
+if __name__ == "__main__":
+    main()

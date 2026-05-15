@@ -1,0 +1,149 @@
+[MODELER]:
+Here is a precise optimization model for the problem.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of vintage bottles to produce (integer, \(x \geq 0\))  
+- \(y\) = number of regular bottles to produce (integer, \(y \geq 0\))
+
+---
+
+## 2. Objective
+
+We want to maximize the total number of bottles produced:
+
+\[
+\max \; Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Wine availability (capacity constraint)
+
+Each vintage bottle uses 500 ml; each regular bottle uses 750 ml. Total wine available is 100,000 ml:
+
+\[
+500x + 750y \leq 100000
+\]
+
+### b) Mix constraint (regular vs vintage)
+
+The number of regular bottles must be at least 4 times the number of vintage bottles:
+
+\[
+y \geq 4x
+\]
+
+### c) Minimum vintage bottles
+
+At least 10 vintage bottles must be made:
+
+\[
+x \geq 10
+\]
+
+### d) Non-negativity and integrality
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete mathematical model
+
+\[
+\begin{align*}
+\max \quad & x + y \\
+\text{s.t.} \quad
+& 500x + 750y \leq 100000 \\
+& y \geq 4x \\
+& x \geq 10 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{align*}
+\]
+
+---
+
+## 5. Solving / interpretation of optimal solution
+
+Use the mix constraint \(y \ge 4x\). To maximize total bottles for fixed \(x\), you want \(y\) as large as possible, but the wine capacity will limit it.  
+Try taking the boundary case \(y = 4x\) (since more \(y\) uses more wine per bottle count mix):
+
+Substitute into wine constraint:
+\[
+500x + 750(4x) \le 100000 \\
+500x + 3000x \le 100000 \\
+3500x \le 100000 \\
+x \le \frac{100000}{3500} \approx 28.57
+\]
+
+With integrality and \(x \ge 10\), the largest feasible integer is \(x = 28\). Then:
+- \(y \ge 4 \cdot 28 = 112\)
+- Check wine use: \(500 \cdot 28 + 750 \cdot 112 = 14000 + 84000 = 98000 \le 100000\)
+
+We can try increasing \(y\) beyond \(4x\). For \(x = 28\):
+
+\[
+500 \cdot 28 + 750y \le 100000 \Rightarrow 14000 + 750y \le 100000 \Rightarrow 750y \le 86000 \Rightarrow y \le 114.66
+\]
+
+So \(y\) can be at most 114. To maximize \(x+y\), choose the largest feasible \(y\): \(y=114\).
+
+- Feasibility check:  
+  - Regular at least 4 times vintage: \(114 \ge 4 \cdot 28 = 112\) ✓  
+  - Wine: \(500 \cdot 28 + 750 \cdot 114 = 14000 + 85500 = 99500 \le 100000\) ✓
+
+Total bottles: \(28 + 114 = 142\).
+
+No larger total is possible with other integer \(x\): if \(x\) increases, the capacity constraint becomes tighter; if \(x\) decreases, you lose bottles because the mix constraint forces more regular per vintage and the capacity is fixed.
+
+**Optimal solution:**
+- Vintage bottles: \(x^* = 28\)  
+- Regular bottles: \(y^* = 114\)  
+- Maximum total bottles: \(142\)
+
+---
+
+## 6. Suitable Python libraries
+
+This is a small mixed-integer linear program (MILP). Good libraries:
+
+- **PuLP** (pure Python, easy to use)
+- **OR-Tools (Google)** – `ortools.linear_solver` for MILP
+- **Pyomo** – more general algebraic modeling language
+
+For a quick and simple implementation, **PuLP** is a very good choice.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Wine_Production", pulp.LpMaximize)
+
+# Decision variables
+x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # vintage
+y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # regular
+
+# Objective function: maximize total bottles
+prob += x + y
+
+# Constraints
+prob += 500 * x + 750 * y <= 100000      # wine capacity
+prob += y >= 4 * x                       # mix constraint
+prob += x >= 10                          # minimum vintage
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract objective value
+final_obj = pulp.value(prob.objective)
+
+print(f"FINAL_OBJ: {final_obj}")

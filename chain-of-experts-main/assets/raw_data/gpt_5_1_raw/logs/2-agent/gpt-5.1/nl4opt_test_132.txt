@@ -1,0 +1,174 @@
+[MODELER]:
+This problem can be modeled as a linear programming (LP) optimization problem.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of desks to produce  
+- \(y\) = number of drawers to produce  
+
+Both must be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+## 2. Objective function
+
+Maximize total profit:
+
+- Profit per desk = \$100  
+- Profit per drawer = \$90  
+
+So the objective is:
+\[
+\max \; Z = 100x + 90y
+\]
+
+## 3. Constraints
+
+### Assembly time constraint
+
+Each desk requires 40 minutes of assembly, each drawer 30 minutes.  
+Total assembly time available: 4000 minutes.
+
+\[
+40x + 30y \le 4000
+\]
+
+### Sanding time constraint
+
+Each desk requires 20 minutes of sanding, each drawer 10 minutes.  
+Total sanding time available: 3500 minutes.
+
+\[
+20x + 10y \le 3500
+\]
+
+### Non-negativity
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+## 4. Full mathematical model
+
+\[
+\begin{aligned}
+\max \quad & 100x + 90y \\
+\text{s.t.} \quad
+& 40x + 30y \le 4000 \\
+& 20x + 10y \le 3500 \\
+& x \ge 0, \; y \ge 0
+\end{aligned}
+\]
+
+## 5. Solving the model
+
+To find the optimal solution, we look at the intersection of binding constraints:
+
+1. Assembly: \(40x + 30y = 4000\)  
+2. Sanding: \(20x + 10y = 3500\)
+
+Solve the sanding constraint first:
+
+\[
+20x + 10y = 3500 \Rightarrow 2x + y = 350 \Rightarrow y = 350 - 2x
+\]
+
+Substitute into the assembly constraint:
+
+\[
+40x + 30(350 - 2x) = 4000
+\]
+\[
+40x + 10500 - 60x = 4000
+\]
+\[
+-20x = 4000 - 10500 = -6500
+\]
+\[
+x = 325
+\]
+Then
+\[
+y = 350 - 2(325) = 350 - 650 = -300
+\]
+
+This gives \(y < 0\), which is infeasible. Thus both constraints cannot bind simultaneously in the feasible region. We evaluate at corner points of the feasible region:
+
+### Corner 1: All desks (y = 0)
+- Assembly: \(40x \le 4000 \Rightarrow x \le 100\)  
+- Sanding: \(20x \le 3500 \Rightarrow x \le 175\)  
+Tighter is \(x \le 100\). So corner: \((x,y) = (100, 0)\)
+
+Profit: \(Z = 100(100) + 90(0) = 10000\)
+
+### Corner 2: All drawers (x = 0)
+- Assembly: \(30y \le 4000 \Rightarrow y \le 133.\overline{3}\)  
+- Sanding: \(10y \le 3500 \Rightarrow y \le 350\)  
+Tighter is \(y \le 133.\overline{3}\). So corner: \((0, 133.\overline{3})\)
+
+Profit: \(Z = 100(0) + 90(133.\overline{3}) = 12000\)
+
+### Corner 3: Intersection with sanding constraint and y = 0 already considered.  
+Check intersection of sanding constraint with x = 0 is Corner 2, and assembly with y = 0 is Corner 1.  
+There is no feasible interior intersection of the two time constraints (it gave y < 0), so only these corners matter.
+
+Thus the maximum profit is at \((x, y) = (0, 133.\overline{3})\) with profit \$12,000.
+
+If you require integer numbers of products, the best integer near \(133.\overline{3}\) is 133 drawers:
+
+- Time used:
+  - Assembly: \(30 \cdot 133 = 3990 \le 4000\)
+  - Sanding: \(10 \cdot 133 = 1330 \le 3500\)
+- Profit: \(90 \cdot 133 = 11970\)
+
+So:
+
+- Continuous solution:  
+  - Desks: \(x^* = 0\)  
+  - Drawers: \(y^* = 133.\overline{3}\)  
+- Integer (practical) solution:  
+  - Desks: \(x = 0\)  
+  - Drawers: \(y = 133\)
+
+## 6. Suitable Python libraries
+
+To implement and solve this LP in Python, appropriate libraries include:
+
+- `PuLP` – simple interface for linear and integer programming.
+- `scipy.optimize.linprog` – good for continuous LPs.
+- `ortools.linear_solver` (from Google OR-Tools) – powerful for LP/MIP problems.
+
+For this kind of small LP, `PuLP` or `scipy.optimize.linprog` is typically enough.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def main():
+    # Create LP problem (maximize)
+    prob = pulp.LpProblem("Desk_Drawer_Production", pulp.LpMaximize)
+
+    # Decision variables (continuous, >= 0)
+    x = pulp.LpVariable('x', lowBound=0, cat='Continuous')  # desks
+    y = pulp.LpVariable('y', lowBound=0, cat='Continuous')  # drawers
+
+    # Objective function: Maximize 100x + 90y
+    prob += 100 * x + 90 * y
+
+    # Constraints
+    prob += 40 * x + 30 * y <= 4000  # Assembly time
+    prob += 20 * x + 10 * y <= 3500  # Sanding time
+
+    # Solve the LP
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Fetch objective value
+    final_obj = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

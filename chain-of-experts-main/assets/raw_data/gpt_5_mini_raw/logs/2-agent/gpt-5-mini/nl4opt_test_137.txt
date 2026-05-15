@@ -1,0 +1,65 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - h ∈ Z_{\ge 0}: number of helicopter trips
+  - t ∈ Z_{\ge 0}: number of truck trips
+
+- Objective
+  - Minimize total pollution: minimize Z = 5h + 10t
+
+- Constraints
+  - Capacity: 3h + 7t ≥ 80 (must transport at least 80 cows)
+  - Truck-trip budget: 0 ≤ t ≤ 8
+  - Integrality: h and t integers (nonnegative)
+
+Reasoning / simplification
+- Pollution per cow: helicopter = 5/3 ≈ 1.667 units/cow, truck = 10/7 ≈ 1.429 units/cow. Trucks are more pollution-efficient, so use the maximum allowable truck trips (t = 8).
+- With t = 8, trucks carry 7·8 = 56 cows, remaining cows = 24, so h = ceil(24/3) = 8 helicopter trips.
+- Total pollution = 5·8 + 10·8 = 40 + 80 = 120 units.
+
+Thus the optimal solution is h = 8 helicopter trips and t = 8 truck trips, giving minimum pollution 120 units.
+
+Suggested Python libraries to solve (MILP / integer problems)
+- pulp (with default CBC solver) — simple modeling and solving for small ILPs
+- OR-Tools (CP-SAT) — fast and robust for integer programming
+- pyomo (with CBC, GLPK, or commercial solvers) — more expressive modeling
+- For this tiny problem a simple brute-force search (loop t = 0..8 and compute minimal h) is also trivial and efficient.
+
+Optional: short brute-force sketch (conceptual)
+- For t in 0..8: h = ceil(max(0, 80 - 7*t) / 3); compute Z = 5*h + 10*t; choose (h,t) with smallest Z.
+This yields (h,t) = (8,8) with Z = 120.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data
+capacity_required = 80
+pollution_h = 5   # per helicopter trip
+pollution_t = 10  # per truck trip
+cap_h = 3         # cows per helicopter trip
+cap_t = 7         # cows per truck trip
+t_max = 8
+
+best_obj = None
+best_h = None
+best_t = None
+
+for t in range(t_max + 1):
+    remaining = capacity_required - cap_t * t
+    if remaining <= 0:
+        h = 0
+    else:
+        h = math.ceil(remaining / cap_h)
+    if h < 0:
+        h = 0
+    obj = pollution_h * h + pollution_t * t
+    if (best_obj is None) or (obj < best_obj):
+        best_obj = obj
+        best_h = h
+        best_t = t
+
+# Final objective value output (required exact format)
+print(f"FINAL_OBJ: {best_obj}")

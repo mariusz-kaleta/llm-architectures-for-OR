@@ -1,0 +1,152 @@
+[MODELER]:
+Here is a clean optimization model for this problem.
+
+---
+
+## 1. Decision variables
+
+Let:
+
+- \( x \) = number of regular handbags to sell (per month)  
+- \( y \) = number of premium handbags to sell (per month)
+
+We assume:
+- \( x, y \ge 0 \)
+- They are integers (handbags can’t be fractional).
+
+---
+
+## 2. Objective function
+
+Profit per unit:
+- Regular: \$30 per bag  
+- Premium: \$180 per bag  
+
+Total monthly profit:
+\[
+\text{Maximize } Z = 30x + 180y
+\]
+
+---
+
+## 3. Constraints
+
+### (a) Budget / cost constraint
+
+Manufacturing cost:
+- Regular: \$200 per bag  
+- Premium: \$447 per bag  
+
+Total budget: \$250,000
+
+\[
+200x + 447y \le 250{,}000
+\]
+
+---
+
+### (b) Sales capacity constraint
+
+At most 475 handbags of either type per month in total:
+
+\[
+x + y \le 475
+\]
+
+---
+
+### (c) Non-negativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Nature of the problem
+
+This is a **linear integer programming** problem (specifically, an integer linear program, ILP):
+
+- Linear objective
+- Linear constraints
+- Integer decision variables
+
+In practice, because the coefficients are not huge, you can often relax integrality and solve as a linear program (LP); the optimal solution will often be integral or very close.
+
+---
+
+## 5. Suitable Python libraries
+
+You can model and solve this with:
+
+- **PuLP** – very straightforward for small LP/ILP problems:
+  - `pulp.LpProblem`, `pulp.LpVariable`, etc.
+- **OR-Tools Linear Solver** (`ortools.linear_solver.pywraplp`) or **OR-Tools MIP solver**:
+  - Powerful and fast for integer and mixed-integer linear problems.
+- **Pyomo** – more general algebraic modeling language for optimization.
+
+For this problem, **PuLP** or **OR-Tools** would be the most convenient.
+
+---
+
+## 6. Example model in PuLP (sketch)
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Handbag_Production", pl.LpMaximize)
+
+# Decision variables (integer)
+x = pl.LpVariable('regular', lowBound=0, cat='Integer')
+y = pl.LpVariable('premium', lowBound=0, cat='Integer')
+
+# Objective function
+prob += 30*x + 180*y
+
+# Constraints
+prob += 200*x + 447*y <= 250000      # Budget
+prob += x + y <= 475                 # Capacity
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal regular handbags:", x.value())
+print("Optimal premium handbags:", y.value())
+print("Maximum profit:", pl.value(prob.objective))
+```
+
+This code directly implements the mathematical model described above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create problem
+    prob = pl.LpProblem("Handbag_Production", pl.LpMaximize)
+
+    # Decision variables (integer)
+    x = pl.LpVariable('regular', lowBound=0, cat='Integer')
+    y = pl.LpVariable('premium', lowBound=0, cat='Integer')
+
+    # Objective function: Maximize profit
+    prob += 30 * x + 180 * y
+
+    # Constraints
+    prob += 200 * x + 447 * y <= 250000      # Budget constraint
+    prob += x + y <= 475                     # Capacity constraint
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

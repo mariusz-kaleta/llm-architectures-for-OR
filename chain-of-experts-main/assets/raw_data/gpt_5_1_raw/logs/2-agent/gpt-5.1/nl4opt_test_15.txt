@@ -1,0 +1,162 @@
+[MODELER]:
+Here is a clean mathematical model of the problem.
+
+## Decision variables
+
+Let  
+- \(x\) = number of Type II ambulance shifts per day  
+- \(y\) = number of hospital van shifts per day  
+
+Both are nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+If you want strictly integer numbers of shifts:
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+## Objective
+
+Minimize the total daily transportation cost:
+
+- Type II ambulance shift costs: \$820 per shift  
+- Hospital van shift costs: \$550 per shift  
+
+Objective function:
+\[
+\min Z = 820x + 550y
+\]
+
+## Constraints
+
+1. **Demand (capacity) constraint**  
+   The hospital must be able to transport at least 320 patients per day.
+
+   - Each Type II ambulance shift carries 20 patients  
+   - Each van shift carries 15 patients  
+
+   So:
+   \[
+   20x + 15y \ge 320
+   \]
+
+2. **Union limitation (van share ≤ 60% of shifts)**  
+
+   At most 60% of all shifts can be van shifts. That is:
+   \[
+   \frac{y}{x + y} \le 0.6 \quad \text{when } x + y > 0
+   \]
+
+   Multiply both sides by \(x + y\) to make it linear:
+   \[
+   y \le 0.6(x + y)
+   \]
+
+   \[
+   y \le 0.6x + 0.6y
+   \]
+
+   \[
+   0.4y \le 0.6x
+   \]
+
+   \[
+   y \le 1.5x
+   \]
+
+So the complete linear program is:
+
+\[
+\begin{aligned}
+\min \quad & 820x + 550y \\
+\text{s.t.} \quad & 20x + 15y \ge 320 \\
+& y \le 1.5x \\
+& x, y \ge 0 \\
+& x, y \in \mathbb{Z} \quad \text{(if integer shifts are required)}
+\end{aligned}
+\]
+
+## Solving and interpreting the solution
+
+Solve the LP (or MILP with integrality) to find optimal \(x^*, y^*\).  
+
+If you solve this model you will find (checking integer solutions around the minimum) that:
+
+- Capacity binding solution occurs at equality of both constraints:  
+  From \(y = 1.5x\) and \(20x + 15y = 320\):  
+  \[
+  20x + 15(1.5x) = 320 \Rightarrow 42.5x = 320 \Rightarrow x \approx 7.53,\ y \approx 11.29
+  \]
+  These are fractional, so check nearby integers.
+
+Feasible integer points near this fractional optimum include:
+
+- \(x = 8, y = 12\):  
+  - Capacity: \(20(8) + 15(12) = 160 + 180 = 340 \ge 320\)  
+  - Van limit: \(12 \le 1.5(8) = 12\) (satisfies equality)  
+  - Cost: \(820(8) + 550(12) = 6560 + 6600 = \$13{,}160\)
+
+Check nearby feasible integer combination with fewer or more shifts will be more expensive; \(x=8, y=12\) is optimal among integers.
+
+**Answer (integer shifts):**  
+- 8 Type II ambulance shifts per day  
+- 12 hospital van shifts per day  
+- Minimum total daily cost: \$13,160
+
+---
+
+## Suitable Python libraries
+
+This is a small linear (mixed-integer) optimization problem. Appropriate Python libraries:
+
+- **PuLP** (very easy modeling of LP/MILP, works with CBC by default)
+- **OR-Tools** (Google OR-Tools, CP-SAT or linear solver)
+- **Pyomo** (more general modeling framework)
+- **scipy.optimize.linprog** (for the relaxed continuous LP; doesn’t handle integrality directly)
+
+For this problem, **PuLP** or **OR-Tools** are good, straightforward choices.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def solve_ambulance_van_problem():
+    # Create MILP problem
+    prob = pulp.LpProblem("AmbulanceVanScheduling", pulp.LpMinimize)
+
+    # Decision variables (integer, non-negative)
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # Type II ambulance shifts
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # Hospital van shifts
+
+    # Objective function: minimize total daily cost
+    prob += 820 * x + 550 * y
+
+    # Constraints
+    # 1. Capacity: 20x + 15y >= 320
+    prob += 20 * x + 15 * y >= 320
+
+    # 2. Van share limitation: y <= 1.5x
+    prob += y <= 1.5 * x
+
+    # Solve
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract solution and objective
+    x_val = pulp.value(x)
+    y_val = pulp.value(y)
+    obj_val = pulp.value(prob.objective)
+
+    # Ensure numeric type
+    obj_val = float(obj_val) if obj_val is not None else None
+
+    return x_val, y_val, obj_val
+
+if __name__ == "__main__":
+    x_opt, y_opt, final_obj = solve_ambulance_van_problem()
+    print(f"x (Type II ambulance shifts): {x_opt}")
+    print(f"y (Hospital van shifts): {y_opt}")
+    print(f"Total daily cost: {final_obj}")
+    print(f"FINAL_OBJ: {final_obj}")

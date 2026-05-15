@@ -1,0 +1,38 @@
+[MONOLITH]:
+import pulp
+
+# Decision variables
+# x = number of crab cakes
+# y = number of lobster rolls
+x = pulp.LpVariable('crab_cakes', lowBound=0, cat='Continuous')
+y = pulp.LpVariable('lobster_rolls', lowBound=0, cat='Continuous')
+
+# Problem
+prob = pulp.LpProblem('Minimize_Unsaturated_Fat', pulp.LpMinimize)
+
+# Objective: minimize unsaturated fat (4 per crab cake, 6 per lobster roll)
+prob += 4 * x + 6 * y, "Total_Unsaturated_Fat"
+
+# Nutrient constraints
+prob += 5 * x + 8 * y >= 80, "Vitamin_A_requirement"
+prob += 7 * x + 4 * y >= 100, "Vitamin_C_requirement"
+
+# At most 40% of meals can be lobster rolls:
+# y <= 0.4*(x + y)  ->  0.6*y <= 0.4*x  -> y <= (2/3)*x
+prob += y <= (2.0/3.0) * x, "Lobster_fraction_limit"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract solution
+x_val = pulp.value(x)
+y_val = pulp.value(y)
+obj_val = pulp.value(prob.objective)
+
+# Print solution details
+print(f"Crab cakes (x) = {x_val}")
+print(f"Lobster rolls (y) = {y_val}")
+print(f"Total unsaturated fat = {obj_val}")
+
+# Final required output line (must be last)
+print(f"FINAL_OBJ: {obj_val}")

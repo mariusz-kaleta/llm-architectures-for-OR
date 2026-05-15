@@ -1,0 +1,137 @@
+[MODELER]:
+Let’s turn this into an optimization model.
+
+## 1. Decision variables
+
+Let  
+- \(x_1 \ge 0\): number of times table 1 is set up (or batches at table 1)  
+- \(x_2 \ge 0\): number of times table 2 is set up (or batches at table 2)
+
+(If the problem requires whole tables/batches, add \(x_1, x_2 \in \mathbb{Z}_{\ge 0}\).)
+
+## 2. Objective: maximize slime produced
+
+- Table 1 produces 4 units of slime per batch.  
+- Table 2 produces 5 units of slime per batch.
+
+Maximize total slime:
+\[
+\max Z = 4x_1 + 5x_2
+\]
+
+## 3. Constraints
+
+### a) Powder constraint
+- Table 1 uses 3 units of powder per batch.  
+- Table 2 uses 8 units of powder per batch.  
+- Total powder available: 100 units.
+
+\[
+3x_1 + 8x_2 \le 100
+\]
+
+### b) Glue constraint
+- Table 1 uses 5 units of glue per batch.  
+- Table 2 uses 6 units of glue per batch.  
+- Total glue available: 90 units.
+
+\[
+5x_1 + 6x_2 \le 90
+\]
+
+### c) Mess constraint
+- Table 1 creates 2 units of mess per batch.  
+- Table 2 creates 4 units of mess per batch.  
+- Maximum mess allowed: 30 units.
+
+\[
+2x_1 + 4x_2 \le 30
+\]
+
+### d) Nonnegativity (and integrality if needed)
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+Optionally, if only whole setups are allowed:
+\[
+x_1, x_2 \in \mathbb{Z}_{\ge 0}
+\]
+
+## 4. Model summary (Linear Program)
+
+Maximize
+\[
+Z = 4x_1 + 5x_2
+\]
+
+subject to
+\[
+\begin{aligned}
+3x_1 + 8x_2 &\le 100 &&\text{(powder)} \\
+5x_1 + 6x_2 &\le 90 &&\text{(glue)} \\
+2x_1 + 4x_2 &\le 30 &&\text{(mess)} \\
+x_1, x_2 &\ge 0 &&\text{(nonnegativity)} \\
+(x_1, x_2 &\in \mathbb{Z} &&\text{if integer solutions required)}
+\end{aligned}
+\]
+
+This is a linear programming problem (integer linear programming if integrality is enforced).
+
+## 5. Suitable Python libraries
+
+To solve this model in Python, good choices are:
+
+- **PuLP**  
+  - Simple syntax for linear and integer programs.  
+  - Integrates well with CBC, GLPK, etc.  
+  - Good for teaching and small/medium problems.
+
+- **OR-Tools (Google OR-Tools)**  
+  - `ortools.linear_solver.pywraplp` for LP / MIP.  
+  - Very efficient for integer linear programming.  
+  - Industrial-grade, fast for larger combinatorial models.
+
+- **SciPy (`scipy.optimize.linprog`)**  
+  - Works for continuous linear programming (no integer constraints).  
+  - Use only if \(x_1, x_2\) can be fractional.
+
+For an integer/whole-number solution, prefer **PuLP** or **OR-Tools**.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: maximize slime production
+    model = pulp.LpProblem("Slime_Production", pulp.LpMaximize)
+
+    # Decision variables (integer and non-negative)
+    x1 = pulp.LpVariable("x1", lowBound=0, cat=pulp.LpInteger)  # batches at table 1
+    x2 = pulp.LpVariable("x2", lowBound=0, cat=pulp.LpInteger)  # batches at table 2
+
+    # Objective function: Maximize 4x1 + 5x2
+    model += 4 * x1 + 5 * x2
+
+    # Constraints
+    # Powder: 3x1 + 8x2 <= 100
+    model += 3 * x1 + 8 * x2 <= 100
+
+    # Glue: 5x1 + 6x2 <= 90
+    model += 5 * x1 + 6 * x2 <= 90
+
+    # Mess: 2x1 + 4x2 <= 30
+    model += 2 * x1 + 4 * x2 <= 30
+
+    # Solve the model
+    model.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    final_obj = pulp.value(model.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,93 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - m ∈ Z_{\ge0}: number of medium factories
+  - s ∈ Z_{\ge0}: number of small factories
+
+- Objective
+  - Minimize total number of factories: minimize Z = m + s
+
+- Constraints
+  1. Production requirement: 50 m + 35 s ≥ 250
+  2. Operator availability: 3 m + 2 s ≤ 16
+  3. Integrality and nonnegativity: m, s are nonnegative integers
+
+Mathematical formulation
+minimize     Z = m + s
+subject to   50 m + 35 s ≥ 250
+             3 m + 2 s ≤ 16
+             m, s ∈ Z_{\ge0}
+
+Solution (by simple enumeration or integer programming)
+Check feasible integer pairs (m = 0..5 because 3m ≤ 16 ⇒ m ≤ 5). The best feasible solution is
+m = 5, s = 0
+which gives 50·5 + 35·0 = 250 toys and uses 3·5 + 2·0 = 15 operators. Objective value Z = 5 (minimum).
+
+Suggested solvers / Python libraries
+- pulp (CBC by default) — easy for small integer linear programs
+- OR-Tools (CP-SAT or linear solver) — robust, fast for MIP/CP
+- python-mip (mip) — interfaces to CBC/Gurobi/CPLEX
+(Scipy.optimize is not suitable for integer programs unless you do enumeration or relaxations.)
+
+Example (pulp) code
+from pulp import LpProblem, LpVariable, LpMinimize, LpInteger, lpSum, value
+
+prob = LpProblem('Factory', LpMinimize)
+m = LpVariable('m', lowBound=0, cat=LpInteger)
+s = LpVariable('s', lowBound=0, cat=LpInteger)
+
+prob += m + s                    # objective
+prob += 50*m + 35*s >= 250       # production
+prob += 3*m + 2*s <= 16          # operators
+
+prob.solve()
+print('m=', int(m.value()), ' s=', int(s.value()), ' total=', int(value(prob.objective)))
+
+Result: build 5 medium factories and 0 small factories.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Enumerate integer solutions for m (medium factories) and s (small factories)
+best_obj = None
+best_solution = None
+
+# Bounds: from operator constraint 3m + 2s <= 16 => m <= floor(16/3) = 5
+for m in range(0, 16 // 3 + 1):
+    # production constraint: 50m + 35s >= 250 => s >= (250 - 50m)/35
+    req = 250 - 50 * m
+    if req <= 0:
+        s_min = 0
+    else:
+        s_min = math.ceil(req / 35)
+    # operator constraint gives s <= floor((16 - 3m)/2)
+    s_max = (16 - 3 * m) // 2
+    if s_max < 0:
+        continue
+    if s_min > s_max:
+        continue
+    # check all s in feasible range (though objective is monotonic in s for fixed m, so s_min is best)
+    s = s_min
+    obj = m + s
+    if (best_obj is None) or (obj < best_obj):
+        best_obj = obj
+        best_solution = (m, s)
+
+# As fallback (shouldn't be needed), if no solution found try broader search
+if best_obj is None:
+    for m in range(0, 100):
+        for s in range(0, 100):
+            if 50*m + 35*s >= 250 and 3*m + 2*s <= 16:
+                obj = m + s
+                if (best_obj is None) or (obj < best_obj):
+                    best_obj = obj
+                    best_solution = (m, s)
+
+# Print final objective value in required format
+print(f"FINAL_OBJ: {best_obj}")
+```

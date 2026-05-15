@@ -1,0 +1,158 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Minimise the total trip-time (sum of hours spent on all trips).
+
+2) Suggested model type
+- Model: Integer Linear Programming (ILP). Variables are integer counts of trips; objective and constraints are linear.
+
+3) Main decision variables
+- H = number of helicopter trips (non‑negative integer).
+- B = number of bus trips (non‑negative integer).
+
+(Also treat the input parameters as fixed constants: helicopter capacity = 5 patients/trip, helicopter duration = 1 hour/trip; bus capacity = 8 patients/trip, bus duration = 3 hours/trip; required patients = 120; minimum helicopter percentage = 30%; maximum bus trips = 10.)
+
+4) Key constraints and modelling components to include
+- Capacity requirement: total patients transported must be at least 120 (account for capacities per trip).
+- Helicopter-trip share requirement: at least 30% of the total trips must be helicopter trips (a linear relation between H and B).
+- Bus-trip upper bound: B cannot exceed 10.
+- Integrality and bounds: H and B are integers and non‑negative. Add a practical upper bound for H (e.g., ceil(120 / helicopter_capacity)) to tighten the model.
+- Objective: minimise total trip-time = (helicopter_duration)*H + (bus_duration)*B (linear).
+- Numerical checks / feasibility: ensure constraints are consistent (e.g., the percentage constraint can be binding when B is large). If required, consider alternative formulations (e.g., rewrite the percentage constraint to avoid division).
+
+Additional modelling notes / solver guidance
+- Because variables are small and integer, either use an ILP solver (CP-SAT, branch-and-bound) or a small enumerative search over B in [0,10] with H computed as the smallest integer satisfying both capacity and percentage constraints.
+- Clarify ambiguity if needed: if instead the objective should be "minimise the finishing time (makespan)" rather than sum of trip-hours, the model structure changes (introduce parallel resources or vehicle counts); request clarification before modelling that variant.
+
+Quick feasibility check (useful to validate the implemented model)
+- Helicopters are more time‑efficient per patient (1 hr / 5 patients = 0.2 hr/patient) than buses (3 hr / 8 patients = 0.375 hr/patient), so expect the time-optimal solution to favour helicopters where feasible.
+- Running a small enumeration of feasible B (0..10) and the minimal H satisfying capacity and percentage constraints will quickly give the optimal integer solution.
+
+(If you want, I can provide the explicit ILP formulation or run the small enumeration and return the optimal H and B.)
+
+---
+
+[MODELER]:
+Below I convert the textual description into a precise integer linear programming (ILP) model, give a simple exact solution method, and state the optimal solution.
+
+1) Decision variables
+- H ∈ Z≥0 : number of helicopter trips.
+- B ∈ Z≥0 : number of bus trips.
+
+(Reasonable upper bounds to tighten the model: H ≤ 24 because 24 helicopter trips carry 24·5 = 120 patients; B ≤ 10 is given.)
+
+2) Parameters (constants)
+- helicopter_capacity = 5 patients/trip
+- helicopter_time = 1 hour/trip
+- bus_capacity = 8 patients/trip
+- bus_time = 3 hours/trip
+- required_patients = 120
+- min_helicopter_fraction = 0.30
+- max_bus_trips = 10
+
+3) Objective
+Minimize total trip-time:
+Minimize Z = 1·H + 3·B
+
+4) Constraints
+- Capacity constraint: 5H + 8B ≥ 120
+- Helicopter-trip share (linearized): H / (H + B) ≥ 0.30
+  This is equivalent (for H + B > 0) to 0.7H ≥ 0.3B → 7H − 3B ≥ 0
+- Bus upper bound: 0 ≤ B ≤ 10
+- Integrality and non-negativity: H, B ∈ Z≥0
+- Practical upper bound on H: H ≤ 24 (ceil(120 / 5))
+
+Full ILP summary:
+Minimize Z = H + 3B
+subject to
+ 5H + 8B ≥ 120
+ 7H − 3B ≥ 0
+ 0 ≤ B ≤ 10, 0 ≤ H ≤ 24
+ H, B integer
+
+Notes:
+- The share constraint 7H − 3B ≥ 0 enforces H/(H+B) ≥ 0.3 without division; it is linear.
+- H + B = 0 is impossible because of the capacity constraint.
+
+5) Fast exact solution (enumeration idea)
+Because B is bounded by 0..10 and H by 0..24, a very small exhaustive/greedy search is trivial and fast. For a given B, the smallest feasible H is:
+ H_min(B) = max( ceil((120 − 8B) / 5), ceil(3B / 7), 0 )
+If (120 − 8B) ≤ 0 then the first term is ≤ 0 and contributes 0. If H_min(B) > 24 then B is infeasible.
+
+Compute objective Z(B) = H_min(B) + 3B and choose B minimizing Z(B).
+
+6) Quick numerical check and optimal solution
+Evaluate B = 0..10 using the formula above. The best found is:
+- B* = 0, H* = 24 (capacity: 24·5 = 120), objective Z* = 24 hours.
+
+Interpretation: helicopters are more time-efficient per patient (1/5 = 0.2 hr/patient) than buses (3/8 = 0.375 hr/patient), so the time-optimal plan is to use only helicopters. The 30% helicopter-trip minimum is satisfied when B = 0 (100% helicopter trips).
+
+7) Solver recommendations and implementation suggestions
+- For ILP formulation: pulp (CBC solver), OR-Tools CP-SAT, or pyomo with a MILP solver (CBC, GLPK, Gurobi if available).
+- For this small problem an enumerative approach in plain Python is simplest and guaranteed exact.
+- Avoid scipy.optimize for this as it does not handle integer variables natively.
+
+8) Example pseudocode (enumeration)
+For B in 0..10:
+  H1 = ceil(max(0, (120 - 8*B) / 5))
+  H2 = ceil((3*B) / 7)
+  H = max(H1, H2)
+  if H ≤ 24: compute Z = H + 3*B and keep best solution
+
+Final answer: Use 24 helicopter trips and 0 bus trips. Total trip-time = 24 hours.
+
+---
+
+[CODER]:
+```python
+import math
+
+# Parameters
+helicopter_capacity = 5      # patients per helicopter trip
+helicopter_time = 1          # hours per helicopter trip
+bus_capacity = 8             # patients per bus trip
+bus_time = 3                 # hours per bus trip
+required_patients = 120
+min_helicopter_fraction = 0.30
+max_bus_trips = 10
+max_helicopter_trips = 24    # ceil(120 / 5)
+
+best_obj = None
+best_H = None
+best_B = None
+
+for B in range(0, max_bus_trips + 1):
+    # Minimum H to satisfy capacity: ceil((required - 8*B)/5), but at least 0
+    remaining = required_patients - bus_capacity * B
+    if remaining <= 0:
+        H1 = 0
+    else:
+        H1 = (remaining + helicopter_capacity - 1) // helicopter_capacity  # integer ceil
+
+    # Minimum H to satisfy helicopter-trip share: ceil(3B / 7)
+    H2 = (3 * B + 7 - 1) // 7  # integer ceil of 3B/7
+
+    H = max(H1, H2)
+
+    if H > max_helicopter_trips:
+        continue  # infeasible because exceeds H upper bound
+
+    # Verify constraints (safety)
+    if 5 * H + 8 * B < required_patients:
+        continue
+    if 7 * H - 3 * B < 0:
+        continue
+
+    obj = helicopter_time * H + bus_time * B  # H + 3B
+
+    if (best_obj is None) or (obj < best_obj):
+        best_obj = obj
+        best_H = H
+        best_B = B
+
+# At least one feasible solution should exist (B=0, H=24)
+if best_obj is None:
+    raise RuntimeError("No feasible solution found.")
+
+# Final required print
+print(f"FINAL_OBJ: {best_obj}")
+```

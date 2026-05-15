@@ -1,0 +1,118 @@
+[MODELER]:
+Here is a clear optimization model of your problem.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of times process J is used  
+- \(y\) = number of times process P is used  
+
+We will assume \(x, y \ge 0\) and can be continuous (if fractional “uses” are allowed). If they must be whole numbers, we add integrality constraints \(x, y \in \mathbb{Z}_{\ge 0}\).
+
+## 2. Objective function
+
+Each use of:
+- Process J yields 5 units of metal.
+- Process P yields 9 units of metal.
+
+Total metal extracted:
+\[
+Z = 5x + 9y
+\]
+
+We want to maximize this:
+
+\[
+\max \; Z = 5x + 9y
+\]
+
+## 3. Constraints
+
+### Water constraint
+Each use of:
+- Process J consumes 8 units of water.
+- Process P consumes 6 units of water.
+
+Total available water ≤ 1500 units:
+\[
+8x + 6y \le 1500
+\]
+
+### Pollution constraint
+Each use of:
+- Process J produces 3 units of pollution.
+- Process P produces 5 units of pollution.
+
+Total allowed pollution ≤ 1350 units:
+\[
+3x + 5y \le 1350
+\]
+
+### Non-negativity:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+If you require integer processes:
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+## 4. Complete linear program
+
+Maximize:
+\[
+\quad Z = 5x + 9y
+\]
+
+Subject to:
+\[
+\begin{cases}
+8x + 6y \le 1500 & \text{(water)}\\[4pt]
+3x + 5y \le 1350 & \text{(pollution)}\\[4pt]
+x \ge 0,\; y \ge 0 & \text{(non-negativity)}\\
+\text{(optionally) } x, y \in \mathbb{Z}_{\ge 0}
+\end{cases}
+\]
+
+## 5. Suitable Python libraries
+
+To solve this linear program, you can use:
+
+- **PuLP**: user-friendly LP/MIP modeling in Python.
+- **OR-Tools (Google)**: powerful solver, especially for integer constraints.
+- **SciPy (`scipy.optimize.linprog`)**: good for continuous linear programs, not integer.
+
+For this kind of small linear optimization, **PuLP** or **SciPy** is very convenient; if you need integral solutions, prefer **PuLP** or **OR-Tools**.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: maximize Z
+    prob = pulp.LpProblem("Metal_Extraction", pulp.LpMaximize)
+
+    # Decision variables: non-negative and integer
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # times process J is used
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # times process P is used
+
+    # Objective function: maximize 5x + 9y
+    prob += 5 * x + 9 * y, "Total_Metal"
+
+    # Constraints
+    prob += 8 * x + 6 * y <= 1500, "Water_Constraint"
+    prob += 3 * x + 5 * y <= 1350, "Pollution_Constraint"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    final_obj_value = pulp.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {final_obj_value}")
+
+if __name__ == "__main__":
+    main()

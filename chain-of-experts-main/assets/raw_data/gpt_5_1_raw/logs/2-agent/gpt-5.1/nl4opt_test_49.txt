@@ -1,0 +1,164 @@
+[MODELER]:
+Interpret the problem as an optimization model where the company chooses how many kids and adult bottles to produce.
+
+### 1. Decision variables
+
+Let  
+- \(x\) = number of kids-size bottles (100 ml each)  
+- \(y\) = number of adult-size bottles (300 ml each)
+
+We assume \(x, y \ge 0\) and integers (you can first solve as a linear program, then enforce integrality).
+
+---
+
+### 2. Objective function
+
+Maximize the total number of bottles:
+\[
+\max\ Z = x + y
+\]
+
+---
+
+### 3. Constraints
+
+1. **Syrup volume constraint**  
+   Each kids bottle uses 100 ml, each adult bottle uses 300 ml, total syrup available = 25,000 ml:
+   \[
+   100x + 300y \le 25000
+   \]
+
+2. **Adult-to-kids requirement**  
+   At least 3 times as many adult bottles as kids bottles:
+   \[
+   y \ge 3x
+   \]
+
+3. **Minimum kids bottles**  
+   At least 50 kids bottles:
+   \[
+   x \ge 50
+   \]
+
+4. **Non-negativity and integrality**  
+   \[
+   x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+   \]
+
+---
+
+### 4. Solving the model analytically
+
+Use the adult-to-kids constraint to express \(y\) in terms of \(x\):
+\[
+y = 3x \quad \text{(to maximize number of bottles, we won't make *more* adults than required, because adults use more syrup per bottle)}
+\]
+
+Substitute \(y=3x\) into the volume constraint:
+
+\[
+100x + 300(3x) \le 25000
+\]
+\[
+100x + 900x \le 25000
+\]
+\[
+1000x \le 25000
+\]
+\[
+x \le 25
+\]
+
+But we also require \(x \ge 50\). These two requirements,
+\[
+x \le 25 \quad \text{and} \quad x \ge 50,
+\]
+are incompatible.
+
+So there is **no feasible solution**: you cannot simultaneously  
+- use at most 25,000 ml of syrup,  
+- make at least 50 kids bottles, and  
+- make at least three times as many adult bottles as kids.
+
+The correct mathematical conclusion is: **the constraint set is infeasible**; there is no number of kids and adult bottles that satisfies all constraints.
+
+---
+
+### 5. Python modeling suggestions
+
+To model and check infeasibility programmatically, you can use any linear/integer programming library, for example:
+
+- **PuLP** (pure Python, easy syntax)
+- **OR-Tools** (Google’s optimization suite, strong for integer programs)
+- **Pyomo** (more general modeling framework)
+- **SciPy’s** `linprog` (for continuous LP; for integrality you’d need an IP solver)
+
+#### Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Cough_Syrup_Production", pl.LpMaximize)
+
+# Variables (integer)
+x = pl.LpVariable("kids_bottles", lowBound=0, cat="Integer")
+y = pl.LpVariable("adult_bottles", lowBound=0, cat="Integer")
+
+# Objective: maximize total bottles
+prob += x + y, "Total_Bottles"
+
+# Constraints
+prob += 100*x + 300*y <= 25000, "Syrup_Volume"
+prob += y >= 3*x, "Adult_to_Kids"
+prob += x >= 50, "Min_Kids"
+
+# Solve
+status = prob.solve(pl.PULP_CBC_CMD(msg=False))
+print("Status:", pl.LpStatus[status])
+
+if pl.LpStatus[status] == "Optimal":
+    print("Kids bottles:", x.value())
+    print("Adult bottles:", y.value())
+else:
+    print("Model is infeasible or not optimal.")
+```
+
+This will report the model as **Infeasible**, confirming the mathematical analysis.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Create the problem: maximize total number of bottles
+    prob = pl.LpProblem("Cough_Syrup_Production", pl.LpMaximize)
+
+    # Decision variables: integers, non-negative
+    x = pl.LpVariable("kids_bottles", lowBound=0, cat="Integer")
+    y = pl.LpVariable("adult_bottles", lowBound=0, cat="Integer")
+
+    # Objective: maximize x + y
+    prob += x + y, "Total_Bottles"
+
+    # Constraints
+    prob += 100 * x + 300 * y <= 25000, "Syrup_Volume"
+    prob += y >= 3 * x, "Adult_to_Kids"
+    prob += x >= 50, "Min_Kids"
+
+    # Solve the problem
+    status = prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Determine objective value or infeasibility indicator
+    if pl.LpStatus[status] == "Optimal":
+        value = pl.value(prob.objective)
+    else:
+        # Use a conventional indicator for infeasibility, e.g., None or -1.
+        # Here we choose -1 to keep it numeric.
+        value = -1
+
+    print(f"FINAL_OBJ: {value}")
+
+if __name__ == "__main__":
+    main()

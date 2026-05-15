@@ -1,0 +1,93 @@
+[MODELER]:
+Model
+
+- Decision variables (integer):
+  - x = number of premium printers (nonnegative integer)
+  - y = number of regular printers (nonnegative integer)
+
+- Objective:
+  - Minimize total number of printers: minimize Z = x + y
+
+- Constraints:
+  1. Page rate requirement: 30x + 20y ≥ 200
+     (equivalently 3x + 2y ≥ 20)
+  2. Ink usage limit: 4x + 3y ≤ 35
+  3. Regular printers fewer than premium: y ≤ x − 1
+  4. Integrality and nonnegativity: x, y ∈ Z, x ≥ 0, y ≥ 0
+
+Solving (small integer search or integer programming)
+
+Because x and y are small integers, you can enumerate feasible integer pairs or solve as an integer linear program. Feasible integer solutions that satisfy all constraints were checked; the minimum value of Z = x + y is 7. There are two optimal integer solutions:
+
+- x = 6 (premium), y = 1 (regular) → total printers = 7
+  - pages: 30*6 + 20*1 = 180 + 20 = 200 (meets pages)
+  - ink:   4*6  + 3*1  = 24  + 3  = 27 ≤ 35
+  - y < x holds.
+
+- x = 7 (premium), y = 0 (regular) → total printers = 7
+  - pages: 30*7 = 210 ≥ 200
+  - ink:   4*7  = 28 ≤ 35
+  - y < x holds.
+
+Either solution minimizes the total number of printers (7). If the office prefers to include at least one regular printer, choose x = 6, y = 1; if not, x = 7, y = 0 is also optimal.
+
+Recommended solvers/libraries
+- pulp (for straightforward MILP in Python)
+- OR-Tools CP-SAT (for integer/CP-style solving)
+- scipy.optimize is not ideal because this is an integer problem; use MILP/CP solver instead.
+
+Example (PuLP) snippet
+
+from pulp import LpProblem, LpMinimize, LpVariable, LpInteger, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("printers", LpMinimize)
+x = LpVariable('x', lowBound=0, cat=LpInteger)  # premium
+y = LpVariable('y', lowBound=0, cat=LpInteger)  # regular
+
+prob += x + y
+prob += 30*x + 20*y >= 200
+prob += 4*x + 3*y <= 35
+prob += y <= x - 1
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print(x.value(), y.value(), "total", x.value()+y.value())
+
+This will return one of the optimal solutions shown above.
+
+---
+
+[CODER]:
+import math
+
+# Enumerative search for small integer problem
+feasible_solutions = []
+
+# Reasonable bounds for search
+# x (premium) and y (regular) are nonnegative integers
+# From constraints we can limit search to a small range
+x_max = 20
+y_max = 20
+
+for x in range(0, x_max + 1):
+    for y in range(0, y_max + 1):
+        # Constraints:
+        # 1) 30x + 20y >= 200
+        if 30 * x + 20 * y < 200:
+            continue
+        # 2) 4x + 3y <= 35
+        if 4 * x + 3 * y > 35:
+            continue
+        # 3) y <= x - 1
+        if y > x - 1:
+            continue
+        # x,y nonnegativity satisfied by loops
+        feasible_solutions.append((x, y, x + y))
+
+if not feasible_solutions:
+    final_obj = None
+else:
+    # Find minimal objective value
+    min_z = min(sol[2] for sol in feasible_solutions)
+    final_obj = min_z
+
+print(f"FINAL_OBJ: {final_obj}")

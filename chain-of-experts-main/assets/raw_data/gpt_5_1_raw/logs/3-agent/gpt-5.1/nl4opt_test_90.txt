@@ -1,0 +1,151 @@
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by how you would solve it and the result.
+
+## Decision variables
+
+- \(x_1 \ge 0\): number of regular models produced per day  
+- \(x_2 \ge 0\): number of premium models produced per day  
+
+## Objective
+
+Maximize total daily profit:
+
+\[
+\max Z = 5000 x_1 + 8500 x_2
+\]
+
+## Constraints
+
+1. Demand limits:
+   - Regular:  
+     \[
+     x_1 \le 8
+     \]
+   - Premium:  
+     \[
+     x_2 \le 6
+     \]
+
+2. Total production capacity (of either type):
+   \[
+   x_1 + x_2 \le 12
+   \]
+
+3. Non-negativity:
+   \[
+   x_1 \ge 0,\quad x_2 \ge 0
+   \]
+
+This is a linear programming (LP) problem.
+
+## Solving the model analytically
+
+Check the “corner” points of the feasible region:
+
+1. \((x_1, x_2) = (0,0)\):  
+   \(Z = 5000(0) + 8500(0) = 0\)
+
+2. \((x_1, x_2) = (8,0)\):  
+   \(Z = 5000(8) + 8500(0) = 40{,}000\)
+
+3. \((x_1, x_2) = (0,6)\):  
+   \(Z = 5000(0) + 8500(6) = 51{,}000\)
+
+4. \((x_1, x_2) = (8,4)\) from:
+   - \(x_1 = 8\) (max regular),
+   - \(x_1 + x_2 = 12 \Rightarrow x_2 = 4\),
+   - check \(x_2 \le 6\) → feasible.
+   
+   Profit:
+   \[
+   Z = 5000(8) + 8500(4) = 40{,}000 + 34{,}000 = 74{,}000
+   \]
+
+5. \((x_1, x_2) = (6,6)\) from:
+   - \(x_2 = 6\),
+   - \(x_1 + x_2 = 12 \Rightarrow x_1 = 6\),
+   - check \(x_1 \le 8\) → feasible.
+
+   Profit:
+   \[
+   Z = 5000(6) + 8500(6) = 30{,}000 + 51{,}000 = 81{,}000
+   \]
+
+The maximum profit is \(Z = 81{,}000\) at \((x_1, x_2) = (6, 6)\).
+
+**Optimal solution:**
+- Produce 6 regular models per day.
+- Produce 6 premium models per day.
+- Maximum profit = \$81,000 per day.
+
+## Suitable Python libraries
+
+You can model and solve this LP using:
+
+- `PuLP` (simple, widely used for LP/MILP)
+- `ortools.linear_solver` from Google OR-Tools
+- `scipy.optimize.linprog` (for continuous LPs like this)
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Car_Production", pl.LpMaximize)
+
+# Decision variables
+x1 = pl.LpVariable('x1', lowBound=0)  # regular
+x2 = pl.LpVariable('x2', lowBound=0)  # premium
+
+# Objective
+prob += 5000 * x1 + 8500 * x2
+
+# Constraints
+prob += x1 <= 8
+prob += x2 <= 6
+prob += x1 + x2 <= 12
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal x1 (regular):", x1.value())
+print("Optimal x2 (premium):", x2.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This will return \(x_1 = 6\), \(x_2 = 6\), and profit = 81000.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Car_Production", pl.LpMaximize)
+
+    # Decision variables
+    x1 = pl.LpVariable('x1', lowBound=0)  # regular
+    x2 = pl.LpVariable('x2', lowBound=0)  # premium
+
+    # Objective function
+    prob += 5000 * x1 + 8500 * x2
+
+    # Constraints
+    prob += x1 <= 8
+    prob += x2 <= 6
+    prob += x1 + x2 <= 12
+
+    # Solve the problem
+    prob.solve()
+
+    # Get objective value
+    max_profit = pl.value(prob.objective)
+
+    # Print required output
+    print(f"FINAL_OBJ: {max_profit}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,47 @@
+[MONOLITH]:
+import pulp
+
+# Initialize the problem: minimize total refills
+model = pulp.LpProblem("DimSum_Delivery_Problem", pulp.LpMinimize)
+
+# Decision variables:
+# x = number of servers delivering by cart
+# y = number of servers delivering by hand
+x = pulp.LpVariable('x', lowBound=0, cat='Continuous')
+y = pulp.LpVariable('y', lowBound=3, cat='Continuous')  # at least 3 by hand
+
+# Parameters
+interactions_cart = 70
+interactions_hand = 85
+refills_cart = 5
+refills_hand = 20
+required_interactions = 4000
+min_cart_fraction = 0.70
+
+# Objective: minimize total refills per hour
+model += refills_cart * x + refills_hand * y
+
+# Constraints
+
+# Customer interaction requirement
+model += interactions_cart * x + interactions_hand * y >= required_interactions, "InteractionRequirement"
+
+# At least 70% of delivery shifts must be by cart:
+# x >= 0.7 * (x + y)  ->  0.3x >= 0.7y  ->  3x >= 7y
+model += 3 * x >= 7 * y, "CartFractionRequirement"
+
+# Solve the model
+model.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve solution
+x_val = pulp.value(x)
+y_val = pulp.value(y)
+final_obj = pulp.value(model.objective)
+
+# Print solution details (optional for understanding; not required by spec)
+print("Optimal number of cart servers (x):", x_val)
+print("Optimal number of hand servers (y):", y_val)
+print("Minimum total refills per hour:", final_obj)
+
+# Required final objective print
+print(f"FINAL_OBJ: {final_obj}")

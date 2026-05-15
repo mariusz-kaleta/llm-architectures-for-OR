@@ -1,0 +1,70 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - A = acres of apples (continuous, A ≥ 0)
+  - P = acres of pears (continuous, P ≥ 0)
+
+- Objective
+  - Maximize profit Z = 2A + 4P  (dollars)
+
+- Constraints
+  1. Land limit: A + P ≤ 50
+  2. Minimum apples: A ≥ 5
+  3. Minimum pears: P ≥ 10
+  4. Workforce limit (at most twice pears as apples): P ≤ 2A
+
+(If the preference “he prefers to grow more pears than apples” is to be enforced, add P ≥ A. The optimal solution below does not require adding that as a separate constraint.)
+
+Solve analytically
+- At optimum all land will be used (A + P = 50) and the workforce limit will bind (P = 2A). Solve:
+  A + 2A = 50 → 3A = 50 → A = 50/3 ≈ 16.6667 acres
+  P = 2A = 100/3 ≈ 33.3333 acres
+
+- Profit: Z = 2*(50/3) + 4*(100/3) = 500/3 ≈ $166.67
+
+So Ben should grow 50/3 ≈ 16 2/3 acres of apples and 100/3 ≈ 33 1/3 acres of pears for a maximum profit of $500/3 ≈ $166.67.
+
+Suggested Python libraries for solving
+- pulp (simple linear programming modeling and solvers)
+- scipy.optimize.linprog (for continuous LPs)
+- OR-Tools (Google OR-Tools linear solver)
+- cvxpy (convex optimization modeling)
+
+Simple example with pulp (conceptual)
+- Create LpVariables A,P
+- Add constraints A+P <= 50, A >= 5, P >= 10, P <= 2*A
+- Maximize 2*A + 4*P
+- Call solver and read A.value(), P.value(), objective.value()
+
+---
+
+[CODER]:
+```python
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Orchard_Profit_Maximization", pulp.LpMaximize)
+
+# Decision variables
+A = pulp.LpVariable("A", lowBound=0, cat="Continuous")  # acres of apples
+P = pulp.LpVariable("P", lowBound=0, cat="Continuous")  # acres of pears
+
+# Objective: Maximize profit Z = 2A + 4P
+prob += 2 * A + 4 * P, "Total_Profit"
+
+# Constraints
+prob += A + P <= 50, "Land_Limit"
+prob += A >= 5, "Min_Apples"
+prob += P >= 10, "Min_Pears"
+prob += P <= 2 * A, "Workforce_Limit"
+
+# Solve using CBC solver silently
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Get objective value
+obj_value = pulp.value(prob.objective)
+
+print(f"FINAL_OBJ: {obj_value}")
+```

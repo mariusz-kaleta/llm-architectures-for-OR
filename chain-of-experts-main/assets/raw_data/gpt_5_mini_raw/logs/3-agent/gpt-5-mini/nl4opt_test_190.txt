@@ -1,0 +1,92 @@
+[MODELER]:
+Model (linear program)
+
+Decision variables
+- x = number of black milk tea bottles to produce (>= 0)
+- y = number of matcha milk tea bottles to produce (>= 0)
+(you can require x,y integer if bottles must be integer; LP relaxation will give the same integer solution here)
+
+Objective
+Maximize profit: maximize Z = 7.5 x + 5 y
+
+Constraints
+- Milk availability: 600 x + 525 y <= 30000
+- Honey availability: 10 x + 5 y <= 500
+- Nonnegativity: x >= 0, y >= 0
+
+Solution (analytical)
+Check corner points of the feasible region:
+- (x,y) = (0,0) => Z = 0
+- (x,y) = (50,0) (both constraints active) => Z = 7.5*50 + 5*0 = 375
+- (x,y) = (0, 30000/525 ≈ 57.1429) => Z = 5*57.1429 ≈ 285.71
+
+Maximum occurs at x = 50, y = 0. Produce 50 bottles of black milk tea and 0 of matcha for maximum profit $375.
+
+Suggested solvers / Python libraries
+- pulp (open-source, uses CBC by default) — easy for both LP and integer LP
+- scipy.optimize.linprog — for continuous LPs (simplex / interior-point)
+- ortools.linear_solver (Google OR-Tools) — fast, supports integer programming
+- commercial: gurobipy or cplex (if available)
+
+Example with pulp (continuous or integer)
+from pulp import LpProblem, LpMaximize, LpVariable, LpStatus, value
+
+prob = LpProblem("MilkTea", LpMaximize)
+x = LpVariable("black", lowBound=0, cat='Integer')   # use 'Continuous' or 'Integer'
+y = LpVariable("matcha", lowBound=0, cat='Integer')
+prob += 7.5*x + 5*y
+prob += 600*x + 525*y <= 30000
+prob += 10*x + 5*y <= 500
+prob.solve()
+print(LpStatus[prob.status], value(x), value(y), "profit", value(prob.objective))
+
+This will return x = 50, y = 0, profit = 375.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the milk tea LP described.
+# Computes corner points analytically and selects the maximum profit.
+
+from math import isclose
+
+# Data
+profit_coeffs = (7.5, 5.0)  # (coef for x, coef for y)
+# Constraints:
+# 600 x + 525 y <= 30000
+# 10  x +   5 y <= 500
+# x, y >= 0
+
+# Define the corner points of the feasible region:
+# (0,0)
+p0 = (0.0, 0.0)
+# Intersection of honey constraint with x-axis: y=0 => 10 x <= 500 -> x = 50
+p1 = (50.0, 0.0)
+# Intersection of milk constraint with y-axis: x=0 => 525 y <= 30000 -> y = 30000/525
+p2 = (0.0, 30000.0 / 525.0)
+
+points = [p0, p1, p2]
+
+def objective(pt):
+    x, y = pt
+    return profit_coeffs[0]*x + profit_coeffs[1]*y
+
+# Evaluate feasible points (they are all feasible by construction)
+best_point = None
+best_value = None
+for pt in points:
+    val = objective(pt)
+    if best_value is None or val > best_value:
+        best_value = val
+        best_point = pt
+
+# Clean up numeric formatting: if effectively integer, convert to int
+if isinstance(best_value, float) and isclose(best_value, round(best_value), rel_tol=1e-12, abs_tol=1e-12):
+    output_value = int(round(best_value))
+else:
+    output_value = best_value
+
+print(f"FINAL_OBJ: {output_value}")
+```

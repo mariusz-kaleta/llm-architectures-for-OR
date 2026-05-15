@@ -1,0 +1,236 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximise total daily profit from baking bagels and croissants, using all (or at least not exceeding any) available oven and pastry-chef capacity.
+
+2. Suggested model type  
+Model: Small Linear Programming (LP) model with 2 decision variables and 2 main capacity constraints.
+
+3. Main decision variables  
+Define decision variables as continuous and non-negative (or integer if batches must be whole numbers):
+
+- x₁ = number of batches of bagels produced per day  
+- x₂ = number of batches of croissants produced per day  
+
+(If the modeller wants realism, they can also consider x₁, x₂ as integer variables, leading to an Integer LP; but standard LP relaxation will give the structure.)
+
+4. Objective function (conceptual)  
+- Maximise Profit = 20·x₁ + 40·x₂  
+  - 20 is the profit per batch of bagels  
+  - 40 is the profit per batch of croissants  
+
+5. Key constraints to consider  
+
+a) Oven time capacity  
+- Each bagel batch uses 2 hours of oven time  
+- Each croissant batch uses 1 hour of oven time  
+- Total oven hours cannot exceed 70  
+  - 2·x₁ + 1·x₂ ≤ 70  
+
+b) Pastry chef time capacity  
+- Each bagel batch uses 0.25 hours of chef time  
+- Each croissant batch uses 2 hours of chef time  
+- Total chef hours cannot exceed 32  
+  - 0.25·x₁ + 2·x₂ ≤ 32  
+
+c) Non-negativity (and possibly integrality)  
+- x₁ ≥ 0  
+- x₂ ≥ 0  
+- Optional: x₁, x₂ integers if the problem should not allow fractional batches.
+
+6. Additional strategic notes for the modeller  
+
+- Check whether the phrase “Using all the available capacity” should be enforced as equalities:
+  - 2·x₁ + x₂ = 70 (use all oven time)  
+  - 0.25·x₁ + 2·x₂ = 32 (use all chef time)  
+  Often, the LP optimum will automatically use at least one resource fully; but if the text is interpreted literally, you can solve these as simultaneous equations and verify feasibility and profit, or enforce equality constraints if required by the problem statement.
+
+- Solve steps (for modelling plan, not computation):
+  1. Define variables x₁, x₂.  
+  2. Set up objective 20x₁ + 40x₂ to maximise.  
+  3. Add capacity constraints for oven and chef hours.  
+  4. Add non-negativity (and integrality if needed).  
+  5. Use graphical method or an LP solver to find the optimal (x₁, x₂) and compute the corresponding maximum profit.  
+
+- After solving, confirm:
+  - Whether both resources are fully used at optimum.  
+  - Whether the result meets any “must use all capacity” interpretation, or if it only uses all of the binding resource.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, plus how you’d implement/solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_1 \ge 0\): number of batches of bagels produced per day  
+- \(x_2 \ge 0\): number of batches of croissants produced per day  
+
+(You may later impose \(x_1, x_2 \in \mathbb{Z}\) if only whole batches are allowed.)
+
+---
+
+## 2. Objective function
+
+Profit per batch:
+
+- Bagels: \$20 per batch  
+- Croissants: \$40 per batch  
+
+Maximise total daily profit:
+
+\[
+\max \; Z = 20x_1 + 40x_2
+\]
+
+---
+
+## 3. Constraints
+
+### a) Oven capacity
+
+- Each bagel batch uses 2 hours of oven time  
+- Each croissant batch uses 1 hour of oven time  
+- Total oven time available: 70 hours
+
+\[
+2x_1 + 1x_2 \le 70
+\]
+
+### b) Pastry-chef capacity
+
+- Each bagel batch uses 0.25 hours of pastry-chef time  
+- Each croissant batch uses 2 hours of pastry-chef time  
+- Total pastry-chef time available: 32 hours
+
+\[
+0.25x_1 + 2x_2 \le 32
+\]
+
+### c) Non-negativity
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+---
+
+## 4. Interpretation of “using all the available capacity”
+
+The problem statement says “Using all the available capacity.” A strict interpretation would be:
+
+\[
+\begin{aligned}
+2x_1 + x_2 &= 70 \quad \text{(use all oven time)}\\
+0.25x_1 + 2x_2 &= 32 \quad \text{(use all chef time)}
+\end{aligned}
+\]
+
+Solving this pair of equalities gives a *single* feasible production plan; if that plan is feasible and non-negative, it is the only plan that uses both resources fully. You can then compute profit for that point and compare it with the usual LP optimum (which only requires \(\le\) constraints).
+
+In standard operations-research modelling, we would normally keep them as “\(\le\)” constraints and let the optimisation decide which resource(s) become binding; the LP optimum will automatically use at least one of them fully.
+
+So you have two modelling choices:
+
+1. **Standard LP (recommended):**
+
+   \[
+   \begin{aligned}
+   \max \quad & 20x_1 + 40x_2\\
+   \text{s.t.} \quad
+   & 2x_1 + x_2 \le 70\\
+   & 0.25x_1 + 2x_2 \le 32\\
+   & x_1, x_2 \ge 0
+   \end{aligned}
+   \]
+
+2. **Enforced “use all capacity” LP (if required by wording):**
+
+   \[
+   \begin{aligned}
+   \max \quad & 20x_1 + 40x_2\\
+   \text{s.t.} \quad
+   & 2x_1 + x_2 = 70\\
+   & 0.25x_1 + 2x_2 = 32\\
+   & x_1, x_2 \ge 0
+   \end{aligned}
+   \]
+
+---
+
+## 5. Suitable Python libraries
+
+Since this is a small linear optimisation problem, any standard LP solver will work:
+
+- **PuLP** (`pulp`): very simple modelling for LP/MIP; uses CBC by default.
+- **OR-Tools Linear Solver** (`ortools.linear_solver`): robust and fast; supports multiple backends (CBC, GLOP, SCIP, etc.).
+- **SciPy** (`scipy.optimize.linprog`): good for continuous LPs (no integers).
+
+If you want integer-batch decisions, prefer **PuLP** or **OR-Tools** (MIP support).
+
+---
+
+## 6. Sketch of a PuLP model
+
+```python
+import pulp as pl
+
+# 1. Define the problem
+model = pl.LpProblem("Bakery_Profit_Maximisation", pl.LpMaximize)
+
+# 2. Decision variables
+x1 = pl.LpVariable("bagel_batches", lowBound=0)      # or cat=pl.LpInteger
+x2 = pl.LpVariable("croissant_batches", lowBound=0)  # or cat=pl.LpInteger
+
+# 3. Objective function
+model += 20 * x1 + 40 * x2
+
+# 4. Constraints (standard ≤ form)
+model += 2 * x1 + 1 * x2 <= 70, "Oven_capacity"
+model += 0.25 * x1 + 2 * x2 <= 32, "Chef_capacity"
+
+# 5. Solve
+model.solve()
+
+print("Status:", pl.LpStatus[model.status])
+print("Optimal bagel batches (x1):", x1.value())
+print("Optimal croissant batches (x2):", x2.value())
+print("Maximum profit:", pl.value(model.objective))
+```
+
+If you need “use all capacity”, replace the `<=` with `==` in the constraint definitions.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    model = pl.LpProblem("Bakery_Profit_Maximisation", pl.LpMaximize)
+
+    # Decision variables (continuous, non-negative)
+    x1 = pl.LpVariable("bagel_batches", lowBound=0)
+    x2 = pl.LpVariable("croissant_batches", lowBound=0)
+
+    # Objective function: Maximise profit
+    model += 20 * x1 + 40 * x2
+
+    # Constraints (standard ≤ form)
+    model += 2 * x1 + 1 * x2 <= 70, "Oven_capacity"
+    model += 0.25 * x1 + 2 * x2 <= 32, "Chef_capacity"
+
+    # Solve the model
+    model.solve()
+
+    # Extract the final objective value
+    final_obj = pl.value(model.objective)
+
+    # Print the final objective in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

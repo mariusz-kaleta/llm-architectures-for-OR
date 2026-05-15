@@ -1,0 +1,208 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximise total monthly profit from selling regular and premium handbags.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with two decision variables and linear constraints.
+
+3. Main decision variables  
+   Define:
+   - \(x\): Number of regular handbags produced/sold per month.  
+   - \(y\): Number of premium handbags produced/sold per month.
+
+4. Objective function (conceptual)  
+   - Profit per regular handbag = \$30.  
+   - Profit per premium handbag = \$180.  
+   - Maximise total profit = \(30x + 180y\).
+
+5. Key constraints to consider  
+
+   a) Budget (manufacturing cost) constraint  
+   - Manufacturing cost per regular handbag = \$200.  
+   - Manufacturing cost per premium handbag = \$447.  
+   - Total monthly cost cannot exceed \$250,000.  
+   - Constraint: total cost of all regular + premium ≤ \$250,000.  
+   - This is the main “resource limitation” constraint linking x and y.
+
+   b) Total sales/production capacity  
+   - The company can sell (and therefore should not produce more than) 475 handbags of either type per month.  
+   - Constraint: total number of handbags (regular + premium) ≤ 475.
+
+   c) Non-negativity and integrality  
+   - The number of handbags cannot be negative.  
+   - In many textbook treatments, x and y may be assumed continuous; if required in a more realistic setting, enforce x and y to be integers (Integer Linear Programming).  
+   - Constraints: x ≥ 0, y ≥ 0; if needed, x and y integer.
+
+6. Modelling/solution strategy for the Modeller  
+
+   - Set up the linear programming model with the above objective and constraints.  
+   - Because there are only two variables, you can:  
+     - Either use a standard LP solver, or  
+     - Solve graphically by plotting the two main constraints (budget line and capacity line) and checking feasible corner points.
+   - Identify all corner (extreme) points of the feasible region defined by:  
+     - The budget constraint,  
+     - The total handbags constraint,  
+     - And the axes (x = 0 and y = 0).  
+   - Evaluate the objective function (30x + 180y) at each corner point.  
+   - Choose the corner point giving the highest profit as the optimal production/sales mix.  
+   - If integrality is imposed, ensure chosen (x, y) are integer-valued; in this small problem, that is trivial to check directly.
+
+7. Possible sensitivity checks (optional, if desired)  
+
+   - Vary the budget limit (e.g., what if the budget is increased/decreased?) and observe changes in optimal mix.  
+   - Vary per-unit profits or costs to see when the model would switch from prioritising regular to premium handbags or vice versa.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, plus how you could solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x \in \mathbb{R}_+\) (or \(\mathbb{Z}_+\) if integrality is enforced): number of **regular handbags** produced/sold per month.  
+- \(y \in \mathbb{R}_+\) (or \(\mathbb{Z}_+\) if integrality is enforced): number of **premium handbags** produced/sold per month.
+
+---
+
+## 2. Objective function
+
+Profit per unit:
+- Regular: \$30  
+- Premium: \$180  
+
+Maximise total monthly profit:
+\[
+\max \; Z = 30x + 180y
+\]
+
+---
+
+## 3. Constraints
+
+1. **Budget (manufacturing cost) constraint**
+
+Manufacturing costs:
+- Regular: \$200 per bag  
+- Premium: \$447 per bag  
+
+Total cost cannot exceed \$250,000:
+\[
+200x + 447y \le 250{,}000
+\]
+
+2. **Sales/production capacity constraint**
+
+They can sell at most 475 handbags total:
+\[
+x + y \le 475
+\]
+
+3. **Non-negativity (and optional integrality)**
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+If requiring discrete units:
+\[
+x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full LP / ILP model summary
+
+Maximise
+\[
+Z = 30x + 180y
+\]
+
+subject to
+\[
+\begin{aligned}
+200x + 447y &\le 250{,}000 \quad &\text{(budget)} \\
+x + y &\le 475 &\text{(sales capacity)} \\
+x &\ge 0,\, y \ge 0 &\text{(non-negativity)} \\
+x, y &\in \mathbb{Z} &\text{(optional integrality)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+Any of these are appropriate:
+
+- **PuLP** – easy to use for LP/ILP, integrates with CBC (default solver).
+- **OR-Tools (linear_solver)** – powerful, good for LP/MIP.
+- **SciPy (`scipy.optimize.linprog`)** – for continuous LP (no integrality).
+
+Because this is a small linear model and you might want integrality, **PuLP** or **OR-Tools** are the most natural choices.
+
+---
+
+## 6. Example PuLP implementation (with integrality)
+
+```python
+import pulp as pl
+
+# Create the problem
+prob = pl.LpProblem("Handbag_Profit_Maximization", pl.LpMaximize)
+
+# Decision variables (Integer; use LpContinuous if you don't need integrality)
+x = pl.LpVariable("regular_bags", lowBound=0, cat="Integer")
+y = pl.LpVariable("premium_bags", lowBound=0, cat="Integer")
+
+# Objective function
+prob += 30 * x + 180 * y, "Total_Profit"
+
+# Constraints
+prob += 200 * x + 447 * y <= 250000, "Budget"
+prob += x + y <= 475, "SalesCapacity"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Results
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal regular bags (x):", x.value())
+print("Optimal premium bags (y):", y.value())
+print("Maximum profit:", pl.value(prob.objective))
+```
+
+You can switch to a continuous LP model by changing `cat="Integer"` to `cat="Continuous"` for both variables.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem: maximize profit
+    prob = pl.LpProblem("Handbag_Profit_Maximization", pl.LpMaximize)
+
+    # Decision variables (Integer)
+    x = pl.LpVariable("regular_bags", lowBound=0, cat="Integer")
+    y = pl.LpVariable("premium_bags", lowBound=0, cat="Integer")
+
+    # Objective function
+    prob += 30 * x + 180 * y, "Total_Profit"
+
+    # Constraints
+    prob += 200 * x + 447 * y <= 250000, "Budget"
+    prob += x + y <= 475, "SalesCapacity"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

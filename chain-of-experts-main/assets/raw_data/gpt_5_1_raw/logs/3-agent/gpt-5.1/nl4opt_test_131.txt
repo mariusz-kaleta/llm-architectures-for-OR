@@ -1,0 +1,126 @@
+[MODELER]:
+We can model this as a linear programming (LP) problem.
+
+### Decision variables
+
+Let  
+- \(x_1 \ge 0\): number of servings of syrup 1  
+- \(x_2 \ge 0\): number of servings of syrup 2  
+
+### Objective: minimize sugar intake
+
+Sugar per serving:  
+- Syrup 1: 0.5 units  
+- Syrup 2: 0.3 units  
+
+Total sugar \(S\):
+
+\[
+\text{Minimize } S = 0.5x_1 + 0.3x_2
+\]
+
+### Constraints
+
+1. **Throat medicine**: at most 5 units  
+   Per serving:  
+   - Syrup 1: 0.5 units to throat  
+   - Syrup 2: 0.2 units to throat  
+
+   So:
+
+   \[
+   0.5x_1 + 0.2x_2 \le 5
+   \]
+
+2. **Lung medicine**: at least 4 units  
+   Per serving:  
+   - Syrup 1: 0.4 units to lungs  
+   - Syrup 2: 0.5 units to lungs  
+
+   So:
+
+   \[
+   0.4x_1 + 0.5x_2 \ge 4
+   \]
+
+3. **Non-negativity**:
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+That’s the full LP model.
+
+---
+
+### Suitable Python libraries
+
+To solve this LP numerically in Python, any of the following are appropriate:
+
+- **PuLP**: very straightforward for small LPs like this.
+  - `pulp.LpProblem`, `pulp.LpVariable`, `pulp.LpMinimize`.
+- **SciPy**: `scipy.optimize.linprog`.
+- **OR-Tools** (from Google): `ortools.linear_solver.pywraplp.Solver`.
+
+Example with PuLP (outline):
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Sore_Throat_Syrup", pl.LpMinimize)
+
+# Variables
+x1 = pl.LpVariable('x1', lowBound=0)
+x2 = pl.LpVariable('x2', lowBound=0)
+
+# Objective
+prob += 0.5*x1 + 0.3*x2
+
+# Constraints
+prob += 0.5*x1 + 0.2*x2 <= 5       # throat
+prob += 0.4*x1 + 0.5*x2 >= 4       # lungs
+
+# Solve
+prob.solve()
+print("x1 =", x1.value())
+print("x2 =", x2.value())
+print("Min sugar =", pl.value(prob.objective))
+```
+
+This will give the optimal number of servings of each syrup that minimizes sugar while satisfying the throat and lung medicine requirements.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the LP problem: minimize sugar intake
+    prob = pl.LpProblem("Sore_Throat_Syrup", pl.LpMinimize)
+
+    # Decision variables
+    x1 = pl.LpVariable('x1', lowBound=0)  # servings of syrup 1
+    x2 = pl.LpVariable('x2', lowBound=0)  # servings of syrup 2
+
+    # Objective: Minimize total sugar S = 0.5*x1 + 0.3*x2
+    prob += 0.5 * x1 + 0.3 * x2
+
+    # Constraints
+    # Throat medicine: 0.5*x1 + 0.2*x2 <= 5
+    prob += 0.5 * x1 + 0.2 * x2 <= 5
+
+    # Lung medicine: 0.4*x1 + 0.5*x2 >= 4
+    prob += 0.4 * x1 + 0.5 * x2 >= 4
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

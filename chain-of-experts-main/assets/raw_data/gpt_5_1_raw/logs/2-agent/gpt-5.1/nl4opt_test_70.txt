@@ -1,0 +1,181 @@
+[MODELER]:
+Below is a linear programming (LP) model of the problem.
+
+---
+
+## 1. Decision Variables
+
+Let  
+- \( x \) = number of trips made by the **new** company  
+- \( y \) = number of trips made by the **old** company  
+
+We assume \( x \ge 0, y \ge 0 \) and, in reality, \(x\) and \(y\) should be integers (number of trips).
+
+---
+
+## 2. Objective
+
+Minimize the **total diesel used**.
+
+- New company: 30 liters per trip → total diesel \(= 30x\)
+- Old company: 40 liters per trip → total diesel \(= 40y\)
+
+**Objective function:**
+\[
+\min Z = 30x + 40y
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Gift delivery requirement
+
+Each trip by:
+- New company delivers 50 gifts → \(50x\)
+- Old company delivers 70 gifts → \(70y\)
+
+At least 1000 gifts must be delivered:
+\[
+50x + 70y \;\ge\; 1000
+\]
+
+---
+
+### 3.2 Maximum trips by the new company
+
+At most 15 trips by the new company:
+\[
+x \;\le\; 15
+\]
+
+---
+
+### 3.3 Minimum fraction of trips by the old company
+
+“At least 40% of all trips must be made by the old company.”
+
+Total trips = \(x + y\)  
+Trips by old company = \(y\)
+
+\[
+\frac{y}{x + y} \;\ge\; 0.4 \quad\text{(for } x + y > 0\text{)}
+\]
+
+Multiply both sides by \(x + y\) (nonnegative):
+\[
+y \;\ge\; 0.4(x + y)
+\]
+
+\[
+y \;\ge\; 0.4x + 0.4y
+\]
+
+\[
+y - 0.4y \;\ge\; 0.4x
+\]
+
+\[
+0.6y \;\ge\; 0.4x
+\]
+
+\[
+3y \;\ge\; 2x
+\]
+
+So the linear constraint is:
+\[
+3y - 2x \;\ge\; 0
+\]
+
+---
+
+### 3.4 Nonnegativity and integrality
+
+\[
+x \;\ge\; 0,\quad y \;\ge\; 0
+\]
+
+Since trips must be whole numbers:
+\[
+x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full Model
+
+\[
+\begin{align}
+\min\quad & Z = 30x + 40y \\
+\text{s.t.}\quad
+& 50x + 70y \;\ge\; 1000 \\
+& x \;\le\; 15 \\
+& 3y - 2x \;\ge\; 0 \\
+& x, y \;\ge\; 0,\; x,y \in \mathbb{Z}
+\end{align}
+\]
+
+This is a small mixed-integer linear program (MILP). Because coefficients are all integers and the problem is small, solving it as a pure LP (ignoring integrality) and then rounding/checking nearby integer points will often directly yield the integer optimum; but a MILP solver will handle it exactly.
+
+---
+
+## 5. Suitable Python Libraries
+
+All of the following can solve this model:
+
+- **PuLP**  
+  - Simple modeling syntax, integrates with CBC (open-source MILP solver).
+  - Good for teaching, small to medium problems.
+  - Example usage: `pulp.LpProblem`, `pulp.LpVariable`, solve with CBC.
+
+- **OR-Tools (Google OR-Tools)**  
+  - Very good MILP engine (`pywraplp.Solver` with CBC or SCIP backends).
+  - Efficient for larger integer programs as well.
+
+- **Pyomo**  
+  - More general algebraic modeling language in Python.
+  - Can use CBC, GLPK, Gurobi, CPLEX, etc., as back-end solvers.
+
+- **scipy.optimize**  
+  - Has `linprog` for LP, but does **not** support integrality directly.
+  - Suitable only if you relax \(x, y\) to be continuous and then handle integrality manually or accept fractional solutions.
+
+For this type of discrete optimization (integer trips), **PuLP** or **OR-Tools** are the most straightforward choices.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def main():
+    # Create the MILP problem
+    prob = pulp.LpProblem("Gift_Delivery", pulp.LpMinimize)
+
+    # Decision variables: integer and nonnegative
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # trips by new company
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # trips by old company
+
+    # Objective function: minimize total diesel
+    prob += 30 * x + 40 * y
+
+    # Constraints
+    # Gift delivery requirement
+    prob += 50 * x + 70 * y >= 1000
+
+    # Max trips by new company
+    prob += x <= 15
+
+    # At least 40% of trips by old company: 3y - 2x >= 0
+    prob += 3 * y - 2 * x >= 0
+
+    # Solve the problem using default CBC solver
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the optimal objective value
+    final_obj = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

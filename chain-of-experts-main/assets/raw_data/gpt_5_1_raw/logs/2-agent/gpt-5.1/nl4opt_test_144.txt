@@ -1,0 +1,169 @@
+[MODELER]:
+This is a standard linear programming (diet-type) problem.  
+
+### 1. Decision variables
+
+Let  
+- \(x\) = number of servings of vegetables  
+- \(y\) = number of servings of fruit  
+
+Both must be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+### 2. Constraints
+
+Each serving of vegetables and fruit contributes:
+
+- Vegetables: 2 units vitamins, 3 units minerals  
+- Fruit: 4 units vitamins, 1 unit minerals  
+
+He needs at least 20 units of vitamins and 30 units of minerals:
+
+**Vitamin requirement:**
+\[
+2x + 4y \ge 20
+\]
+
+**Mineral requirement:**
+\[
+3x + y \ge 30
+\]
+
+### 3. Objective function
+
+Minimize total cost:
+
+- Vegetables: \$3 per serving  
+- Fruit: \$5 per serving  
+
+So total cost:
+\[
+\text{Minimize } Z = 3x + 5y
+\]
+
+### 4. Complete linear programming model
+
+\[
+\begin{align}
+\text{Minimize } & Z = 3x + 5y \\
+\text{subject to } 
+& 2x + 4y \ge 20 \quad\text{(vitamins)}\\
+& 3x + y \ge 30  \quad\text{(minerals)}\\
+& x \ge 0,\; y \ge 0
+\end{align}
+\]
+
+### 5. Solving the model (analytical solution)
+
+Solve the constraints at equality to find the intersection (likely candidate for optimal solution):
+
+\[
+\begin{cases}
+2x + 4y = 20\\
+3x + y = 30
+\end{cases}
+\]
+
+From the second equation:
+\[
+y = 30 - 3x
+\]
+Substitute into the first:
+\[
+2x + 4(30 - 3x) = 20 \\
+2x + 120 - 12x = 20 \\
+-10x = -100 \\
+x = 10
+\]
+Then
+\[
+y = 30 - 3(10) = 0
+\]
+
+Check feasibility:
+- Vitamins: \(2(10) + 4(0) = 20 \ge 20\)  
+- Minerals: \(3(10) + 0 = 30 \ge 30\)
+
+Cost:
+\[
+Z = 3(10) + 5(0) = 30
+\]
+
+Check corner points where one variable is zero:
+
+1. \(x = 0\):  
+   - Vitamins: \(4y \ge 20 \Rightarrow y \ge 5\)  
+   - Minerals: \(y \ge 30\)  
+   So \(y = 30 \Rightarrow Z = 5 \cdot 30 = 150\)
+
+2. \(y = 0\):  
+   - Vitamins: \(2x \ge 20 \Rightarrow x \ge 10\)  
+   - Minerals: \(3x \ge 30 \Rightarrow x \ge 10\)  
+   So \(x = 10 \Rightarrow Z = 3 \cdot 10 = 30\)
+
+Thus the minimum cost is achieved at:
+- \(x = 10\) servings of vegetables  
+- \(y = 0\) servings of fruit  
+
+### 6. Final answer
+
+He should eat:
+- **10 servings of vegetables**
+- **0 servings of fruit**
+
+for a minimum total cost of **\$30**.
+
+### 7. Suitable Python libraries
+
+To model and solve this linear program in Python, you could use:
+
+- `PuLP` – user-friendly for LP/MIP:
+  - `from pulp import LpProblem, LpMinimize, LpVariable, lpSum`
+- `scipy.optimize.linprog` – if you want a SciPy-based optimizer.
+- `ortools.linear_solver` from Google OR-Tools – powerful and efficient for larger LP/MIP problems.
+
+Any of these can directly implement the model:
+
+- Variables: `x`, `y` (continuous, low bound 0)
+- Objective: minimize `3*x + 5*y`
+- Constraints:
+  - `2*x + 4*y >= 20`
+  - `3*x + y >= 30`
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import numpy as np
+from scipy.optimize import linprog
+
+def main():
+    # Objective coefficients: Minimize Z = 3x + 5y
+    c = np.array([3, 5])
+
+    # Constraints in form A_ub * x <= b_ub
+    # Given:
+    # 2x + 4y >= 20  -> -2x -4y <= -20
+    # 3x + y  >= 30  -> -3x - y <= -30
+    A_ub = np.array([
+        [-2, -4],
+        [-3, -1]
+    ])
+    b_ub = np.array([-20, -30])
+
+    # Bounds for x and y: x >= 0, y >= 0
+    bounds = [(0, None), (0, None)]
+
+    # Solve the LP
+    res = linprog(c=c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method="highs")
+
+    if not res.success:
+        raise RuntimeError("Linear program did not solve successfully.")
+
+    final_obj = res.fun
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

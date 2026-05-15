@@ -1,0 +1,272 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximise the total capacity (units of recycling material) that can be collected with the available workers and bin-mix requirements.
+
+2. Suggested model type  
+Model: Small Mixed-Integer Linear Program (MILP) or Integer Linear Program (ILP), since the number of bins must be integers.
+
+3. Main decision variables  
+Define integer decision variables such as:
+- Number of small bins to deploy.
+- Number of large bins to deploy.
+
+(Optionally, keep these as unrestricted nonnegative integers; integrality is key.)
+
+4. Key constraints to consider  
+
+a) Worker availability constraint  
+- Each small bin uses 2 workers.  
+- Each large bin uses 5 workers.  
+- Total workers used by all bins cannot exceed 100.  
+
+b) Bin ratio requirement  
+- Number of small bins must be three times the number of large bins.  
+- This is an equality relationship between the two bin-count variables.
+
+c) Minimum bin-count constraints  
+- At least 10 small bins must be used.  
+- At least 4 large bins must be used.  
+- These will interact with the ratio constraint; the modeller should check feasibility (i.e., whether both can be satisfied simultaneously with the ratio).
+
+d) Nonnegativity and integrality  
+- Both bin-count variables must be nonnegative integers.
+
+5. Objective function structure  
+- Total capacity = (capacity per small bin) × (number of small bins)  
+  + (capacity per large bin) × (number of large bins).  
+- With given capacities (25 per small, 60 per large), this becomes a linear objective function in the bin-count variables.  
+
+6. Modelling strategy notes  
+- Because of the exact ratio (small = 3 × large) and minimums, the modeller can simplify by treating one bin type as the main decision variable and expressing the other through the ratio, then checking that worker and minimum constraints hold.  
+- However, for a generalizable model or solver-based approach, keep both variables and impose the ratio as a linear equality.
+
+---
+
+[MODELER]:
+Below is a complete mathematical optimisation model for the problem, followed by suggestions for how to implement and solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_s \in \mathbb{Z}_{\ge 0}\): number of small bins to deploy  
+- \(x_l \in \mathbb{Z}_{\ge 0}\): number of large bins to deploy  
+
+Both must be nonnegative integers.
+
+---
+
+## 2. Parameters
+
+- Worker requirements:
+  - Small bin: \(w_s = 2\) workers per bin  
+  - Large bin: \(w_l = 5\) workers per bin  
+  - Total workers available: \(W = 100\)
+
+- Capacity:
+  - Small bin: \(c_s = 25\) units per bin  
+  - Large bin: \(c_l = 60\) units per bin  
+
+- Bin-ratio and minimums:
+  - Required ratio: number of small bins must be three times number of large bins  
+    \[
+      x_s = 3 x_l
+    \]
+  - Minimum counts:
+    \[
+      x_s \ge 10, \quad x_l \ge 4
+    \]
+
+---
+
+## 3. Objective function
+
+Maximise the total capacity of recycling material collected:
+
+\[
+\max \; Z = c_s x_s + c_l x_l
+    = 25 x_s + 60 x_l
+\]
+
+---
+
+## 4. Constraints
+
+1. **Worker availability constraint**
+
+Total workers used cannot exceed 100:
+
+\[
+w_s x_s + w_l x_l \le W
+\quad \Rightarrow \quad
+2 x_s + 5 x_l \le 100
+\]
+
+2. **Bin ratio requirement**
+
+Number of small bins must be three times the number of large bins:
+
+\[
+x_s = 3 x_l
+\]
+
+3. **Minimum bin-counts**
+
+\[
+x_s \ge 10
+\]
+\[
+x_l \ge 4
+\]
+
+4. **Nonnegativity and integrality**
+
+\[
+x_s, x_l \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 5. Full MILP / ILP formulation
+
+\[
+\begin{aligned}
+\max_{x_s, x_l} \quad & 25 x_s + 60 x_l \\
+\text{s.t.} \quad
+& 2 x_s + 5 x_l \le 100 \\
+& x_s = 3 x_l \\
+& x_s \ge 10 \\
+& x_l \ge 4 \\
+& x_s, x_l \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a small Integer Linear Program (ILP); the equality ratio constraint keeps it linear.
+
+---
+
+## 6. Simplified one-variable form (optional)
+
+Using \(x_s = 3 x_l\), you can express everything in terms of \(x_l\):
+
+- Worker constraint:
+  \[
+  2(3 x_l) + 5 x_l = 11 x_l \le 100 \Rightarrow x_l \le \left\lfloor \frac{100}{11} \right\rfloor = 9
+  \]
+
+- Minimums:
+  \[
+  x_s \ge 10 \Rightarrow 3 x_l \ge 10 \Rightarrow x_l \ge \frac{10}{3} \Rightarrow x_l \ge 4 \; (\text{since integer})
+  \]
+  \[
+  x_l \ge 4 \quad (\text{given})
+  \]
+
+So:
+\[
+4 \le x_l \le 9, \quad x_l \in \mathbb{Z}
+\]
+\[
+x_s = 3 x_l
+\]
+
+Objective in terms of \(x_l\):
+\[
+Z = 25(3x_l) + 60 x_l = 75x_l + 60x_l = 135 x_l
+\]
+
+Since \(Z\) is increasing in \(x_l\), the best solution uses the maximum feasible \(x_l\):
+
+\[
+x_l^* = 9,\quad x_s^* = 3 \cdot 9 = 27
+\]
+
+---
+
+## 7. Recommended Python tools
+
+For such an ILP, any standard MILP/LP library is suitable:
+
+- **PuLP**: Very easy syntax, pure Python, can call CBC (default), GLPK, or commercial solvers.  
+- **OR-Tools (Google)**: `ortools.linear_solver` for MILP; efficient and well-documented.  
+- **Pyomo**: More general modelling framework, good for larger or more complex models.  
+
+For this small model, **PuLP** or **OR-Tools** is ideal.
+
+---
+
+## 8. Example model in Python (PuLP)
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Recycling_Bins", pl.LpMaximize)
+
+# Decision variables (nonnegative integers)
+x_s = pl.LpVariable("x_s", lowBound=0, cat=pl.LpInteger)  # small bins
+x_l = pl.LpVariable("x_l", lowBound=0, cat=pl.LpInteger)  # large bins
+
+# Objective: maximize total capacity
+prob += 25 * x_s + 60 * x_l, "TotalCapacity"
+
+# Constraints
+prob += 2 * x_s + 5 * x_l <= 100, "WorkerLimit"
+prob += x_s == 3 * x_l, "BinRatio"
+prob += x_s >= 10, "MinSmallBins"
+prob += x_l >= 4, "MinLargeBins"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Small bins (x_s):", pl.value(x_s))
+print("Large bins (x_l):", pl.value(x_l))
+print("Max total capacity:", pl.value(prob.objective))
+```
+
+This will return:
+- Small bins: 27  
+- Large bins: 9  
+- Max total capacity: \(25 \cdot 27 + 60 \cdot 9 = 3{,}645\) units.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Parameters
+    w_s = 2   # workers per small bin
+    w_l = 5   # workers per large bin
+    W = 100   # total workers
+
+    c_s = 25  # capacity per small bin
+    c_l = 60  # capacity per large bin
+
+    # Create problem
+    prob = pl.LpProblem("Recycling_Bins", pl.LpMaximize)
+
+    # Decision variables (nonnegative integers)
+    x_s = pl.LpVariable("x_s", lowBound=0, cat=pl.LpInteger)  # small bins
+    x_l = pl.LpVariable("x_l", lowBound=0, cat=pl.LpInteger)  # large bins
+
+    # Objective: maximize total capacity
+    prob += c_s * x_s + c_l * x_l, "TotalCapacity"
+
+    # Constraints
+    prob += w_s * x_s + w_l * x_l <= W, "WorkerLimit"
+    prob += x_s == 3 * x_l, "BinRatio"
+    prob += x_s >= 10, "MinSmallBins"
+    prob += x_l >= 4, "MinLargeBins"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    final_obj = pl.value(prob.objective)
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

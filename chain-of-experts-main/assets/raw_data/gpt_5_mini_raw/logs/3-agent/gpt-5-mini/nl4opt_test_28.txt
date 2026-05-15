@@ -1,0 +1,126 @@
+[MODELER]:
+Model variables
+- x = number of sled-dog trips (>= 0)
+- y = number of truck trips (>= 0)
+
+(If trips must be whole trips, also require x,y integer. That makes this a MILP. If fractional trips are allowed, the model is an LP.)
+
+Given data
+- DogCapability = 100 (fish per dog trip)
+- TruckCapability = 300 (fish per truck trip)
+- DogCost = 50 (cost per dog trip)
+- TruckCost = 100 (cost per truck trip)
+- MaxBudget = 1000
+
+Objective
+Maximise total fish transported:
+maximize Z = 100 x + 300 y
+
+Constraints
+1) Budget limit:
+50 x + 100 y <= 1000
+
+2) Number of dog trips must be less than number of truck trips:
+x < y
+This is represented in a linear form as
+x - y <= -1
+(if trips are integers; for purely continuous LP you can use x - y <= -ε for a small ε > 0 to capture strictness, or simply x - y <= 0 if strictness is not essential).
+
+3) Non-negativity (and integrality if required):
+x >= 0, y >= 0  (and x, y integer if trips must be whole)
+
+Full MILP formulation (common form)
+Maximise Z = 100 x + 300 y
+subject to
+50 x + 100 y <= 1000
+x - y <= -1
+x, y ∈ Z_+, or x, y >= 0 for LP relaxation
+
+Discussion / quick solution
+Trucks are more cost-efficient (100/300 ≈ 0.333 cost per fish vs 50/100 = 0.5), so the budget is best spent on trucks. With the budget 1000 the maximum number of truck trips is y = 10 (cost 1000), and x = 0 satisfies x < y. That yields Z = 300 * 10 = 3000 fish. So optimal integer solution: x = 0, y = 10, fish = 3000.
+
+Recommended solvers / Python libraries
+- For MILP (integer trips): PuLP (open-source, CBC solver), OR-Tools CP-SAT, or commercial solvers (Gurobi, CPLEX) if available.
+- For continuous LP relaxation: scipy.optimize.linprog or PuLP.
+
+Example PuLP (integer) code snippet
+(Note: this is a minimal example; adapt to your environment.)
+from pulp import LpProblem, LpMaximize, LpVariable, LpInteger, value
+
+prob = LpProblem("Fish_Transport", LpMaximize)
+x = LpVariable("dog_trips", lowBound=0, cat=LpInteger)
+y = LpVariable("truck_trips", lowBound=0, cat=LpInteger)
+
+# Objective
+prob += 100*x + 300*y
+
+# Constraints
+prob += 50*x + 100*y <= 1000
+prob += x - y <= -1
+
+prob.solve()
+print("x =", int(x.value()), "y =", int(y.value()), "fish =", value(prob.objective))
+
+Example OR-Tools CP-SAT (integer) snippet
+from ortools.sat.python import cp_model
+
+model = cp_model.CpModel()
+x = model.NewIntVar(0, 1000, 'dog_trips')
+y = model.NewIntVar(0, 1000, 'truck_trips')
+
+model.Add(50*x + 100*y <= 1000)
+model.Add(x - y <= -1)
+model.Maximize(100*x + 300*y)
+
+solver = cp_model.CpSolver()
+solver.Solve(model)
+print("x =", solver.Value(x), "y =", solver.Value(y), "fish =", solver.ObjectiveValue())
+
+If you want I can (a) run through the LP relaxation solution, (b) show sensitivity/dual interpretation, or (c) modify the model if you require at least one dog trip or a different strictness interpretation of x < y.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Brute-force integer solver for the sled-dog / truck trips MILP
+
+# Problem data (initialized directly)
+DogCapability = 100   # fish per dog trip
+TruckCapability = 300 # fish per truck trip
+DogCost = 50          # cost per dog trip
+TruckCost = 100       # cost per truck trip
+MaxBudget = 1000      # total budget
+
+# Decision variables (integers >= 0): x = dog trips, y = truck trips
+# Constraints:
+# 1) Budget: 50*x + 100*y <= 1000
+# 2) x < y  -> represented as x - y <= -1
+# 3) x, y integers >= 0
+
+best_obj = None
+best_solution = None
+
+# Upper bounds for enumeration from budget limits
+max_x = MaxBudget // DogCost  # at most 1000/50 = 20
+max_y = MaxBudget // TruckCost  # at most 1000/100 = 10
+
+for y in range(0, max_y + 1):
+    for x in range(0, max_x + 1):
+        if DogCost * x + TruckCost * y > MaxBudget:
+            continue
+        if not (x < y):
+            continue
+        obj = DogCapability * x + TruckCapability * y
+        if (best_obj is None) or (obj > best_obj):
+            best_obj = obj
+            best_solution = (x, y)
+
+# If no feasible integer solution found (shouldn't happen here), set to 0
+if best_obj is None:
+    best_obj = 0
+    best_solution = (0, 0)
+
+# Final required output line (only this exact line at the end)
+print(f"FINAL_OBJ: {best_obj}")
+```

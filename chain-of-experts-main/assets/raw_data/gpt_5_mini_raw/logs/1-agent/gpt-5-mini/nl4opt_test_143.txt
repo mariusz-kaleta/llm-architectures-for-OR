@@ -1,0 +1,48 @@
+[MONOLITH]:
+import pulp
+
+# Data from the problem
+units_needed = 1500
+camel_capacity = 50      # units per camel caravan trip
+camel_hours = 12         # hours per camel caravan trip
+truck_capacity = 150     # units per desert truck trip
+truck_hours = 5          # hours per desert truck trip
+
+# Define the problem
+prob = pulp.LpProblem("Desert_Transport_Minimize_Hours", pulp.LpMinimize)
+
+# Decision variables: number of camel caravans (x) and desert trucks (y)
+# They must be integer and non-negative
+x = pulp.LpVariable("camels", lowBound=0, cat="Integer")
+y = pulp.LpVariable("trucks", lowBound=0, cat="Integer")
+
+# Objective: minimize total hours (sum of hours for all trips)
+prob += camel_hours * x + truck_hours * y, "Total_Hours"
+
+# Constraints:
+# 1) Meet or exceed required units
+prob += camel_capacity * x + truck_capacity * y >= units_needed, "Demand_Constraint"
+
+# 2) Company prefers to have more camel caravans than desert trucks (strictly more)
+# Implemented as x >= y + 1
+prob += x >= y + 1, "Preference_Camels_More"
+
+# Solve the integer program
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract solution
+camels_opt = int(pulp.value(x))
+trucks_opt = int(pulp.value(y))
+obj_value = pulp.value(prob.objective)
+
+# Print solution (counts)
+print(f"Camels: {camels_opt}")
+print(f"Trucks: {trucks_opt}")
+
+# Print final objective value in the required format as an integer if it is integral
+if abs(obj_value - round(obj_value)) < 1e-8:
+    obj_to_print = int(round(obj_value))
+else:
+    obj_to_print = obj_value
+
+print(f"FINAL_OBJ: {obj_to_print}")

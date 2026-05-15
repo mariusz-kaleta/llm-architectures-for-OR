@@ -1,0 +1,91 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x = number of color printers produced per day (≥ 0)
+- y = number of black-and-white printers produced per day (≥ 0)
+
+(If you need integer solutions, add x, y ∈ Z. For this problem the LP relaxation yields integer values.)
+
+Objective
+- Maximize profit: maximize Z = 200x + 70y
+
+Constraints
+1. Color-team capacity: x ≤ 20
+2. B&W-team capacity: y ≤ 30
+3. Shared paper-tray machine capacity: x + y ≤ 35
+4. Nonnegativity: x ≥ 0, y ≥ 0
+
+Mathematical formulation
+Maximize Z = 200x + 70y
+subject to
+x ≤ 20
+y ≤ 30
+x + y ≤ 35
+x, y ≥ 0
+
+Solution reasoning (short)
+Profit per machine use is higher for color printers (200) than for black-and-white (70). Use the shared machine capacity first for color printers up to the color-team limit, then use remaining machine capacity for black-and-white. So set x = 20 (color capacity), remaining machine capacity = 35 − 20 = 15 → y = 15. This satisfies y ≤ 30. Objective value = 200·20 + 70·15 = 5050.
+
+Optimal production plan
+- Produce 20 color printers per day
+- Produce 15 black-and-white printers per day
+- Maximum daily profit = $5050
+
+Suggested solvers / Python libraries
+- pulp (simple MILP modelling; defaults to CBC solver)
+- scipy.optimize.linprog (LP solver; good for continuous LPs)
+- ortools.linear_solver (Google OR-Tools; supports MIP)
+- cvxpy (convex optimization modelling; can call many solvers)
+
+Example code (pulp)
+- Continuous LP:
+  from pulp import LpMaximize, LpProblem, LpVariable, value
+  prob = LpProblem('printers', LpMaximize)
+  x = LpVariable('x', lowBound=0)
+  y = LpVariable('y', lowBound=0)
+  prob += 200*x + 70*y
+  prob += x <= 20
+  prob += y <= 30
+  prob += x + y <= 35
+  prob.solve()
+  print(value(x), value(y), value(prob.objective))
+- If you want integer solutions, declare x and y with cat='Integer' (not needed here).
+
+Example code (scipy.optimize.linprog)
+  from scipy.optimize import linprog
+  # minimize negative profit
+  c = [-200, -70]
+  A_ub = [[1, 0],
+          [0, 1],
+          [1, 1]]
+  b_ub = [20, 30, 35]
+  bounds = [(0, None), (0, None)]
+  res = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method='highs')
+  x_opt, y_opt = res.x
+  profit = -res.fun
+
+This returns x = 20, y = 15, profit = 5050.
+
+---
+
+[CODER]:
+# Self-contained script to solve the printer production LP and print the final objective value.
+# Decision variables:
+# x = number of color printers produced per day (>=0)
+# y = number of black-and-white printers produced per day (>=0)
+# Constraints:
+# x <= 20
+# y <= 30
+# x + y <= 35
+# Objective: maximize 200*x + 70*y
+
+# Use direct reasoning: prioritize color (higher profit per shared machine).
+x = min(20, 35)                # use color-team capacity up to shared capacity
+remaining_capacity = 35 - x
+y = min(30, remaining_capacity)  # use remaining shared capacity for B&W, limited by y capacity
+
+profit = 200 * x + 70 * y
+
+# Ensure the final line prints exactly in required format
+print(f"FINAL_OBJ: {profit}")

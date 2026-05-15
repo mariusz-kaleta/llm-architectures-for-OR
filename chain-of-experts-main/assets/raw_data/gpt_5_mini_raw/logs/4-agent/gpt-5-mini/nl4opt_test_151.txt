@@ -1,0 +1,149 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Maximise the boy’s total zinc intake.
+
+2) Suggested model type
+- Model: Integer Linear Programming (ILP).  
+  Rationale: objective and constraints are linear and the decision variables are counts of items (integers). You can also use a continuous LP relaxation first to identify the optimal corner and then enforce integrality.
+
+3) Main decision variables
+- Number of gummies (integer, >=0).  
+- Number of pills (integer, >=0).
+
+(Indicate units: each gummy contains 3 units Mg and 4 units Zn; each pill contains 2 units Mg and 5 units Zn.)
+
+4) Key constraints to include (described conceptually)
+- Magnesium capacity: total magnesium consumed from gummies and pills cannot exceed 200 units.
+- Minimum pills: the boy must take at least 10 pills.
+- Preference ratio: the number of gummies must be at least three times the number of pills (gummies >= 3 × pills).
+- Nonnegativity and integrality: numbers of gummies and pills must be nonnegative integers.
+- Feasibility check: verify the minimum-required consumption (pills = 10, gummies = 30) meets the magnesium limit; otherwise report infeasibility.
+
+5) Objective function (conceptual)
+- Maximise total zinc = (zinc per gummy × number of gummies) + (zinc per pill × number of pills).
+
+6) Implementation notes and recommended solution approach
+- Because there are only two decision variables, you can solve by:
+  - running an ILP solver, or
+  - solving the LP relaxation (continuous) to find the candidate corner solution and then searching nearby integer lattice points, or
+  - simple bounded enumeration (iterate pills from 10 up to the maximum feasible given magnesium and ratio constraint, compute minimal gummies = max(3×pills, floor by Mg), evaluate zinc).
+- Report optimal integers for gummies and pills, the binding constraints at optimum, and the maximum zinc achieved.
+- Optionally perform sensitivity checks: how the solution changes if magnesium cap, minimum pills, or ratio requirement vary.
+
+---
+
+[MODELER]:
+Formal ILP model
+
+Decision variables
+- g ∈ Z≥0 : number of gummies.
+- p ∈ Z≥0 : number of pills.
+
+Given data (units per item)
+- gummy: Mg = 3, Zn = 4.
+- pill:   Mg = 2, Zn = 5.
+
+Objective
+- Maximise total zinc:
+  Max Z = 4g + 5p
+
+Constraints
+1. Magnesium capacity:
+   3g + 2p ≤ 200
+2. Minimum pills:
+   p ≥ 10
+3. Gummies preference ratio:
+   g ≥ 3 p
+4. Integrality and nonnegativity:
+   g, p ∈ Z≥0
+
+Feasibility quick-check
+- The minimum-required checklist (p=10, g=30) uses Mg = 3·30 + 2·10 = 110 ≤ 200, so the instance is feasible.
+
+Solution approach (small integer problem)
+- Because there are only two integer variables, an exhaustive (bounded) enumeration is simplest and exact:
+  - p ranges from p_min = 10 up to p_max = floor(200/11) = 18 (the 11 comes from substituting g = 3p into magnesium: 3·(3p)+2p = 11p ≤ 200).
+  - For each p, the feasible g are integers g satisfying g ≥ 3p and 3g + 2p ≤ 200. The best g for a fixed p is the largest feasible g (use remaining Mg to add gummies), i.e.
+      g_max(p) = floor((200 − 2p) / 3),
+    provided g_max(p) ≥ 3p.
+  - Evaluate Z(p) = 4·g_max(p) + 5·p and pick the p (and corresponding g_max) giving the largest Z.
+
+Analytical / LP-relaxation insight
+- If g is set to its lower bound g = 3p, the continuous LP objective becomes Z = 17 p subject to 11 p ≤ 200 → p* = 200/11 ≈ 18.1818, g* = 3p* ≈ 54.5455. The integer optimum will be near that corner.
+
+Optimal integer solution (by enumeration)
+- p = 18 (p ≥ 10 and ≤ 18)
+- g = g_max(18) = floor((200 − 2·18)/3) = floor(164/3) = 54 (and g = 3·18 = 54 so ratio bound is active)
+- Total magnesium used = 3·54 + 2·18 = 198 ≤ 200 (2 units Mg slack)
+- Total zinc = 4·54 + 5·18 = 216 + 90 = 306 (maximum)
+
+Binding/active constraints at the integer optimum
+- g ≥ 3p is active (g = 3p).
+- Magnesium capacity is not tight (slack = 2).
+- Minimum pills constraint p ≥ 10 is not active (p > 10).
+
+Recommended solvers / Python libraries
+- For this small ILP: pulp (PuLP), OR-Tools CP-SAT or ortools.linear_solver (CBC/GUROBI if available) are all fine.
+- To inspect LP relaxation: scipy.optimize.linprog.
+- For exhaustive enumeration or simple code: plain Python (integer loop) suffices.
+
+Short Python sketch (enumeration)
+- Pseudocode:
+  for p in range(10, 19):
+      g_max = (200 - 2*p) // 3
+      if g_max >= 3*p:
+          Z = 4*g_max + 5*p
+          record if Z is best
+
+Optional sensitivity suggestions
+- Check how the solution changes if the Mg cap, the minimum pills, or the 3× ratio change; since pills have higher Zn per Mg than gummies, the optimal p will typically be as large as the Mg and ratio constraints permit.
+
+If you want, I can:
+- provide a ready-to-run Python script using PuLP or plain enumeration, or
+- show a small plot/sensitivity table varying the Mg limit or minimum pill requirement.
+
+---
+
+[CODER]:
+#!/usr/bin/env python3
+# Self-contained script to solve the ILP by enumeration as described.
+
+# Data
+MG_CAP = 200
+Mg_per_gummy = 3
+Zn_per_gummy = 4
+Mg_per_pill = 2
+Zn_per_pill = 5
+p_min = 10
+ratio_g_per_p = 3  # g >= 3 p
+
+# Compute p upper bound from substituting g = 3p into magnesium constraint: 3*(3p) + 2p = 11p <= MG_CAP
+p_max = MG_CAP // (Mg_per_gummy * ratio_g_per_p + Mg_per_pill)  # MG_CAP // 11
+
+best_Z = None
+best_p = None
+best_g = None
+
+for p in range(p_min, p_max + 1):
+    # Maximum g given magnesium capacity
+    remaining_Mg_for_g = MG_CAP - Mg_per_pill * p
+    if remaining_Mg_for_g < 0:
+        continue
+    g_max = remaining_Mg_for_g // Mg_per_gummy
+    # Respect ratio constraint
+    if g_max < ratio_g_per_p * p:
+        continue
+    Z = Zn_per_gummy * g_max + Zn_per_pill * p
+    if (best_Z is None) or (Z > best_Z):
+        best_Z = Z
+        best_p = p
+        best_g = g_max
+
+# Fallback if nothing found (shouldn't happen for this instance)
+if best_Z is None:
+    best_Z = 0
+    best_p = 0
+    best_g = 0
+
+# At this point best_Z should be the optimal objective value (integer)
+print(f"FINAL_OBJ: {best_Z}")

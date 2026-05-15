@@ -1,0 +1,71 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x_s = number of small containers used (nonnegative integer)
+- x_l = number of large containers used (nonnegative integer)
+
+Objective
+- Maximize total paste produced:
+  maximize Z = 20 x_s + 30 x_l
+  (small produces 20 units, large produces 30 units)
+
+Constraints (resource limits)
+- Water: 10 x_s + 20 x_l ≤ 500
+- Powder: 15 x_s + 20 x_l ≤ 700
+- Domain: x_s, x_l ∈ Z_{\ge 0} (or ∈ R_{\ge 0} if fractional containers were allowed)
+
+Solve analytically (continuous LP)
+- Solve the two binding constraints:
+  x_s + 2 x_l = 50  (from water scaled by 1/10)
+  15 x_s + 20 x_l = 700
+  ⇒ x_l = 5, x_s = 40
+- This uses all resources and gives Z = 20·40 + 30·5 = 950 units of paste.
+
+Because (40,5) is integer, it is also optimal for the integer problem. So the optimum is:
+- Use 40 small containers and 5 large containers, producing 950 units of paste.
+
+Recommended Python libraries to solve this
+- For integer/linear programming: PuLP, OR-Tools (CP-SAT or linear solver), python-mip, Gurobi/CPLEX (commercial).
+- For continuous LP only: scipy.optimize.linprog or CVXPY.
+
+Minimal example (PuLP)
+- Use PuLP to model and solve the MILP if you want code:
+  - Create integer variables x_s,x_l ≥0
+  - Add constraints 10*x_s + 20*x_l ≤ 500 and 15*x_s + 20*x_l ≤ 700
+  - Maximize 20*x_s + 30*x_l
+  - Solve (PuLP will return x_s=40, x_l=5, objective=950).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import sys
+
+# Resource capacities
+water_cap = 500
+powder_cap = 700
+
+# Coefficients
+water_s, water_l = 10, 20
+powder_s, powder_l = 15, 20
+prod_s, prod_l = 20, 30
+
+# Search bounds (integers)
+max_xs = water_cap // water_s  # 50
+max_xl = water_cap // water_l  # 25
+
+best_z = -1
+best_xs = 0
+best_xl = 0
+
+for xs in range(max_xs + 1):
+    for xl in range(max_xl + 1):
+        if water_s * xs + water_l * xl <= water_cap and powder_s * xs + powder_l * xl <= powder_cap:
+            z = prod_s * xs + prod_l * xl
+            if z > best_z:
+                best_z = z
+                best_xs = xs
+                best_xl = xl
+
+# At this point best_xs, best_xl, best_z hold the integer optimum
+print(f"FINAL_OBJ: {best_z}")

@@ -1,0 +1,145 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- L = number of large pizzas (integer, L ≥ 0)
+- M = number of medium pizzas (integer, M ≥ 0)
+
+Objective
+Minimize total baking time (in minutes):
+minimize Z = 12 L + 8 M
+
+Constraints
+- Dough usage (must use at least 10 000 units):
+12 L + 8 M ≥ 10000
+
+- Toppings usage (must use at least 4 400 units):
+5 L + 4 M ≥ 4400
+
+- Minimum medium pizzas (promotion):
+M ≥ 200
+
+- Regulars requirement (at least two times as many large as medium):
+L ≥ 2 M
+
+- Integrality and nonnegativity:
+L, M ∈ Z, L ≥ 0, M ≥ 0
+
+Comment: The objective equals the total dough units used (12L+8M), so the dough constraint gives a lower bound on the objective; the toppings and ratio constraints interact to determine the feasible minimum.
+
+Solving (analytical / small integer search)
+- Solve the continuous LP to find the neighborhood of the optimum: the continuous optimum occurs near L ≈ 628.571, M ≈ 314.286 (objective ≈ 10057.14), but L and M must be integers.
+- Search integer feasible points near that continuous solution by taking for each candidate M the smallest feasible L = ceil( max(2M, (4400−4M)/5, (10000−8M)/12, 0) ).
+
+That search yields the integer optimal solution:
+- M = 314 medium pizzas
+- L = 629 large pizzas
+
+Check feasibility:
+- Dough: 12·629 + 8·314 = 7548 + 2512 = 10060 ≥ 10000
+- Toppings: 5·629 + 4·314 = 3145 + 1256 = 4401 ≥ 4400
+- M ≥ 200 and L ≥ 2M (629 ≥ 628) — satisfied
+
+Total baking time (objective) = 10060 minutes. This is the minimum integer-feasible total baking time.
+
+Recommended solvers / Python libraries
+- pulp (with CBC or GLPK) — easy to model small integer LPs
+- OR-Tools CP-SAT — fast integer solver for larger combinatorial problems
+- cvxpy with an integer-capable solver (e.g., GLPK_MI) — for higher-level modeling
+- gurobi / CPLEX — commercial high-performance solvers if available
+
+If you want, I can provide a short Python example using pulp or OR-Tools to compute this exact solution.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Search for integer solution to:
+# Minimize Z = 12 L + 8 M
+# Subject to:
+# 12 L + 8 M >= 10000
+# 5 L + 4 M >= 4400
+# M >= 200
+# L >= 2 M
+# L, M integers >= 0
+
+best_obj = None
+best_L = None
+best_M = None
+
+# Search M in a reasonable range. The continuous solution had M ~ 314,
+# so searching from 200 up to 2000 is more than enough for this small problem.
+for M in range(200, 2001):
+    # Compute minimal L to satisfy each constraint.
+    # L >= 2M
+    L_req_ratio = 2 * M
+
+    # From toppings: 5L + 4M >= 4400  =>  L >= (4400 - 4M)/5
+    num_toppings = 4400 - 4 * M
+    if num_toppings <= 0:
+        L_req_toppings = 0
+    else:
+        L_req_toppings = (num_toppings + 5 - 1) // 5  # ceil division
+
+    # From dough: 12L + 8M >= 10000  =>  L >= (10000 - 8M)/12
+    num_dough = 10000 - 8 * M
+    if num_dough <= 0:
+        L_req_dough = 0
+    else:
+        L_req_dough = (num_dough + 12 - 1) // 12  # ceil division
+
+    L_min = max(0, L_req_ratio, L_req_toppings, L_req_dough)
+
+    # L must be integer >= 0; take L = L_min
+    L = L_min
+
+    # Verify feasibility (should hold by construction, but double-check)
+    if 12 * L + 8 * M < 10000:
+        continue
+    if 5 * L + 4 * M < 4400:
+        continue
+    if L < 2 * M:
+        continue
+    if M < 200:
+        continue
+
+    obj = 12 * L + 8 * M
+
+    if (best_obj is None) or (obj < best_obj) or (obj == best_obj and (M < best_M or (M == best_M and L < best_L))):
+        best_obj = obj
+        best_L = L
+        best_M = M
+
+# As a safeguard, if not found in that range, extend search further (unlikely needed)
+if best_obj is None:
+    for M in range(2001, 10001):
+        L_req_ratio = 2 * M
+        num_toppings = 4400 - 4 * M
+        L_req_toppings = 0 if num_toppings <= 0 else (num_toppings + 5 - 1) // 5
+        num_dough = 10000 - 8 * M
+        L_req_dough = 0 if num_dough <= 0 else (num_dough + 12 - 1) // 12
+        L_min = max(0, L_req_ratio, L_req_toppings, L_req_dough)
+        L = L_min
+        if 12 * L + 8 * M < 10000:
+            continue
+        if 5 * L + 4 * M < 4400:
+            continue
+        if L < 2 * M:
+            continue
+        if M < 200:
+            continue
+        obj = 12 * L + 8 * M
+        if (best_obj is None) or (obj < best_obj):
+            best_obj = obj
+            best_L = L
+            best_M = M
+
+# Final objective value
+if best_obj is None:
+    raise RuntimeError("No feasible solution found in search range.")
+# Print final objective exactly as required
+print(f"FINAL_OBJ: {best_obj}")
+```

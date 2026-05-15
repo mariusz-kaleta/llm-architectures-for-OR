@@ -1,0 +1,246 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise total sugar intake from blueberries and strawberries while satisfying nutrition and ratio requirements.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with non‑negative (and ideally integer) decision variables.  
+- If the modeller’s tool supports integer programming easily, treat variables as non‑negative integers (packs).  
+- Otherwise, solve as continuous LP first; if needed, search nearby integer solutions.
+
+3. Main decision variables  
+Let:
+- x = number of packs of blueberries consumed  
+- y = number of packs of strawberries consumed  
+
+4. Objective function (conceptual)  
+- Minimise total sugar:  
+  - 5 grams of sugar per pack of blueberries  
+  - 7 grams of sugar per pack of strawberries  
+- Objective: Minimise 5x + 7y
+
+5. Key constraints to consider  
+
+   a) Anti‑oxidant requirement  
+   - Each pack of blueberries: 3 units of anti‑oxidants  
+   - Each pack of strawberries: 1 unit of anti‑oxidants  
+   - The client needs at least 90 units:  
+     - 3x + y ≥ 90  
+
+   b) Mineral requirement  
+   - Each pack of blueberries: 5 units of minerals  
+   - Each pack of strawberries: 7 units of minerals  
+   - The client needs at least 100 units:  
+     - 5x + 7y ≥ 100  
+
+   c) Strawberry-to-blueberry ratio requirement  
+   - She must eat at least 3 times as many packs of strawberries as blueberries:  
+     - y ≥ 3x  
+
+   d) Non‑negativity and integrality  
+   - x ≥ 0  
+   - y ≥ 0  
+   - Optionally enforce x, y to be integers if the solution must be whole packs.
+
+6. Modelling strategy / solution approach  
+
+- Formulate the LP with the objective and constraints above.  
+- If solving graphically or conceptually:  
+  - Plot the three main inequality constraints (anti‑oxidants, minerals, and y ≥ 3x) in the x–y plane.  
+  - Identify the feasible region defined by all inequalities.  
+  - Check intersection points (corner points) of constraint lines, including where they meet the non‑negativity axes, as these will be candidates for the minimum sugar solution.  
+- Compute the value of the objective (5x + 7y) at each corner point in the feasible region.  
+- Select the feasible corner point with the minimum objective value.  
+- If you treat x, y as integers, adjust by checking nearby integer points around the optimal continuous solution to find the integer combination with minimum sugar that still satisfies all constraints.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model and some guidance on how to solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+
+- \(x\) = number of packs of blueberries  
+- \(y\) = number of packs of strawberries  
+
+Depending on context, you can impose integrality:
+
+- **Continuous LP**: \(x, y \ge 0\) (can be fractional packs)
+- **Integer LP**: \(x, y \in \mathbb{Z}_{\ge 0}\) (whole packs)
+
+---
+
+## 2. Objective function
+
+Minimise total sugar intake.
+
+- Each pack of blueberries: 5 g sugar  
+- Each pack of strawberries: 7 g sugar  
+
+Objective:
+\[
+\text{Minimise } Z = 5x + 7y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Anti‑oxidant requirement
+
+- Blueberries: 3 units/pack  
+- Strawberries: 1 unit/pack  
+- Need at least 90 units total
+
+\[
+3x + y \;\ge\; 90
+\]
+
+---
+
+### b) Mineral requirement
+
+- Blueberries: 5 units/pack  
+- Strawberries: 7 units/pack  
+- Need at least 100 units total
+
+\[
+5x + 7y \;\ge\; 100
+\]
+
+---
+
+### c) Strawberry‑to‑blueberry ratio
+
+She must eat **at least 3 times as many packs of strawberries as blueberries**:
+
+\[
+y \;\ge\; 3x
+\]
+
+---
+
+### d) Non‑negativity (and optional integrality)
+
+\[
+x \;\ge\; 0,\quad y \;\ge\; 0
+\]
+
+Optionally:
+
+\[
+x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete mathematical model
+
+**Continuous LP version:**
+
+\[
+\begin{aligned}
+\text{Minimise }   & Z = 5x + 7y \\
+\text{subject to } & 3x + y \ge 90 \\
+                   & 5x + 7y \ge 100 \\
+                   & y - 3x \ge 0 \\
+                   & x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+**Integer LP version (if whole packs required):**
+
+Same model with the additional conditions \(x, y \in \mathbb{Z}\).
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard LP/MIP library works well:
+
+- **PuLP**: Very straightforward for teaching and small models.
+  - `pulp.LpProblem`, `pulp.LpVariable`, `pulp.PULP_CBC_CMD` solver.
+- **OR-Tools** (Google): Powerful for integer programming (`pywraplp.Solver`).
+- **SciPy**: `scipy.optimize.linprog` (continuous LP only, no integrality).
+- **Pyomo**: More general modelling language, good for larger projects.
+
+For this problem:
+
+- If you allow fractional packs: `scipy.optimize.linprog` or **PuLP** (as LP).
+- If you need integer solutions: **PuLP** (CBC) or **OR-Tools** MIP solver.
+
+---
+
+## 6. Sketch of a PuLP implementation
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Fruit_Diet", pl.LpMinimize)
+
+# Decision variables (continuous; use cat=pl.LpInteger for integer packs)
+x = pl.LpVariable('blueberries', lowBound=0, cat='Continuous')
+y = pl.LpVariable('strawberries', lowBound=0, cat='Continuous')
+
+# Objective
+prob += 5 * x + 7 * y
+
+# Constraints
+prob += 3 * x + y >= 90      # antioxidants
+prob += 5 * x + 7 * y >= 100 # minerals
+prob += y >= 3 * x           # ratio
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("x (blueberries) =", x.value())
+print("y (strawberries) =", y.value())
+print("Minimum sugar =", pl.value(prob.objective))
+```
+
+To enforce integer packs, change:
+
+```python
+x = pl.LpVariable('blueberries', lowBound=0, cat='Integer')
+y = pl.LpVariable('strawberries', lowBound=0, cat='Integer')
+```
+
+This fully formalises the optimisation problem and provides a ready path to solving it in Python.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem (minimization)
+    prob = pl.LpProblem("Fruit_Diet", pl.LpMinimize)
+
+    # Decision variables: integer packs of blueberries and strawberries
+    x = pl.LpVariable('blueberries', lowBound=0, cat='Integer')
+    y = pl.LpVariable('strawberries', lowBound=0, cat='Integer')
+
+    # Objective: minimize total sugar
+    prob += 5 * x + 7 * y
+
+    # Constraints
+    prob += 3 * x + y >= 90      # Antioxidant requirement
+    prob += 5 * x + 7 * y >= 100 # Mineral requirement
+    prob += y >= 3 * x           # Strawberry-to-blueberry ratio
+
+    # Solve the problem using CBC (default in PuLP)
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    obj_val = pl.value(prob.objective)
+
+    # Final required output
+    print(f"FINAL_OBJ: {obj_val}")
+
+if __name__ == "__main__":
+    main()

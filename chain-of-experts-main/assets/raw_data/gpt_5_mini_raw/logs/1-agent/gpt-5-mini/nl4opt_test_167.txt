@@ -1,0 +1,49 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+cost_hamburger = 6.5
+cost_wrap = 4.0
+
+cal_hamburger = 800
+cal_wrap = 450
+prot_hamburger = 19
+prot_wrap = 12
+carb_hamburger = 20
+carb_wrap = 10
+
+min_calories = 2200
+min_protein = 50
+min_carbs = 70
+
+# Define LP
+prob = pulp.LpProblem("Minimum_Cost_Diet", pulp.LpMinimize)
+
+# Decision variables: number of hamburgers (x1) and wraps (x2)
+x1 = pulp.LpVariable("hamburgers", lowBound=0, cat="Continuous")
+x2 = pulp.LpVariable("wraps", lowBound=0, cat="Continuous")
+
+# Objective: minimize cost
+prob += cost_hamburger * x1 + cost_wrap * x2
+
+# Nutritional constraints
+prob += cal_hamburger * x1 + cal_wrap * x2 >= min_calories, "Calories"
+prob += prot_hamburger * x1 + prot_wrap * x2 >= min_protein, "Protein"
+prob += carb_hamburger * x1 + carb_wrap * x2 >= min_carbs, "Carbs"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve results
+hamburgers_val = x1.varValue if x1.varValue is not None else 0.0
+wraps_val = x2.varValue if x2.varValue is not None else 0.0
+value = pulp.value(prob.objective)
+
+# Print solution details
+print(f"Status: {pulp.LpStatus[prob.status]}")
+print(f"Hamburgers: {hamburgers_val}")
+print(f"Wraps: {wraps_val}")
+print(f"Total cost: {value}")
+
+# Final required output line
+print(f"FINAL_OBJ: {value}")

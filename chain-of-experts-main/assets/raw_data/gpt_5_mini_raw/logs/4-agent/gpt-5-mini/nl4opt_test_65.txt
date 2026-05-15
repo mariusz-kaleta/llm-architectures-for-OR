@@ -1,0 +1,651 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Maximise weekly total profit from producing engineered laminate planks and carpets (profit in $).
+
+2. Suggested model type
+- Model: Linear Programming (continuous variables). Solve with the simplex method or any LP solver. Also perform a feasibility check and a short sensitivity analysis on profits and capacity limits.
+
+3. Main decision variables
+- Variable L: weekly square feet of laminate planks produced.
+- Variable C: weekly square feet of carpets produced.
+
+(Nonnegativity applies: L ≥ 0, C ≥ 0.)
+
+4. Key constraints to include
+- Demand minimums: enforce at least the marketer’s expected demand for each product (L ≥ 15,000; C ≥ 5,000).
+- Shipping contract total: require the combined production meets the shipping minimum (L + C ≥ 50,000).
+- Production capacity caps due to material shortage: upper bounds for each product (L ≤ 40,000; C ≤ 20,000).
+- Logical/technical: L and C are continuous real quantities (production measured in sq ft).
+- Feasibility check: verify that lower bounds and upper bounds allow a feasible solution (sum of upper bounds must be ≥ shipping minimum).
+
+5. Objective specification (for modeller)
+- Maximise total profit = (profit per sq ft of laminate) * L + (profit per sq ft of carpet) * C.
+  - Use profits: laminate = $2.10 per sq ft, carpet = $3.30 per sq ft.
+
+6. Solution and analysis tasks for the modeller
+- Solve the LP and report optimal L and C and the total profit.
+- Identify which constraints are binding at the optimum and report shadow prices/dual values for the constraints (useful for managerial insight).
+- Check corner (extreme-point) candidates explicitly or let the solver find the optimum; verify uniqueness or presence of alternative optima.
+- Sensitivity checks: how the optimal solution changes if profits, capacity limits, or the shipping minimum change (particularly small perturbations to each profit coefficient and capacity).
+
+7. Practical assumptions to state in model documentation
+- Linear, constant per-unit profit (no volume discounts or piecewise costs).
+- Production quantities can be fractional (measured continuously in sq ft).
+- No additional resource interactions or costs beyond the given capacities and limits.
+
+Optional quick feasibility note for modeller (do this first)
+- Feasibility quick-check: sum of maximum capacities (40,000 + 20,000 = 60,000) exceeds the shipping requirement (50,000), so feasible solutions exist. Proceed to optimisation.
+
+---
+
+[MODELER]:
+Below I convert the verbal description into a formal linear program, solve it, identify the active constraints and shadow prices, check corner solutions, and give compact sensitivity observations and solver/library recommendations.
+
+1) Mathematical model (formal)
+- Decision variables
+  - L = weekly square feet of laminate planks produced (continuous)
+  - C = weekly square feet of carpets produced (continuous)
+
+- Objective
+  Maximise total weekly profit:
+  maximize Z = 2.1 L + 3.3 C
+
+- Constraints
+  1. Demand minimums (marketing):
+     L ≥ 15,000
+     C ≥ 5,000
+  2. Shipping contract (total minimum):
+     L + C ≥ 50,000
+  3. Production capacity (material shortage):
+     L ≤ 40,000
+     C ≤ 20,000
+  4. Nonnegativity:
+     L, C ≥ 0  (redundant because L and C already bounded)
+
+2) Quick feasibility check
+- Sum of upper bounds = 40,000 + 20,000 = 60,000 ≥ 50,000, therefore feasible solutions exist.
+
+3) Solve the LP (analytic / inspection)
+All unit profits are positive. Because profits are linear and both products are profitable, we should produce up to available capacity unless some lower/upper bound or tradeoff forces otherwise. The capacities are:
+- L can be up to 40,000
+- C can be up to 20,000
+Producing both at their upper bounds gives L + C = 60,000 ≥ 50,000 and satisfies lower bounds. Profit at that point:
+Z = 2.1(40,000) + 3.3(20,000) = 84,000 + 66,000 = $150,000
+
+Hence the optimal solution is:
+- L* = 40,000 sq ft
+- C* = 20,000 sq ft
+- Max profit Z* = $150,000
+
+4) Binding (active) constraints at optimum
+- L ≤ 40,000 is binding (L = 40,000).
+- C ≤ 20,000 is binding (C = 20,000).
+- L + C ≥ 50,000 is not binding (slack = 10,000).
+- Lower bounds L ≥ 15,000 and C ≥ 5,000 are not binding.
+
+5) Shadow prices / dual values (managerial interpretation)
+Shadow price = change in optimal objective per unit increase in the RHS of a constraint (valid within ranges where the basis does not change).
+
+Because both upper-bound capacities are active and there is slack on the shipping minimum, marginal value of relaxing each active capacity equals that product’s profit per sqft:
+- Dual for L ≤ 40,000 (increase in laminate capacity): + $2.10 per sq ft
+  (If you can produce 1 more sqft of laminate, profit increases by $2.10.)
+- Dual for C ≤ 20,000 (increase in carpet capacity): + $3.30 per sq ft
+  (If you can produce 1 more sqft of carpet, profit increases by $3.30.)
+- Dual for L + C ≥ 50,000 (shipping minimum): $0 per sq ft (it has slack; relaxing/tightening slightly within slack doesn't change the optimal profit)
+- Duals for lower-bound constraints are $0 (they are not binding).
+
+6) Corner (extreme-point) check
+Feasible corners arise from intersections of constraint boundaries. Relevant feasible corners and profits:
+- (L,C) = (40,000, 20,000) => Z = $150,000 (this is the optimal corner)
+- (L,C) = (40,000, 10,000) => Z = $117,000 (meets L+C=50k)
+- (L,C) = (30,000, 20,000) => Z = $129,000 (meets L+C=50k)
+Other intersections either violate bounds or the shipping minimum. The solver/inspection confirms the unique optimal corner is (40,000, 20,000).
+
+7) Uniqueness and alternative optima
+- The solution is unique (intersection of two upper bound lines). Alternative optima would occur only if the objective were parallel to a non-unique face of the feasible region; here that does not occur.
+
+8) Short sensitivity notes (managerially useful)
+- Profit coefficients:
+  - If carpet profit per sqft (currently $3.30) increases or decreases slightly, the optimal point remains the same — you still produce at the capacity caps — unless changes are large enough to make producing less profitable than required lower bounds force. In fact, because both capacities are saturated, small changes in profits change total profit but not the production plan.
+  - If laminate profit falls below 0, you would still be forced to produce at least 15,000 sqft (lower bound); but as long as profit_L ≥ 0, producing up to the cap is beneficial.
+- Capacity changes:
+  - Increasing carpet capacity by 1 sqft increases optimal profit by about $3.30 (until other constraints change).
+  - Increasing laminate capacity by 1 sqft increases profit by about $2.10.
+  - Increasing the shipping minimum up to 60,000 is still feasible (sum of caps = 60,000). If shipping minimum > 60,000 the problem becomes infeasible given current per-product caps.
+- Ranges where basis unchanged:
+  - The current basis (both capacities binding) will persist for small perturbations of profit coefficients; to change which constraints bind you'd need large perturbations (e.g., make a product unprofitable or change bounds).
+
+9) Suggested solver libraries / tools
+- For small LPs / prototyping: PuLP (Python) with CBC or GLPK back-end.
+- For robust industrial solving: OR-Tools linear solver or commercial solvers (Gurobi, CPLEX).
+- For simple numeric LP / sensitivity via SciPy: scipy.optimize.linprog (note: limited dual/sensitivity info).
+- For rigorous duals and sensitivity analysis: use a solver that exposes duals (CBC/GLPK via PuLP, or Gurobi/CPLEX).
+
+10) Example (short) PuLP formulation
+(You can implement the model in PuLP as below)
+- Create a LP maximize 2.1*L + 3.3*C
+- Add constraints L >= 15000, C >= 5000, L + C >= 50000, L <= 40000, C <= 20000
+- Solve and read objective and variable values.
+(If you need a runnable code snippet I can supply one.)
+
+If you want, I can:
+- Provide a ready-to-run Python (PuLP) script that solves this LP and prints solution/duals (subject to solver capabilities), or
+- Produce a small sensitivity table (how objective changes for given changes to profits or capacities).
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the LP described in the prompt by enumerating feasible corners,
+# identify the optimal solution, active constraints, compute shadow prices by finite-difference,
+# and display corner solutions and simple sensitivity observations.
+#
+# At the very end this script prints the final objective value in the exact required format:
+# print(f"FINAL_OBJ: {value}")
+
+import itertools
+import math
+
+# Problem data
+c_L = 2.1  # profit per sq ft laminate
+c_C = 3.3  # profit per sq ft carpet
+
+# Constraints list:
+# Each constraint is a dict with keys:
+#  - 'a','b' for coefficients in a*L + b*C (floats)
+#  - 'sense' either '<=' or '>='
+#  - 'rhs' right-hand side (float)
+#  - 'name' textual name for ease of reporting
+constraints = [
+    {'a': 1.0, 'b': 0.0, 'sense': '>=', 'rhs': 15000.0, 'name': 'L >= 15000 (marketing)'},
+    {'a': 0.0, 'b': 1.0, 'sense': '>=', 'rhs': 5000.0,  'name': 'C >= 5000 (marketing)'},
+    {'a': 1.0, 'b': 1.0, 'sense': '>=', 'rhs': 50000.0, 'name': 'L + C >= 50000 (shipping)'},
+    {'a': 1.0, 'b': 0.0, 'sense': '<=', 'rhs': 40000.0, 'name': 'L <= 40000 (capacity)'},
+    {'a': 0.0, 'b': 1.0, 'sense': '<=', 'rhs': 20000.0, 'name': 'C <= 20000 (capacity)'},
+]
+
+# Small tolerance
+tol = 1e-7
+
+def solve_by_corner_enumeration(constraints, c_L, c_C):
+    """
+    Enumerate all intersections of pairs of constraint equalities, filter feasible ones,
+    evaluate objective, and return the best feasible point.
+    """
+    feasible_points = []
+    n = len(constraints)
+    # Consider all pairs of constraints as equalities
+    for i, j in itertools.combinations(range(n), 2):
+        ci = constraints[i]
+        cj = constraints[j]
+        a1, b1, r1 = ci['a'], ci['b'], ci['rhs']
+        a2, b2, r2 = cj['a'], cj['b'], cj['rhs']
+        # Solve linear system [a1 b1; a2 b2] [L; C] = [r1; r2] if invertible
+        det = a1 * b2 - a2 * b1
+        if abs(det) < 1e-12:
+            # Parallel or dependent lines; skip
+            continue
+        L = (r1 * b2 - r2 * b1) / det
+        C = (a1 * r2 - a2 * r1) / det
+        # Check feasibility against all constraints
+        ok = True
+        for ck in constraints:
+            lhs = ck['a'] * L + ck['b'] * C
+            if ck['sense'] == '<=':
+                if lhs > ck['rhs'] + 1e-6:
+                    ok = False
+                    break
+            else:  # '>='
+                if lhs + 1e-6 < ck['rhs']:
+                    ok = False
+                    break
+        # also enforce nonnegativity explicitly
+        if L < -1e-6 or C < -1e-6:
+            ok = False
+        if ok:
+            Z = c_L * L + c_C * C
+            feasible_points.append({'L': L, 'C': C, 'Z': Z, 'active': (i, j)})
+    # Also consider bounds intersections with themselves (single constraints with corner at bounds)
+    # but they are already included above since bounds are in constraint list.
+    # Remove duplicates (points very close)
+    unique_points = []
+    for p in feasible_points:
+        found = False
+        for q in unique_points:
+            if abs(p['L'] - q['L']) < 1e-6 and abs(p['C'] - q['C']) < 1e-6:
+                found = True
+                break
+        if not found:
+            unique_points.append(p)
+    # Sort by objective descending
+    unique_points.sort(key=lambda x: x['Z'], reverse=True)
+    return unique_points
+
+# Solve base problem
+corners = solve_by_corner_enumeration(constraints, c_L, c_C)
+
+if not corners:
+    raise RuntimeError("No feasible corners found. Problem may be infeasible.")
+
+# Best corner is first
+best = corners[0]
+best_L = best['L']
+best_C = best['C']
+best_Z = best['Z']
+
+# Identify active (binding) constraints at optimum
+active_constraints = []
+for idx, ck in enumerate(constraints):
+    lhs = ck['a'] * best_L + ck['b'] * best_C
+    # Consider binding if lhs approx equals rhs within tolerance
+    if abs(lhs - ck['rhs']) <= 1e-6:
+        active_constraints.append((idx, ck['name']))
+
+# Compute shadow prices (finite difference): increase each constraint rhs by delta=1 and re-solve
+def compute_shadow_prices(constraints, c_L, c_C, delta=1.0):
+    base_solution = solve_by_corner_enumeration(constraints, c_L, c_C)
+    if not base_solution:
+        raise RuntimeError("Base problem infeasible when computing shadow prices.")
+    base_Z = base_solution[0]['Z']
+    shadows = []
+    for idx, ck in enumerate(constraints):
+        # make a deep-ish copy with perturbed rhs
+        perturbed = []
+        for j, ckj in enumerate(constraints):
+            new_ck = {'a': ckj['a'], 'b': ckj['b'], 'sense': ckj['sense'], 'rhs': ckj['rhs'], 'name': ckj['name']}
+            if j == idx:
+                new_ck['rhs'] = ckj['rhs'] + delta
+            perturbed.append(new_ck)
+        pts = solve_by_corner_enumeration(perturbed, c_L, c_C)
+        if not pts:
+            # infeasible after perturbation; shadow undefined (set to None or -inf)
+            shadow = None
+            newZ = None
+        else:
+            newZ = pts[0]['Z']
+            shadow = newZ - base_Z
+        shadows.append({'constraint_index': idx, 'name': ck['name'], 'shadow_per_unit_increase': shadow, 'new_obj': newZ})
+    return shadows
+
+shadows = compute_shadow_prices(constraints, c_L, c_C, delta=1.0)
+
+# Simple sensitivity observations (compact)
+sensitivity_notes = []
+# For profit coefficient small changes, since both caps are binding at optimum, the production plan
+# won't change for small perturbations of c_L and c_C; only objective will.
+sensitivity_notes.append("Both product capacity upper bounds are binding at the optimum; small changes in unit profits shift objective but not the production mix (basis stable).")
+sensitivity_notes.append("Increasing laminate capacity by 1 sq ft increases profit by approx {:.2f} (shadow) until basis changes.".format(
+    next((s['shadow_per_unit_increase'] for s in shadows if s['name'].startswith('L <=')), None)))
+sensitivity_notes.append("Increasing carpet capacity by 1 sq ft increases profit by approx {:.2f} (shadow) until basis changes.".format(
+    next((s['shadow_per_unit_increase'] for s in shadows if s['name'].startswith('C <=')), None)))
+sensitivity_notes.append("The shipping minimum (L + C >= 50000) has slack at optimum; its shadow price is approx {:.2f}.".format(
+    next((s['shadow_per_unit_increase'] for s in shadows if s['name'].startswith('L + C')), None)))
+
+# Print outputs (informational). The final print line below must be the last and in the exact required format.
+print("Corner (feasible) solutions and objective values:")
+for p in corners:
+    print("  L = {:.6f}, C = {:.6f}, Z = {:.2f}".format(p['L'], p['C'], p['Z']))
+
+print("\nOptimal solution found by corner enumeration:")
+print("  L* = {:.6f} sq ft".format(best_L))
+print("  C* = {:.6f} sq ft".format(best_C))
+print("  Z* = {:.2f}".format(best_Z))
+
+print("\nActive (binding) constraints at optimum:")
+for idx, name in active_constraints:
+    print(f"  - {name}")
+
+print("\nShadow prices (approx. change in optimal objective per +1 unit increase of the RHS):")
+for s in shadows:
+    sh = s['shadow_per_unit_increase']
+    if sh is None:
+        sh_str = "infeasible after +1 change (shadow undefined)"
+    else:
+        sh_str = "{:+.2f}".format(sh)
+    print(f"  - {s['name']}: {sh_str}")
+
+print("\nShort sensitivity notes:")
+for n in sensitivity_notes:
+    print("  -", n)
+
+print("\nCorner checks highlighted (selected):")
+# present a few corners mentioned in the problem statement for explicit comparison
+examples = [
+    {'L': 40000.0, 'C': 20000.0},
+    {'L': 40000.0, 'C': 10000.0},
+    {'L': 30000.0, 'C': 20000.0},
+]
+for ex in examples:
+    L = ex['L']; C = ex['C']
+    feasible = True
+    for ck in constraints:
+        lhs = ck['a'] * L + ck['b'] * C
+        if ck['sense'] == '<=':
+            if lhs > ck['rhs'] + 1e-6:
+                feasible = False; break
+        else:
+            if lhs + 1e-6 < ck['rhs']:
+                feasible = False; break
+    Z = c_L * L + c_C * C if feasible else None
+    print("  - (L,C)=({:.0f},{:.0f}) feasible: {}{}".format(L, C, feasible, (f", Z={:.2f}".format(Z) if feasible else "")))
+
+print("\nRecommended solver libraries/tools:")
+print("  - PuLP with CBC or GLPK for prototyping (Python).")
+print("  - OR-Tools / HiGHS for robust free solvers.")
+print("  - Gurobi or CPLEX for industrial-strength solving and detailed sensitivity outputs.")
+
+# Final required line (must be the last line output)
+print(f"FINAL_OBJ: {best_Z}")
+```
+
+---
+
+[REVIEWER]:
+The error is caused by mixing an f-string with .format placeholders inside the same expression. In this line:
+
+  print("  - (L,C)=({:.0f},{:.0f}) feasible: {}{}".format(L, C, feasible, (f", Z={:.2f}".format(Z) if feasible else "")))
+
+the subexpression f", Z={:.2f}".format(Z) is invalid: an f-string cannot contain an empty expression before the colon (the "{:.2f}" inside an f-string has no expression), and you should not combine f-strings and .format that way.
+
+Fixes (pick one):
+
+1) Keep .format everywhere, change the inner string to use .format instead of an f-string:
+  print("  - (L,C)=({:.0f},{:.0f}) feasible: {}{}".format(
+      L, C, feasible, (", Z={:.2f}".format(Z) if feasible else "")))
+
+2) Use a single f-string (cleanest/readable):
+  print(f"  - (L,C)=({L:.0f},{C:.0f}) feasible: {feasible}{f', Z={Z:.2f}' if feasible else ''}")
+
+Either change will resolve the SyntaxError.
+
+Recommendation: pick approach (2) for clarity and consistency. Example corrected block (option 2):
+
+for ex in examples:
+    L = ex['L']; C = ex['C']
+    feasible = True
+    for ck in constraints:
+        lhs = ck['a'] * L + ck['b'] * C
+        if ck['sense'] == '<=':
+            if lhs > ck['rhs'] + 1e-6:
+                feasible = False; break
+        else:
+            if lhs + 1e-6 < ck['rhs']:
+                feasible = False; break
+    Z = c_L * L + c_C * C if feasible else None
+    print(f"  - (L,C)=({L:.0f},{C:.0f}) feasible: {feasible}{f', Z={Z:.2f}' if feasible else ''}")
+
+After making that change your script should run past the syntax error.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the LP described in the prompt by enumerating corner intersections.
+# It avoids external solvers and computes the optimal solution, active constraints, corner checks,
+# and numerical shadow-price approximations by small RHS perturbations.
+
+import itertools
+import math
+
+# Problem data (initialize directly)
+c_L = 2.1   # profit per sqft of laminate
+c_C = 3.3   # profit per sqft of carpet
+
+# Bounds / RHS
+LB_L = 15000.0
+LB_C = 5000.0
+MIN_TOTAL = 50000.0
+UB_L = 40000.0
+UB_C = 20000.0
+
+TOL = 1e-6
+
+# Represent the constraint lines we will consider for intersections:
+# We'll consider equalities from: L = LB_L, L = UB_L, C = LB_C, C = UB_C, L + C = MIN_TOTAL
+lines = [
+    ("L_eq_LB", lambda: ("L", LB_L)),
+    ("L_eq_UB", lambda: ("L", UB_L)),
+    ("C_eq_LB", lambda: ("C", LB_C)),
+    ("C_eq_UB", lambda: ("C", UB_C)),
+    ("LplusC_eq_MIN", lambda: ("LplusC", MIN_TOTAL)),
+]
+
+def solve_from_lines(line1, line2):
+    # Solve the intersection of two lines among the set above.
+    # Return (L, C) or None if no unique solution.
+    name1, func1 = line1
+    name2, func2 = line2
+    t1, v1 = func1()
+    t2, v2 = func2()
+    # Cases:
+    # t can be "L", "C", or "LplusC"
+    # Solve linear system
+    # Represent as a1*L + b1*C = v1 and a2*L + b2*C = v2
+    def coeffs(t, v):
+        if t == "L":
+            return (1.0, 0.0, v)
+        if t == "C":
+            return (0.0, 1.0, v)
+        if t == "LplusC":
+            return (1.0, 1.0, v)
+        raise ValueError("unknown line type")
+    a1, b1, r1 = coeffs(t1, v1)
+    a2, b2, r2 = coeffs(t2, v2)
+    det = a1 * b2 - a2 * b1
+    if abs(det) < 1e-12:
+        return None  # parallel / no unique intersection
+    L = (r1 * b2 - r2 * b1) / det
+    C = (a1 * r2 - a2 * r1) / det
+    return (L, C)
+
+# Feasibility test
+def is_feasible(L, C, lb_L=LB_L, lb_C=LB_C, min_total=MIN_TOTAL, ub_L=UB_L, ub_C=UB_C):
+    if L is None or C is None:
+        return False
+    if math.isnan(L) or math.isnan(C):
+        return False
+    if L + 1e-8 < lb_L: return False
+    if C + 1e-8 < lb_C: return False
+    if L + C + 1e-8 < min_total: return False
+    if L > ub_L + 1e-8: return False
+    if C > ub_C + 1e-8: return False
+    return True
+
+# Objective
+def objective(L, C):
+    return c_L * L + c_C * C
+
+# Generate candidate intersection points (pairwise)
+candidates = []
+for l1, l2 in itertools.combinations(lines, 2):
+    sol = solve_from_lines(l1, l2)
+    if sol is None:
+        continue
+    L, C = sol
+    if is_feasible(L, C):
+        Z = objective(L, C)
+        candidates.append((L, C, Z, (l1[0], l2[0])))
+
+# Also include obvious corners that might not come from two of our selected lines (though they should):
+# e.g., clamp combinations of bounds:
+extra_points = [
+    (UB_L, UB_C),
+    (UB_L, LB_C),
+    (LB_L, UB_C),
+    (LB_L, LB_C),
+]
+for L, C in extra_points:
+    if is_feasible(L, C):
+        Z = objective(L, C)
+        candidates.append((L, C, Z, ("explicit_point",)))
+
+# Remove duplicates (within tolerance)
+unique = []
+seen = set()
+for L, C, Z, src in candidates:
+    key = (round(L, 8), round(C, 8))
+    if key in seen:
+        continue
+    seen.add(key)
+    unique.append((L, C, Z, src))
+candidates = unique
+
+# If no candidates found (should not happen), fallback to enumerating feasible rectangle corners and projections:
+if not candidates:
+    # try some manually constructed feasible points (satisfying L+C>=MIN_TOTAL)
+    pts = []
+    # Use L at bounds and compute minimal C to satisfy total
+    for L in [LB_L, UB_L]:
+        C_needed = max(LB_C, MIN_TOTAL - L)
+        if C_needed <= UB_C + 1e-8:
+            pts.append((L, C_needed))
+    for C in [LB_C, UB_C]:
+        L_needed = max(LB_L, MIN_TOTAL - C)
+        if L_needed <= UB_L + 1e-8:
+            pts.append((L_needed, C))
+    for L, C in pts:
+        if is_feasible(L, C):
+            candidates.append((L, C, objective(L, C), ("constructed",)))
+
+# Find best
+if not candidates:
+    raise RuntimeError("No feasible candidates found; problem may be infeasible with provided data.")
+best = max(candidates, key=lambda x: x[2])
+L_opt, C_opt, Z_opt, src = best
+
+# Determine which constraints are binding at the optimum
+binding = {}
+binding['L_eq_UB'] = abs(L_opt - UB_L) <= 1e-6
+binding['C_eq_UB'] = abs(C_opt - UB_C) <= 1e-6
+binding['LplusC_eq_MIN'] = abs((L_opt + C_opt) - MIN_TOTAL) <= 1e-6
+binding['L_eq_LB'] = abs(L_opt - LB_L) <= 1e-6
+binding['C_eq_LB'] = abs(C_opt - LB_C) <= 1e-6
+
+# Print solution summary
+print("Optimal solution (by corner enumeration):")
+print(f"  L* = {L_opt:.0f} sqft")
+print(f"  C* = {C_opt:.0f} sqft")
+print(f"  Z* = ${Z_opt:,.2f}")
+print("Binding (active) constraints at optimum:")
+print(f"  - L <= {UB_L:.0f} binding: {binding['L_eq_UB']}")
+print(f"  - C <= {UB_C:.0f} binding: {binding['C_eq_UB']}")
+print(f"  - L + C >= {MIN_TOTAL:.0f} binding: {binding['LplusC_eq_MIN']}")
+print(f"  - L >= {LB_L:.0f} binding: {binding['L_eq_LB']}")
+print(f"  - C >= {LB_C:.0f} binding: {binding['C_eq_LB']}")
+
+# Corner checks: produce a small list of interesting example points similar to the user's examples
+examples = [
+    {'L': UB_L, 'C': UB_C},
+    {'L': UB_L, 'C': max(LB_C, MIN_TOTAL - UB_L)},  # minimal C to meet total when L at UB
+    {'L': max(LB_L, MIN_TOTAL - UB_C), 'C': UB_C},  # minimal L to meet total when C at UB
+    {'L': LB_L, 'C': LB_C},
+    {'L': LB_L, 'C': max(LB_C, MIN_TOTAL - LB_L)},
+]
+print("\nFeasibility check of example corners:")
+for ex in examples:
+    L = ex['L']; C = ex['C']
+    feasible = is_feasible(L, C)
+    Z = objective(L, C) if feasible else None
+    # Use a single f-string with conditional formatted suffix (corrected style)
+    print(f"  - (L,C)=({L:.0f},{C:.0f}) feasible: {feasible}{f', Z={Z:.2f}' if feasible else ''}")
+
+# Numeric shadow-price (dual) approximations by +1 unit perturbation of each RHS
+def solve_with_rhs(lb_L=LB_L, lb_C=LB_C, min_total=MIN_TOTAL, ub_L=UB_L, ub_C=UB_C):
+    # Recompute candidate intersections with modified RHS values
+    # Rebuild lines with lambdas capturing new RHS
+    loc_lines = [
+        ("L_eq_LB", lambda: ("L", lb_L)),
+        ("L_eq_UB", lambda: ("L", ub_L)),
+        ("C_eq_LB", lambda: ("C", lb_C)),
+        ("C_eq_UB", lambda: ("C", ub_C)),
+        ("LplusC_eq_MIN", lambda: ("LplusC", min_total)),
+    ]
+    pts = []
+    for l1, l2 in itertools.combinations(loc_lines, 2):
+        # solve intersection similar to earlier
+        name1, func1 = l1
+        name2, func2 = l2
+        t1, v1 = func1()
+        t2, v2 = func2()
+        def coeffs(t, v):
+            if t == "L":
+                return (1.0, 0.0, v)
+            if t == "C":
+                return (0.0, 1.0, v)
+            if t == "LplusC":
+                return (1.0, 1.0, v)
+            raise ValueError("unknown line type")
+        a1, b1, r1 = coeffs(t1, v1)
+        a2, b2, r2 = coeffs(t2, v2)
+        det = a1 * b2 - a2 * b1
+        if abs(det) < 1e-12:
+            continue
+        L = (r1 * b2 - r2 * b1) / det
+        C = (a1 * r2 - a2 * r1) / det
+        if is_feasible(L, C, lb_L=lb_L, lb_C=lb_C, min_total=min_total, ub_L=ub_L, ub_C=ub_C):
+            pts.append((L, C, objective(L, C)))
+    # add explicit corner clamps
+    for L in [lb_L, ub_L]:
+        for C in [lb_C, ub_C]:
+            if is_feasible(L, C, lb_L=lb_L, lb_C=lb_C, min_total=min_total, ub_L=ub_L, ub_C=ub_C):
+                pts.append((L, C, objective(L, C)))
+    # If none found, try constructing feasible points by meeting the total constraint minimally
+    if not pts:
+        for L in [lb_L, ub_L]:
+            C_needed = max(lb_C, min(ub_C, min_total - L))
+            if is_feasible(L, C_needed, lb_L=lb_L, lb_C=lb_C, min_total=min_total, ub_L=ub_L, ub_C=ub_C):
+                pts.append((L, C_needed, objective(L, C_needed)))
+        for C in [lb_C, ub_C]:
+            L_needed = max(lb_L, min(ub_L, min_total - C))
+            if is_feasible(L_needed, C, lb_L=lb_L, lb_C=lb_C, min_total=min_total, ub_L=ub_L, ub_C=ub_C):
+                pts.append((L_needed, C, objective(L_needed, C)))
+    if not pts:
+        return None  # infeasible
+    best_local = max(pts, key=lambda x: x[2])
+    return best_local  # (L, C, Z)
+
+print("\nNumerical shadow-price approximations (delta Z per +1 unit increase in RHS):")
+base_Z = Z_opt
+value = base_Z  # for final print later
+eps = 1.0
+duals = {}
+# Define constraint keys and how to perturb them
+constraints_to_perturb = [
+    ("L >= LB", {"lb_L": LB_L + eps}),
+    ("C >= LB", {"lb_C": LB_C + eps}),
+    ("L + C >= MIN_TOTAL", {"min_total": MIN_TOTAL + eps}),
+    ("L <= UB_L", {"ub_L": UB_L + eps}),
+    ("C <= UB_C", {"ub_C": UB_C + eps}),
+]
+for name, mod in constraints_to_perturb:
+    # start with base values
+    params = {"lb_L": LB_L, "lb_C": LB_C, "min_total": MIN_TOTAL, "ub_L": UB_L, "ub_C": UB_C}
+    params.update(mod)
+    res = solve_with_rhs(**params)
+    if res is None:
+        approx = None
+    else:
+        Z_new = res[2]
+        approx = (Z_new - base_Z) / eps
+    duals[name] = approx
+    if approx is None:
+        print(f"  - {name}: perturbation produced infeasible problem or no feasible solution")
+    else:
+        print(f"  - {name}: approx dual = {approx:.2f} (delta Z per +1 to RHS)")
+
+# Report corner list we found
+print("\nFeasible corner points found and their objective values:")
+for L, C, Z, src in candidates:
+    print(f"  - (L,C)=({L:.0f},{C:.0f}) Z=${Z:,.2f}  source={src}")
+
+# Reiterate final recommended solution summary
+print("\nRecommended optimal production plan:")
+print(f"  Produce L* = {L_opt:.0f} sqft (laminate)")
+print(f"  Produce C* = {C_opt:.0f} sqft (carpet)")
+print(f"  Max profit Z* = ${Z_opt:,.2f}")
+
+# The final required single-line print (must be exactly this form):
+print(f"FINAL_OBJ: {value}")
+```

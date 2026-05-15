@@ -1,0 +1,190 @@
+[MODELER]:
+Let’s turn the description into a formal optimization model and then solve it.
+
+## 1. Decision variables
+
+Let  
+- \( x \) = acres of apples  
+- \( y \) = acres of pears  
+
+Both must be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+## 2. Objective function
+
+Profit per acre:
+- Apples: \$2 per acre  
+- Pears: \$4 per acre  
+
+Maximize total profit:
+\[
+\max Z = 2x + 4y
+\]
+
+## 3. Constraints
+
+1. **Total land available:**
+   \[
+   x + y \le 50
+   \]
+
+2. **Minimum acreage:**
+   - Apples: at least 5 acres  
+     \[
+     x \ge 5
+     \]
+   - Pears: at least 10 acres  
+     \[
+     y \ge 10
+     \]
+
+3. **Workforce limitation: at most twice as many pears as apples:**
+   \[
+   y \le 2x
+   \]
+
+4. **Preference for more pears than apples** (interpreted as strictly more pears):
+   \[
+   y \ge x + \epsilon
+   \]
+   In continuous LP modeling, we usually treat this as:
+   \[
+   y \ge x
+   \]
+   (or enforce strictness by a very small \(\epsilon\) if needed numerically).
+
+Combining the preference \(y \ge x\) with the workforce limit \(y \le 2x\), we have:
+\[
+x \le y \le 2x
+\]
+
+## 4. Solve the model (analytical LP solution)
+
+Because pear profit per acre (\$4) is higher than apple profit (\$2), the model will try to allocate as many acres as possible to pears, subject to constraints.
+
+We need to maximize \(Z = 2x + 4y\) subject to:
+- \(x + y \le 50\)
+- \(x \ge 5\)
+- \(y \ge 10\)
+- \(x \le y \le 2x\)
+
+The total land will be fully used at optimum (otherwise increasing pears increases profit), so:
+\[
+x + y = 50
+\]
+
+Use the workforce limit \(y \le 2x\):
+\[
+50 - x \le 2x \Rightarrow 50 \le 3x \Rightarrow x \ge \frac{50}{3} \approx 16.67
+\]
+
+Use the preference \(y \ge x\) with \(y = 50 - x\):
+\[
+50 - x \ge x \Rightarrow 50 \ge 2x \Rightarrow x \le 25
+\]
+
+Also check minimums:
+- \(x \ge 5\) — already satisfied by \(x \ge 50/3 \approx 16.67\)
+- \(y = 50 - x \ge 10 \Rightarrow x \le 40\) — less restrictive than \(x \le 25\)
+
+So the feasible \(x\) range is:
+\[
+\frac{50}{3} \le x \le 25
+\]
+
+Express profit in terms of \(x\) using \(y = 50 - x\):
+\[
+Z = 2x + 4(50 - x) = 2x + 200 - 4x = 200 - 2x
+\]
+
+This decreases as \(x\) increases, so we want the smallest feasible \(x\):
+\[
+x^* = \frac{50}{3}, \quad y^* = 50 - \frac{50}{3} = \frac{100}{3}
+\]
+
+Check constraints:
+- \(x^* + y^* = \frac{50}{3} + \frac{100}{3} = 50\) ✓  
+- \(x^* \ge 5\) and \(y^* \ge 10\) ✓  
+- \(y^* = 2x^*\) (hits the workforce limit) ✓  
+- \(y^* > x^*\) (more pears than apples) ✓  
+
+Compute optimal profit:
+\[
+Z^* = 2\left(\frac{50}{3}\right) + 4\left(\frac{100}{3}\right)
+    = \frac{100}{3} + \frac{400}{3}
+    = \frac{500}{3} \approx 166.67
+\]
+
+## 5. Answer
+
+- Acres of apples: \(x^* = \dfrac{50}{3} \approx 16.67\) acres  
+- Acres of pears: \(y^* = \dfrac{100}{3} \approx 33.33\) acres  
+- Maximum profit: \(Z^* = \dfrac{500}{3} \approx \$166.67\)
+
+If you require integer acres, you’d solve an integer program (e.g., try nearby integer points like \(x=17, y=33\)).
+
+## 6. Python libraries suitable for solving this
+
+This is a linear programming problem. Suitable Python libraries:
+
+- `PuLP` (`pulp`): simple LP modeling interface in pure Python
+- `scipy.optimize.linprog`: good for LPs if you’re comfortable building matrices
+- `ortools.linear_solver` from Google OR-Tools: robust for LP and MIP
+- `cvxpy`: more general convex optimization framework
+
+Example modeling choice:
+- For educational / quick setup: `pulp`  
+- For larger or mixed-integer variants: `ortools` or `pulp` with a good LP/MIP solver.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def solve_farm_problem():
+    # Create the LP maximization problem
+    model = pulp.LpProblem("Farm_Profit_Maximization", pulp.LpMaximize)
+
+    # Decision variables: acres of apples (x) and pears (y), continuous and nonnegative
+    x = pulp.LpVariable('x', lowBound=0, cat='Continuous')  # apples
+    y = pulp.LpVariable('y', lowBound=0, cat='Continuous')  # pears
+
+    # Objective function: Maximize 2x + 4y
+    model += 2 * x + 4 * y, "Total_Profit"
+
+    # Constraints
+
+    # Total land available: x + y <= 50
+    model += x + y <= 50, "Total_Land"
+
+    # Minimum acreage: x >= 5, y >= 10
+    model += x >= 5, "Min_Apples"
+    model += y >= 10, "Min_Pears"
+
+    # Workforce limitation: y <= 2x
+    model += y <= 2 * x, "Workforce_Limit"
+
+    # Preference: y >= x (more pears than apples)
+    model += y >= x, "Preference_Pears"
+
+    # Solve the model
+    model.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    x_opt = pulp.value(x)
+    y_opt = pulp.value(y)
+    z_opt = pulp.value(model.objective)
+
+    # Print results (optional informational prints)
+    # These are not requested to be suppressed, only the final line format is constrained.
+    print(f"Optimal apples (x): {x_opt}")
+    print(f"Optimal pears (y): {y_opt}")
+    print(f"Maximum profit (Z): {z_opt}")
+
+    # Final required output
+    print(f"FINAL_OBJ: {z_opt}")
+
+if __name__ == "__main__":
+    solve_farm_problem()

@@ -1,0 +1,56 @@
+[MONOLITH]:
+import pulp
+
+# Problem data (from the problem statement)
+freight_capacity = 5    # tons per freight trip
+air_capacity = 3        # tons per air trip
+freight_cost = 300      # cost per freight trip
+air_cost = 550          # cost per air trip
+required_tons = 200
+budget = 20000
+min_freight_trips = 5
+
+# Create the LP problem (minimize total number of trips)
+prob = pulp.LpProblem("Minimize_Trips", pulp.LpMinimize)
+
+# Decision variables: number of freight trips (x) and air trips (y), integers
+x = pulp.LpVariable("freight_trips", lowBound=0, cat="Integer")
+y = pulp.LpVariable("air_trips", lowBound=0, cat="Integer")
+
+# Objective: minimize total trips
+prob += x + y, "Total_Trips"
+
+# Constraints:
+# 1) Transport at least required_tons
+prob += freight_capacity * x + air_capacity * y >= required_tons, "Capacity_Constraint"
+
+# 2) Budget constraint
+prob += freight_cost * x + air_cost * y <= budget, "Budget_Constraint"
+
+# 3) At least 30% of tons via air: 3y >= 0.3*(5x+3y) -> 7y >= 5x
+prob += 7 * y >= 5 * x, "Air_Proportion_Constraint"
+
+# 4) At least 5 freight trips
+prob += x >= min_freight_trips, "Min_Freight_Trips"
+
+# Solve the problem
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract solution
+freight_sol = int(round(pulp.value(x)))
+air_sol = int(round(pulp.value(y)))
+total_trips = freight_sol + air_sol
+total_tons = freight_capacity * freight_sol + air_capacity * air_sol
+total_cost = freight_cost * freight_sol + air_cost * air_sol
+status = pulp.LpStatus[prob.status]
+
+# Print results
+print(f"Status: {status}")
+print(f"Freight trips (x): {freight_sol}")
+print(f"Air trips (y): {air_sol}")
+print(f"Total tons transported: {total_tons}")
+print(f"Total cost: ${total_cost}")
+
+# Final objective print (required format)
+print(f"FINAL_OBJ: {total_trips}")

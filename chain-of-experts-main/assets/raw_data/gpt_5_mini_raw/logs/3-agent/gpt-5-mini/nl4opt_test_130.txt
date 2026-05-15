@@ -1,0 +1,115 @@
+[MODELER]:
+Model
+
+Decision variables
+- x_A ∈ Z≥0 : number of machines of type A.
+- x_B ∈ Z≥0 : number of machines of type B.
+
+Objective
+- Minimize total machines: minimize x_A + x_B.
+
+Constraints
+1. Production requirement: 30 x_A + 50 x_B ≥ 1000.
+2. Electricity limit: 100 x_A + 120 x_B ≤ 3000.
+3. At most 30% of machines are type B:
+   x_B ≤ 0.3 (x_A + x_B)  ⇔  7 x_B ≤ 3 x_A  (integer linear form).
+4. At least 5 A machines: x_A ≥ 5.
+5. Integrality and nonnegativity: x_A, x_B ∈ Z≥0.
+
+Solution reasoning (short)
+- Let M = x_A + x_B. From the production constraint maximum production with the 30% B limit is 30M + 20·(0.3M) = 36M, so M ≥ ceil(1000/36) = 28.
+- Electricity implies 100M + 20 x_B ≤ 3000, which forces M ≤ 30, so M ∈ {28,29,30}.
+- Check M = 28: from production 30(28 − x_B) + 50 x_B ≥ 1000 ⇒ 840 + 20 x_B ≥ 1000 ⇒ x_B ≥ 8. From the 30% cap x_B ≤ floor(0.3·28) = 8. So x_B = 8, x_A = 20 is feasible and meets all constraints (x_A ≥ 5, electricity OK).
+- M = 28 is the smallest feasible M, so it is optimal.
+
+Optimal solution
+- x_A = 20 machines of type A
+- x_B = 8 machines of type B
+- Total machines = 28
+
+Suggested Python libraries to solve
+- pulp (for straightforward integer linear programming)
+- OR-Tools CP-SAT or ortools.linear_solver (for MILP)
+- scipy.optimize is not directly for integer problems (unless you relax integrality).
+
+Example (pulp) snippet
+
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpInteger, PULP_CBC_CMD
+
+prob = LpProblem("machines", LpMinimize)
+xA = LpVariable('xA', lowBound=0, cat=LpInteger)
+xB = LpVariable('xB', lowBound=0, cat=LpInteger)
+
+prob += xA + xB
+prob += 30*xA + 50*xB >= 1000
+prob += 100*xA + 120*xB <= 3000
+prob += 7*xB <= 3*xA
+prob += xA >= 5
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print(xA.value(), xB.value(), "total", xA.value()+xB.value())
+
+This will return xA=20, xB=8.
+
+---
+
+[CODER]:
+import math
+from pulp import LpProblem, LpMinimize, LpVariable, LpInteger, PULP_CBC_CMD, LpStatus, value
+
+# Define the MILP
+prob = LpProblem("machines", LpMinimize)
+xA = LpVariable('xA', lowBound=0, cat=LpInteger)
+xB = LpVariable('xB', lowBound=0, cat=LpInteger)
+
+# Objective: minimize total machines
+prob += xA + xB
+
+# Constraints
+prob += 30 * xA + 50 * xB >= 1000          # production requirement
+prob += 100 * xA + 120 * xB <= 3000        # electricity limit
+prob += 7 * xB <= 3 * xA                   # at most 30% are type B (integer form)
+prob += xA >= 5                            # at least 5 A machines
+
+# Solve using CBC
+solver = PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+def get_solution_from_pulp():
+    try:
+        status = LpStatus[prob.status]
+        if status != 'Optimal':
+            return None
+        xa = int(round(xA.value()))
+        xb = int(round(xB.value()))
+        return xa, xb
+    except Exception:
+        return None
+
+sol = get_solution_from_pulp()
+
+# Fallback brute-force search if solver didn't return optimal solution
+if sol is None:
+    best = None
+    # Based on reasoning M <= 30, xA at least 5, xB nonneg.
+    for xa in range(5, 201):  # generous upper bound
+        for xb in range(0, 201):
+            # integrality satisfied by loops
+            if 30 * xa + 50 * xb < 1000:
+                continue
+            if 100 * xa + 120 * xb > 3000:
+                continue
+            if 7 * xb > 3 * xa:
+                continue
+            total = xa + xb
+            if best is None or total < best[0] or (total == best[0] and xa < best[1]):
+                best = (total, xa, xb)
+    if best is None:
+        raise RuntimeError("No feasible solution found")
+    _, xa, xb = best
+    sol = (xa, xb)
+
+xa, xb = sol
+final_obj = xa + xb
+
+print(f"FINAL_OBJ: {final_obj}")

@@ -1,0 +1,137 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x ∈ Z_{\ge0}: number of high-pressure tube trailer trips (50 m^3, $500 each)
+- y ∈ Z_{\ge0}: number of liquefied-hydrogen tanker trips (30 m^3, $200 each)
+
+Objective
+- Minimize total trips: minimize Z = x + y
+
+Constraints
+1. Capacity requirement: 50x + 30y ≥ 1000
+2. Budget limit: 500x + 200y ≤ 3750
+3. Strict inequality on counts: x < y (model as x + 1 ≤ y)
+4. Integrality and nonnegativity: x,y ∈ Z_{\ge0}
+
+Summary
+minimize x + y
+subject to
+  50x + 30y ≥ 1000
+  500x + 200y ≤ 3750
+  x + 1 ≤ y
+  x, y ∈ Z_{\ge0}
+
+Feasibility check (analytic)
+- Under the budget 500x + 200y ≤ 3750 the maximum number of trips if you spend all budget on the cheaper per-dollar option (tankers) is y_max = floor(3750/200) = 18, giving capacity 30*18 = 540 m^3.
+- 540 m^3 < 1000 m^3 required, so no (x,y) satisfying the budget constraint can deliver 1000 m^3.
+Conclusion: the problem as stated is infeasible — the company cannot ship ≥1000 m^3 with only $3750.
+
+Additional useful calculations and remedies
+- Minimal budget to satisfy the demand at minimum cost: tankers give more m^3 per dollar (30/200 = 0.15 m^3/$ vs 50/500 = 0.10 m^3/$), so the lowest-cost way to reach 1000 m^3 is all tankers:
+  y = ceil(1000 / 30) = 34 trips → cost = 34 * $200 = $6800.
+  Therefore budget must be at least $6800 to be feasible.
+- If the budget constraint is removed (or made sufficiently large), the minimal number of trips (respecting x < y) is:
+  - minimal total trips T = 26 with x = 12 (trailers) and y = 14 (tankers). This satisfies 50*12 + 30*14 = 1020 ≥ 1000 and x < y.
+  - cost for that mix would be 500*12 + 200*14 = $8,800.
+
+Recommended solvers / Python libraries
+- pulp (CBC solver) — easy for small integer LPs
+- OR-Tools (CP-SAT) — efficient integer programming and constraint programming
+- mip (python-mip, CBC/Gurobi) — straight MILP interface
+- Pyomo — modeling language, can use CBC/Gurobi/CPLEX
+Use these to encode the integer program above and detect infeasibility automatically.
+
+If you want, I can:
+- provide a short PuLP or OR-Tools implementation that builds and solves this model and reports infeasibility,
+- or explore alternative scenarios (increase budget to a given level, relax x<y, or minimize cost instead of trips). Which would you prefer?
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to model and solve the integer program described.
+# It will attempt to use PuLP; if PuLP is not available it falls back to a brute-force search.
+# At the very end it prints a single required line: FINAL_OBJ: {value}
+
+from math import ceil
+try:
+    import pulp
+    PULP_AVAILABLE = True
+except Exception:
+    PULP_AVAILABLE = False
+
+# Problem data (initialized directly)
+capacity_per_x = 50      # m^3 per high-pressure tube trailer trip
+capacity_per_y = 30      # m^3 per liquefied-hydrogen tanker trip
+cost_x = 500             # $ per x trip
+cost_y = 200             # $ per y trip
+required_capacity = 1000 # required m^3
+budget = 3750            # available $
+
+final_value = None  # will hold the final objective or the string "INFEASIBLE"
+
+if PULP_AVAILABLE:
+    # Build MILP with PuLP
+    prob = pulp.LpProblem("HydrogenTransport", pulp.LpMinimize)
+    x = pulp.LpVariable("x", lowBound=0, cat='Integer')
+    y = pulp.LpVariable("y", lowBound=0, cat='Integer')
+
+    # Objective: minimize x + y
+    prob += x + y
+
+    # Constraints
+    prob += capacity_per_x * x + capacity_per_y * y >= required_capacity
+    prob += cost_x * x + cost_y * y <= budget
+    prob += x + 1 <= y
+
+    # Solve (suppress solver output)
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    status = pulp.LpStatus.get(prob.status, "Unknown")
+    if status == 'Optimal':
+        obj_val = pulp.value(prob.objective)
+        # ensure integer
+        try:
+            obj_int = int(round(obj_val))
+        except Exception:
+            obj_int = obj_val
+        final_value = obj_int
+    else:
+        final_value = "INFEASIBLE"
+else:
+    # Fallback brute-force search (robust when PuLP isn't available)
+    # Determine reasonable search bounds based on budget and capacity.
+    # Upper bounds: cannot exceed spending all budget on the cheaper vehicle plus a small margin.
+    max_x_by_budget = budget // cost_x + 5
+    max_y_by_budget = budget // cost_y + 5
+    # Also bound by capacity if budget were unlimited (but keep search small)
+    max_x_by_capacity = ceil(required_capacity / capacity_per_x) + 5
+    max_y_by_capacity = ceil(required_capacity / capacity_per_y) + 5
+
+    x_max = max(max_x_by_budget, max_x_by_capacity, 50)
+    y_max = max(max_y_by_budget, max_y_by_capacity, 50)
+
+    best_obj = None
+    best_solution = None
+    for xi in range(0, x_max + 1):
+        for yi in range(0, y_max + 1):
+            if capacity_per_x * xi + capacity_per_y * yi < required_capacity:
+                continue
+            if cost_x * xi + cost_y * yi > budget:
+                continue
+            if xi + 1 > yi:
+                continue
+            obj = xi + yi
+            if (best_obj is None) or (obj < best_obj) or (obj == best_obj and xi < best_solution[0]):
+                best_obj = obj
+                best_solution = (xi, yi)
+    if best_obj is None:
+        final_value = "INFEASIBLE"
+    else:
+        final_value = int(best_obj)
+
+# Final required print (only this line should convey the result)
+print(f"FINAL_OBJ: {final_value}")
+```

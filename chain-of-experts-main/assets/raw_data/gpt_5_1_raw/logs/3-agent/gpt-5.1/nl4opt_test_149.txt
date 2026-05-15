@@ -1,0 +1,119 @@
+[MODELER]:
+Let’s turn this into a precise optimization model.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of long desks to buy  
+- \(y\) = number of short desks to buy  
+
+Both must be nonnegative integers:
+
+\[
+x \ge 0, \quad y \ge 0, \quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 2. Objective function
+
+Each long desk seats 6 employees, each short desk seats 2 employees.
+
+Maximize total seating:
+
+\[
+\max \; Z = 6x + 2y
+\]
+
+---
+
+## 3. Constraints
+
+### Budget constraint
+You can spend at most \$2000.
+
+- Long desk cost: \$300 each  
+- Short desk cost: \$100 each  
+
+\[
+300x + 100y \le 2000
+\]
+
+### Space constraint
+Total desk area can be at most 200 square feet.
+
+- Long desk area: 10 sq ft each  
+- Short desk area: 4 sq ft each  
+
+\[
+10x + 4y \le 200
+\]
+
+### Nonnegativity and integrality
+\[
+x \ge 0, \quad y \ge 0, \quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete mathematical model
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 6x + 2y \\
+\text{subject to} \quad 
+& 300x + 100y \le 2000 \\
+& 10x + 4y \le 200 \\
+& x, y \ge 0,\; x,y \in \mathbb{Z}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+This is a small integer linear programming (ILP) problem. Appropriate libraries include:
+
+- **PuLP** (`pulp`): very straightforward for teaching and small ILPs.
+- **OR-Tools** (`ortools.linear_solver`): powerful and fast, from Google.
+- **Pyomo**: more general algebraic modeling, good for larger projects.
+- **SciPy** (`scipy.optimize.linprog`): can solve the LP relaxation; integrality then needs manual handling or another library.
+
+For this specific problem, **PuLP** or **OR-Tools** are the most convenient choices.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem
+    prob = pulp.LpProblem("Desk_Seating_Maximization", pulp.LpMaximize)
+
+    # Decision variables (nonnegative integers)
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # long desks
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # short desks
+
+    # Objective function: Maximize seating
+    prob += 6 * x + 2 * y, "Total_Seating"
+
+    # Budget constraint: 300x + 100y <= 2000
+    prob += 300 * x + 100 * y <= 2000, "Budget"
+
+    # Space constraint: 10x + 4y <= 200
+    prob += 10 * x + 4 * y <= 200, "Space"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print final objective value as required
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

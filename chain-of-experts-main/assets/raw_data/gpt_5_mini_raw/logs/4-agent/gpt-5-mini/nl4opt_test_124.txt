@@ -1,0 +1,160 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Minimise the total number of drills used per day (total drills = number of high‑intensity drills + number of low‑intensity drills), while meeting processing and resource limits and side restrictions.
+
+2) Suggested model type
+- Model: Integer Linear Programming (ILP). Decision variables are counts of drills and must be integer and nonnegative. All constraints can be expressed linearly (proportion constraint should be linearized).
+
+3) Main decision variables
+- H: number of high‑intensity drills used (integer, ≥ 0).
+- L: number of low‑intensity drills used (integer, ≥ 0).
+
+4) Key constraints to include (verbal description)
+- Processing capacity: the combined daily processing capacity of H and L must be at least the daily requirement (800 gems).
+- Water availability: the combined daily water consumption of H and L must not exceed the available water (700 units).
+- High‑drill proportion limit: at most 40% of the drills may be high‑intensity. Model this as a linear constraint by algebraic rearrangement (equivalently, impose that three times H is no greater than two times L).
+- Minimum low‑drill count: at least 10 low‑intensity drills must be used (L ≥ 10).
+- Integrality and nonnegativity: H and L must be nonnegative integers.
+
+Additional modelling practicalities and checks
+- Objective function: minimise H + L.
+- Check feasibility before optimisation; if infeasible, relax the minimum low‑drill requirement or the water limit and report infeasibility reasons.
+- Solver suggestion: use any MILP solver (CPLEX, Gurobi, CBC) or an integer optimisation routine. Also consider solving the continuous relaxation first to get bounds.
+- Sensitivity: report whether the proportion or the water constraint is binding at optimality and provide alternative optimal integer solutions if ties occur.
+
+Deliverable expected from the Modeller
+- The ILP formulation (objective, variable declarations, and the linear constraints as above).
+- The integer optimal solution (values of H and L), the optimal total drills, and which constraints are binding.
+
+---
+
+[MODELER]:
+Below I convert the textual description into a compact ILP, solve it analytically, report the optimal integer solutions, and give solver / implementation suggestions.
+
+1) Decision variables
+- H ∈ Z, H ≥ 0 : number of high‑intensity drills used.
+- L ∈ Z, L ≥ 0 : number of low‑intensity drills used.
+
+2) Objective
+Minimise total number of drills:
+minimize Z = H + L
+
+3) Constraints (linear)
+- Processing capacity: 50 H + 30 L ≥ 800
+- Water availability: 50 H + 20 L ≤ 700
+- High‑drill proportion (≤ 40% of total): H ≤ 0.4 (H + L)
+  Equivalent linear form: 3 H − 2 L ≤ 0  (because H ≤ 0.4H + 0.4L → 0.6H ≤ 0.4L → 3H ≤ 2L)
+- Minimum low drills: L ≥ 10
+- Integrality / nonnegativity: H, L integers ≥ 0
+
+4) Feasibility observations (useful to check before solving)
+- Subtracting the water constraint from the processing constraint gives 10 L ≥ 100 → L ≥ 10, so the L ≥ 10 constraint is implied by the pair of processing+water constraints. Still keep L ≥ 10 explicit.
+
+5) Continuous relaxation (LP) — helpful bound
+Solve LP (H, L real ≥ 0). Solving processing + proportion equalities:
+50 H + 30 L = 800 and 3 H − 2 L = 0 → H = (2/3) L
+gives L = 2400/190 ≈ 12.6316, H ≈ 8.4211, objective ≈ 21.0527.
+This shows the integer optimal cannot be below 22 (lower bound ≈21.05).
+
+6) Integer solution(s) (optimal)
+Search over integers consistent with constraints (or use MILP solver). The minimum achievable integer objective is Z* = 22. There are two optimal integer solutions:
+
+- Solution A: H = 8, L = 14  → processing = 50·8 + 30·14 = 820 (≥800), water = 50·8 + 20·14 = 680 (≤700), proportion 3·8 = 24 ≤ 28 (OK). Total drills = 22.
+  Slacks: processing slack = 20, water slack = 20, proportion slack = 4.
+
+- Solution B: H = 7, L = 15  → processing = 50·7 + 30·15 = 800 (binds), water = 50·7 + 20·15 = 650, proportion 3·7 = 21 ≤ 30. Total drills = 22.
+  Here the processing constraint is binding (exact), the others have slack.
+
+No integer solution with total drills < 22 satisfies all constraints (one can check T = 21 fails).
+
+7) Which constraints are binding
+- Continuous relaxation: processing and proportion constraints are binding at the LP optimum.
+- Integer optimum:
+  - For H=7, L=15: the processing constraint binds exactly (50H + 30L = 800).
+  - For H=8, L=14: none of the constraints is exactly tight (all have positive slack); the integrality causes the feasible integer point to be optimal.
+
+8) Practical modelling / solver suggestions
+- MILP solvers / Python libraries:
+  - pulp (interface to CBC, GLPK, CPLEX, Gurobi) — simple to use.
+  - ortools (CP‑SAT or linear solver) — fast and reliable.
+  - gurobipy / cplex (if licensed) — high performance.
+- Suggested approach:
+  - Solve continuous relaxation first (LP) to get a lower bound and identify potentially binding constraints.
+  - Then solve the MILP (H, L integer). Use CBC (default in pulp) or CP‑SAT in OR‑Tools.
+  - If infeasible, relax L ≥ 10 or the water ≤ 700 constraint and re‑solve, reporting infeasibility cause.
+
+9) Example (sketch) of solving with pulp
+- Create integer variables H and L.
+- Add constraints exactly as above.
+- Set objective to H + L minimize.
+- Call solver (CBC) and read H.value(), L.value().
+
+10) Final answer (recommended choices)
+- Minimal total drills = 22.
+- Two optimal integer choices (either is acceptable):
+  - Use 8 high‑intensity and 14 low‑intensity drills; or
+  - Use 7 high‑intensity and 15 low‑intensity drills.
+- If you need a single recommended configuration that uses exactly required processing and thus no extra processing capacity, choose H = 7, L = 15 (processing binds exactly).
+
+If you want, I can provide a short runnable Python (pulp or ortools) script that sets up and solves this ILP and prints the solution and slacks.
+
+---
+
+[CODER]:
+#!/usr/bin/env python3
+# Self-contained script to solve the integer problem by exhaustive search (small problem).
+# Finds integer H,L >= 0 minimizing H+L subject to:
+# 50H + 30L >= 800
+# 50H + 20L <= 700
+# 3H - 2L <= 0
+# L >= 10
+
+def main():
+    # Parameters / bounds
+    # From water constraint: 50H + 20L <= 700 -> with L=0, H <= 14
+    max_H = 14
+    min_L = 10
+    # From water constraint with H=0: 20L <=700 -> L <=35
+    max_L = 35
+
+    feasible_solutions = []
+    best_obj = None
+
+    for H in range(0, max_H + 1):
+        for L in range(min_L, max_L + 1):
+            proc = 50 * H + 30 * L
+            water = 50 * H + 20 * L
+            prop = 3 * H - 2 * L
+
+            if proc >= 800 and water <= 700 and prop <= 0:
+                obj = H + L
+                feasible_solutions.append((H, L, obj, proc, water, -prop))  # store proportion slack as -prop = 2L-3H
+                if best_obj is None or obj < best_obj:
+                    best_obj = obj
+
+    if not feasible_solutions:
+        print("No feasible integer solutions found.")
+        # Final print still required (but problem is feasible so this branch won't execute here)
+        print(f"FINAL_OBJ: None")
+        return
+
+    # Filter optimal solutions
+    optimal_sols = [s for s in feasible_solutions if s[2] == best_obj]
+
+    # Print summary (optional informational output)
+    print(f"Found {len(feasible_solutions)} feasible integer solutions.")
+    print(f"Best objective (minimal total drills) = {best_obj}")
+    print("Optimal integer solution(s):")
+    for H, L, obj, proc, water, prop_slack in optimal_sols:
+        proc_slack = proc - 800
+        water_slack = 700 - water
+        print(f"  H = {H}, L = {L}  -> total drills = {obj}")
+        print(f"    processing: {proc} (slack {proc_slack})")
+        print(f"    water:      {water} (slack {water_slack})")
+        print(f"    proportion slack (2L-3H): {prop_slack}")
+
+    # Final required single-line output (must be last line)
+    print(f"FINAL_OBJ: {best_obj}")
+
+if __name__ == "__main__":
+    main()

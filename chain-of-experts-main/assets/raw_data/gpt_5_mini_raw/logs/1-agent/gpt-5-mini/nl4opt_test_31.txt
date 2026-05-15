@@ -1,0 +1,41 @@
+[MONOLITH]:
+import pulp
+
+# Data from the problem
+# Process with catalyst: requires 10 wood, 20 oxygen -> produces 15 CO2
+# Process without catalyst: requires 15 wood, 12 oxygen -> produces 18 CO2
+wood_available = 300
+oxygen_available = 300
+
+# Coefficients
+wood_coeff = {'cat': 10, 'nocat': 15}
+oxygen_coeff = {'cat': 20, 'nocat': 12}
+co2_prod = {'cat': 15, 'nocat': 18}
+
+# Define LP
+prob = pulp.LpProblem("Maximize_CO2", pulp.LpMaximize)
+
+# Decision variables: number of runs of each process (continuous, >=0)
+x = pulp.LpVariable('x_cat', lowBound=0)     # catalyst process runs
+y = pulp.LpVariable('y_nocat', lowBound=0)   # non-catalyst process runs
+
+# Objective: maximize CO2 produced
+prob += co2_prod['cat'] * x + co2_prod['nocat'] * y
+
+# Constraints
+prob += wood_coeff['cat'] * x + wood_coeff['nocat'] * y <= wood_available, "WoodConstraint"
+prob += oxygen_coeff['cat'] * x + oxygen_coeff['nocat'] * y <= oxygen_available, "OxygenConstraint"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Results
+x_opt = x.varValue
+y_opt = y.varValue
+obj_val = pulp.value(prob.objective)
+
+print(f"Optimal runs of catalyst process (x): {x_opt}")
+print(f"Optimal runs of non-catalyst process (y): {y_opt}")
+print(f"Maximum CO2 produced: {obj_val}")
+
+print(f"FINAL_OBJ: {obj_val}")

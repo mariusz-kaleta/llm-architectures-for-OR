@@ -1,0 +1,192 @@
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by how you could implement/solve it in Python.
+
+---
+
+## 1. Define decision variables
+
+Let
+
+- \( s \in \mathbb{Z}_{\ge 0} \): number of scooters used  
+- \( r \in \mathbb{Z}_{\ge 0} \): number of rickshaws used  
+
+Both are nonnegative integers.
+
+---
+
+## 2. Objective
+
+> Minimize the total number of scooters used.
+
+\[
+\min \; s
+\]
+
+(We do **not** penalize rickshaws in the objective—only scooters.)
+
+---
+
+## 3. Constraints
+
+### a) Capacity (transport at least 300 visitors)
+
+Each scooter carries 2 people, each rickshaw carries 3. Total capacity must be at least 300:
+
+\[
+2s + 3r \;\ge\; 300
+\]
+
+---
+
+### b) Pollution constraint (at most 40% of vehicles are rickshaws)
+
+The fraction of vehicles that are rickshaws is:
+
+\[
+\frac{r}{s + r} \;\le\; 0.4
+\]
+
+Assuming \(s + r > 0\), this can be linearized as:
+
+\[
+r \;\le\; 0.4(s + r)
+\]
+
+\[
+r \;\le\; 0.4s + 0.4r
+\]
+
+\[
+0.6r \;\le\; 0.4s
+\]
+
+\[
+3r \;\le\; 2s
+\]
+
+Equivalently:
+
+\[
+2s - 3r \;\ge\; 0
+\]
+
+This is now a linear constraint in \(s, r\).
+
+---
+
+## 4. Integrality and nonnegativity
+
+\[
+s, r \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 5. Complete model
+
+\[
+\begin{aligned}
+\min \quad & s \\
+\text{s.t.} \quad
+& 2s + 3r \;\ge\; 300 \quad\text{(capacity)}\\
+& 2s - 3r \;\ge\; 0  \quad\text{(≤ 40% rickshaws)}\\
+& s, r \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is an **integer linear programming (ILP)** problem.
+
+---
+
+## 6. Suitable Python libraries
+
+Any MILP/ILP-capable solver can handle this easily. Good options:
+
+- `PuLP` (pure Python interface to multiple MILP solvers; easy to use)
+- `ortools.linear_solver` (Google OR-Tools MIP solver)
+- `pyomo` (for larger modeling projects)
+
+For a quick solution, `PuLP` or OR-Tools is ideal.
+
+---
+
+## 7. Example implementation with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("ThemeParkTransport", pl.LpMinimize)
+
+# Decision variables
+s = pl.LpVariable('scooters', lowBound=0, cat='Integer')
+r = pl.LpVariable('rickshaws', lowBound=0, cat='Integer')
+
+# Objective: minimize number of scooters
+prob += s
+
+# Capacity constraint: 2s + 3r >= 300
+prob += 2*s + 3*r >= 300
+
+# Pollution constraint: 3r <= 2s  (i.e. at most 40% rickshaws)
+prob += 3*r <= 2*s
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal scooters:", pl.value(s))
+print("Optimal rickshaws:", pl.value(r))
+print("Total vehicles:", pl.value(s + r))
+print("Total capacity:", 2*pl.value(s) + 3*pl.value(r))
+print("Rickshaw fraction:", pl.value(r) / (pl.value(s) + pl.value(r)))
+```
+
+This script will find the integer values of \(s\) and \(r\) that:
+
+- carry at least 300 visitors,
+- respect the “≤ 40% rickshaws” rule,
+- and minimize the number of scooters.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import itertools
+
+def is_feasible(s, r):
+    if s < 0 or r < 0:
+        return False
+    # Capacity: 2s + 3r >= 300
+    if 2 * s + 3 * r < 300:
+        return False
+    # Pollution constraint: 3r <= 2s
+    if 3 * r > 2 * s:
+        return False
+    return True
+
+best_s = None
+best_r = None
+
+# Since 2s >= 300 in the extreme case (r=0), s <= 150 is enough for a search bound
+max_s = 150
+max_r = 150
+
+for s in range(max_s + 1):
+    for r in range(max_r + 1):
+        if is_feasible(s, r):
+            if best_s is None or s < best_s:
+                best_s = s
+                best_r = r
+
+# If no solution found within bounds (should not happen here), handle gracefully
+if best_s is None:
+    raise ValueError("No feasible solution found within the search bounds.")
+
+# Objective value is the minimal number of scooters
+objective_value = best_s
+
+# Optional internal checks (not printed as final line)
+# print("Optimal scooters:", best_s)
+# print("Optimal rickshaws:", best_r)
+
+print(f"FINAL_OBJ: {objective_value}")

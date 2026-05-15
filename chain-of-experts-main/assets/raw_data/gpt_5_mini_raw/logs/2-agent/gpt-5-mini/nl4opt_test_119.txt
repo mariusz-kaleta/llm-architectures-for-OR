@@ -1,0 +1,82 @@
+[MODELER]:
+Formal model (integer linear program)
+
+Decision variables
+- R ∈ Z≥0 : number of regular-boat trips.
+- S ∈ Z≥0 : number of speed-boat trips.
+
+Objective
+Minimize total gas consumption
+minimize Z = 10R + 20S
+
+Constraints
+1. Demand (deliver at least 1000 pieces):
+   20R + 30S ≥ 1000
+2. At most 20 regular trips:
+   R ≤ 20
+3. At least 50% of trips are speed boats (S is at least half of total trips):
+   S ≥ 0.5 (R + S)  which simplifies to S ≥ R
+4. Integrality and nonnegativity:
+   R, S ∈ Z≥0
+
+Solve and reasoning
+- Gas per mail: regular = 10/20 = 0.5 L/piece, speed = 20/30 ≈ 0.6667 L/piece. Regular trips are more gas-efficient, so to minimize gas we want as many regular trips as allowed while respecting S ≥ R.
+- Set R as large as allowed: R = 20.
+- Then constraints require S ≥ R = 20 and capacity: 20·20 + 30·S ≥ 1000 → 400 + 30S ≥ 1000 → S ≥ 20.
+- Minimal feasible S is 20. So optimal integer solution: R = 20, S = 20.
+- Total gas = 10·20 + 20·20 = 200 + 400 = 600 liters.
+
+Suggested solvers / Python libraries
+- For integer linear programming: pulp (pure Python), OR-Tools (CP-SAT for integers), or gurobipy/cvxpy if commercial/advanced solvers are available.
+- If you treat variables as continuous (not needed here), scipy.optimize.linprog can be used.
+
+Example (pulp) snippet
+from pulp import LpProblem, LpMinimize, LpVariable, LpInteger, lpSum, value
+prob = LpProblem("MailBoats", LpMinimize)
+R = LpVariable('R', lowBound=0, cat=LpInteger)
+S = LpVariable('S', lowBound=0, cat=LpInteger)
+prob += 10*R + 20*S
+prob += 20*R + 30*S >= 1000
+prob += R <= 20
+prob += S >= R
+prob.solve()
+print("R=", int(R.value()), "S=", int(S.value()), "Gas=", value(prob.objective))
+
+Result: R = 20, S = 20, total gas = 600 liters.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data
+demand = 1000
+cap_R = 20  # max regular trips
+# Objective coefficients
+gas_R = 10
+gas_S = 20
+
+best_obj = None
+best_solution = None
+
+# Enumerate R from 0 to cap_R
+for R in range(0, cap_R + 1):
+    # minimal S to satisfy demand: 20R + 30S >= demand  => S >= (demand - 20R)/30
+    rhs = demand - 20 * R
+    if rhs <= 0:
+        S_needed_for_demand = 0
+    else:
+        S_needed_for_demand = math.ceil(rhs / 30)
+    # constraint S >= R
+    S = max(R, S_needed_for_demand)
+    # S must be nonnegative integer
+    if S < 0:
+        continue
+    # compute objective
+    obj = gas_R * R + gas_S * S
+    if (best_obj is None) or (obj < best_obj):
+        best_obj = obj
+        best_solution = (R, S)
+
+# Final objective value
+print(f"FINAL_OBJ: {best_obj}")

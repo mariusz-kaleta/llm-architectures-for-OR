@@ -1,0 +1,177 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximize total monthly profit from selling scooters and bikes.  
+   - Profit contributions:  
+     - Scooter: $200/unit  
+     - Bike: $300/unit  
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with non-negativity and (likely) integrality implied since you can’t make negative products; can be treated as a continuous LP first, then interpreted as integer if needed.
+
+3. Main decision variables  
+   - Let:  
+     - S = number of scooters produced per month  
+     - B = number of bikes produced per month  
+
+4. Key constraints to consider  
+
+   a) Design team hours  
+   - Each scooter uses 2 design hours.  
+   - Each bike uses 4 design hours.  
+   - Total design hours available: 5000 per month.  
+   - Strategic constraint:  
+     - Total design usage from scooters and bikes must not exceed 5000 hours.
+
+   b) Engineering team hours  
+   - Each scooter uses 3 engineering hours.  
+   - Each bike uses 5 engineering hours.  
+   - Total engineering hours available: 6000 per month.  
+   - Strategic constraint:  
+     - Total engineering usage from scooters and bikes must not exceed 6000 hours.
+
+   c) Non-negativity and feasibility  
+   - S ≥ 0, B ≥ 0.  
+   - If required by the business context, S and B should be integers (no fractional products); start with continuous LP and later check if rounding is needed.
+
+5. Objective function structure  
+   - Maximize: 200·S + 300·B  
+   - Subject to:  
+     - Design capacity limit in terms of S and B.  
+     - Engineering capacity limit in terms of S and B.  
+     - Non-negativity of S and B.
+
+6. Modelling and solution strategy  
+   - Set up the LP with the above objective and constraints.  
+   - Because there are only two decision variables and two main capacity constraints, the feasible region is a polygon in 2D; the optimum will lie at a vertex (corner point).  
+   - The modeller should:  
+     - Identify all corner points of the feasible region (intersections of constraints and axes).  
+     - Evaluate the objective function at each corner point.  
+     - Select the corner that yields the highest profit while satisfying both capacity constraints.  
+
+7. Sensitivity / extension considerations (optional)  
+   - Explore how the optimal mix changes if:  
+     - Design or engineering hours increase/decrease.  
+     - Profit per product changes.  
+   - If capacity expansion decisions are part of a larger planning problem, add binary/integer variables to represent investing in more hours and link them with capacity constraints.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem and how you’d typically solve it.
+
+## 1. Decision variables
+
+Let  
+- \(S \ge 0\): number of scooters produced per month  
+- \(B \ge 0\): number of bikes produced per month  
+
+(If you need whole units only, later add \(S, B \in \mathbb{Z}\).)
+
+## 2. Objective function
+
+Maximize total monthly profit:
+
+\[
+\max \; Z = 200 S + 300 B
+\]
+
+where  
+- \(200\) is the profit per scooter  
+- \(300\) is the profit per bike  
+
+## 3. Constraints
+
+### a) Design team hours
+
+Each scooter uses 2 design hours; each bike uses 4 design hours; at most 5000 hours total:
+
+\[
+2S + 4B \;\le\; 5000
+\]
+
+### b) Engineering team hours
+
+Each scooter uses 3 engineering hours; each bike uses 5 engineering hours; at most 6000 hours total:
+
+\[
+3S + 5B \;\le\; 6000
+\]
+
+### c) Non-negativity
+
+\[
+S \ge 0, \quad B \ge 0
+\]
+
+(Optionally: \(S, B \in \mathbb{Z}\) if integrality is required.)
+
+---
+
+So the linear program is:
+
+\[
+\begin{aligned}
+\max\quad & 200 S + 300 B \\
+\text{s.t.}\quad
+& 2S + 4B \le 5000 \quad\text{(design hours)} \\
+& 3S + 5B \le 6000 \quad\text{(engineering hours)} \\
+& S \ge 0,\; B \ge 0 \\
+\end{aligned}
+\]
+
+---
+
+## 4. Suitable Python libraries
+
+To implement and solve this model in Python, you can use any of:
+
+- **PuLP**  
+  - Simple modeling of LP/MIP problems, integrates with CBC by default.  
+  - Good for teaching and small-to-medium problems.  
+  - Install: `pip install pulp`.
+
+- **OR-Tools (Google OR-Tools)**  
+  - Very powerful for LP, MIP, and CP (constraint programming).  
+  - Module: `ortools.linear_solver` for this case.  
+  - Install: `pip install ortools`.
+
+- **SciPy (`scipy.optimize.linprog`)**  
+  - Good for continuous LPs, but does not handle integer constraints directly.  
+  - Would work here if you treat \(S, B\) as continuous.
+
+Any of these can express exactly the model written above; PuLP and OR-Tools are the most natural for textbook-style LP formulations.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the LP problem: maximization
+    model = pulp.LpProblem("Scooters_Bikes_Production", pulp.LpMaximize)
+
+    # Decision variables (continuous, non-negative)
+    S = pulp.LpVariable('S', lowBound=0, cat='Continuous')  # Scooters
+    B = pulp.LpVariable('B', lowBound=0, cat='Continuous')  # Bikes
+
+    # Objective function: Maximize profit = 200 S + 300 B
+    model += 200 * S + 300 * B
+
+    # Constraints
+    # Design hours: 2S + 4B <= 5000
+    model += 2 * S + 4 * B <= 5000, "Design_Hours"
+
+    # Engineering hours: 3S + 5B <= 6000
+    model += 3 * S + 5 * B <= 6000, "Engineering_Hours"
+
+    # Solve the model
+    model.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    final_obj = pulp.value(model.objective)
+
+    # Print the final objective value in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

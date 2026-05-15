@@ -1,0 +1,126 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Maximise the total number of bottles produced (vintage + regular).
+
+2. Suggested model type
+- Model: Integer Linear Programming (ILP) — two integer decision variables with linear constraints and a linear objective. (Because bottles are discrete, integrality is required. For quick checks one can also do simple discrete enumeration.)
+
+3. Main decision variables
+- v = number of vintage bottles produced (integer, >= 0)
+- r = number of regular bottles produced (integer, >= 0)
+
+4. Key constraints to include
+- Volume capacity: Total volume used by v and r cannot exceed available 100000 ml (each vintage uses 500 ml, each regular 750 ml).
+- Ratio constraint: The number of regular bottles must be at least four times the number of vintage bottles (r >= 4·v).
+- Minimum vintage: At least 10 vintage bottles must be produced (v >= 10).
+- Integrality and nonnegativity: v and r must be integer and nonnegative.
+- Practical bounds (optional but useful for enumeration/solver): v ≤ floor(100000/500) = 200, r ≤ floor(100000/750) = 133 (these tighten search/solver domains).
+
+5. Proposed solving strategies / implementation notes
+- Direct MILP: Encode the ILP in a solver (CBC, Gurobi, CPLEX, GLPK) and maximize v + r subject to the constraints.
+- Simple enumeration: Iterate v from 10 up to its upper bound (200). For each v, iterate r from ceil(4v) up to floor((100000 − 500·v)/750) and track the feasible (v,r) that gives the largest v + r. This is fast because variable ranges are small.
+- Relaxation check: Solve the LP relaxation (drop integrality) to get an upper bound and guide search; however final answer must be integer.
+- Modeling tip: Because regulars must be ≥ 4·v, feasible solutions are constrained; ensure when adding extra bottles beyond minimum r you still satisfy r ≥ 4·v.
+
+Deliverable expected from the Modeller
+- Implement the ILP or enumeration and return the optimal integers (v, r) that maximize v + r, plus the total bottles and used/unused volume.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- v ∈ Z, v ≥ 0 : number of vintage bottles
+- r ∈ Z, r ≥ 0 : number of regular bottles
+
+Objective
+- Maximise total number of bottles: maximize Z = v + r
+
+Constraints
+1. Volume capacity: 500·v + 750·r ≤ 100000
+2. Ratio requirement: r ≥ 4·v
+3. Minimum vintage: v ≥ 10
+4. Integrality: v, r are integers
+
+(Useful bounding constraints for solver/enumeration)
+- v ≤ floor(100000/500) = 200
+- r ≤ floor(100000/750) = 133
+- From r ≥ 4v and volume constraint we get v ≤ floor(100000/3500) = 28, so effectively v ∈ {10,...,28}.
+
+Equivalent substitution for fast enumeration
+- Let r = 4v + k with integer k ≥ 0.
+- Volume becomes 3500·v + 750·k ≤ 100000 ⇒ k ≤ floor((100000 − 3500·v)/750).
+- For fixed v, objective Z = v + r = 5·v + k, so choose k = floor((100000 − 3500·v)/750).
+
+Solution (exact)
+Evaluate v ∈ {10,...,28} and choose k = floor((100000 − 3500·v)/750). The maximum total bottles found is 142. Feasible optimal integer solutions (v,r) achieving 142 are:
+- v = 26, r = 116 → total = 142, volume used = 500·26 + 750·116 = 100000 ml (unused = 0)
+- v = 27, r = 115 → total = 142, volume used = 99,750 ml (unused = 250 ml)
+- v = 28, r = 114 → total = 142, volume used = 99,500 ml (unused = 500 ml)
+
+If you prefer a solution that uses all wine exactly, pick v = 26, r = 116.
+
+Suggested solution methods / libraries
+- Small ILP: pulp (CBC), OR-Tools (CP-SAT or linear solver), or cvxpy + an MILP solver (Gurobi/CPLEX if available).
+- Very fast exact enumeration: loop v from 10 to 28, compute k_max = floor((100000−3500·v)/750), set r = 4·v + k_max, and track best v + r.
+- LP relaxation (optional): can be solved with scipy.optimize.linprog to get an upper bound.
+
+Example (quick enumeration outline in Python)
+- Use pure Python integer loop as described above (no external libraries needed).
+- Or model in pulp:
+  - Variables: v = LpVariable('v', lowBound=10, cat='Integer'), r = LpVariable('r', lowBound=0, cat='Integer')
+  - Constraints: 500*v + 750*r <= 100000; r >= 4*v
+  - Objective: maximize v + r
+  - Solve and read v.value(), r.value().
+
+Summary answer
+- Maximum total bottles = 142.
+- One exact-capacity optimal solution: produce 26 vintage and 116 regular bottles (uses all 100000 ml). Other optimal solutions: (27,115) and (28,114).
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the integer optimization by enumeration
+
+def main():
+    capacity = 100000  # ml
+    # Coefficients
+    vol_v = 500
+    vol_r = 750
+
+    best_obj = None
+    best_solutions = []
+
+    # v in {10,...,28} as derived
+    for v in range(10, 29):
+        # r = 4*v + k, with k >= 0 and 3500*v + 750*k <= capacity
+        remaining_after_base = capacity - 3500 * v
+        if remaining_after_base < 0:
+            continue
+        k_max = remaining_after_base // 750
+        r = 4 * v + k_max
+        # Verify feasibility
+        if r < 0:
+            continue
+        if vol_v * v + vol_r * r > capacity:
+            continue
+        obj = v + r
+        if (best_obj is None) or (obj > best_obj):
+            best_obj = obj
+            best_solutions = [(v, r)]
+        elif obj == best_obj:
+            best_solutions.append((v, r))
+
+    # At least one feasible solution should exist
+    if best_obj is None:
+        best_obj = 0
+
+    # Final required output line (no other text on that line)
+    print(f"FINAL_OBJ: {best_obj}")
+
+if __name__ == "__main__":
+    main()
+```

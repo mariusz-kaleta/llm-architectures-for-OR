@@ -1,0 +1,97 @@
+[MODELER]:
+Formulation
+
+Decision variables
+- P = number of pill vaccines administered (nonnegative integer)
+- S = number of shot vaccines administered (nonnegative integer)
+
+Objective
+- Maximize total patients vaccinated: maximize Z = P + S
+
+Constraints
+1. Time availability: 10 P + 20 S ≤ 10000 (clinic operates 10,000 minutes)
+2. Shot minimum relative to pill: S ≥ 3 P
+3. Minimum pills: P ≥ 30
+4. Integrality: P, S ∈ Z_{\ge 0} (if fractional vaccines are not allowed)
+
+Scaled linear form (divide time constraint by 10):
+- P + 2 S ≤ 1000
+- S − 3 P ≥ 0
+- P ≥ 30
+- P, S integer (optional)
+
+Analysis and solution
+- Solve the LP relaxation: at optimum the two binding constraints are P + 2S = 1000 and S = 3P, solving gives
+  P* = 1000/7 ≈ 142.857, S* = 3000/7 ≈ 428.571, total ≈ 571.4286.
+- With integer requirement, feasible nearby integer solution that saturates time is
+  P = 142, S = 429:
+  10·142 + 20·429 = 10000 (time exactly used), S ≥ 3P holds (429 ≥ 426).
+  Total patients = 142 + 429 = 571.
+- This is optimal: you can’t get 572 patients within 10,000 minutes while satisfying S ≥ 3P and P ≥ 30.
+
+Recommended solvers / Python libraries
+- pulp (simple MILP modeling + CBC solver): good for small integer LPs
+- OR-Tools CP-SAT (fast integer solver)
+- scipy.optimize.linprog (for LP relaxation only)
+- gurobi or cplex (commercial, high performance)
+
+Example (pulp) model sketch
+- Define integer variables P, S
+- Add constraints: 10*P + 20*S <= 10000, S >= 3*P, P >= 30
+- Maximize P + S
+- Solve using default CBC solver
+
+Final answer
+- Maximum number of patients = 571, achieved for P = 142 pill vaccines and S = 429 shot vaccines. (If fractional vaccines were allowed, the LP optimum would be P = 1000/7, S = 3000/7 with total 4000/7 ≈ 571.4286.)
+
+---
+
+[CODER]:
+import math
+
+# Problem data (directly initialized)
+# Time: 10 minutes per pill (P), 20 minutes per shot (S), total 10000 minutes
+total_time = 10000
+time_per_P = 10
+time_per_S = 20
+
+# Constraints:
+# S >= 3P
+# P >= 30
+P_min = 30
+
+# We'll solve the integer problem by simple enumeration over feasible P values.
+# From scaled time constraint P + 2S <= 1000 and S >= 3P we can bound P:
+#  P + 2*(3P) <= 1000 -> 7P <= 1000 -> P <= floor(1000/7) = 142
+P_max = 1000 // 7  # 142
+
+best_obj = -1
+best_P = None
+best_S = None
+
+for P in range(P_min, P_max + 1):
+    # Maximum S allowed by time constraint: P + 2S <= 1000 -> S <= (1000 - P)/2
+    S_upper = (1000 - P) // 2
+    S_lower = 3 * P
+    if S_upper < S_lower:
+        continue  # infeasible for this P
+    # To maximize P + S for fixed P, pick the largest feasible S
+    S = S_upper
+    obj = P + S
+    if obj > best_obj:
+        best_obj = obj
+        best_P = P
+        best_S = S
+
+# Also compute LP relaxation solution for reference
+P_lp = 1000.0 / 7.0
+S_lp = 3000.0 / 7.0
+obj_lp = P_lp + S_lp
+
+# Output results
+print(f"LP relaxation optimum: P = {P_lp:.6f}, S = {S_lp:.6f}, total = {obj_lp:.6f}")
+print(f"Integer optimum found: P = {best_P}, S = {best_S}, total = {best_obj}")
+
+# Final required line (exact format)
+value = best_obj
+print(f"FINAL_OBJ: {value}")

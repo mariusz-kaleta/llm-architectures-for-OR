@@ -1,0 +1,156 @@
+[MODELER]:
+Here is a clear mathematical model of the problem as a linear program, plus how you could solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+
+- \(x\) = number of hamburgers (can be real, nonnegative)  
+- \(y\) = number of chicken wraps (can be real, nonnegative)
+
+(If in practice they must be whole items, these will later be integer variables.)
+
+---
+
+## 2. Objective
+
+Minimize total daily cost of the diet:
+
+\[
+\min \; C = 6.5x + 4y
+\]
+
+---
+
+## 3. Constraints
+
+Nutritional requirements per worker per day:
+
+1. **Calories**: at least 2200  
+   - Hamburger: 800 kcal  
+   - Wrap: 450 kcal  
+
+   \[
+   800x + 450y \;\ge\; 2200
+   \]
+
+2. **Protein**: at least 50 g  
+   - Hamburger: 19 g  
+   - Wrap: 12 g  
+
+   \[
+   19x + 12y \;\ge\; 50
+   \]
+
+3. **Carbohydrates**: at least 70 g  
+   - Hamburger: 20 g  
+   - Wrap: 10 g  
+
+   \[
+   20x + 10y \;\ge\; 70
+   \]
+
+4. **Nonnegativity**:
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+If you want them as whole items:
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete LP model
+
+\[
+\begin{aligned}
+\text{Minimize}\quad & 6.5x + 4y \\
+\text{subject to}\quad
+& 800x + 450y \ge 2200 \\
+& 19x + 12y \ge 50 \\
+& 20x + 10y \ge 70 \\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+---
+
+## 5. Solving this in Python
+
+### Recommended libraries
+
+Any linear programming library is suitable:
+
+- `PuLP` – very simple interface for LP/MILP.
+- `scipy.optimize.linprog` – standard scientific stack.
+- `ortools.linear_solver` – powerful, industrial-grade.
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("MinCostDiet", pl.LpMinimize)
+
+# Decision variables (continuous; use cat="Integer" if you want integers)
+x = pl.LpVariable('hamburgers', lowBound=0, cat="Continuous")
+y = pl.LpVariable('wraps', lowBound=0, cat="Continuous")
+
+# Objective
+prob += 6.5 * x + 4 * y
+
+# Constraints
+prob += 800 * x + 450 * y >= 2200   # calories
+prob += 19 * x  + 12 * y >= 50      # protein
+prob += 20 * x  + 10 * y >= 70      # carbs
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Hamburgers:", pl.value(x))
+print("Wraps:", pl.value(y))
+print("Minimum cost:", pl.value(prob.objective))
+```
+
+This code directly implements the mathematical model.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("MinCostDiet", pl.LpMinimize)
+
+    # Decision variables (continuous, non-negative)
+    x = pl.LpVariable('hamburgers', lowBound=0, cat="Continuous")
+    y = pl.LpVariable('wraps', lowBound=0, cat="Continuous")
+
+    # Objective function: Minimize cost
+    prob += 6.5 * x + 4 * y
+
+    # Constraints
+    prob += 800 * x + 450 * y >= 2200   # Calories
+    prob += 19 * x  + 12 * y >= 50      # Protein
+    prob += 20 * x  + 10 * y >= 70      # Carbohydrates
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract the objective value
+    objective_value = pl.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {objective_value}")
+
+if __name__ == "__main__":
+    main()

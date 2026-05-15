@@ -1,0 +1,150 @@
+[MODELER]:
+Here is a formal optimization model of the problem.
+
+## 1. Decision variables
+
+Let  
+- \(x \in \mathbb{Z}_{\ge 0}\): number of batches of vitamin **shots**  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of batches of vitamin **pills**
+
+(We assume batches must be integer.)
+
+## 2. Objective
+
+Each batch of shots supplies 10 people; each batch of pills supplies 7 people.  
+We want to maximize the total number of people supplied:
+
+\[
+\max\; Z = 10x + 7y
+\]
+
+## 3. Constraints
+
+### Resource constraints
+
+Each batch of shots uses 30 units of vitamin C and 40 units of vitamin D.  
+Each batch of pills uses 50 units of vitamin C and 30 units of vitamin D.  
+
+Total resources available: 1200 units of vitamin C and 1500 units of vitamin D.
+
+- Vitamin C limit:
+\[
+30x + 50y \le 1200
+\]
+- Vitamin D limit:
+\[
+40x + 30y \le 1500
+\]
+
+### Popularity constraint
+
+Number of batches of pills must be larger than the number of batches of shots:
+
+\[
+y \ge x + 1
+\]
+
+### Capacity on shots
+
+At most 10 batches of shots:
+
+\[
+x \le 10
+\]
+
+### Nonnegativity and integrality
+
+\[
+x, y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+## 4. Complete mathematical model
+
+\[
+\begin{aligned}
+\max\quad & 10x + 7y \\
+\text{s.t.}\quad
+& 30x + 50y \le 1200 \quad &(\text{vitamin C}) \\
+& 40x + 30y \le 1500 \quad &(\text{vitamin D}) \\
+& y \ge x + 1          \quad &(\text{pills more popular}) \\
+& x \le 10             \quad &(\text{max shots}) \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a small integer linear programming (ILP) problem.
+
+## 5. Suitable Python libraries
+
+Any mixed-integer linear programming solver will handle this easily:
+
+- **PuLP** (`pulp`): very accessible, pure Python interface, can use CBC (default), GLPK, or other MILP solvers.
+- **OR-Tools** (`ortools.linear_solver`): from Google, excellent performance and free MILP solvers (CBC, SCIP wrapper).
+- **Pyomo**: more general modeling, but heavier; good if you want extensibility.
+- **SciPy** (`scipy.optimize.linprog`) is *not* suitable for integrality; it only solves continuous LPs. You’d need something else for integer constraints.
+
+## 6. Example PuLP implementation sketch
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Vitamin_Production", pl.LpMaximize)
+
+# Decision variables (integer, nonnegative)
+x = pl.LpVariable("shots_batches", lowBound=0, cat="Integer")
+y = pl.LpVariable("pills_batches", lowBound=0, cat="Integer")
+
+# Objective
+prob += 10*x + 7*y
+
+# Constraints
+prob += 30*x + 50*y <= 1200     # Vitamin C
+prob += 40*x + 30*y <= 1500     # Vitamin D
+prob += y >= x + 1              # Pills more popular
+prob += x <= 10                 # Max shots
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal shots batches (x):", x.value())
+print("Optimal pills batches (y):", y.value())
+print("Max people supplied:", pl.value(prob.objective))
+```
+
+Running this will give you the optimal numbers of shot and pill batches under the given constraints.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("Vitamin_Production", pl.LpMaximize)
+
+    # Decision variables (integer, nonnegative)
+    x = pl.LpVariable("shots_batches", lowBound=0, cat="Integer")
+    y = pl.LpVariable("pills_batches", lowBound=0, cat="Integer")
+
+    # Objective: maximize total people supplied
+    prob += 10 * x + 7 * y
+
+    # Constraints
+    prob += 30 * x + 50 * y <= 1200     # Vitamin C limit
+    prob += 40 * x + 30 * y <= 1500     # Vitamin D limit
+    prob += y >= x + 1                  # Popularity: more pill batches than shots
+    prob += x <= 10                     # Max number of shot batches
+
+    # Solve the problem using CBC (default)
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Required final output format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

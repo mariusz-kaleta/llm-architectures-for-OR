@@ -1,0 +1,75 @@
+[MODELER]:
+Model (linear program)
+
+- Decision variables:
+  - x1 ≥ 0 = number of regular tacos to make
+  - x2 ≥ 0 = number of deluxe tacos to make
+
+- Objective:
+  - Maximize profit P = 2.50*x1 + 3.55*x2
+
+- Constraints:
+  - Demand constraints: x1 ≤ 50, x2 ≤ 40
+  - Supply/capacity constraint: x1 + x2 ≤ 70
+  - Nonnegativity: x1 ≥ 0, x2 ≥ 0
+
+Solution reasoning
+- Profit per unit: deluxe (3.55) > regular (2.50), so make as many deluxe tacos as feasible.
+- Max deluxe is min(demand, capacity) = min(40,70) = 40 → set x2 = 40.
+- Remaining capacity for regular = 70 - 40 = 30, demand allows up to 50, so set x1 = 30.
+- This respects all constraints and is a vertex of the feasible region, hence optimal for this LP.
+
+Optimal solution
+- x1 = 30 regular tacos
+- x2 = 40 deluxe tacos
+- Maximum profit = 2.50*30 + 3.55*40 = $217.00
+
+Suggested Python solvers
+- PuLP (easy-to-use LP modeling): pip install pulp
+- scipy.optimize.linprog (part of SciPy)
+- OR-Tools linear solver (Google OR-Tools)
+- CVXOPT or commercial solvers (Gurobi, CPLEX) if needed
+
+Example (PuLP)
+- from pulp import LpProblem, LpMaximize, LpVariable, value
+- prob = LpProblem("Tacos", LpMaximize)
+- x1 = LpVariable('x1', lowBound=0)
+- x2 = LpVariable('x2', lowBound=0)
+- prob += 2.5*x1 + 3.55*x2
+- prob += x1 <= 50
+- prob += x2 <= 40
+- prob += x1 + x2 <= 70
+- prob.solve()
+- print(x1.value(), x2.value(), value(prob.objective))
+
+This will return x1=30, x2=40, objective=217.00.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+# Self-contained script to solve the given LP by direct reasoning
+# Decision variables:
+# x1 >= 0 (regular tacos), x2 >= 0 (deluxe tacos)
+# Objective: maximize 2.50*x1 + 3.55*x2
+# Constraints: x1 <= 50, x2 <= 40, x1 + x2 <= 70
+
+# Coefficients and bounds
+profit_x1 = 2.50
+profit_x2 = 3.55
+demand_x1 = 50
+demand_x2 = 40
+capacity = 70
+
+# Greedy reasoning: produce as many deluxe (higher profit) as possible
+x2 = min(demand_x2, capacity)           # make deluxe up to demand or capacity
+x1 = min(demand_x1, capacity - x2)     # use remaining capacity for regular
+
+# Ensure nonnegative (should hold by construction)
+x1 = max(0.0, x1)
+x2 = max(0.0, x2)
+
+# Compute objective
+value = profit_x1 * x1 + profit_x2 * x2
+
+# Final output line required
+print(f"FINAL_OBJ: {value}")

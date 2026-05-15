@@ -1,0 +1,90 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x ∈ Z_≥0 = number of type II ambulance shifts per day
+- y ∈ Z_≥0 = number of hospital van shifts per day
+
+Objective
+Minimize total daily cost:
+minimize C = 820 x + 550 y
+
+Constraints
+1. Capacity: 20 x + 15 y ≥ 320 (must transport at least 320 patients)
+2. Union limit: at most 60% of shifts may be vans:
+   y / (x + y) ≤ 0.60  (for x + y > 0)
+   This is linearized (multiply both sides by x+y and rearrange):
+   y ≤ 0.6(x + y)  ⇔  3 x − 2 y ≥ 0
+3. Integrality and nonnegativity: x, y ∈ Z_≥0
+
+(If you prefer avoid the division, use the linear form 3x − 2y ≥ 0.)
+
+Solution (best integer feasible plan)
+Solve the mixed integer linear program above. The optimal integer solution is:
+- x = 10 ambulance shifts
+- y = 8 van shifts
+
+Check:
+- Capacity: 20·10 + 15·8 = 200 + 120 = 320 patients (meets requirement exactly)
+- Union limit: y/(x+y) = 8/18 ≈ 0.444 ≤ 0.6 (satisfied)
+- Total cost: 820·10 + 550·8 = 8,200 + 4,400 = $12,600 per day
+
+Remarks
+- Vans are cheaper per patient (550/15 ≈ $36.67) than ambulances (820/20 = $41.00), so the model tends to use as many vans as allowed by the union constraint; integrality and the capacity constraint determine the exact counts.
+- If fractional shifts were allowed, one would set vans to 60% of shifts and minimize total shifts; because shifts are discrete, we solve the integer model above.
+
+Suggested Python libraries for solving
+- pulp (simple Python interface to CBC solver) — good for small MIPs
+- OR-Tools (CP-SAT for integer programming) — efficient and free
+- Pyomo or mip (for more expressive modelling; mip uses CBC/Gurobi)
+- Gurobi or CPLEX (commercial, high-performance solvers) if available
+
+Minimal example (pulp)
+- Use pulp.LpVariable(..., cat='Integer'), set objective 820*x + 550*y, add constraints 20*x+15*y >= 320 and 3*x-2*y >= 0, solve with pulp.PULP_CBC_CMD().
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Data
+cost_ambulance = 820  # cost per ambulance shift (x)
+cost_van = 550        # cost per van shift (y)
+cap_ambulance = 20    # patients per ambulance shift
+cap_van = 15          # patients per van shift
+demand = 320          # required patients per day
+
+# Search for best integer solution by enumeration
+best_cost = None
+best_x = None
+best_y = None
+
+# Reasonable bounds for enumeration
+# Upper bounds chosen safely above what is required (no external solver needed).
+max_shifts = 200
+
+for x in range(0, max_shifts + 1):
+    for y in range(0, max_shifts + 1):
+        # Constraints:
+        # 1) capacity
+        if cap_ambulance * x + cap_van * y < demand:
+            continue
+        # 2) union limit linearized: 3x - 2y >= 0
+        if 3 * x - 2 * y < 0:
+            continue
+        # feasible -> compute cost
+        cost = cost_ambulance * x + cost_van * y
+        if best_cost is None or cost < best_cost:
+            best_cost = cost
+            best_x = x
+            best_y = y
+
+# Print results (optional) and final objective as required
+if best_cost is None:
+    print("No feasible solution found.")
+else:
+    print(f"Best integer solution found: x (ambulance shifts) = {best_x}, y (van shifts) = {best_y}")
+    print(f"Capacity check: {cap_ambulance}*{best_x} + {cap_van}*{best_y} = {cap_ambulance*best_x + cap_van*best_y}")
+    print(f"Union fraction y/(x+y) = {best_y}/{best_x + best_y} = {best_y / (best_x + best_y):.6f}")
+# FINAL_OBJ line must be the last line and exactly in this format:
+print(f"FINAL_OBJ: {best_cost}")

@@ -1,0 +1,139 @@
+[MODELER]:
+Formal model (linear program)
+
+Decision variables
+- T = acres of turnips (≥ 0)
+- P = acres of pumpkins (≥ 0)
+
+Objective
+- Maximize revenue Z = 300 T + 450 P
+
+Constraints
+- Land: T + P ≤ 500
+- Watering minutes: 50 T + 90 P ≤ 40,000
+- Pesticide dollars: 80 T + 50 P ≤ 34,000
+- Nonnegativity: T ≥ 0, P ≥ 0
+
+Solution
+This is a 2-variable linear program. Evaluating the feasible corners (or solving with an LP solver) gives the optimum at
+- T = 125 acres (turnips)
+- P = 375 acres (pumpkins)
+
+Maximum revenue Z = 300(125) + 450(375) = $206,250.
+
+(Checks: land 125+375=500; watering 50·125+90·375 = 25,000+33,750 = 58,750? — note: that would be wrong; correct watering is 50*125 + 90*375 = 6,250 + 33,750 = 40,000; pesticide 80*125 + 50*375 = 10,000 + 18,750 = 28,750 ≤ 34,000.)
+
+Suggested Python libraries to solve this
+- PuLP (simple modelling, CBC solver included)
+- scipy.optimize.linprog (built-in LP solver)
+- OR-Tools (Google OR-Tools linear solver)
+- CVXPY (convex optimization modelling)
+
+Example using PuLP (concise)
+```
+import pulp
+
+T = pulp.LpVariable('T', lowBound=0)
+P = pulp.LpVariable('P', lowBound=0)
+prob = pulp.LpProblem('Farm', pulp.LpMaximize)
+prob += 300*T + 450*P
+prob += T + P <= 500
+prob += 50*T + 90*P <= 40000
+prob += 80*T + 50*P <= 34000
+prob.solve()
+print(T.varValue, P.varValue, pulp.value(prob.objective))
+```
+
+This will return T = 125, P = 375, objective = 206250.
+
+---
+
+[CODER]:
+import math
+
+# Define the linear program data
+# Decision variables: T (turnips), P (pumpkins)
+# Objective: maximize Z = 300*T + 450*P
+# Constraints (inequalities of form a*T + b*P <= c):
+ineqs = [
+    (1.0, 1.0, 500.0),      # T + P <= 500
+    (50.0, 90.0, 40000.0),  # 50T + 90P <= 40000
+    (80.0, 50.0, 34000.0)   # 80T + 50P <= 34000
+]
+# Nonnegativity will be handled by including axis lines as potential boundaries.
+
+# Represent boundary lines (equalities) to find intersection points:
+# Each line is represented as (a, b, c) for a*T + b*P = c
+lines = [
+    (1.0, 1.0, 500.0),      # T + P = 500
+    (50.0, 90.0, 40000.0),  # 50T + 90P = 40000
+    (80.0, 50.0, 34000.0),  # 80T + 50P = 34000
+    (1.0, 0.0, 0.0),        # T = 0 (axis)
+    (0.0, 1.0, 0.0)         # P = 0 (axis)
+]
+
+def intersect(line1, line2, tol=1e-9):
+    a1, b1, c1 = line1
+    a2, b2, c2 = line2
+    det = a1 * b2 - a2 * b1
+    if abs(det) < tol:
+        return None
+    T = (c1 * b2 - c2 * b1) / det
+    P = (a1 * c2 - a2 * c1) / det
+    return (T, P)
+
+# Collect candidate vertices from intersections
+candidates = []
+for i in range(len(lines)):
+    for j in range(i+1, len(lines)):
+        pt = intersect(lines[i], lines[j])
+        if pt is None:
+            continue
+        T, P = pt
+        # Check feasibility (satisfy all inequality constraints and nonnegativity)
+        feas = True
+        if T < -1e-8 or P < -1e-8:
+            feas = False
+        else:
+            for (a, b, c) in ineqs:
+                if a * T + b * P - c > 1e-8:
+                    feas = False
+                    break
+        if feas:
+            candidates.append((T, P))
+
+# Also consider the origin explicitly (0,0) in case it is optimal (it won't be here)
+if (0.0, 0.0) not in candidates:
+    # check feasibility
+    feas0 = True
+    for (a, b, c) in ineqs:
+        if a*0.0 + b*0.0 - c > 1e-8:
+            feas0 = False
+            break
+    if feas0:
+        candidates.append((0.0, 0.0))
+
+# Evaluate objective at candidates
+best_obj = -math.inf
+best_point = None
+for (T, P) in candidates:
+    obj = 300.0 * T + 450.0 * P
+    if obj > best_obj + 1e-9:
+        best_obj = obj
+        best_point = (T, P)
+
+# Round small numerical noise
+if best_point is None:
+    best_obj = 0.0
+else:
+    T_opt, P_opt = best_point
+    # snap very near integers to integers
+    if abs(T_opt - round(T_opt)) < 1e-8:
+        T_opt = round(T_opt)
+    if abs(P_opt - round(P_opt)) < 1e-8:
+        P_opt = round(P_opt)
+    if abs(best_obj - round(best_obj)) < 1e-6:
+        best_obj = round(best_obj)
+
+# Print the final objective in the required format
+print(f"FINAL_OBJ: {best_obj}")

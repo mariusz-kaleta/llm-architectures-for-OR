@@ -1,0 +1,186 @@
+[MODELER]:
+Formulate this as a **linear programming (LP)** problem.
+
+---
+
+## 1. Decision variables
+
+Let:
+
+- \(x\) = kilograms of Feed A to use  
+- \(y\) = kilograms of Feed B to use  
+
+with \(x \ge 0,\; y \ge 0\).
+
+---
+
+## 2. Objective function
+
+We want to **minimize total cost**:
+
+- Feed A costs \$100/kg  
+- Feed B costs \$80/kg  
+
+So the total cost is:
+
+\[
+\min \; Z = 100x + 80y
+\]
+
+---
+
+## 3. Constraints
+
+Nutrient requirements:
+
+1. **Protein requirement**  
+   - Feed A: 10 units protein per kg  
+   - Feed B: 7 units protein per kg  
+   - Need at least 30 units of protein:
+
+   \[
+   10x + 7y \ge 30
+   \]
+
+2. **Fat requirement**  
+   - Feed A: 8 units fat per kg  
+   - Feed B: 15 units fat per kg  
+   - Need at least 50 units of fat:
+
+   \[
+   8x + 15y \ge 50
+   \]
+
+3. **Nonnegativity**:
+
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+
+So the full LP model is:
+
+\[
+\begin{aligned}
+\min\quad & Z = 100x + 80y \\
+\text{s.t.}\quad
+& 10x + 7y \ge 30 \\
+& 8x + 15y \ge 50 \\
+& x \ge 0, \; y \ge 0
+\end{aligned}
+\]
+
+---
+
+## 4. Solving the model (outline)
+
+To find the minimum cost, we check the intersection of the binding constraints:
+
+\[
+\begin{cases}
+10x + 7y = 30 \\
+8x + 15y = 50
+\end{cases}
+\]
+
+Solve:
+
+1. From the first: \(10x = 30 - 7y \Rightarrow x = 3 - 0.7y\).
+2. Substitute in the second:
+
+\[
+8(3 - 0.7y) + 15y = 50 \\
+24 - 5.6y + 15y = 50 \\
+24 + 9.4y = 50 \\
+9.4y = 26 \Rightarrow y = \frac{26}{9.4} \approx 2.766
+\]
+
+Then
+
+\[
+x = 3 - 0.7y \approx 3 - 0.7(2.766) \approx 1.063
+\]
+
+Cost:
+
+\[
+Z = 100x + 80y \approx 100(1.063) + 80(2.766) \approx 106.3 + 221.3 \approx 327.6
+\]
+
+So the **minimum-cost mixture** is approximately:
+
+- \(x \approx 1.06\) kg of Feed A  
+- \(y \approx 2.77\) kg of Feed B  
+- Minimum cost \(Z \approx \$327.6\)
+
+(Exact fractions: \(y = 26/9.4 = 130/47\), \(x = 3 - 0.7\cdot130/47 = 71/67.1\), but the decimal solution is usually sufficient.)
+
+---
+
+## 5. Suitable Python libraries
+
+You can model and solve this LP with:
+
+- **PuLP** – very straightforward for LP:
+  ```python
+  import pulp as pl
+
+  # Problem
+  prob = pl.LpProblem("FeedMix", pl.LpMinimize)
+
+  # Variables
+  x = pl.LpVariable('x', lowBound=0)
+  y = pl.LpVariable('y', lowBound=0)
+
+  # Objective
+  prob += 100*x + 80*y
+
+  # Constraints
+  prob += 10*x + 7*y >= 30
+  prob += 8*x + 15*y >= 50
+
+  # Solve
+  prob.solve()
+  print("x =", x.value(), "kg")
+  print("y =", y.value(), "kg")
+  print("Min cost =", pl.value(prob.objective))
+  ```
+
+- **SciPy**: `scipy.optimize.linprog` for continuous LPs.  
+- **OR-Tools**: `ortools.linear_solver.pywraplp` for linear and mixed-integer programs.
+
+For this problem, **PuLP** or **SciPy linprog** are ideal and easy to use.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the LP problem: minimization
+    prob = pl.LpProblem("FeedMix", pl.LpMinimize)
+
+    # Decision variables: x, y >= 0
+    x = pl.LpVariable('x', lowBound=0)
+    y = pl.LpVariable('y', lowBound=0)
+
+    # Objective function: Minimize cost = 100x + 80y
+    prob += 100 * x + 80 * y
+
+    # Constraints
+    # Protein: 10x + 7y >= 30
+    prob += 10 * x + 7 * y >= 30
+
+    # Fat: 8x + 15y >= 50
+    prob += 8 * x + 15 * y >= 50
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the result in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

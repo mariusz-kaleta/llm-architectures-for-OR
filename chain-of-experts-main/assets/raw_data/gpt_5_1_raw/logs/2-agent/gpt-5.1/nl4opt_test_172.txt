@@ -1,0 +1,165 @@
+[MODELER]:
+Here is a clean optimization model for this problem.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \( x \) = number of staff teachers hired  
+- \( y \) = number of substitute teachers hired  
+
+Both are nonnegative integers:
+
+- \( x \ge 0,\; y \ge 0,\; x,y \in \mathbb{Z} \)
+
+---
+
+## 2. Parameters
+
+- Hours per staff teacher: \( h_s = 6 \) hours  
+- Pay per staff teacher: \( c_s = 300 \) dollars  
+- Hours per substitute: \( h_t = 3 \) hours  
+- Pay per substitute: \( c_t = 100 \) dollars  
+- Required hours: \( H = 1000 \) hours  
+- Budget: \( B = 40000 \) dollars  
+
+---
+
+## 3. Constraints
+
+1. **Teaching hours requirement**
+
+Total hours from all teachers must be at least 1000:
+
+\[
+6x + 3y \;\ge\; 1000
+\]
+
+2. **Budget constraint**
+
+Total cost cannot exceed the budget:
+
+\[
+300x + 100y \;\le\; 40000
+\]
+
+3. **Nonnegativity and integrality**
+
+\[
+x \ge 0,\; y \ge 0,\quad x,y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Objective function
+
+We want to **minimize the total number of teachers**:
+
+\[
+\min \; x + y
+\]
+
+This is an **integer linear programming (ILP)** problem: linear objective, linear constraints, integer variables.
+
+---
+
+## 5. Suitable Python libraries
+
+To solve this ILP, you can use any of:
+
+- **PuLP**  
+  - Easy to use for linear/integer programming.
+  - Integrates with CBC (open-source solver) by default.
+- **OR-Tools (Google OR-Tools)**  
+  - Very good for integer programming and CP-SAT models.
+  - Efficient, especially for discrete and combinatorial problems.
+- **Pyomo**  
+  - More general modeling language, supports many solvers.
+- **SciPy’s `optimize`**  
+  - Not ideal here, because it does not natively support integer constraints; you’d need custom handling.
+
+For this type of problem, **PuLP** or **OR-Tools** are the most straightforward.
+
+---
+
+## 6. Example in PuLP
+
+Here is a minimal PuLP model:
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Teacher_Staffing", pl.LpMinimize)
+
+# Decision variables (integer)
+x = pl.LpVariable('staff_teachers', lowBound=0, cat='Integer')
+y = pl.LpVariable('substitute_teachers', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of teachers
+prob += x + y
+
+# Constraints
+prob += 6*x + 3*y >= 1000, "Hours_requirement"
+prob += 300*x + 100*y <= 40000, "Budget_constraint"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Staff teachers (x):", x.value())
+print("Substitute teachers (y):", y.value())
+print("Total teachers:", x.value() + y.value())
+```
+
+You can run this to get the optimal numbers of each type of teacher.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Problem definition
+    prob = pl.LpProblem("Teacher_Staffing", pl.LpMinimize)
+
+    # Decision variables (integer, nonnegative)
+    x = pl.LpVariable('staff_teachers', lowBound=0, cat='Integer')
+    y = pl.LpVariable('substitute_teachers', lowBound=0, cat='Integer')
+
+    # Parameters
+    h_s = 6      # hours per staff teacher
+    c_s = 300    # cost per staff teacher
+    h_t = 3      # hours per substitute
+    c_t = 100    # cost per substitute
+    H = 1000     # required hours
+    B = 40000    # budget
+
+    # Objective: minimize total number of teachers
+    prob += x + y
+
+    # Constraints
+    prob += h_s * x + h_t * y >= H, "Hours_requirement"
+    prob += c_s * x + c_t * y <= B, "Budget_constraint"
+
+    # Solve with CBC (default solver in PuLP)
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    x_val = x.value()
+    y_val = y.value()
+    total_teachers = x_val + y_val
+
+    # Print results (optional detail)
+    print("Status:", pl.LpStatus[prob.status])
+    print("Staff teachers (x):", x_val)
+    print("Substitute teachers (y):", y_val)
+    print("Total teachers:", total_teachers)
+
+    # Final objective value as required
+    print(f"FINAL_OBJ: {total_teachers}")
+
+if __name__ == "__main__":
+    main()

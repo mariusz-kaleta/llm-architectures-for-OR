@@ -1,0 +1,43 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Rice_Transport_Optimization", pulp.LpMaximize)
+
+# Decision variables: number of medium (m) and large (l) carts
+m = pulp.LpVariable('medium_carts', lowBound=0, cat='Integer')
+l = pulp.LpVariable('large_carts', lowBound=0, cat='Integer')
+
+# Objective: maximize amount of rice transported
+# Medium cart: 30 kg, Large cart: 70 kg
+prob += 30 * m + 70 * l, "Total_Rice_Transported"
+
+# Constraints:
+
+# 1. Horse availability: 2 horses per medium, 4 horses per large
+prob += 2 * m + 4 * l <= 60, "Horse_Constraint"
+
+# 2. Number of medium carts is three times the number of large carts
+prob += m == 3 * l, "Cart_Ratio_Constraint"
+
+# 3. At least 5 medium carts
+prob += m >= 5, "Min_Medium_Carts"
+
+# 4. At least 5 large carts
+prob += l >= 5, "Min_Large_Carts"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+# Extract results
+m_opt = pulp.value(m)
+l_opt = pulp.value(l)
+obj_value = pulp.value(prob.objective)
+
+# Print solution details (optional for inspection)
+print(f"Optimal number of medium carts: {m_opt}")
+print(f"Optimal number of large carts: {l_opt}")
+print(f"Maximum rice transported (kg): {obj_value}")
+
+# Required final objective value print
+print(f"FINAL_OBJ: {obj_value}")

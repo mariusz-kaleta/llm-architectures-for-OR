@@ -1,0 +1,120 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Maximise total profit from producing math and English workbooks.
+
+2. Suggested model type
+- Model: Linear programming (two-variable LP). Because there are linear profits and linear upper/lower bounds, solveable by Simplex or by inspection of corner points.
+
+3. Main decision variables
+- Number of math workbooks to produce (M).
+- Number of English workbooks to produce (E).
+(Indicate integer variables if discrete units are required; otherwise treat as continuous.)
+
+4. Key constraints to include
+- Lower and upper production bounds for each type:
+  - M must be at least 40 and at most 140.
+  - E must be at least 60 and at most 170.
+- Contract requirement on total shipments:
+  - The total number produced (M + E) must be at least 200.
+- Non‑negativity (already implied by bounds).
+- Optional: integrality constraint if fractional workbooks are not allowed.
+- Feasibility check: ensure that the combined maximum production (max M + max E = 310) is ≥ the contract minimum (200) — so the problem is feasible.
+
+5. Objective (conceptual)
+- Maximise total profit = (profit per math) * M + (profit per English) * E = 15*M + 17*E.
+
+6. Recommended solution strategy for the modeller
+- Because it’s a 2-variable LP, evaluate feasible corner points (bound combinations) or run a simplex solver.
+- Use the insight that English has the higher unit profit ($17 > $15), so try to push E to its upper bound first, then set M to the minimal value that satisfies the contract and its lower bound. Check nearby corners to confirm optimality.
+- If integrality is required, solve the integer LP (small scale — enumeration of corner/integer neighbors is straightforward).
+
+7. Quick feasibility/optimality check (candidate solution)
+- Candidate optimal point to verify: set E to its upper bound (170) and M to the smallest allowed value that satisfies the contract (and M’s lower bound): M = 40. This meets M+E = 210 ≥ 200 and uses the highest-profit product to its capacity. Verify by calculating objective and comparing with other corner points.
+
+8. Deliverables for modeller
+- Produce the LP instance (variables, objective, constraints), run solver, report optimal M and E, total profit, and dual/sensitivity info (how much profit would change per unit loosening of bounds or contract).
+- If integrality is required, return integer solution and explain any differences from continuous solution.
+
+End.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- M = number of math workbooks to produce (integer or continuous ≥0).
+- E = number of English workbooks to produce (integer or continuous ≥0).
+
+Objective
+- Maximise total profit: maximize Z = 15 M + 17 E.
+
+Constraints
+- Lower/upper production bounds:
+  - 40 ≤ M ≤ 140
+  - 60 ≤ E ≤ 170
+- Contract requirement (total shipments at least 200):
+  - M + E ≥ 200
+
+Feasibility
+- max M + max E = 140 + 170 = 310 ≥ 200, so the feasible region is non‑empty.
+
+Analysis and optimal solution
+- Both profit coefficients (15 and 17) are positive. There is no cost or penalty for producing more, and the only upper limits are the per‑product maxima.
+- Therefore the profit is maximised by producing each product at its allowed maximum:
+  - M* = 140, E* = 170
+- Total profit: Z* = 15·140 + 17·170 = 2100 + 2890 = 4990.
+- This solution satisfies M+E = 310 ≥ 200.
+
+Corner-check intuition
+- The feasible region is a rectangle (from individual bounds) cut by the half‑space M+E ≥ 200. With positive coefficients, the optimal vertex is the upper‑right corner (M=140,E=170).
+
+Sensitivity / dual intuition (marginal values)
+- The contract constraint M+E ≥ 200 is not binding (slack = 310 − 200 = 110), so its dual/shadow price is 0 locally: small changes in the required minimum (until it exceeds 310) do not change the optimal profit.
+- Each unit increase allowed in the upper bound for M increases maximum profit by 15 (marginal value = 15).
+- Each unit increase allowed in the upper bound for E increases maximum profit by 17 (marginal value = 17).
+- Lower bounds are not binding at optimum (they are below current values), so relaxing those lower bounds does not change the objective.
+
+Integrality
+- If M and E must be integers, the continuous optimum (140,170) is integer already, so nothing changes.
+
+Recommended solvers / libraries
+- pulp (easy modeling, uses CBC by default) — good for LP/MILP.
+- scipy.optimize.linprog — for continuous LPs (simplex/interior point).
+- OR-Tools (CP-SAT) — if you want integer programming or larger combinatorial models.
+- cvxpy — also works for LPs with a nice modeling interface.
+
+Example (brief) — how to solve with PuLP (Python)
+- Create variables M and E with bounds, set objective 15*M + 17*E, add M+E >= 200, call solver; the solver will return M=140, E=170, profit=4990.
+
+If you want, I can provide the exact Python/PuLP (or scipy/OR-Tools) code and show solver output and dual values.
+
+---
+
+[CODER]:
+# Self-contained solution for the linear program described
+# Decision variables: M (math workbooks), E (english workbooks)
+# Objective: maximize 15*M + 17*E
+# Bounds: 40 <= M <= 140, 60 <= E <= 170
+# Contract: M + E >= 200
+
+# Initialize data
+cM = 15
+cE = 17
+M_low, M_up = 40, 140
+E_low, E_up = 60, 170
+contract_min = 200
+
+# Since both objective coefficients are positive, optimal solution is at upper bounds
+M = M_up
+E = E_up
+
+# Sanity check: feasible?
+if M + E < contract_min:
+    raise ValueError("Problem infeasible with given bounds and contract requirement.")
+
+# Compute objective
+Z = cM * M + cE * E
+
+# Final output as required
+print(f"FINAL_OBJ: {Z}")

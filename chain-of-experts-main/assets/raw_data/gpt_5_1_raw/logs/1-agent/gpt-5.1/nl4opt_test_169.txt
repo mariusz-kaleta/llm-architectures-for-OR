@@ -1,0 +1,37 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Golf_Cart_Optimization", pulp.LpMinimize)
+
+# Decision variables
+G = pulp.LpVariable('GolfCarts', lowBound=0, cat='Integer')
+P = pulp.LpVariable('PullCarts', lowBound=0, cat='Integer')
+
+# Objective: Minimize total number of carts
+prob += G + P, "TotalCarts"
+
+# Constraints:
+
+# Capacity constraint: 4 guests per golf cart, 1 per pull cart
+prob += 4 * G + P >= 80, "GuestCapacity"
+
+# At most 60% of carts can be golf carts: G <= 0.6 * (G + P)
+# This can be rearranged to: 0.4*G <= 0.6*P -> 2*G <= 3*P
+prob += 2 * G <= 3 * P, "GolfCartLimit"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve results
+golf_carts = int(pulp.value(G))
+pull_carts = int(pulp.value(P))
+total_carts = golf_carts + pull_carts
+
+# Print detailed solution
+print(f"Golf carts used: {golf_carts}")
+print(f"Pull carts used: {pull_carts}")
+print(f"Total carts used: {total_carts}")
+
+# Final objective value
+print(f"FINAL_OBJ: {total_carts}")

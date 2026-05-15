@@ -1,0 +1,37 @@
+[MONOLITH]:
+import pulp
+
+# Problem data (directly from the problem statement)
+kids_capacity = 100    # ml per kids bottle
+adult_capacity = 300   # ml per adult bottle
+total_syrup = 25000    # ml available
+min_kids = 50          # at least 50 kids bottles
+# constraint: at least 3 times as many adult bottles as kids bottles -> adult >= 3 * kids
+
+# Define the problem
+prob = pulp.LpProblem("Maximize_Number_of_Bottles", pulp.LpMaximize)
+
+# Decision variables: integer numbers of bottles
+k = pulp.LpVariable("kids_bottles", lowBound=0, cat="Integer")
+a = pulp.LpVariable("adult_bottles", lowBound=0, cat="Integer")
+
+# Objective: maximize total number of bottles
+prob += k + a, "Total_Bottles"
+
+# Constraints
+prob += kids_capacity * k + adult_capacity * a <= total_syrup, "SyrupLimit"
+prob += a >= 3 * k, "AdultAtLeastThreeTimesKids"
+prob += k >= min_kids, "MinKids"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+result_status = prob.solve(solver)
+
+status = pulp.LpStatus.get(result_status, "Unknown")
+
+if status == 'Optimal':
+    obj_value = pulp.value(prob.objective)
+    print(f"FINAL_OBJ: {obj_value}")
+else:
+    # No feasible solution or not optimal
+    print(f"FINAL_OBJ: Infeasible")

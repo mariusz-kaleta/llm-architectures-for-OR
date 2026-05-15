@@ -1,0 +1,93 @@
+[MODELER]:
+Model variables
+- M ∈ Z, number of medium carts
+- L ∈ Z, number of large carts
+
+Objective
+- Maximize total rice transported: maximize Z = 30M + 70L
+
+Constraints
+1. Horse availability: 2M + 4L ≤ 60
+2. Cart ratio: M = 3L
+3. Minimum carts: M ≥ 5, L ≥ 5
+4. Integrality: M, L are integers (nonnegative implicitly from (3))
+
+Simplification
+Because M = 3L, substitute into other constraints:
+- Horses: 2(3L) + 4L = 10L ≤ 60 → L ≤ 6
+- Minimum: L ≥ 5
+So feasible integer L values are {5,6}.
+
+Evaluate objective:
+- If L = 5 → M = 15 → Z = 30·15 + 70·5 = 800 kg
+- If L = 6 → M = 18 → Z = 30·18 + 70·6 = 960 kg
+
+Optimal solution
+- Use L = 6 large carts and M = 18 medium carts.
+- Maximum transported rice = 960 kg.
+- All 60 horses are used (2·18 + 4·6 = 60).
+
+Solvers / libraries
+- For this small integer linear program you can solve analytically as above.
+- For a programmatic ILP formulation use: PuLP, OR-Tools (CP-SAT or linear solver), or scipy.optimize with integer extensions.
+Example (PuLP):
+```
+import pulp
+
+prob = pulp.LpProblem('carts', pulp.LpMaximize)
+M = pulp.LpVariable('M', lowBound=5, cat='Integer')
+L = pulp.LpVariable('L', lowBound=5, cat='Integer')
+
+prob += 30*M + 70*L
+prob += 2*M + 4*L <= 60
+prob += M == 3*L
+
+prob.solve()
+print(pulp.value(M), pulp.value(L), pulp.value(prob.objective))
+```
+This will return M=18, L=6, objective=960.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+#!/usr/bin/env python3
+# Self-contained script to solve the integer linear program described.
+# Variables: M (medium carts), L (large carts)
+# Maximize Z = 30*M + 70*L
+# Constraints:
+#   2M + 4L <= 60
+#   M = 3L
+#   M >= 5, L >= 5
+# M, L integers
+
+def main():
+    best_obj = None
+    best_solution = None
+
+    # Because M = 3L and L must be integer >=5, we search feasible L values.
+    # Upper bound from horse constraint: 2*(3L) + 4L = 10L <= 60 -> L <= 6
+    L_min = 5
+    L_max = 6
+
+    for L in range(L_min, L_max + 1):
+        M = 3 * L
+        # Check constraints explicitly
+        if M < 5 or L < 5:
+            continue
+        if 2 * M + 4 * L > 60:
+            continue
+        # Objective
+        Z = 30 * M + 70 * L
+        if best_obj is None or Z > best_obj:
+            best_obj = Z
+            best_solution = (M, L)
+
+    if best_obj is None:
+        # No feasible solution found
+        best_obj = 0
+
+    # Final required output line (only this exact format on that line)
+    print(f"FINAL_OBJ: {best_obj}")
+
+if __name__ == "__main__":
+    main()

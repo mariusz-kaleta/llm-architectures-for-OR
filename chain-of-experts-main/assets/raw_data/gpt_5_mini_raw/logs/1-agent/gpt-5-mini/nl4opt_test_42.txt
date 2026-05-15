@@ -1,0 +1,41 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+time_coconut = 0.7   # minutes per unit of coconut oil
+time_lavender = 0.9  # minutes per unit of lavender
+min_coconut = 300
+max_each = 550
+max_coconut_ratio = 3  # coconut <= 3 * lavender
+
+# Define problem
+prob = pulp.LpProblem("BodyWashTimeMinimization", pulp.LpMinimize)
+
+# Decision variables
+coconut = pulp.LpVariable("coconut_units", lowBound=0, upBound=max_each, cat='Continuous')
+lavender = pulp.LpVariable("lavender_units", lowBound=0, upBound=max_each, cat='Continuous')
+
+# Objective: minimize total time (sequential addition)
+prob += time_coconut * coconut + time_lavender * lavender, "TotalTime"
+
+# Constraints
+prob += coconut >= min_coconut, "MinCoconut"
+prob += coconut <= max_each, "MaxCoconut"         # already enforced by upBound, but kept for clarity
+prob += lavender <= max_each, "MaxLavender"       # already enforced by upBound
+prob += coconut <= max_coconut_ratio * lavender, "CoconutLavenderRatio"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract solution
+coconut_val = pulp.value(coconut)
+lavender_val = pulp.value(lavender)
+total_time = pulp.value(prob.objective)
+
+# Print solution details
+print(f"Coconut units: {coconut_val}")
+print(f"Lavender units: {lavender_val}")
+print(f"Total time (minutes): {total_time}")
+
+# Final required output line (must be the last line)
+print(f"FINAL_OBJ: {total_time}")

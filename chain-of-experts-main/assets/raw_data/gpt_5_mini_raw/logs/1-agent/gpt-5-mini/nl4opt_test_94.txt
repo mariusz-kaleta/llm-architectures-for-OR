@@ -1,0 +1,43 @@
+[MONOLITH]:
+```python
+# Optimization for minimizing total trips (ferry + light rail)
+import pulp
+
+# Data initialization
+capacity_ferry = 20   # boxes per ferry trip
+capacity_rail = 15    # boxes per rail trip
+min_boxes = 500
+rail_min_multiple = 4  # rail trips >= 4 * ferry trips
+
+# Define problem
+prob = pulp.LpProblem("Minimize_Trips", pulp.LpMinimize)
+
+# Decision variables: integers >= 0
+ferry = pulp.LpVariable("ferry_trips", lowBound=0, cat="Integer")
+rail = pulp.LpVariable("rail_trips", lowBound=0, cat="Integer")
+
+# Objective: minimize total trips
+prob += ferry + rail
+
+# Constraints
+prob += capacity_ferry * ferry + capacity_rail * rail >= min_boxes, "CapacityRequirement"
+prob += rail >= rail_min_multiple * ferry, "RailAtLeastMultipleOfFerry"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Retrieve results
+ferry_val = int(pulp.value(ferry))
+rail_val = int(pulp.value(rail))
+obj_val = int(pulp.value(prob.objective))
+
+# Print solution details
+print(f"Status: {pulp.LpStatus[prob.status]}")
+print(f"ferry_trips = {ferry_val}")
+print(f"rail_trips  = {rail_val}")
+print(f"Total boxes shipped = {capacity_ferry * ferry_val + capacity_rail * rail_val}")
+
+# Final required output (must be the last line)
+print(f"FINAL_OBJ: {obj_val}")
+```

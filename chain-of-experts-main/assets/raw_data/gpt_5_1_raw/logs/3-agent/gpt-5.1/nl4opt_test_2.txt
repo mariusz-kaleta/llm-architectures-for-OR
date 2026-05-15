@@ -1,0 +1,142 @@
+[MODELER]:
+Here is a clear optimization model for the problem.
+
+---
+
+### 1. Decision variables
+
+Let  
+- \(x\): number of full-time workers (per shift)  
+- \(y\): number of part-time workers (per shift)
+
+Both must be nonnegative integers:
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+### 2. Objective
+
+Minimize the total number of workers scheduled:
+\[
+\min \; Z = x + y
+\]
+
+---
+
+### 3. Constraints
+
+1. **Labor-hours requirement**
+
+Each full-time worker provides 8 hours, each part-time worker provides 4 hours. Total required is 500 hours:
+\[
+8x + 4y \;\ge\; 500
+\]
+
+2. **Budget constraint**
+
+Full-time workers cost \$300 each; part-time workers cost \$100 each. Total available budget is \$15,000:
+\[
+300x + 100y \;\le\; 15000
+\]
+
+3. **Nonnegativity and integrality**
+
+\[
+x \ge 0,\; y \ge 0,\; x, y \in \mathbb{Z}
+\]
+
+---
+
+### 4. Problem type
+
+This is an **integer linear programming (ILP)** problem:
+
+- Objective: linear (\(x + y\))
+- Constraints: linear
+- Decision variables: integer
+
+---
+
+### 5. Suitable Python libraries
+
+You can model and solve this ILP using any of:
+
+- **PuLP**  
+  - Simple interface for LP/ILP problems.
+  - Can use CBC (bundled), GLPK, or commercial solvers (CPLEX, Gurobi).
+- **OR-Tools (Google OR-Tools)**  
+  - `ortools.linear_solver` (MIP solver) or `ortools.sat.python.cp_model` (CP-SAT) are both suitable.
+- **Pyomo**  
+  - Flexible algebraic modeling language that can call many solvers.
+- **MIP (Python-MIP)**  
+  - Direct interface to CBC/Gurobi for mixed-integer programming.
+
+A minimal PuLP sketch:
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Worker_Scheduling", pl.LpMinimize)
+
+# Variables
+x = pl.LpVariable('full_time', lowBound=0, cat='Integer')
+y = pl.LpVariable('part_time', lowBound=0, cat='Integer')
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 8*x + 4*y >= 500      # labor requirement
+prob += 300*x + 100*y <= 15000  # budget
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Full-time workers:", x.value())
+print("Part-time workers:", y.value())
+print("Total workers:", x.value() + y.value())
+```
+
+This model fully captures the described decision problem and can be directly solved with the suggested libraries.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Initialize problem
+    prob = pl.LpProblem("Worker_Scheduling", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('full_time', lowBound=0, cat='Integer')
+    y = pl.LpVariable('part_time', lowBound=0, cat='Integer')
+
+    # Objective: minimize total workers
+    prob += x + y
+
+    # Constraints
+    prob += 8 * x + 4 * y >= 500      # labor-hours requirement
+    prob += 300 * x + 100 * y <= 15000  # budget constraint
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    x_val = x.value()
+    y_val = y.value()
+    obj_val = x_val + y_val
+
+    # Optional prints (not required by instructions but useful for completeness)
+    # print(f"Full-time workers: {x_val}")
+    # print(f"Part-time workers: {y_val}")
+    # print(f"Total workers: {obj_val}")
+
+    # Final required output
+    print(f"FINAL_OBJ: {obj_val}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,116 @@
+[MODELER]:
+Here is a formal optimization model for this problem.
+
+## 1. Decision variables
+
+Let  
+- \(x \ge 0\): number of times experiment alpha is conducted  
+- \(y \ge 0\): number of times experiment beta is conducted  
+
+(Depending on context, \(x\) and \(y\) can be continuous or integer. If experiments must be done whole-number times, add \(x, y \in \mathbb{Z}_{\ge 0}\).)
+
+## 2. Objective function
+
+Electricity produced:
+- Alpha: 8 units per experiment → total \(8x\)
+- Beta: 10 units per experiment → total \(10y\)
+
+Maximize total electricity:
+\[
+\max Z = 8x + 10y
+\]
+
+## 3. Constraints
+
+Resource constraints:
+
+- Metal: each alpha uses 3, each beta uses 5, total available 800:
+  \[
+  3x + 5y \le 800
+  \]
+
+- Acid: each alpha uses 5, each beta uses 4, total available 750:
+  \[
+  5x + 4y \le 750
+  \]
+
+Non-negativity (and optionally integrality):
+\[
+x \ge 0,\quad y \ge 0 \quad (\text{and } x,y \in \mathbb{Z} \text{ if required})
+\]
+
+This is a linear programming (LP) problem (or an integer linear program if we require integer solutions).
+
+## 4. Suitable Python libraries
+
+For solving this linear optimization problem in Python, the following are appropriate:
+
+- `PuLP` – user-friendly interface for LP and MILP; works with CBC, GLPK, etc.
+- `ortools.linear_solver` (Google OR-Tools) – powerful, supports LP and MILP, efficient for larger problems.
+- `scipy.optimize.linprog` – good for continuous LP; not for integer constraints.
+
+If experiments must be whole numbers, prefer `PuLP` or OR-Tools. If fractional experiments are allowed, `scipy.optimize.linprog` is also fine.
+
+---
+
+### Example PuLP formulation (continuous or integer)
+
+```python
+import pulp as pl
+
+# Create LP problem: maximize
+prob = pl.LpProblem("Electricity_Production", pl.LpMaximize)
+
+# Decision variables (use cat=pl.LpInteger if you need integer solutions)
+x = pl.LpVariable('x_alpha', lowBound=0)            # or cat=pl.LpInteger
+y = pl.LpVariable('y_beta', lowBound=0)             # or cat=pl.LpInteger
+
+# Objective
+prob += 8 * x + 10 * y, "Total_Electricity"
+
+# Constraints
+prob += 3 * x + 5 * y <= 800, "Metal"
+prob += 5 * x + 4 * y <= 750, "Acid"
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal x (alpha):", x.value())
+print("Optimal y (beta):", y.value())
+print("Max electricity:", pl.value(prob.objective))
+```
+
+This code directly implements the formal model above.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Create LP problem: maximize electricity production
+    prob = pl.LpProblem("Electricity_Production", pl.LpMaximize)
+
+    # Decision variables: continuous, non-negative
+    x = pl.LpVariable('x_alpha', lowBound=0)   # number of alpha experiments
+    y = pl.LpVariable('y_beta', lowBound=0)    # number of beta experiments
+
+    # Objective function: maximize 8x + 10y
+    prob += 8 * x + 10 * y, "Total_Electricity"
+
+    # Constraints
+    prob += 3 * x + 5 * y <= 800, "Metal"
+    prob += 5 * x + 4 * y <= 750, "Acid"
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective value as required
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

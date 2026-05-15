@@ -1,0 +1,262 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximize the total number of tricks performed in a show, subject to animal-availability and treat constraints.
+
+2. Suggested model type  
+   - Model: Integer Linear Programming (ILP), or simpler Integer Programming with two decision variables.
+
+3. Main decision variables  
+   Define integer (non‑negative) variables:
+   - x = number of otters used in the show  
+   - y = number of dolphins used in the show  
+
+   Derived quantities to keep in mind:
+   - Total tricks = 3x (from otters) + 1·y (from dolphins)  
+   - Total treats used = 3x (for otters) + 5y (for dolphins)  
+   - Total performers = x + y  
+
+4. Key constraints to consider  
+
+   a) Treat availability  
+   - Each otter: 3 treats  
+   - Each dolphin: 5 treats  
+   - Total treats cannot exceed 200  
+   - Constraint idea: total treats used by otters and dolphins ≤ 200  
+
+   b) Popularity requirement (minimum dolphins)  
+   - At least 10 dolphins must be used  
+   - Constraint idea: y ≥ 10  
+
+   c) Composition requirement (otter share at most 30%)  
+   - At most 30% of performers are otters  
+   - Otters / (Otters + Dolphins) ≤ 0.30  
+   - In variable terms: x / (x + y) ≤ 0.30, with appropriate linearisation into a standard linear inequality involving x and y.  
+
+   d) Non‑negativity and integrality  
+   - x, y ≥ 0  
+   - x, y must be integers (cannot use fractional animals).  
+
+5. Objective function structure  
+   - Maximize total number of tricks: 3x + y  
+
+6. Modelling notes / simplifications for the modeller  
+   - The ratio constraint x / (x + y) ≤ 0.30 can be rewritten as a linear inequality (e.g., multiply both sides by (x + y) and rearrange) so that the model remains linear.  
+   - Given there are only two variables, the modeller might solve by enumeration or graphically, but for generality, set it up as an ILP.  
+   - Check feasibility: confirm that with y ≥ 10 and the treat limit, there exists at least one feasible combination (x, y).  
+   - Once model is built, optimal solution is the integer point maximizing 3x + y within feasible region.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem and how you would implement/solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x \in \mathbb{Z}_{\ge 0}\): number of otters used in the show  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of dolphins used in the show  
+
+Both must be integers because you cannot use fractional animals.
+
+---
+
+## 2. Objective function
+
+Each otter performs 3 tricks, each dolphin performs 1 trick.
+
+Total tricks:
+\[
+\text{Tricks} = 3x + y
+\]
+
+We want to maximize this:
+
+\[
+\max \; 3x + y
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1. Treat availability
+
+- Each otter consumes 3 treats  
+- Each dolphin consumes 5 treats  
+- Total treats available: 200
+
+\[
+3x + 5y \;\le\; 200
+\]
+
+---
+
+### 3.2. Minimum number of dolphins
+
+At least 10 dolphins must be used:
+
+\[
+y \;\ge\; 10
+\]
+
+---
+
+### 3.3. Otter composition constraint (at most 30% otters)
+
+At most 30% of the performers can be otters:
+
+\[
+\frac{x}{x + y} \;\le\; 0.30, 
+\quad \text{with } x + y > 0
+\]
+
+To keep the model linear, rewrite this as a linear inequality.
+
+Multiply both sides by \(x + y\):
+
+\[
+x \;\le\; 0.30(x + y)
+\]
+
+\[
+x \;\le\; 0.30x + 0.30y
+\]
+
+\[
+x - 0.30x \;\le\; 0.30y
+\]
+
+\[
+0.70x \;\le\; 0.30y
+\]
+
+\[
+70x \;\le\; 30y
+\]
+
+Divide by 10 (optional simplification):
+
+\[
+7x \;\le\; 3y
+\]
+
+So the composition constraint becomes the linear constraint:
+
+\[
+7x \;\le\; 3y
+\]
+
+Note: with \(y \ge 10\), we automatically avoid the degenerate case \(x + y = 0\).
+
+---
+
+### 3.4. Non-negativity and integrality
+
+\[
+x \;\ge\; 0,\quad y \;\ge\; 0
+\]
+\[
+x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full ILP model
+
+\[
+\begin{aligned}
+\max \quad & 3x + y \\
+\text{s.t.} \quad
+& 3x + 5y \;\le\; 200 &\text{(treats)}\\
+& y \;\ge\; 10 &\text{(min dolphins)}\\
+& 7x \;\le\; 3y &\text{(at most 30% otters)}\\
+& x, y \in \mathbb{Z}_{\ge 0} &\text{(integrality)}
+\end{aligned}
+\]
+
+This is a pure Integer Linear Program (ILP) with two integer variables.
+
+---
+
+## 5. Suitable Python libraries
+
+This model is straightforward for any MILP solver. Recommended options:
+
+- **PuLP** (`pulp`):  
+  - Easy modeling syntax, works with CBC (open-source) by default.
+  - Good for teaching and small to medium-sized problems.
+- **OR-Tools Linear Solver** (`ortools.linear_solver.pywraplp`):  
+  - Google’s optimization suite, efficient and well-documented.
+  - Supports CBC, GLOP, SCIP, etc.
+- **Pyomo**:  
+  - More general algebraic modeling language, supports many commercial and open-source solvers.
+- For very small problems, you could also brute-force/enumerate (e.g., Python loops), but a MILP solver is more general.
+
+---
+
+## 6. Sketch of a PuLP implementation
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Aquarium_Show", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable("otters", lowBound=0, cat="Integer")
+y = pl.LpVariable("dolphins", lowBound=0, cat="Integer")
+
+# Objective: maximize total tricks
+prob += 3*x + y, "Total_Tricks"
+
+# Constraints
+prob += 3*x + 5*y <= 200, "Treats"
+prob += y >= 10,          "Min_Dolphins"
+prob += 7*x <= 3*y,       "Max_30percent_Otters"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal number of otters  (x):", pl.value(x))
+print("Optimal number of dolphins (y):", pl.value(y))
+print("Max total tricks:", pl.value(3*x + y))
+```
+
+Any of the listed libraries can express this same model structure.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Aquarium_Show", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable("otters", lowBound=0, cat="Integer")
+    y = pl.LpVariable("dolphins", lowBound=0, cat="Integer")
+
+    # Objective: maximize total tricks
+    prob += 3 * x + y, "Total_Tricks"
+
+    # Constraints
+    prob += 3 * x + 5 * y <= 200, "Treats"
+    prob += y >= 10, "Min_Dolphins"
+    prob += 7 * x <= 3 * y, "Max_30percent_Otters"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute final objective value
+    final_obj = pl.value(3 * x + y)
+
+    # Required final output
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

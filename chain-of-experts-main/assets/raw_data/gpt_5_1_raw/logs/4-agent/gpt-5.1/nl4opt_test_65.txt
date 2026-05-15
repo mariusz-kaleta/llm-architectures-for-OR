@@ -1,0 +1,230 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximize total weekly profit from producing laminate planks and carpets.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with two continuous decision variables (square feet of each product per week).
+
+3. Main decision variables  
+Define continuous, non-negative variables representing weekly production quantities:
+
+- L = square feet of laminate planks produced per week  
+- C = square feet of carpets produced per week  
+
+4. Objective function (conceptual)  
+Maximize total profit:
+
+- Profit contribution from laminate = 2.1 per sq ft × L  
+- Profit contribution from carpet = 3.3 per sq ft × C  
+
+Objective: Maximize 2.1·L + 3.3·C
+
+5. Key constraints to consider  
+
+a) Minimum demand constraints (must meet or exceed expected demand):  
+- Laminate demand: L ≥ 15,000  
+- Carpet demand: C ≥ 5,000  
+
+b) Shipping contract requirement (overall minimum total production):  
+- Total shipped each week must be at least 50,000 sq ft:  
+  L + C ≥ 50,000  
+
+c) Raw material capacity constraints (upper bounds on production):  
+- Maximum laminate production: L ≤ 40,000  
+- Maximum carpet production: C ≤ 20,000  
+
+d) Non-negativity:  
+- L ≥ 0  
+- C ≥ 0  
+
+6. Modelling/solution strategy  
+
+- Use a 2-variable LP; graphically feasible region can be visualized in (L, C)-space using the intersecting inequalities.  
+- Identify all corner (extreme) points of the feasible region defined by:  
+  - L = 15,000 (min laminate)  
+  - C = 5,000 (min carpet)  
+  - L = 40,000 (max laminate)  
+  - C = 20,000 (max carpet)  
+  - L + C = 50,000 (min total)  
+  - plus axis boundaries (though minimums make axes less relevant).  
+- Evaluate the objective 2.1·L + 3.3·C at each feasible corner point; select the one with the highest profit.  
+- Interpret the optimal solution as “produce X sq ft of laminate and Y sq ft of carpet per week”.
+
+7. Checks and sensitivities to keep in mind  
+
+- Verify that the minimum-demand and total-shipping constraints are compatible with the maximum capacities (i.e., that the feasible region is non-empty).  
+- Optionally perform sensitivity-style reasoning:  
+  - Coefficient 3.3 > 2.1 suggests favoring carpets up to its capacity, then laminate fills remaining requirements.  
+  - Check if optimal solution lies on the shipping constraint boundary (L + C = 50,000) or at capacity bounds (C = 20,000, L = 40,000).
+
+---
+
+[MODELER]:
+Below is a clean mathematical model of the problem, plus suggestions for how to solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(L \ge 0\): square feet of laminate planks produced per week  
+- \(C \ge 0\): square feet of carpets produced per week  
+
+(both continuous variables)
+
+---
+
+## 2. Objective function
+
+Profit per square foot:
+- Laminate: \$2.1
+- Carpet: \$3.3
+
+Maximize weekly profit:
+\[
+\max_{L, C} \quad Z = 2.1L + 3.3C
+\]
+
+---
+
+## 3. Constraints
+
+1. **Demand (minimum production) constraints**  
+   - Laminate demand:
+     \[
+     L \;\ge\; 15{,}000
+     \]
+   - Carpet demand:
+     \[
+     C \;\ge\; 5{,}000
+     \]
+
+2. **Shipping contract (minimum total production)**  
+   Total weekly production must be at least 50,000 sq ft:
+   \[
+   L + C \;\ge\; 50{,}000
+   \]
+
+3. **Raw material capacity (maximum production)**  
+   - Laminate capacity:
+     \[
+     L \;\le\; 40{,}000
+     \]
+   - Carpet capacity:
+     \[
+     C \;\le\; 20{,}000
+     \]
+
+4. **Non-negativity** (already implied by demand constraints, but explicitly):
+   \[
+   L \ge 0,\quad C \ge 0
+   \]
+
+This is a standard 2-variable Linear Program (LP).
+
+---
+
+## 4. Structure and solution logic (high level)
+
+Because carpet has a higher profit (\$3.3) than laminate (\$2.1), the optimal solution will:
+- Produce as much carpet as allowed (up to the upper bound of 20,000 sq ft), then
+- Use laminate to satisfy the remaining total production requirement under the laminate bounds.
+
+Formally, the optimum will lie at one of the feasible corner points formed by the lines:
+- \(L = 15{,}000\), \(L = 40{,}000\)
+- \(C = 5{,}000\), \(C = 20{,}000\)
+- \(L + C = 50{,}000\)
+
+The LP solver will automatically find which corner maximizes \(2.1L + 3.3C\).
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard LP solver will handle this easily:
+
+- **PuLP** (`pulp`)  
+  - Very straightforward modeling syntax; ships with CBC solver by default.
+  - Good for teaching, small-to-medium LPs and ILPs.
+
+- **OR-Tools Linear Solver** (`ortools.linear_solver.pywraplp`)  
+  - Industrial strength; supports several back-end solvers (CBC, GLOP, etc.).
+  - Good if you may extend to more complex optimization later (MIP, routing, scheduling).
+
+- **SciPy** (`scipy.optimize.linprog`)  
+  - Suitable if you’re already in a numeric/scientific computing environment.
+  - Less declarative; you must pass coefficient matrices and vectors explicitly.
+
+For this problem, **PuLP** or **OR-Tools** are ideal pedagogically.  
+
+---
+
+## 6. Example PuLP formulation (Python)
+
+```python
+import pulp as pl
+
+# Create LP problem: maximize profit
+model = pl.LpProblem("Flooring_Production", pl.LpMaximize)
+
+# Decision variables
+L = pl.LpVariable('Laminate', lowBound=0)
+C = pl.LpVariable('Carpet', lowBound=0)
+
+# Objective function
+model += 2.1 * L + 3.3 * C, "Total_Profit"
+
+# Constraints
+model += L >= 15000, "Min_Laminate_Demand"
+model += C >= 5000,  "Min_Carpet_Demand"
+model += L + C >= 50000, "Min_Total_Shipping"
+model += L <= 40000, "Max_Laminate_Capacity"
+model += C <= 20000, "Max_Carpet_Capacity"
+
+# Solve
+model.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Results
+print("Status:", pl.LpStatus[model.status])
+print("Optimal Laminate (sq ft):", L.varValue)
+print("Optimal Carpet (sq ft):", C.varValue)
+print("Max Weekly Profit: $", pl.value(model.objective))
+```
+
+This code encodes exactly the mathematical model above and lets the solver compute the optimal weekly production plan.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create LP problem: maximize profit
+    model = pl.LpProblem("Flooring_Production", pl.LpMaximize)
+
+    # Decision variables
+    L = pl.LpVariable('Laminate', lowBound=0)
+    C = pl.LpVariable('Carpet', lowBound=0)
+
+    # Objective function
+    model += 2.1 * L + 3.3 * C, "Total_Profit"
+
+    # Constraints
+    model += L >= 15000, "Min_Laminate_Demand"
+    model += C >= 5000,  "Min_Carpet_Demand"
+    model += L + C >= 50000, "Min_Total_Shipping"
+    model += L <= 40000, "Max_Laminate_Capacity"
+    model += C <= 20000, "Max_Carpet_Capacity"
+
+    # Solve
+    model.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Objective value
+    value = pl.value(model.objective)
+
+    # Final required print
+    print(f"FINAL_OBJ: {value}")
+
+if __name__ == "__main__":
+    main()

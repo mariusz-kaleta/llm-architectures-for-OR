@@ -1,0 +1,185 @@
+[MODELER]:
+Here is a clean mathematical model of the problem.
+
+### 1. Decision variables
+
+Let  
+- \(x\) = number of high-volume pipes used per day (integer, \(x \ge 0\))  
+- \(y\) = number of low-volume pipes used per day (integer, \(y \ge 0\))
+
+### 2. Objective function
+
+We want to minimize the total number of pipes:
+
+\[
+\min \; Z = x + y
+\]
+
+### 3. Constraints
+
+#### a) Demand (gallons) constraint
+
+Each high-volume pipe carries 10,000 gallons/day.  
+Each low-volume pipe carries 5,000 gallons/day.  
+
+The company must supply at least 150,000 gallons per day:
+
+\[
+10000x + 5000y \;\ge\; 150000
+\]
+
+Divide both sides by 5000 to simplify:
+
+\[
+2x + y \;\ge\; 30
+\]
+
+#### b) Technician availability constraint
+
+Each high-volume pipe needs 12 technicians.  
+Each low-volume pipe needs 5 technicians.  
+
+There are 160 technicians available:
+
+\[
+12x + 5y \;\le\; 160
+\]
+
+#### c) High-volume pipes proportion constraint
+
+“At most 35 percent of the pipes can be high-volume ones”:
+
+\[
+\frac{x}{x + y} \;\le\; 0.35, \quad \text{for } x + y > 0
+\]
+
+Multiply both sides by \(x + y\) to linearize:
+
+\[
+x \;\le\; 0.35(x + y)
+\]
+\[
+x \;\le\; 0.35x + 0.35y
+\]
+\[
+0.65x \;\le\; 0.35y
+\]
+\[
+13x \;\le\; 7y
+\]
+
+This is a linear constraint.
+
+#### d) Minimum number of low-volume pipes
+
+At least 8 low-volume pipes must be used:
+
+\[
+y \;\ge\; 8
+\]
+
+#### e) Integrality
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+### Summary of full model
+
+\[
+\begin{aligned}
+\text{Minimize} \quad & Z = x + y \\
+\text{subject to} \quad
+& 2x + y \;\ge\; 30 \quad &\text{(demand)} \\
+& 12x + 5y \;\le\; 160 \quad &\text{(technicians)} \\
+& 13x \;\le\; 7y \quad &\text{(≤ 35% high-volume)} \\
+& y \;\ge\; 8 \quad &\text{(min low-volume)} \\
+& x, y \in \mathbb{Z}_{\ge 0} \quad &\text{(integrality)}
+\end{aligned}
+\]
+
+---
+
+### Appropriate Python libraries
+
+This is a small integer linear programming (ILP) problem. Suitable Python libraries:
+
+- **PuLP** – very easy for educational / small ILP models.
+- **OR-Tools (from Google)** – powerful MIP solver (`ortools.linear_solver`).
+- **Pyomo** – more general algebraic modeling language, good for larger or more complex models.
+
+For this problem, **PuLP** or **OR-Tools** are ideal.
+
+#### Example with PuLP (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Pipes_Optimization", pl.LpMinimize)
+
+# Variables
+x = pl.LpVariable('x', lowBound=0, cat='Integer')  # high-volume
+y = pl.LpVariable('y', lowBound=0, cat='Integer')  # low-volume
+
+# Objective
+prob += x + y
+
+# Constraints
+prob += 2*x + y >= 30          # demand
+prob += 12*x + 5*y <= 160      # technicians
+prob += 13*x <= 7*y            # high-volume proportion
+prob += y >= 8                 # minimum low-volume
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("High-volume pipes:", x.value())
+print("Low-volume pipes:", y.value())
+print("Total pipes:", x.value() + y.value())
+```
+
+This code encodes exactly the model above and will give you the optimal numbers of each pipe type.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Pipes_Optimization", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('x', lowBound=0, cat='Integer')  # high-volume pipes
+    y = pl.LpVariable('y', lowBound=0, cat='Integer')  # low-volume pipes
+
+    # Objective function: minimize total number of pipes
+    prob += x + y
+
+    # Constraints
+    prob += 2 * x + y >= 30        # Demand constraint
+    prob += 12 * x + 5 * y <= 160  # Technician availability
+    prob += 13 * x <= 7 * y        # High-volume proportion
+    prob += y >= 8                 # Minimum number of low-volume pipes
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Retrieve solution values
+    x_val = pl.value(x)
+    y_val = pl.value(y)
+    final_obj = x_val + y_val
+
+    # Print detailed solution (optional; not restricted by instructions)
+    print(f"High-volume pipes (x): {x_val}")
+    print(f"Low-volume pipes (y): {y_val}")
+    print(f"Total pipes: {final_obj}")
+
+    # Required final output
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

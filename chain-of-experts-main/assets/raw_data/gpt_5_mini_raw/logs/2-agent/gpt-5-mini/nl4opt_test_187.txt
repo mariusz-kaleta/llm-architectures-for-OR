@@ -1,0 +1,105 @@
+[MODELER]:
+Model summary
+- Decision variables
+  - x = number of batches of vitamin shots (integer, x ≥ 0)
+  - y = number of batches of vitamin pills (integer, y ≥ 0)
+
+- Objective
+  - Maximize total people supplied: maximize Z = 10x + 7y
+
+- Constraints
+  1. Vitamin C availability: 30x + 50y ≤ 1200
+  2. Vitamin D availability: 40x + 30y ≤ 1500
+  3. Pills more numerous than shots: y ≥ x + 1  (enforces “strictly larger” with integer batches)
+  4. Production cap on shots: x ≤ 10
+  5. Integrality and nonnegativity: x, y ∈ Z, x ≥ 0, y ≥ 0
+
+Remarks: if fractional batches were allowed you would replace y ≥ x+1 by y ≥ x + ε (or treat the strict inequality appropriately), but batches are naturally integer so y ≥ x+1 is appropriate.
+
+Recommended solvers / Python libraries
+- pulp (with CBC or other MIP solvers) — easy modeling and default integer solving
+- OR-Tools CP-SAT — very fast for integer programs
+- pyomo with a commercial solver (Gurobi, CPLEX) if available
+- scipy.optimize only for continuous LP relaxations (not ideal for integrality)
+
+Analytic solution (simple reasoning)
+- Because x is capped at 10 and each shot gives more people per batch (10 vs 7), it is advantageous to set x to its upper bound if resources permit.
+- Set x = 10. From the vitamin C constraint: 30·10 + 50y ≤ 1200 → 300 + 50y ≤ 1200 → y ≤ 18.
+  The vitamin D constraint is not binding at x = 10 (it allows a larger y), and the pills-vs-shots constraint requires y ≥ 11. So the maximal feasible integer y is 18.
+- Objective value: Z = 10·10 + 7·18 = 100 + 126 = 226 people.
+
+Feasibility check
+- Vitamin C: 30·10 + 50·18 = 300 + 900 = 1200 (meets limit)
+- Vitamin D: 40·10 + 30·18 = 400 + 540 = 940 ≤ 1500
+- y = 18 > x = 10 and x ≤ 10 satisfied.
+
+Answer
+- Produce 10 batches of vitamin shots and 18 batches of vitamin pills, supplying 226 people in total.
+
+Optional: short pulp example
+- Using pulp (MIP):
+  - Define IntVar x,y
+  - Add constraints: 30*x + 50*y <= 1200; 40*x + 30*y <= 1500; y >= x+1; x <= 10; x>=0; y>=0
+  - Maximize 10*x + 7*y
+  - Solve with pulp.PULP_CBC_CMD() and read x.value(), y.value().
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained solver for the given integer programming model (brute-force enumeration).
+# Decision variables:
+#   x = number of batches of vitamin shots (integer, x >= 0, x <= 10)
+#   y = number of batches of vitamin pills (integer, y >= 0, y >= x+1)
+# Objective: maximize Z = 10*x + 7*y
+# Constraints:
+#   30*x + 50*y <= 1200   (Vitamin C)
+#   40*x + 30*y <= 1500   (Vitamin D)
+
+# Initialize parameters
+max_x_cap = 10
+vitC_limit = 1200
+vitD_limit = 1500
+# Coefficients
+c_x = 30
+c_y = 50
+d_x = 40
+d_y = 30
+obj_x = 10
+obj_y = 7
+
+best_obj = None
+best_x = None
+best_y = None
+
+for x in range(0, max_x_cap + 1):
+    # compute feasible y range from constraints
+    remC = vitC_limit - c_x * x
+    remD = vitD_limit - d_x * x
+    if remC < 0 or remD < 0:
+        continue
+    # integer upper bounds for y
+    y_max_C = remC // c_y
+    y_max_D = remD // d_y
+    y_max = min(y_max_C, y_max_D)
+    y_min = x + 1  # pills more numerous than shots (integer)
+    if y_max < y_min:
+        continue
+    for y in range(y_min, y_max + 1):
+        # additional safety check (should be redundant)
+        if c_x * x + c_y * y > vitC_limit:
+            continue
+        if d_x * x + d_y * y > vitD_limit:
+            continue
+        z = obj_x * x + obj_y * y
+        if (best_obj is None) or (z > best_obj):
+            best_obj = z
+            best_x = x
+            best_y = y
+
+# If no feasible solution found, set objective to 0 (should not happen here)
+if best_obj is None:
+    best_obj = 0
+
+print(f"FINAL_OBJ: {int(best_obj)}")
+```

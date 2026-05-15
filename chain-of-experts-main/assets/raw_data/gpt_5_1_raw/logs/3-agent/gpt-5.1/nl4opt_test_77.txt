@@ -1,0 +1,156 @@
+[MODELER]:
+Here is a clean mathematical optimisation model of the problem and how to solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_1 \ge 0\): minutes machine 1 is used  
+- \(x_2 \ge 0\): minutes machine 2 is used  
+
+These are continuous nonnegative variables.
+
+---
+
+## 2. Objective: minimize total waste
+
+Waste per minute:
+
+- Machine 1: 0.3 units/min  
+- Machine 2: 0.5 units/min  
+
+Total waste:
+\[
+W = 0.3 x_1 + 0.5 x_2
+\]
+
+Objective:
+\[
+\min\; 0.3 x_1 + 0.5 x_2
+\]
+
+---
+
+## 3. Constraints
+
+### Heart medicine constraint (at most 8 units)
+
+Heart delivery per minute:
+
+- Machine 1: 0.5 units/min  
+- Machine 2: 0.3 units/min  
+
+Total to heart:
+\[
+0.5 x_1 + 0.3 x_2 \le 8
+\]
+
+### Brain medicine constraint (at least 4 units)
+
+Brain delivery per minute:
+
+- Machine 1: 0.8 units/min  
+- Machine 2: 1.0 units/min  
+
+Total to brain:
+\[
+0.8 x_1 + 1.0 x_2 \ge 4
+\]
+
+### Nonnegativity
+
+\[
+x_1 \ge 0, \quad x_2 \ge 0
+\]
+
+---
+
+## 4. Complete linear program
+
+\[
+\begin{aligned}
+\min_{x_1, x_2} \quad & 0.3 x_1 + 0.5 x_2 \\
+\text{s.t.} \quad
+& 0.5 x_1 + 0.3 x_2 \le 8 \quad &&\text{(heart)} \\
+& 0.8 x_1 + 1.0 x_2 \ge 4 \quad &&\text{(brain)} \\
+& x_1, x_2 \ge 0 \quad &&\text{(nonnegativity)}
+\end{aligned}
+\]
+
+This is a standard linear programming (LP) problem.
+
+---
+
+## 5. Suitable Python libraries
+
+All of these can solve this LP efficiently:
+
+- `PuLP` — simple, user-friendly LP modelling in pure Python.
+- `scipy.optimize.linprog` — part of SciPy, suitable for LPs with dense matrices.
+- `ortools.linear_solver` (Google OR-Tools) — industrial-strength solver interface.
+
+---
+
+## 6. Example using PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Medicine_Delivery", pl.LpMinimize)
+
+# Decision variables
+x1 = pl.LpVariable('x1', lowBound=0)  # minutes machine 1
+x2 = pl.LpVariable('x2', lowBound=0)  # minutes machine 2
+
+# Objective: minimize total waste
+prob += 0.3 * x1 + 0.5 * x2
+
+# Constraints
+prob += 0.5 * x1 + 0.3 * x2 <= 8      # heart at most 8 units
+prob += 0.8 * x1 + 1.0 * x2 >= 4      # brain at least 4 units
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Minutes machine 1 (x1):", x1.value())
+print("Minutes machine 2 (x2):", x2.value())
+print("Minimum total waste:", pl.value(prob.objective))
+```
+
+This code directly implements the formal model above and yields the optimal times for each machine and the minimal total waste.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("Medicine_Delivery", pl.LpMinimize)
+
+    # Decision variables
+    x1 = pl.LpVariable('x1', lowBound=0)  # minutes machine 1
+    x2 = pl.LpVariable('x2', lowBound=0)  # minutes machine 2
+
+    # Objective: minimize total waste
+    prob += 0.3 * x1 + 0.5 * x2
+
+    # Constraints
+    prob += 0.5 * x1 + 0.3 * x2 <= 8      # heart at most 8 units
+    prob += 0.8 * x1 + 1.0 * x2 >= 4      # brain at least 4 units
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    obj_value = pl.value(prob.objective)
+
+    # Final objective value print as required
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

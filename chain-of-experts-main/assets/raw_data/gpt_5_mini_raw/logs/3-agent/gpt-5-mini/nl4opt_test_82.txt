@@ -1,0 +1,74 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x = number of bike shifts (integer, >= 0)
+- y = number of scooter shifts (integer, >= 0)
+
+Objective
+- Maximise total tips: maximize Z = 50 x + 43 y
+
+Constraints
+1. Order requirement: 10 x + 7 y >= 320
+2. Energy limit: 5 x + 6 y <= 230
+3. Shift availability: x + y <= 40
+4. Minimum scooters: y >= 5
+5. Integrality and nonnegativity: x, y ∈ Z, x ≥ 0, y ≥ 0
+
+(You can relax integrality to real numbers for a linear-programme relaxation, but shifts should be integer in practice.)
+
+Solution reasoning (short)
+- Bike shifts give higher tips per shift (50 > 43) and higher tips per unit energy (50/5 = 10 > 43/6 ≈ 7.17), so we prefer as many bike shifts as allowed by constraints while keeping y at its minimum (y = 5).
+- With y = 5 the shift-limit gives x ≤ 35 and the energy constraint gives x ≤ 40, and the order constraint requires x ≥ 29. Hence taking x at its maximum feasible value (x = 35) is feasible and increases tips.
+- (Swapping any bike shift for a scooter shift decreases tips by 7, so increasing y beyond 5 can only reduce tips while still meeting constraints.)
+
+Feasible optimal integer solution
+- x = 35 bike shifts
+- y = 5 scooter shifts
+Total tips = 50·35 + 43·5 = 1,965 dollars
+
+Suggested solvers / Python libraries
+- For integer linear programming: PuLP (with default CBC), OR-Tools CP-SAT, Pyomo (with GLPK/CBC/Gurobi if available).
+- For LP relaxation: scipy.optimize.linprog (but it does not handle integer variables).
+- If you want commercial speed: Gurobi or CPLEX via their Python APIs.
+
+Example (PuLP) outline
+- Define integer variables x,y
+- Add the four constraints above
+- Set objective maximize 50*x + 43*y
+- Solve with pulp.PULP_CBC_CMD() and read x.value(), y.value()
+
+If you want, I can provide the exact PuLP or OR-Tools code to solve this model.
+
+---
+
+[CODER]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Delivery_Shifts", pulp.LpMaximize)
+
+# Decision variables
+x = pulp.LpVariable("x", lowBound=0, cat="Integer")  # bike shifts
+y = pulp.LpVariable("y", lowBound=0, cat="Integer")  # scooter shifts
+
+# Objective: maximize tips
+prob += 50 * x + 43 * y
+
+# Constraints
+prob += 10 * x + 7 * y >= 320   # order requirement
+prob += 5 * x + 6 * y <= 230    # energy limit
+prob += x + y <= 40             # shift availability
+prob += y >= 5                  # minimum scooters
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract integer solutions (rounding to nearest integer for safety)
+x_val = int(round(pulp.value(x)))
+y_val = int(round(pulp.value(y)))
+
+# Compute objective value
+obj_value = 50 * x_val + 43 * y_val
+
+print(f"FINAL_OBJ: {obj_value}")

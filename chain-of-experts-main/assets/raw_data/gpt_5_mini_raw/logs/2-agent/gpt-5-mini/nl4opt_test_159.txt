@@ -1,0 +1,101 @@
+[MODELER]:
+Model type: Linear Program (can be solved as continuous LP or integer LP; integrality not needed because optimal solution is integer here).
+
+Decision variables
+- x = number of wired headphones produced per day (units)
+- y = number of wireless headphones produced per day (units)
+
+Objective
+- Maximise profit: maximize Z = 50x + 20y
+
+Constraints
+- Wired team capacity: x ≤ 100
+- Wireless team capacity: y ≤ 170
+- Shared testing-machine capacity: x + y ≤ 150
+- Nonnegativity: x ≥ 0, y ≥ 0
+
+(Optionally: x,y ∈ Z if you require integer solutions. The LP optimum will be integer in this problem.)
+
+Solve (analytical)
+Check corner points of the feasible polygon:
+- (0,0) -> Z = 0
+- (100,0) -> Z = 50*100 = 5000
+- (0,150) -> Z = 20*150 = 3000
+- Intersection of x=100 and x+y=150 → (100,50) -> Z = 50*100 + 20*50 = 6000
+- Intersection of y=170 and x+y=150 infeasible
+
+Optimal solution: x = 100 wired, y = 50 wireless. Maximum profit = $6,000 per day.
+
+Suggested Python libraries for solving
+- pulp (simple to model and solve LP/MIP)
+- OR-Tools (good MIP/LP solver from Google)
+- scipy.optimize.linprog (for continuous LPs)
+- cvxpy (convex optimization modelling)
+
+Example using PuLP (pseudo-code)
+from pulp import LpProblem, LpMaximize, LpVariable, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("Headphones", LpMaximize)
+x = LpVariable("wired", lowBound=0)
+y = LpVariable("wireless", lowBound=0)
+prob += 50*x + 20*y                      # objective
+prob += x <= 100                         # wired capacity
+prob += y <= 170                         # wireless capacity
+prob += x + y <= 150                     # testing machine capacity
+prob.solve(PULP_CBC_CMD(msg=False))
+print(x.value(), y.value(), "Profit =", 50*x.value() + 20*y.value())
+
+This will return x=100, y=50, Profit=6000.
+
+If you want, I can provide a ready-to-run script for any of the suggested libraries.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained script to solve the LP analytically and print the final objective value.
+# Decision variables:
+#   x = wired headphones per day
+#   y = wireless headphones per day
+# Objective:
+#   Maximize Z = 50*x + 20*y
+# Constraints:
+#   x <= 100
+#   y <= 170
+#   x + y <= 150
+#   x, y >= 0
+
+def is_feasible(x, y):
+    return (0 <= x) and (0 <= y) and (x <= 100) and (y <= 170) and (x + y <= 150)
+
+# Candidate corner points of the feasible region (from problem specification)
+candidates = [
+    (0, 0),
+    (100, 0),
+    (0, 150),
+    (100, 50),  # intersection of x=100 and x+y=150
+]
+
+def objective(x, y):
+    return 50 * x + 20 * y
+
+best = None  # (x, y, z)
+for (x, y) in candidates:
+    if not is_feasible(x, y):
+        continue
+    z = objective(x, y)
+    if best is None or z > best[2]:
+        best = (x, y, z)
+
+if best is None:
+    # No feasible solution (should not happen for this problem)
+    best_x, best_y, best_z = 0, 0, 0
+else:
+    best_x, best_y, best_z = best
+
+# Print solution summary (optional)
+print(f"Optimal solution found: x = {best_x}, y = {best_y}, Profit = {best_z}")
+
+# Final required output line (must be the very last printed line)
+print(f"FINAL_OBJ: {int(best_z)}")
+```

@@ -1,0 +1,153 @@
+[MODELER]:
+Below I translate your textual problem into a formal optimization model, solve it, and note an alternate interpretation (because the phrase "33% of deliveries" can mean trips or bags).
+
+1) Decision variables
+- x = number of runner trips (nonnegative integer)
+- y = number of canoe trips (nonnegative integer)
+
+(Each runner trip carries 3 bags and takes 4 hours. Each canoe trip carries 10 bags and takes 2 hours.)
+
+2) Objective
+Maximize total bags delivered:
+maximize Z = 3x + 10y
+
+3) Constraints
+- Time budget: 4x + 2y ≤ 200  (total hours available)
+  (equivalently 2x + y ≤ 100)
+
+- Canoe share limit (interpreting "at most 33% of deliveries can be by canoe" as "at most 33% of trips"):
+  y ≤ 0.33(x + y)
+  Using exact one-third for clarity this becomes y ≤ (1/3)(x + y) → 2y ≤ x → y ≤ x/2
+
+- Minimum runners: x ≥ 4
+
+- Integrality and nonnegativity: x, y ∈ Z≥0
+
+4) Solve analytically (with the trip-based 33% interpretation)
+Combine time and canoe-share constraints:
+- From canoe-share: y ≤ x/2
+- From time: y ≤ 100 − 2x
+
+For given x, the best y is the smaller of these two upper bounds. The objective 3x + 10y is maximized by pushing y to that bound. Checking the region where y = x/2 (this holds when x ≤ 40) gives objective Z = 3x + 10*(x/2) = 8x, which increases with x, so take x as large as allowed in that region: x = 40. Then y = x/2 = 20. This uses total time 4*40 + 2*20 = 200 (full budget) and yields total bags Z = 3*40 + 10*20 = 320.
+
+Thus (under the trips interpretation): x = 40 runner trips and y = 20 canoe trips, delivering 320 bags in 200 hours.
+
+5) Alternate interpretation (if "33% of deliveries" means "33% of bags")
+If the constraint instead limits share of bags delivered by canoe:
+10y ≤ 0.33(3x + 10y)
+(using 1/3 gives 10y ≤ (1/3)(3x + 10y) → 20y ≤ 3x → y ≤ 0.15 x)
+
+This is a different linear constraint and gives a different optimal point (you would then push x up until one of the constraints binds). If you want that interpretation solved exactly (continuous or integer), I can compute it too.
+
+6) How to solve numerically in Python
+- For integer trips use an MILP solver / library:
+  - pulp (simple, uses CBC by default)
+  - OR-Tools CP-SAT (very fast)
+  - mip, gurobi, cbc, or cvxpy (with integer support)
+
+Simple PuLP model skeleton (trips-based 33% as y ≤ x/2):
+
+from pulp import LpProblem, LpMaximize, LpVariable, LpInteger, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("MailDelivery", LpMaximize)
+x = LpVariable('runners', lowBound=0, cat=LpInteger)
+y = LpVariable('canoes', lowBound=0, cat=LpInteger)
+
+prob += 3*x + 10*y
+prob += 4*x + 2*y <= 200
+prob += 2*y <= x   # y <= x/2 (exact 1/3 = 33.333% interpretation)
+prob += x >= 4
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print(x.value(), y.value(), "bags =", 3*x.value() + 10*y.value())
+
+This will return x=40, y=20.
+
+If you want, I can:
+- solve the alternate (bags-based 33%) interpretation,
+- present a plot of feasible region and objective contours,
+- give a short explanation for why the canoe trips saturate their share/time constraint.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained script to solve the mail-delivery MILP under two interpretations
+# of the "33% of deliveries" constraint.
+# Uses PuLP (CBC solver) which is included with PuLP by default.
+#
+# At the very end this script prints a single final objective line in the exact required format:
+# print(f"FINAL_OBJ: {value}")
+
+from pulp import LpProblem, LpMaximize, LpVariable, LpInteger, PULP_CBC_CMD, value
+
+def solve_trips_based():
+    # Interpretation A: "At most 33% of deliveries by canoe" means at most 1/3 of trips are canoe trips.
+    # Using exact one-third -> y <= (1/3)*(x+y) -> 2y <= x  -> y <= x/2
+    prob = LpProblem("MailDelivery_TripsBased", LpMaximize)
+    x = LpVariable('runners', lowBound=0, cat=LpInteger)  # number of runner trips
+    y = LpVariable('canoes', lowBound=0, cat=LpInteger)  # number of canoe trips
+
+    # Objective: maximize 3x + 10y (bags)
+    prob += 3*x + 10*y
+
+    # Time constraint: 4x + 2y <= 200
+    prob += 4*x + 2*y <= 200
+
+    # Canoe share constraint (trips-based): 2y <= x
+    prob += 2*y <= x
+
+    # Minimum runners: x >= 4
+    prob += x >= 4
+
+    prob.solve(PULP_CBC_CMD(msg=False))
+
+    x_val = int(value(x))
+    y_val = int(value(y))
+    obj = int(value(3*x + 10*y))
+    return {'x': x_val, 'y': y_val, 'obj': obj}
+
+def solve_bags_based():
+    # Interpretation B: "At most 33% of deliveries by canoe" means at most 1/3 of bags delivered by canoe.
+    # Using exact one-third -> 10y <= (1/3)*(3x + 10y) -> multiply by 3 -> 30y <= 3x + 10y -> 20y <= 3x
+    prob = LpProblem("MailDelivery_BagsBased", LpMaximize)
+    x = LpVariable('runners_b', lowBound=0, cat=LpInteger)
+    y = LpVariable('canoes_b', lowBound=0, cat=LpInteger)
+
+    prob += 3*x + 10*y
+
+    # Time constraint
+    prob += 4*x + 2*y <= 200
+
+    # Canoe share constraint (bags-based): 20y <= 3x
+    prob += 20*y <= 3*x
+
+    # Minimum runners: x >= 4
+    prob += x >= 4
+
+    prob.solve(PULP_CBC_CMD(msg=False))
+
+    x_val = int(value(x))
+    y_val = int(value(y))
+    obj = int(value(3*x + 10*y))
+    return {'x': x_val, 'y': y_val, 'obj': obj}
+
+if __name__ == "__main__":
+    res_trips = solve_trips_based()
+    res_bags = solve_bags_based()
+
+    # Print both solutions for clarity
+    print("Solution (trips-based 33% interpretation):")
+    print(f"  runner trips x = {res_trips['x']}")
+    print(f"  canoe trips  y = {res_trips['y']}")
+    print(f"  bags delivered = {res_trips['obj']}")
+    print()
+    print("Solution (bags-based 33% interpretation):")
+    print(f"  runner trips x = {res_bags['x']}")
+    print(f"  canoe trips  y = {res_bags['y']}")
+    print(f"  bags delivered = {res_bags['obj']}")
+
+    # Final required single-line output (must be the very last printed line)
+    # Per the problem text, we use the trips-based interpretation as the primary result.
+    print(f"FINAL_OBJ: {res_trips['obj']}")
+```

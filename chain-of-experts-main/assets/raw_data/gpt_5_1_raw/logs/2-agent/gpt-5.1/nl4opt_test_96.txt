@@ -1,0 +1,153 @@
+[MODELER]:
+Here is a clean mathematical model of the problem and how you would solve it.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of burgers (nonnegative, can be integer)  
+- \(y\) = number of slices of pizza (nonnegative, can be integer)
+
+Depending on the context you can assume \(x, y\) are integers. I’ll model it as an integer program.
+
+---
+
+## 2. Objective: Minimize cholesterol intake
+
+Each burger has 12 units of cholesterol, each pizza slice has 10 units.
+
+\[
+\text{Minimize } Z = 12x + 10y
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Fat requirement
+
+Each burger has 10 units of fat, each pizza slice has 8 units. He needs at least 130 units of fat:
+
+\[
+10x + 8y \;\ge\; 130
+\]
+
+### 3.2 Calorie requirement
+
+Each burger has 300 calories, each slice of pizza has 250 calories. He needs at least 3000 calories:
+
+\[
+300x + 250y \;\ge\; 3000
+\]
+
+### 3.3 Pizza-burger ratio (pizza at least twice burgers)
+
+He wants at least twice as many slices of pizza as burgers:
+
+\[
+y \;\ge\; 2x
+\]
+
+### 3.4 Nonnegativity and integrality
+
+\[
+x \ge 0, \quad y \ge 0, \quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full model
+
+Minimize
+\[
+Z = 12x + 10y
+\]
+
+subject to
+\[
+\begin{aligned}
+10x + 8y &\ge 130 \quad &\text{(fat)}\\
+300x + 250y &\ge 3000 \quad &\text{(calories)}\\
+y - 2x &\ge 0 \quad &\text{(pizza ≥ 2·burgers)}\\
+x, y &\ge 0, \; x,y \in \mathbb{Z} \quad &\text{(integrality)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+To solve this integer linear program in Python, good choices are:
+
+- **PuLP** (`pulp`): simple and very readable for small LP/ILP problems.
+- **OR-Tools** (`ortools.linear_solver`): powerful and efficient, good for integer programming.
+- **Pyomo**: more general algebraic modeling language; good if you plan to scale up.
+
+For a problem of this size, **PuLP** or **OR-Tools** are ideal.
+
+---
+
+## 6. Example in PuLP
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Diet_MinCholesterol", pl.LpMinimize)
+
+# Decision variables (integers, nonnegative)
+x = pl.LpVariable('burgers', lowBound=0, cat='Integer')
+y = pl.LpVariable('pizza_slices', lowBound=0, cat='Integer')
+
+# Objective function: Minimize cholesterol
+prob += 12 * x + 10 * y
+
+# Constraints
+prob += 10 * x + 8 * y >= 130      # fat
+prob += 300 * x + 250 * y >= 3000  # calories
+prob += y >= 2 * x                 # pizza at least twice burgers
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal burgers (x):", pl.value(x))
+print("Optimal pizza slices (y):", pl.value(y))
+print("Minimum cholesterol:", pl.value(12 * x + 10 * y))
+```
+
+Running this will give you the exact counts of burgers and pizza slices that minimize cholesterol while meeting all requirements.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Diet_MinCholesterol", pl.LpMinimize)
+
+    # Decision variables (integers, nonnegative)
+    x = pl.LpVariable('burgers', lowBound=0, cat='Integer')
+    y = pl.LpVariable('pizza_slices', lowBound=0, cat='Integer')
+
+    # Objective function: Minimize cholesterol
+    prob += 12 * x + 10 * y
+
+    # Constraints
+    prob += 10 * x + 8 * y >= 130      # fat
+    prob += 300 * x + 250 * y >= 3000  # calories
+    prob += y >= 2 * x                 # pizza at least twice burgers
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get final objective value
+    final_obj = pl.value(12 * x + 10 * y)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

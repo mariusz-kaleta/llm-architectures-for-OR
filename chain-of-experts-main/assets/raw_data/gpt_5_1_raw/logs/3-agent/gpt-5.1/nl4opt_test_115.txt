@@ -1,0 +1,143 @@
+[MODELER]:
+Here is a clean linear programming (LP) formulation for the teddy bear production problem.
+
+---
+
+### 1. Decision variables
+
+Let  
+- \(x_1 \ge 0\): number of hours to run **Factory 1** per day  
+- \(x_2 \ge 0\): number of hours to run **Factory 2** per day  
+
+(They can be continuous if partial hours are allowed; if only whole hours are allowed, they should be integers.)
+
+---
+
+### 2. Objective function (minimize cost)
+
+Running:
+- Factory 1 costs \$300 per hour
+- Factory 2 costs \$600 per hour  
+
+Total daily cost:
+\[
+\text{Minimize } Z = 300x_1 + 600x_2
+\]
+
+---
+
+### 3. Production and demand constraints
+
+Factory 1 (per hour):
+- 5 black bears
+- 6 white bears
+- 3 brown bears  
+
+Factory 2 (per hour):
+- 10 black bears
+- 10 white bears
+- 0 brown bears  
+
+Daily demand (minimum):
+- At least 20 black bears
+- At least 5 white bears
+- At least 15 brown bears  
+
+Translate this into inequalities:
+
+**Black bears:**
+\[
+5x_1 + 10x_2 \;\ge\; 20
+\]
+
+**White bears:**
+\[
+6x_1 + 10x_2 \;\ge\; 5
+\]
+
+**Brown bears:**
+\[
+3x_1 + 0x_2 \;\ge\; 15
+\quad\Rightarrow\quad 3x_1 \ge 15
+\]
+
+---
+
+### 4. Non-negativity constraints
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+---
+
+### 5. Full LP model
+
+\[
+\begin{aligned}
+\text{Minimize} \quad & Z = 300x_1 + 600x_2 \\
+\text{subject to} \quad
+& 5x_1 + 10x_2 \ge 20 \quad \text{(black demand)}\\
+& 6x_1 + 10x_2 \ge 5 \quad \text{(white demand)}\\
+& 3x_1 \ge 15 \quad \text{(brown demand)}\\
+& x_1 \ge 0,\; x_2 \ge 0
+\end{aligned}
+\]
+
+If you want this as an integer linear program (ILP), add \(x_1, x_2 \in \mathbb{Z}\).
+
+---
+
+### 6. Suitable Python libraries
+
+To solve this model in Python, appropriate libraries include:
+
+- **PuLP**: Simple modeling for LP/ILP, integrates with CBC and other solvers  
+  - `pulp.LpProblem`, `pulp.LpVariable`, `pulp.LpMinimize`
+- **OR-Tools (Google)**: Powerful, especially for integer and combinatorial optimization  
+  - `ortools.linear_solver.pywraplp.Solver` for LP/MIP
+- **SciPy**: For continuous LP only (no integrality)  
+  - `scipy.optimize.linprog`
+
+For this problem:
+- If hours can be fractional, `scipy.optimize.linprog` or **PuLP** (LP mode) is sufficient.
+- If hours must be integers, prefer **PuLP** or **OR-Tools** with a MIP solver.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the LP problem: minimize cost
+    prob = pulp.LpProblem("TeddyBearProduction", pulp.LpMinimize)
+
+    # Decision variables: hours to run each factory (continuous, non-negative)
+    x1 = pulp.LpVariable('x1', lowBound=0, cat='Continuous')  # Factory 1 hours
+    x2 = pulp.LpVariable('x2', lowBound=0, cat='Continuous')  # Factory 2 hours
+
+    # Objective function: Minimize total cost
+    prob += 300 * x1 + 600 * x2
+
+    # Constraints
+
+    # Black bears: 5x1 + 10x2 >= 20
+    prob += 5 * x1 + 10 * x2 >= 20, "BlackDemand"
+
+    # White bears: 6x1 + 10x2 >= 5
+    prob += 6 * x1 + 10 * x2 >= 5, "WhiteDemand"
+
+    # Brown bears: 3x1 >= 15
+    prob += 3 * x1 >= 15, "BrownDemand"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

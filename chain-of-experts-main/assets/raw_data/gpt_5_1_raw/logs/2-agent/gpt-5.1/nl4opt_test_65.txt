@@ -1,0 +1,190 @@
+[MODELER]:
+Here is a clean mathematical model of the problem and how to solve it.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x\) = square feet of laminate planks produced per week  
+- \(y\) = square feet of carpets produced per week  
+
+Both must be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+## 2. Objective function
+
+Profit per square foot:
+- Laminate planks: \$2.10  
+- Carpets: \$3.30  
+
+Total weekly profit:
+\[
+\text{Maximize } Z = 2.1x + 3.3y
+\]
+
+---
+
+## 3. Constraints
+
+### Demand (minimum production required)
+
+- At least 15,000 sq ft of laminate:
+\[
+x \ge 15{,}000
+\]
+- At least 5,000 sq ft of carpets:
+\[
+y \ge 5{,}000
+\]
+
+### Shipping contract (total minimum volume)
+
+- At least 50,000 sq ft of total product:
+\[
+x + y \ge 50{,}000
+\]
+
+### Raw material limits (capacity constraints)
+
+- No more than 40,000 sq ft of laminate:
+\[
+x \le 40{,}000
+\]
+- No more than 20,000 sq ft of carpets:
+\[
+y \le 20{,}000
+\]
+
+---
+
+## 4. Complete linear program
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 2.1x + 3.3y \\
+\text{subject to} \quad
+& x \ge 15{,}000 \\
+& y \ge 5{,}000 \\
+& x + y \ge 50{,}000 \\
+& x \le 40{,}000 \\
+& y \le 20{,}000 \\
+& x \ge 0,\ y \ge 0
+\end{aligned}
+\]
+
+---
+
+## 5. Solving analytically (interpretation)
+
+Because carpets give more profit per sq ft (\$3.3) than laminate (\$2.1), the company should:
+- Use as much carpet production as allowed: \(y = 20{,}000\) (max)
+- Then satisfy the total and laminate constraints:
+
+Total requirement: \(x + y \ge 50{,}000 \Rightarrow x + 20{,}000 \ge 50{,}000 \Rightarrow x \ge 30{,}000\)
+
+Check all constraints with \(x=30{,}000\), \(y=20{,}000\):
+
+- \(x \ge 15{,}000\): \(30{,}000 \ge 15{,}000\) ✓  
+- \(y \ge 5{,}000\): \(20{,}000 \ge 5{,}000\) ✓  
+- \(x + y \ge 50{,}000\): \(30{,}000 + 20{,}000 = 50{,}000\) ✓  
+- \(x \le 40{,}000\): \(30{,}000 \le 40{,}000\) ✓  
+- \(y \le 20{,}000\): \(20{,}000 \le 20{,}000\) ✓  
+
+Profit at this point:
+\[
+Z = 2.1(30{,}000) + 3.3(20{,}000) = 63{,}000 + 66{,}000 = 129{,}000
+\]
+
+Any feasible point with fewer carpets or more laminate will lower profit, since laminate is less profitable and carpets are already at their maximum.
+
+**Optimal solution:**
+- Produce \(x^* = 30{,}000\) sq ft of laminate planks  
+- Produce \(y^* = 20{,}000\) sq ft of carpets  
+- Maximum weekly profit: \$129,000
+
+---
+
+## 6. Python tools to solve this
+
+This is a standard linear programming (LP) problem. Good Python libraries to model and solve it:
+
+- **PuLP** (simple, pure Python, great for teaching and small/medium problems):
+  - `pulp.LpProblem`, `pulp.LpVariable`, `prob.solve()`
+- **SciPy** (`scipy.optimize.linprog` for LP-only problems)
+- **OR-Tools** (Google’s optimization suite, more industrial, supports LP/MIP/CP)
+
+### Minimal PuLP example
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Flooring_Production", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('laminate', lowBound=0)
+y = pl.LpVariable('carpet', lowBound=0)
+
+# Objective
+prob += 2.1 * x + 3.3 * y
+
+# Constraints
+prob += x >= 15000        # laminate demand
+prob += y >= 5000         # carpet demand
+prob += x + y >= 50000    # shipping contract
+prob += x <= 40000        # laminate capacity
+prob += y <= 20000        # carpet capacity
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal laminate:", x.value())
+print("Optimal carpet:", y.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This will return:
+- laminate ≈ 30000  
+- carpet ≈ 20000  
+- max profit ≈ 129000
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the LP problem (maximization)
+    prob = pl.LpProblem("Flooring_Production", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('laminate', lowBound=0)  # square feet of laminate
+    y = pl.LpVariable('carpet', lowBound=0)    # square feet of carpets
+
+    # Objective function: Maximize profit
+    prob += 2.1 * x + 3.3 * y
+
+    # Constraints
+    prob += x >= 15000        # laminate minimum demand
+    prob += y >= 5000         # carpet minimum demand
+    prob += x + y >= 50000    # shipping contract minimum total
+    prob += x <= 40000        # laminate capacity
+    prob += y <= 20000        # carpet capacity
+
+    # Solve the problem
+    prob.solve()
+
+    # Get objective value
+    max_profit = pl.value(prob.objective)
+
+    # Final required print
+    print(f"FINAL_OBJ: {max_profit}")
+
+if __name__ == "__main__":
+    main()

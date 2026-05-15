@@ -1,0 +1,64 @@
+[MONOLITH]:
+import pulp
+
+# Problem data
+assembly_time_per_desk = 40   # minutes
+sanding_time_per_desk = 20    # minutes
+assembly_time_per_drawer = 30 # minutes
+sanding_time_per_drawer = 10  # minutes
+
+total_assembly = 4000  # minutes available
+total_sanding = 3500   # minutes available
+
+profit_per_desk = 100
+profit_per_drawer = 90
+
+# Define LP problem (continuous)
+prob = pulp.LpProblem("Desk_Drawer_Profit_Maximization", pulp.LpMaximize)
+
+# Decision variables: number of desks (x) and drawers (y)
+desks = pulp.LpVariable("desks", lowBound=0, cat="Continuous")
+drawers = pulp.LpVariable("drawers", lowBound=0, cat="Continuous")
+
+# Objective: maximize profit
+prob += profit_per_desk * desks + profit_per_drawer * drawers
+
+# Constraints
+prob += assembly_time_per_desk * desks + assembly_time_per_drawer * drawers <= total_assembly, "Assembly_Time"
+prob += sanding_time_per_desk * desks + sanding_time_per_drawer * drawers <= total_sanding, "Sanding_Time"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Collect results
+desks_opt = pulp.value(desks)
+drawers_opt = pulp.value(drawers)
+objective_opt = pulp.value(prob.objective)
+
+print(f"Optimal (continuous) solution:")
+print(f"  Desks  = {desks_opt}")
+print(f"  Drawers= {drawers_opt}")
+print(f"  Profit = ${objective_opt:.2f}")
+
+# Additionally solve integer version (if integer production required)
+prob_int = pulp.LpProblem("Desk_Drawer_Integer", pulp.LpMaximize)
+desks_i = pulp.LpVariable("desks_i", lowBound=0, cat="Integer")
+drawers_i = pulp.LpVariable("drawers_i", lowBound=0, cat="Integer")
+
+prob_int += profit_per_desk * desks_i + profit_per_drawer * drawers_i
+prob_int += assembly_time_per_desk * desks_i + assembly_time_per_drawer * drawers_i <= total_assembly
+prob_int += sanding_time_per_desk * desks_i + sanding_time_per_drawer * drawers_i <= total_sanding
+
+prob_int.solve(pulp.PULP_CBC_CMD(msg=False))
+
+desks_int = pulp.value(desks_i)
+drawers_int = pulp.value(drawers_i)
+objective_int = pulp.value(prob_int.objective)
+
+print(f"\nOptimal (integer) solution:")
+print(f"  Desks  = {desks_int}")
+print(f"  Drawers= {drawers_int}")
+print(f"  Profit = ${objective_int:.2f}")
+
+# Final required print (continuous optimum value)
+print(f"FINAL_OBJ: {objective_opt}")

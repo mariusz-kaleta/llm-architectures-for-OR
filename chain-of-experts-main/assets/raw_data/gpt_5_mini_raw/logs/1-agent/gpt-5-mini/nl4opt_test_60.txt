@@ -1,0 +1,40 @@
+[MONOLITH]:
+import pulp
+
+# Data from the problem
+cap_dense = 45        # guests per minute for densely-seated lift
+cap_loose = 20        # guests per minute for loosely-seated lift
+elec_dense = 30       # electricity units for densely-seated lift
+elec_loose = 22       # electricity units for loosely-seated lift
+min_loose = 5         # at least 5 loosely-seated lifts
+required_capacity = 1000
+elec_available = 940
+
+# Define the problem
+prob = pulp.LpProblem("Ski_Lift_Planning", pulp.LpMinimize)
+
+# Decision variables: number of densely-seated (x) and loosely-seated (y) lifts
+x = pulp.LpVariable("dense_lifts", lowBound=0, cat='Integer')
+y = pulp.LpVariable("loose_lifts", lowBound=min_loose, cat='Integer')
+
+# Objective: minimize total number of lifts
+prob += x + y, "Total_Lifts"
+
+# Constraints
+prob += cap_dense * x + cap_loose * y >= required_capacity, "CapacityRequirement"
+prob += elec_dense * x + elec_loose * y <= elec_available, "ElectricityLimit"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract solution values
+x_val = int(pulp.value(x))
+y_val = int(pulp.value(y))
+obj_val = int(pulp.value(prob.objective))
+
+# (Optional) print solution details
+print(f"Densely-seated lifts (x): {x_val}")
+print(f"Loosely-seated lifts (y): {y_val}")
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {obj_val}")

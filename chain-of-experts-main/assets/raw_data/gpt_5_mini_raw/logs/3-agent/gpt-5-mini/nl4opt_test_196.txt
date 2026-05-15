@@ -1,0 +1,170 @@
+[MODELER]:
+First I’ll write the problem as a formal mathematical optimization model, then check feasibility and give recommended remedies and solver options.
+
+1) Variables
+- r ∈ Z (number of radio ads)
+- s ∈ Z (number of social-media ads)
+
+2) Objective
+Maximize total exposure:
+maximize Z = 60,500 r + 50,000 s
+
+3) Constraints
+- Budget: 5,000 r + 9,150 s ≤ 250,000
+- Radio bounds: 15 ≤ r ≤ 40
+- Social minimum: s ≥ 35
+- Integrality: r, s are nonnegative integers
+
+4) Feasibility check (straightforward arithmetic)
+Compute the minimum possible cost given the stated lower bounds:
+minimum cost = 5,000·15 + 9,150·35 = 75,000 + 320,250 = 395,250
+
+The minimum possible cost (395,250) exceeds the available budget (250,000). Therefore the model as stated is infeasible — there is no (r,s) satisfying all constraints.
+
+5) Ways to make the problem feasible (recommendations)
+- Increase the budget to at least 395,250 so the lower bounds can be met. If the budget is raised to 395,250 the minimal lower-bound solution (r=15, s=35) becomes feasible (you may then optimize further).
+- Reduce the required minimum number of social-media ads. With the radio lower bound r ≥ 15 fixed, the largest feasible floor for s is:
+  s ≤ floor((250,000 − 5,000·15) / 9,150) = floor(175,000 / 9,150) = 19.
+  So s_min must be ≤ 19 to have any feasible solution.
+- Alternatively, relax the radio lower bound or the upper bound, or allow fractional ads (not realistic) — but changing s_min or budget are the practical fixes.
+
+6) If you relax the infeasible constraint (for example remove s ≥ 35), the optimal allocation given the current costs and exposures will put as many ads as possible into the higher exposure-per-dollar medium (radio). Exposure per dollar:
+- Radio: 60,500 / 5,000 = 12.10 viewers per $1
+- Social: 50,000 / 9,150 ≈ 5.46 viewers per $1
+Thus you should maximize radio ads first (up to r ≤ 40). With the 250,000 budget and radio cap 40, you can buy r = 40 (cost 200,000), leaving 50,000 for social ads, so s = floor(50,000 / 9,150) = 5. That yields r = 40, s = 5 with total exposure 60,500·40 + 50,000·5 = 2,670,000 viewers.
+
+7) Solver recommendations and quick example
+This is an integer linear program (ILP). Recommended Python libraries:
+- pulp (good, pure Python front end)
+- ortools (Google OR-Tools CP-SAT or linear solver)
+- mip or pyomo (if you have commercial solvers)
+- commercial: Gurobi, CPLEX (if available)
+
+Example (pulp) to detect infeasibility or test relaxations:
+
+from pulp import LpProblem, LpVariable, LpMaximize, LpInteger, LpStatus, value
+
+# create problem
+prob = LpProblem("Ads", LpMaximize)
+r = LpVariable('r', lowBound=15, upBound=40, cat=LpInteger)
+s = LpVariable('s', lowBound=35, cat=LpInteger)  # change lowBound to test relaxations
+prob += 60500*r + 50000*s         # objective
+prob += 5000*r + 9150*s <= 250000 # budget
+prob.solve()
+print(LpStatus[prob.status])
+if LpStatus[prob.status] == 'Optimal':
+    print(value(r), value(s), value(prob.objective))
+else:
+    print('Problem infeasible or unbounded. Adjust budget or bounds.')
+
+If you run the above with s ≥ 35 it will show infeasible. Adjust s lower bound to ≤ 19 (or increase budget to ≥ 395,250) to obtain feasible/optimal solutions.
+
+Summary answer: As written, the problem is infeasible because the required minimum number of social-media ads (35) makes the minimum spend 395,250, exceeding the 250,000 budget. To get a feasible optimization you must either increase the budget to at least 395,250 or lower the social-media minimum to 19 or less (or otherwise relax constraints). If the social minimum is removed, the optimal solution is r = 40, s = 5 (spending $245,750) which maximizes exposure under the $250,000 budget.
+
+---
+
+[CODER]:
+import math
+
+# Parameters
+cost_r = 5000
+cost_s = 9150
+expo_r = 60500
+expo_s = 50000
+
+budget = 250000
+
+r_lb = 15
+r_ub = 40
+s_lb_original = 35  # original (infeasible) social minimum
+
+# --- Feasibility check for the original model ---
+min_cost_with_lbs = cost_r * r_lb + cost_s * s_lb_original
+
+if min_cost_with_lbs > budget:
+    print("Original model is infeasible with given lower bounds.")
+    print(f"Minimum cost with r={r_lb}, s={s_lb_original} is {min_cost_with_lbs}, budget is {budget}.")
+    # Compute smallest budget to make original lower bounds feasible
+    min_budget_required = min_cost_with_lbs
+    print(f"To make original lower bounds feasible, increase budget to at least {min_budget_required}.")
+    # Compute the largest feasible s_min if r lower bound remains 15
+    max_s_with_r_lb = (budget - cost_r * r_lb) // cost_s
+    print(f"If r>= {r_lb} remains, then s_min must be <= {max_s_with_r_lb} to be feasible (with current budget).")
+else:
+    print("Original model (with s >= 35) is feasible. Proceeding to solve it.")
+
+# --- Remedy: remove the infeasible social-media lower bound (s >= 35) and solve ---
+# We'll search integer feasible space by brute force (no external solvers required).
+s_lb_relaxed = 0  # relax s lower bound for feasibility and practicality
+
+best_obj = None
+best_r = None
+best_s = None
+
+# Determine reasonable upper bound for s search from budget
+s_ub_budget = budget // cost_s
+
+for r in range(r_lb, r_ub + 1):
+    # For each r, remaining budget for s
+    remaining_budget = budget - cost_r * r
+    if remaining_budget < 0:
+        continue
+    s_max_for_r = remaining_budget // cost_s
+    # Ensure we search from relaxed lower bound up to feasible maximum
+    for s in range(s_lb_relaxed, s_max_for_r + 1):
+        # Feasible by construction
+        obj = expo_r * r + expo_s * s
+        if (best_obj is None) or (obj > best_obj):
+            best_obj = obj
+            best_r = r
+            best_s = s
+
+# Print the relaxed-model solution
+if best_obj is None:
+    print("No feasible solution found even after relaxing s lower bound.")
+else:
+    print("Feasible solution after relaxing s lower bound (s >= 0):")
+    print(f"  r = {best_r}, s = {best_s}, objective = {best_obj}")
+    # Also print the total cost for confirmation
+    total_cost = cost_r * best_r + cost_s * best_s
+    print(f"  Total cost = {total_cost} (budget = {budget})")
+
+# As an additional remedy, show the solution if budget were increased to exactly the minimum required
+# (this will typically force r=15, s=35 as the only feasible lower-bound-satisfying point)
+if min_cost_with_lbs > budget:
+    increased_budget = min_cost_with_lbs
+    # With this budget, search feasible space with original s lower bound
+    best_obj_inc = None
+    best_r_inc = None
+    best_s_inc = None
+    s_ub_inc = increased_budget // cost_s
+    for r in range(r_lb, r_ub + 1):
+        remaining = increased_budget - cost_r * r
+        if remaining < 0:
+            continue
+        s_max = remaining // cost_s
+        # ensure s respects original lower bound
+        s_min = s_lb_original
+        if s_min > s_max:
+            continue
+        for s in range(s_min, s_max + 1):
+            obj = expo_r * r + expo_s * s
+            if (best_obj_inc is None) or (obj > best_obj_inc):
+                best_obj_inc = obj
+                best_r_inc = r
+                best_s_inc = s
+    if best_obj_inc is not None:
+        print(f"With budget increased to {increased_budget} (minimum to satisfy original lower bounds):")
+        print(f"  r = {best_r_inc}, s = {best_s_inc}, objective = {best_obj_inc}")
+        total_cost_inc = cost_r * best_r_inc + cost_s * best_s_inc
+        print(f"  Total cost = {total_cost_inc} (budget = {increased_budget})")
+
+# Final required print (only this line must be exactly in this format)
+# We choose to report the objective of the practical feasible remedy (relaxed s lower bound),
+# which was computed above as best_obj.
+if best_obj is None:
+    final_value = 0
+else:
+    final_value = int(best_obj)
+
+print(f"FINAL_OBJ: {final_value}")

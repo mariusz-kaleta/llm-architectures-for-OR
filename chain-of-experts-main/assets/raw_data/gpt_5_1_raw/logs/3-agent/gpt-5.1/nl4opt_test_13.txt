@@ -1,0 +1,204 @@
+[MODELER]:
+We can model this as a **linear programming (LP)** problem.
+
+### 1. Decision variables
+
+Let  
+- \(x_1\): minutes Beam 1 is used  
+- \(x_2\): minutes Beam 2 is used  
+
+Both must be nonnegative:
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+### 2. Objective: minimize pancreas dose
+
+Pancreas dose per minute:
+- Beam 1: 0.3 units/min
+- Beam 2: 0.2 units/min
+
+Total pancreas dose:
+\[
+\text{PancreasDose} = 0.3 x_1 + 0.2 x_2
+\]
+
+Objective function:
+\[
+\min\; Z = 0.3 x_1 + 0.2 x_2
+\]
+
+### 3. Constraints
+
+#### a) Skin dose constraint (at most 4 units)
+
+Skin dose per minute:
+- Beam 1: 0.2 units/min
+- Beam 2: 0.1 units/min
+
+Total skin dose:
+\[
+0.2 x_1 + 0.1 x_2 \le 4
+\]
+
+#### b) Tumor dose constraint (at least 3 units)
+
+Tumor dose per minute:
+- Beam 1: 0.6 units/min
+- Beam 2: 0.4 units/min
+
+Total tumor dose:
+\[
+0.6 x_1 + 0.4 x_2 \ge 3
+\]
+
+#### c) Nonnegativity
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+---
+
+### 4. Complete LP model
+
+\[
+\begin{aligned}
+\min \quad & 0.3 x_1 + 0.2 x_2 \\
+\text{s.t.}\quad 
+& 0.2 x_1 + 0.1 x_2 \le 4 \quad &(\text{skin})\\
+& 0.6 x_1 + 0.4 x_2 \ge 3 \quad &(\text{tumor})\\
+& x_1 \ge 0,\; x_2 \ge 0
+\end{aligned}
+\]
+
+---
+
+### 5. Solving analytically (optional)
+
+Solve the tumor constraint as equality for the efficient frontier:
+\[
+0.6 x_1 + 0.4 x_2 = 3
+\]
+Solve for \(x_2\):
+\[
+0.4 x_2 = 3 - 0.6 x_1 \Rightarrow x_2 = 7.5 - 1.5 x_1
+\]
+
+Skin constraint:
+\[
+0.2 x_1 + 0.1 x_2 \le 4
+\]
+Substitute:
+\[
+0.2 x_1 + 0.1(7.5 - 1.5 x_1) \le 4
+\]
+\[
+0.2 x_1 + 0.75 - 0.15 x_1 \le 4
+\]
+\[
+0.05 x_1 \le 3.25 \Rightarrow x_1 \le 65
+\]
+This is not binding; the skin constraint is loose for relevant values. Nonnegativity of \(x_2\) gives:
+\[
+7.5 - 1.5 x_1 \ge 0 \Rightarrow x_1 \le 5
+\]
+So along the tumor-equality line, feasible region is \(0 \le x_1 \le 5\).
+
+Objective along that line:
+\[
+Z = 0.3 x_1 + 0.2(7.5 - 1.5 x_1) = 0.3 x_1 + 1.5 - 0.3 x_1 = 1.5
+\]
+
+So any solution with  
+\[
+0.6 x_1 + 0.4 x_2 = 3,\quad x_1 \in [0,5]
+\]
+minimizes pancreas dose with \(Z = 1.5\), and also satisfies skin dose.
+
+Example integer-minute solution:
+- \(x_1 = 5\), \(x_2 = 0\):
+  - Tumor: \(0.6 \cdot 5 = 3\) (ok)
+  - Skin: \(0.2 \cdot 5 = 1 \le 4\) (ok)
+  - Pancreas: \(0.3 \cdot 5 = 1.5\)
+
+Another:
+- \(x_1 = 0\), \(x_2 = 7.5\) also works and yields the same pancreas dose.
+
+So there is a **whole line segment of optimal solutions**; any combination on  
+\(0.6 x_1 + 0.4 x_2 = 3\), \(x_1,x_2 \ge 0\) gives the same minimal pancreas dose of 1.5 units.
+
+---
+
+### 6. Python libraries to solve this LP
+
+You can solve this programmatically with:
+
+- **PuLP** (`pulp`): simple modeling interface for LP and MILP.
+- **SciPy** (`scipy.optimize.linprog`): good for continuous LPs.
+- **OR-Tools** (`ortools.linear_solver.pywraplp`): powerful Google optimization suite.
+
+#### Example with PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Radiation_Treatment", pl.LpMinimize)
+
+# Decision variables
+x1 = pl.LpVariable('x1', lowBound=0)
+x2 = pl.LpVariable('x2', lowBound=0)
+
+# Objective: minimize pancreas dose
+prob += 0.3 * x1 + 0.2 * x2
+
+# Constraints
+prob += 0.2 * x1 + 0.1 * x2 <= 4     # skin
+prob += 0.6 * x1 + 0.4 * x2 >= 3     # tumor
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("x1 =", x1.value())
+print("x2 =", x2.value())
+print("Min pancreas dose =", pl.value(prob.objective))
+```
+
+Because there is a continuum of optimal solutions, the solver will return one of them (e.g., \(x_1 = 5, x_2 = 0\) or something numerically equivalent).
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the LP problem: minimize pancreas dose
+    prob = pl.LpProblem("Radiation_Treatment", pl.LpMinimize)
+
+    # Decision variables: minutes each beam is used (nonnegative)
+    x1 = pl.LpVariable('x1', lowBound=0)  # Beam 1
+    x2 = pl.LpVariable('x2', lowBound=0)  # Beam 2
+
+    # Objective function: minimize pancreas dose
+    prob += 0.3 * x1 + 0.2 * x2
+
+    # Constraints
+    # Skin dose constraint: at most 4 units
+    prob += 0.2 * x1 + 0.1 * x2 <= 4
+
+    # Tumor dose constraint: at least 3 units
+    prob += 0.6 * x1 + 0.4 * x2 >= 3
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Retrieve objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

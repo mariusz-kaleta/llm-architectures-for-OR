@@ -1,0 +1,98 @@
+[MONOLITH]:
+#!/usr/bin/env python3
+# Solve the scheduling problem described:
+# Ultrasound technician: 8 hours/shift, $300/shift
+# Graduate researcher: 5 hours/shift, $100/shift
+# Regulation: there must be twice as many ultrasound technician shifts than graduate researcher shifts
+# Need: 500 hours of ultrasound services
+# Budget: $14,000
+# Objective: reduce (minimize) the total number of workers (shifts) scheduled.
+#
+# This script checks feasibility under two interpretations:
+# 1) Strict equality: T = 2 * R
+# 2) At least twice: T >= 2 * R
+#
+# It prints results and a final line with the objective value or "infeasible" if no feasible solution exists.
+
+from math import ceil, floor
+
+# Data initialization (from problem statement)
+hours_tech = 8        # hours per technician shift
+hours_grad = 5        # hours per grad researcher shift
+cost_tech = 300       # $ per technician shift
+cost_grad = 100       # $ per grad researcher shift
+required_hours = 500  # required ultrasound hours
+budget = 14000        # available budget
+
+# Helper to evaluate a candidate solution
+def feasible_and_obj(T, R):
+    hours = hours_tech * T + hours_grad * R
+    cost = cost_tech * T + cost_grad * R
+    return (hours >= required_hours) and (cost <= budget)
+
+# 1) Check strict equality T = 2 * R
+feasible_eq = False
+best_eq = None  # (T, R, total_workers)
+# Bound R by budget and reasonable search limit
+R_max = budget // cost_grad + 1
+for R in range(0, R_max + 1):
+    T = 2 * R
+    if feasible_and_obj(T, R):
+        total = T + R
+        if (best_eq is None) or (total < best_eq[2]):
+            best_eq = (T, R, total)
+            feasible_eq = True
+
+# 2) Check inequality T >= 2 * R (if regulation interpreted as "at least twice")
+feasible_ineq = False
+best_ineq = None  # (T, R, total_workers)
+# Reasonable search bounds
+T_max = budget // cost_tech + 1
+R_max = budget // cost_grad + 1
+for T in range(0, T_max + 1):
+    for R in range(0, R_max + 1):
+        if T < 2 * R:
+            continue
+        if feasible_and_obj(T, R):
+            total = T + R
+            if (best_ineq is None) or (total < best_ineq[2]):
+                best_ineq = (T, R, total)
+                feasible_ineq = True
+
+# Output results
+if feasible_eq:
+    T, R, total = best_eq
+    print("Feasible solution with T = 2 * R (strict equality):")
+    print(f"  Technicians (T): {T} shifts")
+    print(f"  Graduate researchers (R): {R} shifts")
+    print(f"  Total workers (shifts): {total}")
+    final_value = total
+else:
+    print("No feasible solution under the strict equality constraint T = 2 * R.")
+    final_value = "infeasible"
+
+# If equality infeasible, report inequality result (if any)
+if not feasible_eq:
+    if feasible_ineq:
+        T, R, total = best_ineq
+        print("\nFeasible solution with T >= 2 * R (at least twice):")
+        print(f"  Technicians (T): {T} shifts")
+        print(f"  Graduate researchers (R): {R} shifts")
+        print(f"  Total workers (shifts): {total}")
+        final_value = total
+    else:
+        print("\nNo feasible solution under the 'at least twice' interpretation either.")
+        # Also compute what would be required minimum budget if ratio T=2R is enforced
+        # Find smallest R such that hours constraint is met under equality, then compute cost
+        R_needed = ceil(required_hours / (hours_tech * 2 + hours_grad))  # not exact but we compute directly below
+        # compute exact minimal R for equality: need 21*R >= 500 (since 8*(2R) + 5R = 21R)
+        R_needed_exact = ceil(required_hours / (2 * hours_tech + hours_grad))  # same 21R
+        T_needed_exact = 2 * R_needed_exact
+        cost_needed_exact = cost_tech * T_needed_exact + cost_grad * R_needed_exact
+        print("\nUnder strict ratio T = 2R, minimum shifts to meet hours would be:")
+        print(f"  R = {R_needed_exact} (graduate researchers), T = {T_needed_exact} (technicians)")
+        print(f"  This requires cost = ${cost_needed_exact}, which exceeds budget ${budget} by ${cost_needed_exact - budget}.")
+        final_value = "infeasible"
+
+# Final required print in exact format
+print(f"FINAL_OBJ: {final_value}")

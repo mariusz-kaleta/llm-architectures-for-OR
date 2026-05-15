@@ -1,0 +1,159 @@
+[MODELER]:
+Let’s model this as a linear optimization problem.
+
+### Decision variables
+Let  
+- \(x\) = number of small bottles used  
+- \(y\) = number of large bottles used  
+
+Both must be nonnegative integers:
+- \(x \ge 0,\; y \ge 0\) and integer.
+
+### Objective
+Maximize the total amount of honey transported.
+
+- Each small bottle carries 5 units.
+- Each large bottle carries 20 units.
+
+So the objective function is:
+
+\[
+\max\; Z = 5x + 20y
+\]
+
+### Constraints
+
+1. **Availability of small bottles**  
+   At most 300 small bottles:
+   \[
+   x \le 300
+   \]
+
+2. **Availability of large bottles**  
+   At most 100 large bottles:
+   \[
+   y \le 100
+   \]
+
+3. **Preference for small bottles**  
+   At least twice as many small bottles as large bottles:
+   \[
+   x \ge 2y
+   \]
+
+4. **Total bottle capacity**  
+   At most 200 bottles in total:
+   \[
+   x + y \le 200
+   \]
+
+5. **Minimum number of large bottles**  
+   At least 50 large bottles:
+   \[
+   y \ge 50
+   \]
+
+6. **Nonnegativity and integrality**  
+   \[
+   x, y \ge 0,\quad x, y \in \mathbb{Z}
+   \]
+
+### Model summary (Linear Integer Program)
+
+\[
+\begin{aligned}
+\max\quad & 5x + 20y \\
+\text{s.t.}\quad
+& x \le 300 \\
+& y \le 100 \\
+& x \ge 2y \\
+& x + y \le 200 \\
+& y \ge 50 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+### Solving / Suitable Python libraries
+
+This is a small integer linear programming (ILP) problem. You can solve it with:
+
+- **PuLP** (`pulp`) – simple modeling, uses CBC by default.
+- **OR-Tools** (`ortools.linear_solver`) – very efficient and well-documented.
+- **Pyomo** – more general modeling framework.
+- **SciPy** (`scipy.optimize.linprog`) – can solve the LP relaxation; for integrality, you’d need a MILP solver wrapper (e.g., through `pulp` or `mip`).
+
+For a straightforward implementation, **PuLP** or **OR-Tools** are ideal.
+
+---
+
+### (Optional) Quick reasoning for the optimum
+
+Since large bottles carry more honey per bottle and per unit of “bottle count” constraint, we try to use as many large bottles as possible, respecting:
+
+- \(y \le 100\)
+- \(y \ge 50\)
+- \(x \ge 2y\)
+- \(x + y \le 200\)
+
+From \(x \ge 2y\) and \(x + y \le 200\):
+
+\[
+2y + y \le 200 \;\Rightarrow\; 3y \le 200 \;\Rightarrow\; y \le \frac{200}{3} \approx 66.67
+\]
+
+So \(y\) can be at most 66 (integer), and must be at least 50. Take the largest feasible \(y = 66\).
+
+Then \(x \ge 2y = 132\) and \(x + 66 \le 200 \Rightarrow x \le 134\). So \(x \in [132, 134]\). To maximize honey, choose the largest feasible \(x\), i.e. \(x = 134\).
+
+Check all constraints:
+
+- \(x = 134 \le 300\): ok  
+- \(y = 66 \le 100\): ok  
+- \(x \ge 2y \Rightarrow 134 \ge 132\): ok  
+- \(x + y = 200 \le 200\): ok  
+- \(y = 66 \ge 50\): ok  
+
+Total honey:
+\[
+Z = 5(134) + 20(66) = 670 + 1320 = 1990
+\]
+
+**Optimal solution:**  
+- Use **134 small bottles**  
+- Use **66 large bottles**  
+- Maximum honey transported: **1990 units**.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def solve_honey_transport():
+    # Create the problem: maximize objective
+    prob = pulp.LpProblem("HoneyTransport", pulp.LpMaximize)
+
+    # Decision variables (nonnegative integers)
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # small bottles
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # large bottles
+
+    # Objective function: maximize 5x + 20y
+    prob += 5 * x + 20 * y
+
+    # Constraints
+    prob += x <= 300               # Availability small bottles
+    prob += y <= 100               # Availability large bottles
+    prob += x >= 2 * y             # Preference for small bottles
+    prob += x + y <= 200           # Total bottle capacity
+    prob += y >= 50                # Minimum number of large bottles
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract optimal objective value
+    final_obj = pulp.value(prob.objective)
+
+    return final_obj
+
+if __name__ == "__main__":
+    value = solve_honey_transport()
+    print(f"FINAL_OBJ: {value}")

@@ -1,0 +1,338 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Minimise the total number of transport trips (freight + air) required to move the inventory, subject to capacity, budget, and policy constraints.
+
+2. Suggested model type  
+   - Model: Integer Linear Programming (ILP)  
+   - Reason:  
+     - Decision variables are counts of trips → must be non-negative integers.  
+     - Objective and constraints are all linear in the decision variables.
+
+3. Main decision variables  
+   - Let:
+     - Freight trips: number of freight trips scheduled.  
+     - Air trips: number of air trips scheduled.  
+
+4. Key parameters (for the Modeller to define symbolically)  
+   - Freight capacity per trip: 5 tons/trip.  
+   - Air capacity per trip: 3 tons/trip.  
+   - Freight cost per trip: 300 (currency units).  
+   - Air cost per trip: 550 (currency units).  
+   - Minimum total tons required: 200 tons.  
+   - Budget limit: 20000.  
+   - Minimum proportion of tons via air: 30% of total tons transported.  
+   - Minimum freight trips required: 5 trips.
+
+5. Objective formulation strategy  
+   - Objective: Minimise total trips = (freight trips) + (air trips).  
+   - Since the company must move at least 200 tons and has an upper budget limit, the model will choose a combination of freight and air trips that:  
+     - Satisfies the tonnage requirement and air-share requirement.  
+     - Stays within the budget.  
+     - Uses the minimum possible sum of trips.
+
+6. Core constraints to include  
+
+   a) Total tonnage requirement  
+   - Total transported tons must be at least 200:  
+     - 5 × (freight trips) + 3 × (air trips) ≥ 200.
+
+   b) Budget constraint  
+   - Total cost of all trips must not exceed 20000:  
+     - 300 × (freight trips) + 550 × (air trips) ≤ 20000.
+
+   c) Air share requirement (at least 30% of tons by air)  
+   - Tons by air ≥ 30% of total tons transported.  
+   - In terms of variables:  
+     - 3 × (air trips) ≥ 0.30 × [5 × (freight trips) + 3 × (air trips)].  
+   - Modeller should rearrange this into a linear inequality in freight trips and air trips.
+
+   d) Minimum freight trips  
+   - Freight trips must be at least 5:  
+     - (freight trips) ≥ 5.
+
+   e) Integrality and non-negativity  
+   - Both decision variables must be integers and non-negative:  
+     - freight trips ≥ 0, integer.  
+     - air trips ≥ 0, integer.
+
+7. Modelling notes / simplifications  
+   - The model assumes:
+     - The company can exceed 200 tons if needed (it is “at least” 200 tons, not “exactly”).  
+     - All trips are fully or effectively utilised according to capacity; the tonnage constraints directly use maximum capacity per trip.  
+   - If needed, the Modeller can check whether the optimal solution tends to cluster around the binding of the tonnage and budget constraints and adjust bounds accordingly to speed up computation, though for two variables this is trivial.
+
+8. Output of interest  
+   - Optimal number of freight trips.  
+   - Optimal number of air trips.  
+   - Implied total tons transported and total cost (for validation).  
+   - Verification that:
+     - At least 200 tons are moved.  
+     - Total cost is ≤ 20000.  
+     - At least 30% of total tons are via air.  
+     - At least 5 freight trips are used.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model of the problem, plus suggestions for how to implement and solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of freight trips (integer, \(\ge 0\))  
+- \(y\) = number of air trips (integer, \(\ge 0\))
+
+---
+
+## 2. Parameters
+
+(All given by the problem.)
+
+- Freight capacity: \(c_f = 5\) tons/trip  
+- Air capacity: \(c_a = 3\) tons/trip  
+
+- Freight cost: \(k_f = 300\) currency units/trip  
+- Air cost: \(k_a = 550\) currency units/trip  
+
+- Minimum required tonnage: \(T_{\min} = 200\) tons  
+- Budget limit: \(B = 20000\) currency units  
+
+- Minimum air share of tons: \(\alpha = 0.30\) (30%)  
+- Minimum freight trips: \(x_{\min} = 5\)
+
+---
+
+## 3. Objective function
+
+Minimize the total number of trips:
+
+\[
+\text{Minimize} \quad Z = x + y
+\]
+
+---
+
+## 4. Constraints
+
+### (a) Tonnage requirement
+
+Total transported tons must be at least 200:
+
+\[
+5x + 3y \;\ge\; 200
+\]
+
+---
+
+### (b) Budget constraint
+
+Total cost must not exceed 20000:
+
+\[
+300x + 550y \;\le\; 20000
+\]
+
+---
+
+### (c) Air-share requirement (≥ 30% of tons via air)
+
+“Tons by air” / “Total tons” ≥ 0.30.
+
+- Tons by air: \(3y\)  
+- Total tons: \(5x + 3y\)
+
+\[
+\frac{3y}{5x + 3y} \;\ge\; 0.30
+\]
+
+Multiply both sides by \(5x + 3y\) (which is nonnegative for nonnegative \(x, y\)):
+
+\[
+3y \;\ge\; 0.30 (5x + 3y)
+\]
+
+Expand and rearrange to a standard linear inequality:
+
+\[
+3y \;\ge\; 1.5x + 0.9y
+\]
+
+\[
+3y - 0.9y \;\ge\; 1.5x
+\]
+
+\[
+2.1y \;\ge\; 1.5x
+\]
+
+\[
+21y \;\ge\; 15x
+\]
+
+One convenient form is:
+
+\[
+7y \;\ge\; 5x
+\]
+
+(or equivalently \(5x - 7y \le 0\); both are linear).
+
+---
+
+### (d) Minimum freight trips
+
+At least 5 freight trips:
+
+\[
+x \;\ge\; 5
+\]
+
+---
+
+### (e) Integrality and non-negativity
+
+\[
+x \in \mathbb{Z}_{\ge0}, \quad y \in \mathbb{Z}_{\ge0}
+\]
+
+---
+
+## 5. Complete ILP model
+
+\[
+\begin{aligned}
+\text{Minimize} \quad & Z = x + y \\[4pt]
+\text{subject to} \quad
+& 5x + 3y \;\ge\; 200 &\text{(tonnage)}\\
+& 300x + 550y \;\le\; 20000 &\text{(budget)}\\
+& 7y \;\ge\; 5x &\text{(air share ≥ 30%)}\\
+& x \;\ge\; 5 &\text{(min freight trips)}\\
+& x, y \in \mathbb{Z}_{\ge 0} &\text{(integrality)}
+\end{aligned}
+\]
+
+Outputs desired once solved:
+
+- Optimal freight trips \(x^\*\)  
+- Optimal air trips \(y^\*\)  
+- Total tons: \(5x^\* + 3y^\*\)  
+- Total cost: \(300x^\* + 550y^\*\)  
+
+and verify all constraints hold.
+
+---
+
+## 6. Suitable Python libraries
+
+You can implement and solve this ILP with any of:
+
+- **PuLP** (`pulp`): simple syntax, pure Python, good for teaching and prototyping.
+- **OR-Tools** (`ortools.linear_solver`): powerful, efficient, especially if using CBC, SCIP, or a commercial MIP solver underneath.
+- **Pyomo**: more general modelling framework, good for larger or more complex models.
+
+For this small 2-variable ILP, **PuLP** or **OR-Tools** is most convenient.
+
+---
+
+## 7. Example implementation sketch (PuLP)
+
+```python
+import pulp as pl
+
+# Create model
+model = pl.LpProblem("Candle_Transport", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('freight_trips', lowBound=0, cat='Integer')
+y = pl.LpVariable('air_trips',     lowBound=0, cat='Integer')
+
+# Objective: minimize total trips
+model += x + y, "Total_Trips"
+
+# Constraints
+model += 5*x + 3*y >= 200,    "Tonnage"
+model += 300*x + 550*y <= 20000, "Budget"
+model += 7*y >= 5*x,          "Air_Share"
+model += x >= 5,              "Min_Freight"
+
+# Solve
+model.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Retrieve solution
+x_opt = pl.value(x)
+y_opt = pl.value(y)
+total_tons = 5*x_opt + 3*y_opt
+total_cost = 300*x_opt + 550*y_opt
+
+print("Freight trips:", x_opt)
+print("Air trips:", y_opt)
+print("Total tons:", total_tons)
+print("Total cost:", total_cost)
+```
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Parameters
+    c_f = 5      # freight capacity (tons/trip)
+    c_a = 3      # air capacity (tons/trip)
+    k_f = 300    # freight cost (per trip)
+    k_a = 550    # air cost (per trip)
+    T_min = 200  # minimum required tonnage
+    B = 20000    # budget
+    alpha = 0.30 # minimum air share of tons
+    x_min = 5    # minimum freight trips
+
+    # Create model
+    model = pl.LpProblem("Transport_Problem", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('freight_trips', lowBound=0, cat='Integer')
+    y = pl.LpVariable('air_trips', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of trips
+    model += x + y, "Total_Trips"
+
+    # Constraints
+
+    # Tonnage requirement: 5x + 3y >= 200
+    model += c_f * x + c_a * y >= T_min, "Tonnage"
+
+    # Budget constraint: 300x + 550y <= 20000
+    model += k_f * x + k_a * y <= B, "Budget"
+
+    # Air-share requirement: 7y >= 5x (from 3y / (5x+3y) >= 0.30)
+    model += 7 * y >= 5 * x, "Air_Share"
+
+    # Minimum freight trips: x >= 5
+    model += x >= x_min, "Min_Freight"
+
+    # Solve model
+    solver = pl.PULP_CBC_CMD(msg=False)
+    model.solve(solver)
+
+    # Extract solution
+    x_opt = pl.value(x)
+    y_opt = pl.value(y)
+    total_tons = c_f * x_opt + c_a * y_opt
+    total_cost = k_f * x_opt + k_a * y_opt
+    objective_value = pl.value(model.objective)
+
+    # Print results
+    print(f"Freight trips (x*): {x_opt}")
+    print(f"Air trips (y*): {y_opt}")
+    print(f"Total tons: {total_tons}")
+    print(f"Total cost: {total_cost}")
+    print(f"Objective (min total trips): {objective_value}")
+
+    # Final required line
+    print(f"FINAL_OBJ: {objective_value}")
+
+if __name__ == "__main__":
+    main()

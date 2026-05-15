@@ -1,0 +1,135 @@
+[MODELER]:
+Formulate this as a linear programming (LP) problem.
+
+### 1. Decision variables
+
+Let  
+- \(x_1\) = number of first-dose vaccines produced  
+- \(x_2\) = number of second-dose vaccines produced  
+
+Both must be nonnegative:
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+### 2. Objective function
+
+We want to minimize total gelatine used.
+
+- First-dose uses 20 mg gelatine per unit → total gelatine = \(20 x_1\) mg  
+- Second-dose uses 60 mg gelatine per unit → total gelatine = \(60 x_2\) mg  
+
+So minimize:
+\[
+\min Z = 20x_1 + 60x_2
+\]
+
+### 3. Constraints
+
+1. **Antibiotics availability**
+
+Total antibiotics available: 35,000 units.  
+
+- First-dose uses 30 units each → \(30x_1\)  
+- Second-dose uses 65 units each → \(65x_2\)  
+
+Constraint:
+\[
+30x_1 + 65x_2 \le 35000
+\]
+
+2. **First-dose must be more than second-dose**
+
+\[
+x_1 > x_2
+\]
+
+In LP solvers we typically model strict inequality as:
+\[
+x_1 \ge x_2
+\]
+(or \(x_1 \ge x_2 + \epsilon\) with a tiny \(\epsilon\), but for an integer solution the \(\ge\) form is sufficient).
+
+3. **At least 40 second-dose vaccines**
+
+\[
+x_2 \ge 40
+\]
+
+### 4. Model summary
+
+\[
+\begin{aligned}
+\text{Minimize}\quad & Z = 20x_1 + 60x_2 \\
+\text{subject to}\quad
+& 30x_1 + 65x_2 \le 35000 \\
+& x_1 \ge x_2 \\
+& x_2 \ge 40 \\
+& x_1, x_2 \ge 0
+\end{aligned}
+\]
+
+If you require the numbers of vaccines to be integers, also add:
+\[
+x_1, x_2 \in \mathbb{Z}
+\]
+
+### 5. Suitable Python libraries
+
+You can model and solve this LP with:
+
+- **PuLP** (`pulp`) – very straightforward for LP/MIP:
+  - `from pulp import LpProblem, LpMinimize, LpVariable, lpSum`
+- **OR-Tools** (`ortools.linear_solver`) – efficient and industrial-grade:
+  - `from ortools.linear_solver import pywraplp`
+- **SciPy** (`scipy.optimize.linprog`) – for continuous LP (no integer constraints):
+  - `from scipy.optimize import linprog`
+
+### 6. (Optional) Expected solution structure
+
+Given the objective and constraints, the optimal solution will lie on a boundary of the feasible region, typically one of the intersections:
+- antibiotic constraint active: \(30x_1 + 65x_2 = 35000\)
+- and either \(x_1 = x_2\) or \(x_2 = 40\)
+
+A solver using any of the above libraries will determine the precise optimal values of \(x_1\) and \(x_2\).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def main():
+    # Create the LP problem: minimize total gelatine used
+    model = pulp.LpProblem("Vaccine_Production", pulp.LpMinimize)
+
+    # Decision variables (integer vaccines, nonnegative)
+    x1 = pulp.LpVariable('x1', lowBound=0, cat='Integer')  # first-dose vaccines
+    x2 = pulp.LpVariable('x2', lowBound=0, cat='Integer')  # second-dose vaccines
+
+    # Objective function: minimize 20*x1 + 60*x2
+    model += 20 * x1 + 60 * x2
+
+    # Constraints
+    # Antibiotics availability: 30*x1 + 65*x2 <= 35000
+    model += 30 * x1 + 65 * x2 <= 35000, "Antibiotics"
+
+    # First-dose at least as many as second-dose: x1 >= x2
+    model += x1 >= x2, "First_ge_Second"
+
+    # At least 40 second-dose vaccines: x2 >= 40
+    model += x2 >= 40, "Min_Second"
+
+    # Solve the model
+    model.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pulp.value(model.objective)
+
+    # Print results (only requirement is FINAL_OBJ line format)
+    print(f"x1 (first-dose) = {x1.value()}")
+    print(f"x2 (second-dose) = {x2.value()}")
+    print(f"Total gelatine used = {final_obj}")
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

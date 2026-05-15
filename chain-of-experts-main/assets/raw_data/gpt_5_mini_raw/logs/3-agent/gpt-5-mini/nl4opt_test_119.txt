@@ -1,0 +1,74 @@
+[MODELER]:
+Model
+
+Variables
+- x = number of regular-boat trips (integer, x ≥ 0)
+- y = number of speed-boat trips (integer, y ≥ 0)
+
+Objective
+- Minimize total gas consumption: minimize G = 10 x + 20 y  (liters)
+
+Constraints
+1. Mail demand: 20 x + 30 y ≥ 1000  (each regular trip carries 20 pieces, each speed trip 30)
+2. At least 50% of trips are speed boats: y ≥ 0.5 (x + y) ⇔ y ≥ x
+3. Maximum regular trips: x ≤ 20
+4. Integer and nonnegativity: x, y ∈ Z≥0
+
+Solve / reasoning
+- From y ≥ x we get 20x + 30y ≥ 20x + 30x = 50x, so 50x ≤ 1000 ⇒ x ≤ 20. Combined with x ≤ 20 (explicit), the largest feasible x is 20.
+- Regular trips use less gas per piece (10/20 = 0.5 L/piece) than speed trips (20/30 ≈ 0.667 L/piece), so we prefer as many regular trips as allowed. Set x = 20.
+- With x = 20 we need 1000 − 20·20 = 600 pieces remaining → y ≥ 600/30 = 20. Also y ≥ x holds (20 ≥ 20).
+- So optimal integer solution is x = 20 regular trips, y = 20 speed trips. Total gas = 10·20 + 20·20 = 600 liters.
+
+Notes on solving with Python
+- This is a small integer linear program. Suitable libraries:
+  - pulp (LP/MIP solver interface)
+  - ortools (CP-SAT or linear solver)
+  - python-mip (mip / CBC / Gurobi if available)
+
+Example (pulp)
+- Define variables x,y = LpVariable(..., cat='Integer'), objective 10*x+20*y, add constraints as above, solve with pulp.PULP_CBC_CMD(). The solver will return x=20, y=20.
+
+---
+
+[CODER]:
+import math
+
+# Problem data (initialized directly)
+# Variables:
+# x = number of regular-boat trips (integer, x >= 0, x <= 20)
+# y = number of speed-boat trips (integer, y >= 0)
+# Objective: minimize G = 10*x + 20*y
+# Constraints:
+# 1) 20*x + 30*y >= 1000
+# 2) y >= x
+# 3) x <= 20
+
+best_obj = None
+best_x = None
+best_y = None
+
+# search over feasible x values (0..20)
+for x in range(0, 21):
+    # compute minimum y to satisfy mail demand
+    remaining_mail = 1000 - 20 * x
+    if remaining_mail <= 0:
+        y_mail = 0
+    else:
+        y_mail = math.ceil(remaining_mail / 30)
+    # enforce y >= x
+    y_min = max(x, y_mail)
+    # y_min is the smallest y that can work for this x; objective increases with y, so nothing to gain by larger y
+    y = y_min
+    # check feasibility explicitly
+    if 20 * x + 30 * y >= 1000 and y >= x:
+        obj = 10 * x + 20 * y
+        if best_obj is None or obj < best_obj:
+            best_obj = obj
+            best_x = x
+            best_y = y
+
+# Final objective value
+value = best_obj
+
+print(f"FINAL_OBJ: {value}")

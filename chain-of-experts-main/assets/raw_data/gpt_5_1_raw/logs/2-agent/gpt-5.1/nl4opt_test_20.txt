@@ -1,0 +1,195 @@
+[MODELER]:
+Formulate this as a linear programming (LP) problem.
+
+## Decision variables
+Let  
+- \(x\) = number of packs of ramen  
+- \(y\) = number of packs of fries  
+
+We assume \(x, y \ge 0\) and they can be non-integer “servings” unless you explicitly require integers.
+
+## Objective: Minimize sodium intake
+Each pack of ramen has 100 mg sodium; each pack of fries has 75 mg sodium.
+
+Minimize total sodium:
+\[
+\min \; Z = 100x + 75y
+\]
+
+## Constraints
+
+### 1. Calorie requirement
+At least 3000 calories:
+\[
+400x + 300y \;\ge\; 3000
+\]
+
+### 2. Protein requirement
+At least 80 grams of protein:
+\[
+20x + 10y \;\ge\; 80
+\]
+
+### 3. Ramen ≤ 30% of meals
+“Meals” = total packs \(x + y\). At most 30% can be ramen:
+\[
+x \;\le\; 0.3(x + y)
+\]
+
+Rearrange:
+\[
+x \le 0.3x + 0.3y \\
+0.7x \le 0.3y \\
+7x \le 3y
+\]
+
+### 4. Non-negativity
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+## Compact LP model
+
+\[
+\begin{aligned}
+\min\quad & 100x + 75y \\
+\text{s.t.}\quad 
+& 400x + 300y \ge 3000 \\
+& 20x + 10y \ge 80 \\
+& 7x \le 3y \\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+---
+
+## Solving by hand (outline)
+
+Check which constraints bind (hold as equalities) at the optimum.
+
+1. The protein constraint is weaker than the calorie constraint, because:
+   - Calories ≥ 3000 implies:  
+     \(400x + 300y \ge 3000 \Rightarrow 40x + 30y \ge 300\).  
+     Compare to \(20x + 10y \ge 80\).  
+     Multiply the protein constraint by 2: \(40x + 20y \ge 160\).  
+     Any solution with enough calories will generally exceed 80 g protein; we expect calories and the ramen fraction to be the binding constraints.
+
+2. Solve system where:
+   - Calorie constraint binding: \(400x + 300y = 3000\)
+   - Ramen fraction binding: \(7x = 3y\)
+
+From \(7x = 3y\) ⇒ \(y = \tfrac{7}{3}x\).
+
+Substitute into calorie constraint:
+\[
+400x + 300\left(\frac{7}{3}x\right) = 3000 \\
+400x + 700x = 3000 \\
+1100x = 3000 \\
+x = \frac{3000}{1100} = \frac{30}{11} \approx 2.727
+\]
+\[
+y = \frac{7}{3}x = \frac{7}{3} \cdot \frac{30}{11} = \frac{70}{11} \approx 6.364
+\]
+
+Check protein:
+\[
+20x + 10y = 20\cdot\frac{30}{11} + 10\cdot\frac{70}{11}
+= \frac{600}{11} + \frac{700}{11}
+= \frac{1300}{11} \approx 118.2 \ge 80
+\]
+
+Total sodium:
+\[
+100x + 75y 
+= 100\cdot\frac{30}{11} + 75\cdot\frac{70}{11}
+= \frac{3000}{11} + \frac{5250}{11}
+= \frac{8250}{11} \approx 750\ \text{mg}
+\]
+
+So the LP optimum (continuous solution) is:
+- Ramen \(x = \dfrac{30}{11} \approx 2.73\) packs  
+- Fries \(y = \dfrac{70}{11} \approx 6.36\) packs  
+with minimum sodium ≈ 750 mg.
+
+If you require integer packs, this becomes an integer programming problem and the best integer solution must be found near these values.
+
+---
+
+## Python libraries to solve this
+
+You can implement and solve this LP with any of:
+
+- **PuLP** (`pulp`): very simple for linear programs.
+- **SciPy** (`scipy.optimize.linprog`): good for continuous LPs.
+- **OR-Tools** (`ortools.linear_solver`): powerful, supports LP and MIP.
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("RamenFries", pl.LpMinimize)
+
+# Variables (non-negative)
+x = pl.LpVariable('ramen', lowBound=0)
+y = pl.LpVariable('fries', lowBound=0)
+
+# Objective: minimize sodium
+prob += 100*x + 75*y
+
+# Constraints
+prob += 400*x + 300*y >= 3000      # calories
+prob += 20*x + 10*y >= 80          # protein
+prob += 7*x <= 3*y                 # at most 30% ramen
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Ramen packs:", x.value())
+print("Fries packs:", y.value())
+print("Min sodium:", pl.value(prob.objective))
+```
+
+To enforce integer packs, change variable definitions to `cat='Integer'`.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the LP problem: minimize sodium intake
+    prob = pl.LpProblem("RamenFries_MinSodium", pl.LpMinimize)
+
+    # Decision variables: non-negative, continuous
+    x = pl.LpVariable('ramen', lowBound=0)
+    y = pl.LpVariable('fries', lowBound=0)
+
+    # Objective function: Minimize total sodium (mg)
+    prob += 100 * x + 75 * y
+
+    # Constraints
+    # 1. Calorie requirement: at least 3000 calories
+    prob += 400 * x + 300 * y >= 3000
+
+    # 2. Protein requirement: at least 80 grams of protein
+    prob += 20 * x + 10 * y >= 80
+
+    # 3. Ramen ≤ 30% of total meals: 7x ≤ 3y
+    prob += 7 * x <= 3 * y
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective as required
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

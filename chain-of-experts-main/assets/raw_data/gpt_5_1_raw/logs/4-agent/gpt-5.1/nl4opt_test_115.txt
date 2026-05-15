@@ -1,0 +1,257 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+   - **Goal:** Minimize the total daily production cost of running the factories while meeting minimum teddy bear demand.
+
+2. **Suggested model type**
+
+   - **Model:** Linear Programming (LP), deterministic, single-period (one day), cost-minimisation.
+
+3. **Main decision variables**
+
+   Define variables as hours of operation for each factory per day:
+
+   - \(x_1\): Number of hours per day to run **Factory 1**  
+   - \(x_2\): Number of hours per day to run **Factory 2**
+
+   These will be continuous, non-negative variables (can run a fraction of an hour unless explicitly restricted to integers).
+
+4. **Objective function components**
+
+   - Cost of running Factory 1: 300 dollars per hour → total cost: \(300 x_1\)
+   - Cost of running Factory 2: 600 dollars per hour → total cost: \(600 x_2\)
+
+   The objective function is the sum of these:
+
+   - **Minimize** total cost = \(300 x_1 + 600 x_2\)
+
+5. **Key constraints to model**
+
+   Translate production and demand into linear inequalities:
+
+   a) **Black teddy bear demand constraint**
+
+   - Factory 1 produces 5 black bears per hour → total black from F1: \(5 x_1\)
+   - Factory 2 produces 10 black bears per hour → total black from F2: \(10 x_2\)
+   - Demand requirement: at least 20 black bears per day
+
+   → Constraint:  
+   \(5 x_1 + 10 x_2 \ge 20\)
+
+   b) **White teddy bear demand constraint**
+
+   - Factory 1 produces 6 white bears per hour → total white from F1: \(6 x_1\)
+   - Factory 2 produces 10 white bears per hour → total white from F2: \(10 x_2\)
+   - Demand requirement: at least 5 white bears per day
+
+   → Constraint:  
+   \(6 x_1 + 10 x_2 \ge 5\)
+
+   c) **Brown teddy bear demand constraint**
+
+   - Factory 1 produces 3 brown bears per hour → total brown from F1: \(3 x_1\)
+   - Factory 2 produces 0 brown bears → no contribution
+   - Demand requirement: at least 15 brown bears per day
+
+   → Constraint:  
+   \(3 x_1 \ge 15\)
+
+   d) **Non-negativity constraints**
+
+   - Factories cannot run a negative number of hours:
+
+   → Constraints:  
+   \(x_1 \ge 0\)  
+   \(x_2 \ge 0\)
+
+6. **Optional modelling considerations (if needed by instructor/setting)**
+
+   - If production must be in whole hours, the model would become an Integer Linear Program (ILP) with \(x_1, x_2\) integers.
+   - If there is any maximum number of operating hours per day (e.g., 24 hours), add upper bounds: \(x_1 \le 24\), \(x_2 \le 24\). (Not required by the given text, but something the modeller could consider.)
+
+---
+
+[MODELER]:
+Here is the linear programming model, cleaned up and written in standard mathematical form, plus how you’d implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_1 \ge 0\): hours per day to run Factory 1  
+- \(x_2 \ge 0\): hours per day to run Factory 2  
+
+(Continuous variables; if hours must be whole numbers, they would be integer.)
+
+---
+
+## 2. Objective function
+
+Minimize the total daily cost of running the factories.
+
+- Cost of Factory 1: \(300\) dollars/hour → \(300 x_1\)  
+- Cost of Factory 2: \(600\) dollars/hour → \(600 x_2\)
+
+Objective:
+
+\[
+\min \; Z = 300 x_1 + 600 x_2
+\]
+
+---
+
+## 3. Constraints
+
+### a) Black teddy bear demand
+
+Per hour:
+- Factory 1: 5 black bears  
+- Factory 2: 10 black bears  
+
+Daily demand: at least 20 black bears.
+
+\[
+5 x_1 + 10 x_2 \;\ge\; 20
+\]
+
+---
+
+### b) White teddy bear demand
+
+Per hour:
+- Factory 1: 6 white bears  
+- Factory 2: 10 white bears  
+
+Daily demand: at least 5 white bears.
+
+\[
+6 x_1 + 10 x_2 \;\ge\; 5
+\]
+
+---
+
+### c) Brown teddy bear demand
+
+Per hour:
+- Factory 1: 3 brown bears  
+- Factory 2: 0 brown bears  
+
+Daily demand: at least 15 brown bears.
+
+\[
+3 x_1 \;\ge\; 15
+\]
+
+---
+
+### d) Non-negativity
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+(Optionally, you might add \(x_1 \le 24,\; x_2 \le 24\) if factories can’t run more than 24 hours per day.)
+
+---
+
+## 4. Model summary (standard LP form)
+
+\[
+\begin{aligned}
+\min\quad & 300 x_1 + 600 x_2 \\
+\text{s.t.}\quad
+& 5 x_1 + 10 x_2 \ge 20 && \text{(black bears)} \\
+& 6 x_1 + 10 x_2 \ge 5  && \text{(white bears)} \\
+& 3 x_1 \ge 15          && \text{(brown bears)} \\
+& x_1, x_2 \ge 0        && \text{(non-negativity)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+Any LP library is fine. Common choices:
+
+- **PuLP**: simple and very good for teaching/learning LP.
+- **OR-Tools (Google)**: powerful, with linear solver `pywraplp`.
+- **Pyomo**: good for larger or more complex models.
+
+For this problem, **PuLP** is a good fit.
+
+### Example in PuLP
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("TeddyBearProduction", pl.LpMinimize)
+
+# Decision variables (continuous, >= 0)
+x1 = pl.LpVariable('x1', lowBound=0)  # hours of Factory 1
+x2 = pl.LpVariable('x2', lowBound=0)  # hours of Factory 2
+
+# Objective function
+prob += 300 * x1 + 600 * x2
+
+# Constraints
+prob += 5 * x1 + 10 * x2 >= 20   # black bears
+prob += 6 * x1 + 10 * x2 >= 5    # white bears
+prob += 3 * x1 >= 15             # brown bears
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal hours for Factory 1 (x1):", pl.value(x1))
+print("Optimal hours for Factory 2 (x2):", pl.value(x2))
+print("Minimum total cost:", pl.value(prob.objective))
+```
+
+If you need it as an Integer Linear Program instead, declare:
+
+```python
+x1 = pl.LpVariable('x1', lowBound=0, cat='Integer')
+x2 = pl.LpVariable('x2', lowBound=0, cat='Integer')
+```
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the LP problem: minimization
+    prob = pl.LpProblem("TeddyBearProduction", pl.LpMinimize)
+
+    # Decision variables (continuous, non-negative)
+    x1 = pl.LpVariable('x1', lowBound=0)  # hours of Factory 1
+    x2 = pl.LpVariable('x2', lowBound=0)  # hours of Factory 2
+
+    # Objective function: minimize total daily cost
+    prob += 300 * x1 + 600 * x2, "Total_Cost"
+
+    # Constraints
+    # Black bears: 5 x1 + 10 x2 >= 20
+    prob += 5 * x1 + 10 * x2 >= 20, "Black_Bear_Demand"
+
+    # White bears: 6 x1 + 10 x2 >= 5
+    prob += 6 * x1 + 10 * x2 >= 5, "White_Bear_Demand"
+
+    # Brown bears: 3 x1 >= 15
+    prob += 3 * x1 >= 15, "Brown_Bear_Demand"
+
+    # Solve the problem
+    prob.solve()
+
+    # Extract the objective value
+    final_obj_value = pl.value(prob.objective)
+
+    # Print required outputs (can be extended if desired)
+    # Final required line:
+    print(f"FINAL_OBJ: {final_obj_value}")
+
+if __name__ == "__main__":
+    main()

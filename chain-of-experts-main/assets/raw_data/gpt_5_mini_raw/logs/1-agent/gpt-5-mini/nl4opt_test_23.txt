@@ -1,0 +1,42 @@
+[MONOLITH]:
+import pulp
+
+# Initialize data directly from the problem
+capacity_van = 6       # kids per van
+capacity_minibus = 10  # kids per minibus
+pollution_van = 7      # pollution per van
+pollution_minibus = 10 # pollution per minibus
+required_kids = 150
+max_minibuses = 10
+
+# Define the MILP
+prob = pulp.LpProblem("Minimize_Pollution", pulp.LpMinimize)
+
+# Decision variables: number of vans (v) and minibuses (m), integer and nonnegative
+v = pulp.LpVariable("vans", lowBound=0, cat='Integer')
+m = pulp.LpVariable("minibuses", lowBound=0, cat='Integer')
+
+# Objective: minimize total pollution
+prob += pollution_van * v + pollution_minibus * m, "Total_Pollution"
+
+# Constraints
+prob += capacity_van * v + capacity_minibus * m >= required_kids, "Capacity"
+prob += m <= max_minibuses, "Max_Minibuses"
+prob += v - m >= 1, "Vans_exceed_minibuses"  # vans must exceed minibuses
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Retrieve results
+v_val = int(pulp.value(v))
+m_val = int(pulp.value(m))
+obj_val = pulp.value(prob.objective)
+
+# Print solution details
+print(f"VANS: {v_val}")
+print(f"MINIBUSES: {m_val}")
+print(f"OBJECTIVE_VALUE: {obj_val}")
+
+# Final required output line
+print(f"FINAL_OBJ: {int(obj_val)}")

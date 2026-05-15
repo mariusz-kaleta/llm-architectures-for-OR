@@ -1,0 +1,150 @@
+[MODELER]:
+Formulate this as a linear programming (LP) problem.
+
+### 1. Decision variables
+
+Let  
+- \(x\) = number of containers of **Oil Max** to produce  
+- \(y\) = number of containers of **Oil Max Pro** to produce  
+
+We assume \(x, y \ge 0\) and can be fractional unless the problem explicitly requires integer containers; if integer is needed, we’ll note that at the end.
+
+### 2. Objective function
+
+Profit:  
+- Oil Max: \$10 per container  
+- Oil Max Pro: \$15 per container  
+
+Maximize total profit:
+\[
+\max Z = 10x + 15y
+\]
+
+### 3. Constraints
+
+Each container uses certain grams of substances A, B, and C, and we have limited supplies:
+
+**Substance A:**
+- Oil Max uses 46 g per container  
+- Oil Max Pro uses 13 g per container  
+- Available: 1345 g  
+
+\[
+46x + 13y \le 1345
+\]
+
+**Substance B:**
+- Oil Max uses 43 g  
+- Oil Max Pro uses 4 g  
+- Available: 346 g  
+
+\[
+43x + 4y \le 346
+\]
+
+**Substance C:**
+- Oil Max uses 56 g  
+- Oil Max Pro uses 45 g  
+- Available: 1643 g  
+
+\[
+56x + 45y \le 1643
+\]
+
+**Non-negativity:**
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+This is the full LP model:
+
+\[
+\begin{aligned}
+\max\ & 10x + 15y \\
+\text{s.t. } 
+& 46x + 13y \le 1345 \\
+& 43x + 4y \le 346 \\
+& 56x + 45y \le 1643 \\
+& x \ge 0,\ y \ge 0
+\end{aligned}
+\]
+
+If integer numbers of containers are required, then add:
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+### 4. Suitable Python libraries
+
+To solve this LP, you can use:
+
+- **PuLP** (`pulp`): very straightforward for teaching and small LPs.
+- **OR-Tools** (`ortools.linear_solver`): powerful, supports LP and MIP with multiple solvers.
+- **SciPy** (`scipy.optimize.linprog`): good for continuous LP, but not integer constraints.
+
+### 5. Example in PuLP (continuous LP)
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Oil_Production", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('Oil_Max', lowBound=0)       # continuous by default
+y = pl.LpVariable('Oil_Max_Pro', lowBound=0)
+
+# Objective
+prob += 10 * x + 15 * y
+
+# Constraints
+prob += 46 * x + 13 * y <= 1345, "Substance_A"
+prob += 43 * x + 4 * y <= 346,  "Substance_B"
+prob += 56 * x + 45 * y <= 1643, "Substance_C"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Oil Max (x):", pl.value(x))
+print("Oil Max Pro (y):", pl.value(y))
+print("Max profit:", pl.value(prob.objective))
+```
+
+To enforce integer containers, change:
+
+```python
+x = pl.LpVariable('Oil_Max', lowBound=0, cat='Integer')
+y = pl.LpVariable('Oil_Max_Pro', lowBound=0, cat='Integer')
+```
+
+This fully specifies how to model and solve the manufacturer’s profit maximization problem.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Oil_Production", pl.LpMaximize)
+
+# Decision variables (continuous, non-negative)
+x = pl.LpVariable('Oil_Max', lowBound=0)
+y = pl.LpVariable('Oil_Max_Pro', lowBound=0)
+
+# Objective function: Maximize profit
+prob += 10 * x + 15 * y
+
+# Constraints
+prob += 46 * x + 13 * y <= 1345  # Substance A
+prob += 43 * x + 4 * y <= 346   # Substance B
+prob += 56 * x + 45 * y <= 1643 # Substance C
+
+# Solve the LP
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Extract objective value
+final_obj = pl.value(prob.objective)
+
+# Required final print
+print(f"FINAL_OBJ: {final_obj}")

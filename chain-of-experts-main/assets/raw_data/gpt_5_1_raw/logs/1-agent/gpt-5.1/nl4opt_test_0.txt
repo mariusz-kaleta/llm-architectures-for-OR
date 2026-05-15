@@ -1,0 +1,41 @@
+[MONOLITH]:
+import pulp
+
+# Create the problem
+prob = pulp.LpProblem("Duck_Transportation", pulp.LpMinimize)
+
+# Decision variables: number of boat trips (b) and canoe trips (c)
+b = pulp.LpVariable('boat_trips', lowBound=0, cat='Continuous')
+c = pulp.LpVariable('canoe_trips', lowBound=0, cat='Continuous')
+
+# Objective: minimize total time (minutes)
+# Boat: 20 min/trip, Canoe: 40 min/trip
+prob += 20 * b + 40 * c, "Total_Time"
+
+# Constraints
+
+# At least 300 ducks transported
+# Boat: 10 ducks/trip, Canoe: 8 ducks/trip
+prob += 10 * b + 8 * c >= 300, "Duck_Requirement"
+
+# At most 12 boat trips
+prob += b <= 12, "Boat_Trip_Limit"
+
+# At least 60% of trips by canoe: c >= 0.6*(b + c) => 0.4c >= 0.6b => 2c >= 3b
+prob += 2 * c >= 3 * b, "Canoe_Trip_Percentage"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Get the results
+boat_trips_val = pulp.value(b)
+canoe_trips_val = pulp.value(c)
+objective_value = pulp.value(prob.objective)
+
+# Print solution details (optional for inspection)
+print(f"Boat trips: {boat_trips_val}")
+print(f"Canoe trips: {canoe_trips_val}")
+print(f"Total time (minutes): {objective_value}")
+
+# Required final print
+print(f"FINAL_OBJ: {objective_value}")

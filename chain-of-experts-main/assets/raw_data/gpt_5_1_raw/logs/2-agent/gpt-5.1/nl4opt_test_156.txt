@@ -1,0 +1,215 @@
+[MODELER]:
+Here is a clean mathematical formulation of the problem and how to solve it.
+
+---
+
+## 1. Problem modeling
+
+We decide **how many images** to send to each company so that the **total cost is minimized** while meeting capacity and proportion constraints.
+
+### Decision variables
+
+Let:
+
+- \( x \) = number of images annotated by the specialized company  
+- \( y \) = number of images annotated by the common company  
+
+Both should be nonnegative:
+
+- \( x \ge 0 \)
+- \( y \ge 0 \)
+
+### Parameters
+
+- Specialized company:
+  - Speed: \(60\) images/hour
+  - Cost: \$100/hour  
+  → Cost per image:  
+  \[
+  c_s = \frac{100}{60} = \frac{5}{3} \approx 1.6667\ \text{dollars per image}
+  \]
+
+- Common company:
+  - Speed: \(40\) images/hour
+  - Cost: \$72/hour  
+  → Cost per image:  
+  \[
+  c_c = \frac{72}{40} = 1.8\ \text{dollars per image}
+  \]
+
+- Total required images: at least \(10{,}000\).
+
+- At least one third of the work must go to the specialized company:
+  \[
+  x \ge \frac{1}{3}(x + y)
+  \]
+
+### Constraints
+
+1. **Dataset size requirement**
+
+   At least \(10{,}000\) images must be annotated:
+   \[
+   x + y \;\ge\; 10{,}000
+   \]
+
+2. **Specialized-work proportion**
+
+   At least one third of the total work must go to the specialized company:
+   \[
+   x \;\ge\; \frac{1}{3}(x + y)
+   \]
+
+   Rearranging:
+   \[
+   3x \;\ge\; x + y \quad\Rightarrow\quad 2x \ge y \quad\Rightarrow\quad y \le 2x
+   \]
+
+3. **Nonnegativity**
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+
+### Objective function
+
+Minimize total cost:
+
+\[
+\text{Cost} = c_s x + c_c y
+          = \frac{5}{3}x + 1.8y
+\]
+
+So the optimization problem is:
+
+\[
+\begin{aligned}
+\min_{x, y} \quad & \frac{5}{3}x + 1.8y \\
+\text{s.t.} \quad 
+& x + y \ge 10{,}000 \\
+& y \le 2x \\
+& x \ge 0,\ y \ge 0
+\end{aligned}
+\]
+
+---
+
+## 2. Analytical insight / optimal distribution
+
+The specialized company is actually **cheaper per image** (\(\approx \$1.67\)) than the common company (\(\$1.80\)), so:
+
+- To minimize cost, you want as **many images as possible** done by the specialized company, subject to constraints.
+- There is no upper bound on how many images the specialized company can take, and no lower bound forcing you to use the common company.
+
+Thus, the cost-minimizing solution is:
+
+- Use the specialized company for **all** the required images:
+  \[
+  x = 10{,}000,\quad y = 0
+  \]
+
+Check constraints:
+
+- Dataset size: \(x + y = 10{,}000 \ge 10{,}000\) ✅  
+- Specialized work proportion:
+  \[
+  \frac{x}{x + y} = \frac{10{,}000}{10{,}000} = 1 \ge \frac{1}{3}
+  \]
+  ✅
+
+Total cost:
+
+- Hours for specialized company: \(10{,}000 / 60 \approx 166.67\) hours  
+- Total cost: \(166.67 \times \$100 \approx \$16{,}667\)
+
+If you insist on using some common-company work (for example, for other practical reasons), you’d need extra constraints (like maximum hours for the specialized company) to change the optimal mix.
+
+---
+
+## 3. Suitable Python libraries
+
+This is a **linear programming (LP)** problem. Good Python libraries to solve it:
+
+- `PuLP` (simple, very readable; good for teaching and prototyping)
+- `scipy.optimize.linprog` (part of SciPy; good for continuous LPs)
+- `ortools.linear_solver` from Google OR-Tools (more industrial-strength, supports MIP etc.)
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("AnnotationAllocation", pl.LpMinimize)
+
+# Variables
+x = pl.LpVariable("x_specialized", lowBound=0)  # images
+y = pl.LpVariable("y_common", lowBound=0)       # images
+
+# Parameters
+c_s = 5.0 / 3.0  # cost per image specialized
+c_c = 1.8        # cost per image common
+
+# Objective
+prob += c_s * x + c_c * y, "TotalCost"
+
+# Constraints
+prob += x + y >= 10000, "TotalImages"
+prob += y <= 2 * x, "SpecializedAtLeastOneThird"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("x (specialized images):", pl.value(x))
+print("y (common images):", pl.value(y))
+print("Minimum cost:", pl.value(prob.objective))
+```
+
+This will return:
+- \(x = 10{,}000\),
+- \(y = 0\),
+- minimum cost ≈ \$16,667.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def solve_annotation_allocation():
+    # Problem
+    prob = pl.LpProblem("AnnotationAllocation", pl.LpMinimize)
+
+    # Variables
+    x = pl.LpVariable("x_specialized", lowBound=0)  # images by specialized company
+    y = pl.LpVariable("y_common", lowBound=0)       # images by common company
+
+    # Parameters (cost per image)
+    c_s = 5.0 / 3.0  # specialized company
+    c_c = 1.8        # common company
+
+    # Objective: minimize total cost
+    prob += c_s * x + c_c * y, "TotalCost"
+
+    # Constraints
+    prob += x + y >= 10000, "TotalImages"
+    prob += y <= 2 * x, "SpecializedAtLeastOneThird"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    x_val = pl.value(x)
+    y_val = pl.value(y)
+    obj_val = pl.value(prob.objective)
+
+    # Optional prints (not required by spec, but useful if script is run)
+    print("Status:", pl.LpStatus[prob.status])
+    print("x (specialized images):", x_val)
+    print("y (common images):", y_val)
+    print("Minimum cost:", obj_val)
+
+    return obj_val
+
+if __name__ == "__main__":
+    final_obj = solve_annotation_allocation()
+    print(f"FINAL_OBJ: {final_obj}")

@@ -1,0 +1,177 @@
+[MODELER]:
+Let’s turn this into a mathematical optimization model.
+
+### 1. Decision Variables
+
+Let  
+- \( x \) = number of long desks to buy (integer, \( x \ge 0 \))  
+- \( y \) = number of short desks to buy (integer, \( y \ge 0 \))
+
+### 2. Objective Function
+
+Each long desk seats 6 employees, each short desk seats 2 employees. We want to **maximize total seating**:
+
+\[
+\max\ Z = 6x + 2y
+\]
+
+### 3. Constraints
+
+1. **Budget constraint (at most \$2000):**  
+   Long desks cost \$300, short desks cost \$100.
+
+   \[
+   300x + 100y \le 2000
+   \]
+
+2. **Space constraint (at most 200 square feet):**  
+   Long desks take 10 sq ft, short desks take 4 sq ft.
+
+   \[
+   10x + 4y \le 200
+   \]
+
+3. **Non-negativity and integrality:**
+
+   \[
+   x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+   \]
+
+This is an **integer linear programming (ILP)** problem.
+
+---
+
+### 4. Solving the Model (Reasoning)
+
+Both constraints can be rewritten:
+
+- Budget: \(300x + 100y \le 2000 \Rightarrow 3x + y \le 20\)
+- Space: \(10x + 4y \le 200 \Rightarrow 5x + 2y \le 100\)
+
+Budget is clearly more restrictive because:  
+From budget: \(y \le 20 - 3x\)  
+From space: \(y \le 50 - 2.5x\)
+
+For all feasible nonnegative \(x\), \(20 - 3x \le 50 - 2.5x\), so the **budget constraint dominates** and the space constraint will not bind first.
+
+So effectively the feasible region is driven by:
+\[
+3x + y \le 20,\quad x, y \ge 0
+\]
+
+We want to maximize:
+\[
+Z = 6x + 2y = 2(3x + y)
+\]
+
+Since \(Z\) is proportional to \(3x + y\), maximizing seating is equivalent to **maximizing** \(3x + y\) subject to \(3x + y \le 20\). Thus the maximum is attained when:
+
+\[
+3x + y = 20
+\]
+
+Now we only need nonnegative integers satisfying that equality. For any such pair, total seating is:
+
+\[
+Z = 2 \times 20 = 40
+\]
+
+Example integer solutions:
+
+- \(x = 0, y = 20\) → seats \(6\cdot0 + 2\cdot20 = 40\)
+- \(x = 1, y = 17\) → seats \(6\cdot1 + 2\cdot17 = 40\)
+- \(x = 2, y = 14\) → seats \(40\)
+- \(x = 3, y = 11\) → seats \(40\)
+- \(x = 4, y = 8\)  → seats \(40\)
+- \(x = 5, y = 5\)  → seats \(40\)
+- \(x = 6, y = 2\)  → seats \(40\)
+
+All these satisfy both cost and space constraints and **all give the same maximum seating of 40**.  
+So the problem has **multiple optimal solutions**. Any pair \((x, y)\) such that:
+
+\[
+3x + y = 20, \quad x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+is optimal.
+
+If you want to use the budget as fully as possible, every optimal solution already uses all \$2000 exactly:
+
+\[
+300x + 100y = 100(3x + y) = 100 \cdot 20 = 2000
+\]
+
+Space is never binding; all optimal solutions use 80–100 sq ft, well under the 200 sq ft limit.
+
+---
+
+### 5. Suitable Python Libraries
+
+To solve this programmatically, you can use:
+
+- **PuLP** (`pulp`) – very straightforward for small LP/ILP models.
+- **OR-Tools** (`ortools.linear_solver` or `ortools.sat.python.cp_model`) – efficient and flexible for integer programming.
+- **SciPy** (`scipy.optimize.linprog`) – good for continuous LP; to enforce integrality you’d need extra handling, so less ideal here than PuLP or OR-Tools.
+
+A minimal PuLP sketch:
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Desk_Optimization", pl.LpMaximize)
+
+# Variables
+x = pl.LpVariable("long_desks", lowBound=0, cat=pl.LpInteger)
+y = pl.LpVariable("short_desks", lowBound=0, cat=pl.LpInteger)
+
+# Objective
+prob += 6*x + 2*y
+
+# Constraints
+prob += 300*x + 100*y <= 2000     # budget
+prob += 10*x + 4*y <= 200         # space
+
+# Solve
+prob.solve()
+print("Status:", pl.LpStatus[prob.status])
+print("Long desks:", x.value())
+print("Short desks:", y.value())
+print("Total seats:", 6*x.value() + 2*y.value())
+```
+
+This will return one of the optimal integer solutions (e.g., `x=6, y=2` or similar), all of which give 40 seats.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+# Define the optimization problem
+prob = pl.LpProblem("Desk_Optimization", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable("long_desks", lowBound=0, cat=pl.LpInteger)
+y = pl.LpVariable("short_desks", lowBound=0, cat=pl.LpInteger)
+
+# Objective function: Maximize total seating
+prob += 6 * x + 2 * y
+
+# Constraints
+prob += 300 * x + 100 * y <= 2000   # Budget constraint
+prob += 10 * x + 4 * y <= 200       # Space constraint
+
+# Solve the problem
+prob.solve()
+
+# Extract objective value
+final_obj = pl.value(6 * x + 2 * y)
+
+# Print results (optional, not required by instructions)
+print("Status:", pl.LpStatus[prob.status])
+print("Long desks (x):", x.value())
+print("Short desks (y):", y.value())
+print("Total seats:", final_obj)
+
+# Final required output
+print(f"FINAL_OBJ: {final_obj}")

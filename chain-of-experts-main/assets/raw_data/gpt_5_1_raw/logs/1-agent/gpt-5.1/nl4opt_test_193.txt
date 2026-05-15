@@ -1,0 +1,37 @@
+[MONOLITH]:
+import pulp
+
+# Initialize the problem
+prob = pulp.LpProblem("School_Bus_Optimization", pulp.LpMinimize)
+
+# Decision variables: number of small and large buses
+x_s = pulp.LpVariable('Small_Buses', lowBound=0, cat='Integer')
+x_l = pulp.LpVariable('Large_Buses', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of buses
+prob += x_s + x_l
+
+# Constraints:
+
+# Capacity constraint: total students carried >= 500
+prob += 20 * x_s + 50 * x_l >= 500, "Capacity_Constraint"
+
+# Parking lot constraint: large buses at most 20% of total buses
+# x_l <= 0.2 * (x_s + x_l) -> 4 * x_l <= x_s
+prob += 4 * x_l <= x_s, "Large_Bus_Ratio_Constraint"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+small_buses = pulp.value(x_s)
+large_buses = pulp.value(x_l)
+final_obj = pulp.value(prob.objective)
+
+# Print solution details (optional debugging prints can be added if desired)
+print(f"Small buses: {small_buses}")
+print(f"Large buses: {large_buses}")
+print(f"Total buses: {final_obj}")
+
+# Required final objective print
+print(f"FINAL_OBJ: {final_obj}")

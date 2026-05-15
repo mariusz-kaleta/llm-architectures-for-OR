@@ -1,0 +1,38 @@
+[MONOLITH]:
+import pulp
+
+# Initialize the problem: minimize pain killer usage
+prob = pulp.LpProblem("DentistScheduling", pulp.LpMinimize)
+
+# Decision variables: number of molars (M) and canines (C)
+M = pulp.LpVariable('Molars', lowBound=45, cat='Continuous')  # at least 45 molars (reserve materials)
+C = pulp.LpVariable('Canines', lowBound=0, cat='Continuous')
+
+# Objective: minimize total pain killer used
+# Pain killer: 3 units per molar, 2.3 units per canine
+prob += 3 * M + 2.3 * C
+
+# Constraints:
+
+# Resin availability: 20 units per molar, 15 units per canine, total 3000 units
+prob += 20 * M + 15 * C <= 3000, "ResinConstraint"
+
+# At least 60% of cavities must be canines:
+# C >= 0.6 * (M + C)  ->  0.4*C >= 0.6*M  ->  C >= 1.5*M
+prob += C >= 1.5 * M, "CaninePercentageConstraint"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+# Retrieve the results
+opt_M = pulp.value(M)
+opt_C = pulp.value(C)
+opt_obj = pulp.value(prob.objective)
+
+# Print detailed schedule (optional, but useful)
+print(f"Optimal number of molars to fill: {opt_M}")
+print(f"Optimal number of canines to fill: {opt_C}")
+print(f"Minimum pain killer required: {opt_obj}")
+
+# Required final objective print
+print(f"FINAL_OBJ: {opt_obj}")

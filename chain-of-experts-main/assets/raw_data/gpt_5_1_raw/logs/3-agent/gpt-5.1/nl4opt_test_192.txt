@@ -1,0 +1,301 @@
+[MODELER]:
+Below is a clean mathematical formulation of the problem and how you might implement/solve it in Python.
+
+---
+
+## 1. Clarify and Model the Problem
+
+She has three betting options:
+
+- Basketball tournament (B)  
+- Horse race (H)  
+- Soccer game (S)
+
+Let:
+
+- \( x_B \) = amount of money bet on basketball  
+- \( x_H \) = amount of money bet on horse race  
+- \( x_S \) = amount of money bet on soccer
+
+Total funds: \( 100{,}000 \).
+
+### Probabilities and Payouts
+
+Given (interpreting “chance of losing her money” as the probability the bet loses entirely):
+
+- Basketball:  
+  - Probability of loss: \( p_B^{\text{lose}} = 0.50 \)  
+  - Probability of win: \( p_B^{\text{win}} = 1 - 0.50 = 0.50 \)  
+  - Payout if win: 1.2 per dollar bet → gain = \(0.2 \cdot x_B\), receive \(1.2x_B\).  
+
+- Horse race:  
+  - Probability of loss: \( p_H^{\text{lose}} = 0.25 \)  
+  - Probability of win: \( p_H^{\text{win}} = 0.75 \)  
+  - Payout if win: 0.5 per dollar bet → gain = \(-0.5 \cdot x_H\) if this is net return; but the phrasing is ambiguous.
+
+- Soccer:  
+  - Probability of loss: \( p_S^{\text{lose}} = 0.10 \)  
+  - Probability of win: \( p_S^{\text{win}} = 0.90 \)  
+  - Payout if win: 0.1 per dollar bet → gain = \(-0.9 \cdot x_S\) if interpreted as net.
+
+This wording is ambiguous: “The payout for each dollar put on each bet will be $1.2, $0.5, $0.1” can mean:
+
+1. **Total return per \$1 if you win** (i.e., your stake plus gain), or  
+2. **Net profit per \$1 if you win**.
+
+If it’s total return per \$1 (case 1), then horse and soccer have less than 1 return and thus are guaranteed losing propositions even when they win, which is strange but we can still model expected return. I’ll use the *more standard interpretation*:
+
+> **Interpretation**: 1.2, 0.5, 0.1 are *net profits* per dollar staked if the bet wins.
+
+So:
+
+- If you bet 1 dollar and win:
+  - Basketball returns 1 (stake) + 1.2 (profit) = 2.2 total.
+  - Horse race returns 1 + 0.5 = 1.5 total.
+  - Soccer returns 1 + 0.1 = 1.1 total.
+
+Under that interpretation:
+
+- Basketball:
+  - Expected return per \$1 = \(0.5 \cdot 2.2 + 0.5 \cdot 0 = 1.1\)  
+- Horse:
+  - Expected return per \$1 = \(0.75 \cdot 1.5 + 0.25 \cdot 0 = 1.125\)  
+- Soccer:
+  - Expected return per \$1 = \(0.9 \cdot 1.1 + 0.1 \cdot 0 = 0.99\)
+
+Now, let’s formulate the optimization.
+
+---
+
+## 2. Decision Variables
+
+\[
+x_B \ge 0,\quad x_H \ge 0,\quad x_S \ge 0
+\]
+
+amounts (in dollars) to bet on each sport.
+
+---
+
+## 3. Objective Function: Maximize Expected Payout
+
+“Average payout” is naturally modeled as **expected total return**.
+
+Expected total return from each bet:
+
+- Basketball: \( E[\text{return}_B] = x_B \cdot (0.5 \cdot 2.2 + 0.5 \cdot 0) = 1.1 x_B \)
+- Horse: \( E[\text{return}_H] = x_H \cdot (0.75 \cdot 1.5 + 0.25 \cdot 0) = 1.125 x_H \)
+- Soccer: \( E[\text{return}_S] = x_S \cdot (0.9 \cdot 1.1 + 0.1 \cdot 0) = 0.99 x_S \)
+
+Total expected return:
+
+\[
+\text{Maximize } Z = 1.1 x_B + 1.125 x_H + 0.99 x_S
+\]
+
+---
+
+## 4. Chance-of-Loss Constraint
+
+She wants her “average chance of losing her money” to be at most 30%.  
+Interpret this as a **weighted average loss probability** across the portfolio:
+
+\[
+\frac{x_B \cdot 0.50 + x_H \cdot 0.25 + x_S \cdot 0.10}{x_B + x_H + x_S} \le 0.30
+\]
+
+But she must bet exactly \$100,000, so:
+
+\[
+x_B + x_H + x_S = 100{,}000
+\]
+
+Then the average-loss constraint becomes a linear inequality:
+
+\[
+0.50 x_B + 0.25 x_H + 0.10 x_S \le 0.30 (x_B + x_H + x_S)
+\]
+
+Substitute the sum constraint (100,000) into the right-hand side OR keep everything in variables:
+
+\[
+0.50 x_B + 0.25 x_H + 0.10 x_S \le 0.30 x_B + 0.30 x_H + 0.30 x_S
+\]
+
+Rearrange:
+
+\[
+(0.50 - 0.30) x_B + (0.25 - 0.30) x_H + (0.10 - 0.30) x_S \le 0
+\]
+
+\[
+0.20 x_B - 0.05 x_H - 0.20 x_S \le 0
+\]
+
+\[
+0.20 x_B \le 0.05 x_H + 0.20 x_S
+\]
+
+equivalently,
+
+\[
+4 x_B \le x_H + 4 x_S
+\]
+
+This is the **risk constraint** imposed by the 30% average loss probability.
+
+---
+
+## 5. Full Linear Program
+
+Decision variables:
+\[
+x_B, x_H, x_S \ge 0
+\]
+
+Objective:
+\[
+\text{Maximize } Z = 1.1 x_B + 1.125 x_H + 0.99 x_S
+\]
+
+Subject to:
+
+1. Budget (all money must be allocated):
+   \[
+   x_B + x_H + x_S = 100{,}000
+   \]
+
+2. Average loss probability at most 30%:
+   \[
+   4 x_B \le x_H + 4 x_S
+   \]
+   (equivalently \(0.5x_B + 0.25x_H + 0.1x_S \le 0.3 \cdot 100{,}000\) using the sum constraint)
+
+3. Nonnegativity:
+   \[
+   x_B \ge 0,\; x_H \ge 0,\; x_S \ge 0
+   \]
+
+This is a **linear programming (LP)** problem.
+
+---
+
+## 6. Solving in Python
+
+Good libraries:
+
+- `pulp` (simple, pure Python, good for teaching/prototyping).
+- `ortools.linear_solver` from Google OR-Tools (very efficient, industrial-strength).
+- `scipy.optimize.linprog` (also fine for LP, but slightly more “numeric” interface).
+
+### Example Using PuLP
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Bet_Allocation", pl.LpMaximize)
+
+# Decision variables
+x_B = pl.LpVariable("x_B", lowBound=0)
+x_H = pl.LpVariable("x_H", lowBound=0)
+x_S = pl.LpVariable("x_S", lowBound=0)
+
+# Objective function
+prob += 1.1 * x_B + 1.125 * x_H + 0.99 * x_S, "Expected_Return"
+
+# Constraints
+
+# Budget constraint
+prob += x_B + x_H + x_S == 100000, "Budget"
+
+# Average loss probability constraint: 4 x_B <= x_H + 4 x_S
+prob += 4 * x_B <= x_H + 4 * x_S, "Risk"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Results
+print("Status:", pl.LpStatus[prob.status])
+print("x_B (basketball) =", x_B.varValue)
+print("x_H (horse)      =", x_H.varValue)
+print("x_S (soccer)     =", x_S.varValue)
+print("Max expected return =", pl.value(prob.objective))
+```
+
+### Example Using OR-Tools
+
+```python
+from ortools.linear_solver import pywraplp
+
+solver = pywraplp.Solver.CreateSolver('CBC')
+
+x_B = solver.MakeNumVar(0, solver.infinity(), 'x_B')
+x_H = solver.MakeNumVar(0, solver.infinity(), 'x_H')
+x_S = solver.MakeNumVar(0, solver.infinity(), 'x_S')
+
+# Objective: maximize 1.1 x_B + 1.125 x_H + 0.99 x_S
+objective = solver.Objective()
+objective.SetCoefficient(x_B, 1.1)
+objective.SetCoefficient(x_H, 1.125)
+objective.SetCoefficient(x_S, 0.99)
+objective.SetMaximization()
+
+# Constraints
+solver.Add(x_B + x_H + x_S == 100000)
+solver.Add(4 * x_B <= x_H + 4 * x_S)
+
+status = solver.Solve()
+
+if status == pywraplp.Solver.OPTIMAL:
+    print("Optimal solution found")
+    print("x_B =", x_B.solution_value())
+    print("x_H =", x_H.solution_value())
+    print("x_S =", x_S.solution_value())
+    print("Expected return =", objective.Value())
+else:
+    print("No optimal solution found.")
+```
+
+---
+
+If you’d like, I can plug in numbers under alternative interpretations of the payouts (e.g., 1.2, 0.5, 0.1 as total return instead of net profit) and show how that changes the objective and solution.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the linear programming problem (maximization)
+    prob = pl.LpProblem("Bet_Allocation", pl.LpMaximize)
+
+    # Decision variables: amounts bet on Basketball (B), Horse (H), Soccer (S)
+    x_B = pl.LpVariable("x_B", lowBound=0)
+    x_H = pl.LpVariable("x_H", lowBound=0)
+    x_S = pl.LpVariable("x_S", lowBound=0)
+
+    # Objective function: maximize expected total return
+    # Z = 1.1 x_B + 1.125 x_H + 0.99 x_S
+    prob += 1.1 * x_B + 1.125 * x_H + 0.99 * x_S
+
+    # Constraints
+
+    # 1. Budget: must bet exactly 100,000
+    prob += x_B + x_H + x_S == 100000
+
+    # 2. Average loss probability at most 30%:
+    # 4 x_B <= x_H + 4 x_S
+    prob += 4 * x_B <= x_H + 4 * x_S
+
+    # Solve the problem using PuLP's default solver (CBC)
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective value in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

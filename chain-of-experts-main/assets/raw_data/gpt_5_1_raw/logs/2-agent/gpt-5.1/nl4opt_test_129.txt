@@ -1,0 +1,127 @@
+[MODELER]:
+Let’s turn this into a precise optimization model.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of 4‑wheeler vehicles to buy  
+- \(y\) = number of 3‑wheeler vehicles to buy  
+
+Both must be nonnegative integers:
+
+- \(x \ge 0,\ y \ge 0,\ x,y \in \mathbb{Z}\)
+
+---
+
+## 2. Objective
+
+Minimize the total number of vehicles:
+
+\[
+\min \; Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Luggage capacity constraint
+
+Each 4‑wheeler can move 60 luggage per day; each 3‑wheeler can move 40 luggage per day. The airport must move at least 1000 luggage per day:
+
+\[
+60x + 40y \;\ge\; 1000
+\]
+
+### b) Pollution constraint
+
+Each 4‑wheeler produces 30 units of pollutant per day; each 3‑wheeler produces 15 units. The total pollutant must be at most 430 units per day:
+
+\[
+30x + 15y \;\le\; 430
+\]
+
+### c) Nonnegativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x,y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete mathematical model
+
+\[
+\begin{aligned}
+\text{Minimize} \quad & Z = x + y \\
+\text{subject to} \quad
+& 60x + 40y \;\ge\; 1000, \\
+& 30x + 15y \;\le\; 430, \\
+& x, y \ge 0, \\
+& x, y \in \mathbb{Z}.
+\end{aligned}
+\]
+
+This is a small **integer linear program (ILP)**.
+
+---
+
+## 5. Suitable Python libraries
+
+To solve this model in Python, good choices are:
+
+- **PuLP**  
+  - Simple interface for linear and integer programming.  
+  - Can use CBC (default), GLPK, or commercial solvers.
+
+- **OR-Tools (from Google)**  
+  - `ortools.linear_solver` or `ortools.sat.python.cp_model` both work for this size.  
+  - Very good for integer and combinatorial optimization.
+
+- **Pyomo**  
+  - More general algebraic modeling language; good if you plan to scale to more complex models.
+
+Any of these libraries can directly encode the objective and constraints above and compute optimal integer values for \(x\) and \(y\).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import itertools
+
+def solve_ilp():
+    best_obj = None
+    best_solution = None
+
+    # Since pollution constraint: 30x + 15y <= 430
+    # gives an upper bound on x and y:
+    # x <= 430/30 ~ 14.33 -> max 14
+    # y <= 430/15 ~ 28.67 -> max 28
+    # We'll iterate within a safe range
+    for x in range(0, 50):
+        for y in range(0, 50):
+            # Constraints
+            if 60 * x + 40 * y < 1000:
+                continue
+            if 30 * x + 15 * y > 430:
+                continue
+
+            obj = x + y
+            if best_obj is None or obj < best_obj:
+                best_obj = obj
+                best_solution = (x, y)
+
+    if best_solution is None:
+        raise ValueError("No feasible solution found")
+
+    x_opt, y_opt = best_solution
+    return best_obj, x_opt, y_opt
+
+if __name__ == "__main__":
+    obj_value, x_opt, y_opt = solve_ilp()
+    # If you want to see the decision variables, you could print them here
+    # print(f"Optimal x (4-wheelers): {x_opt}")
+    # print(f"Optimal y (3-wheelers): {y_opt}")
+    print(f"FINAL_OBJ: {obj_value}")

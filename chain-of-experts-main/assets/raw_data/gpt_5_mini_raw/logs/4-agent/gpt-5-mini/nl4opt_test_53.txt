@@ -1,0 +1,193 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Minimise the total purchase cost of fertilizers used to make the compound.
+
+2) Suggested model type
+- Model: Linear programming (continuous variables). A small two-variable LP that can be solved graphically or with the simplex method.
+
+3) Main decision variables (with units)
+- kg_C: kilograms of fertilizer C to use (kg)
+- kg_Y: kilograms of fertilizer Y to use (kg)
+
+4) Parameters (given constants)
+- cost_C = $2 per kg
+- cost_Y = $3 per kg
+- nitrous_per_kg_C = 1.5 units/kg
+- nitrous_per_kg_Y = 5.0 units/kg
+- vitamin_per_kg_C = 3.0 units/kg
+- vitamin_per_kg_Y = 1.0 unit/kg
+- required_nitrous = 5 units
+- required_vitamin = 8 units
+
+5) Objective (described)
+- Minimise total cost = cost_C * kg_C + cost_Y * kg_Y.
+
+6) Key constraints (described)
+- Nitrous constraint: total nitrous supplied by kg_C and kg_Y must be at least the required amount.
+- Vitamin constraint: total vitamin supplied by kg_C and kg_Y must be at least the required amount.
+- Non-negativity: kg_C and kg_Y must be zero or positive (no negative amounts).
+- (Optional) Consider testing boundary cases where one fertilizer is zero to ensure global optimum is not at those corners.
+
+7) Solution approach / solver guidance
+- Solve the 2-variable LP by:
+  - examining corner points of the feasible region (intersections of the two binding ingredient constraints and the axes), or
+  - using a small LP solver/simplex.
+- Compute cost at each feasible corner and pick the minimum-cost solution.
+- Report optimal values of kg_C and kg_Y and the corresponding minimum total cost.
+- Optionally include sensitivity notes: which constraint(s) are binding and how cost changes if requirement levels or unit costs change.
+
+8) Deliverables expected from the Modeller
+- Optimal kg_C and kg_Y (numeric).
+- Minimum total cost (numeric).
+- Identification of binding constraints.
+- Brief check of feasibility and corner comparisons (pure C only, pure Y only, mixed).
+
+---
+
+[MODELER]:
+Formal model
+
+- Decision variables
+  - x = kg of fertilizer C (kg), x >= 0
+  - y = kg of fertilizer Y (kg), y >= 0
+
+- Parameters (given)
+  - cost_C = 2 ($/kg)
+  - cost_Y = 3 ($/kg)
+  - nitrous_C = 1.5 (units/kg)
+  - nitrous_Y = 5.0 (units/kg)
+  - vitamin_C = 3.0 (units/kg)
+  - vitamin_Y = 1.0 (units/kg)
+  - required_nitrous = 5 (units)
+  - required_vitamin = 8 (units)
+
+- Objective
+  - Minimise total cost: minimize Z = 2x + 3y
+
+- Constraints
+  - Nitrous requirement: 1.5 x + 5 y >= 5
+  - Vitamin requirement: 3 x + 1 y >= 8
+  - Nonnegativity: x >= 0, y >= 0
+
+Solution (analytic via corner inspection)
+
+Feasible corner candidates:
+- Pure C (y = 0): need 1.5 x >= 5 and 3 x >= 8 => x >= max(5/1.5, 8/3) = max(3.333..., 2.666...) = 3.333...  
+  Cost = 2 * 3.333... = 6.666... ($6.6667)
+
+- Pure Y (x = 0): need 5 y >= 5 and 1 y >= 8 => y >= max(1, 8) = 8  
+  Cost = 3 * 8 = 24 ($24)
+
+- Intersection of the two binding constraints:
+  Solve
+    1.5 x + 5 y = 5
+    3 x +   y = 8
+  From second: y = 8 - 3x. Substitute:
+    1.5 x + 5(8 - 3x) = 5
+    => 1.5x + 40 - 15x = 5
+    => -13.5 x = -35
+    => x = 70 / 27 ≈ 2.5925926
+    => y = 8 - 3x = 2/9 ≈ 0.2222222
+
+  Cost at intersection:
+    Z = 2x + 3y = 158 / 27 ≈ 5.8518519
+
+Minimum cost
+- Optimal solution: x* = 70/27 ≈ 2.5926 kg of C, y* = 2/9 ≈ 0.2222 kg of Y
+- Minimum total cost: Z* = 158/27 ≈ $5.85185
+
+Binding constraints
+- Both nitrous and vitamin constraints are binding at the optimum (both hold with equality).
+
+Feasibility check and corner comparison
+- Pure C feasible cost $6.6667
+- Pure Y feasible cost $24
+- Mixed (intersection) feasible cost $5.85185 (lowest) — therefore global optimum is the intersection point.
+
+Recommended solvers / libraries
+- pulp (LP modelling + CBC) — pip install pulp
+- scipy.optimize.linprog — SciPy's simplex/HiGHS solvers
+- ortools.linear_solver (OR-Tools) — for larger/industrial LPs
+
+Example (short Python sketch with scipy.optimize.linprog)
+- Note: linprog minimizes c^T x with constraints A_ub x <= b_ub, so convert >= constraints by multiplying by -1.
+  c = [2, 3]
+  A_ub = [[-1.5, -5], [-3, -1]]
+  b_ub = [-5, -8]
+  bounds = [(0, None), (0, None)]
+
+Summary
+- Optimal mix: ~2.5926 kg C and ~0.2222 kg Y
+- Minimum cost ≈ $5.8519
+- Both composition constraints are binding.
+
+---
+
+[CODER]:
+import math
+from fractions import Fraction
+
+# Problem data
+cost_C = Fraction(2, 1)     # $/kg
+cost_Y = Fraction(3, 1)     # $/kg
+nitrous_C = Fraction(3, 2)  # 1.5 units/kg -> 3/2
+nitrous_Y = Fraction(5, 1)
+vitamin_C = Fraction(3, 1)
+vitamin_Y = Fraction(1, 1)
+required_nitrous = Fraction(5, 1)
+required_vitamin = Fraction(8, 1)
+
+feasible_points = []
+
+# Corner 1: Pure C (y = 0)
+x_c_needed_nitrous = required_nitrous / nitrous_C
+x_c_needed_vitamin = required_vitamin / vitamin_C
+x_pure_C = max(x_c_needed_nitrous, x_c_needed_vitamin)
+y_pure_C = Fraction(0, 1)
+cost_pure_C = cost_C * x_pure_C + cost_Y * y_pure_C
+# Check feasibility (should be feasible by construction)
+if x_pure_C >= 0:
+    feasible_points.append((x_pure_C, y_pure_C, cost_pure_C))
+
+# Corner 2: Pure Y (x = 0)
+y_y_needed_nitrous = required_nitrous / nitrous_Y
+y_y_needed_vitamin = required_vitamin / vitamin_Y
+y_pure_Y = max(y_y_needed_nitrous, y_y_needed_vitamin)
+x_pure_Y = Fraction(0, 1)
+cost_pure_Y = cost_C * x_pure_Y + cost_Y * y_pure_Y
+if y_pure_Y >= 0:
+    feasible_points.append((x_pure_Y, y_pure_Y, cost_pure_Y))
+
+# Intersection of binding constraints:
+# nitrous: (3/2) x + 5 y = 5
+# vitamin: 3 x + 1 y = 8
+a11 = nitrous_C  # 3/2
+a12 = nitrous_Y  # 5
+a21 = vitamin_C  # 3
+a22 = vitamin_Y  # 1
+b1 = required_nitrous
+b2 = required_vitamin
+
+det = a11 * a22 - a12 * a21
+if det != 0:
+    x_int = (b1 * a22 - a12 * b2) / det
+    y_int = (a11 * b2 - b1 * a21) / det
+    # Validate feasibility (nonnegativity and satisfies constraints)
+    if x_int >= 0 and y_int >= 0:
+        # Verify constraints (allow exact check with fractions)
+        nitrous_lhs = nitrous_C * x_int + nitrous_Y * y_int
+        vitamin_lhs = vitamin_C * x_int + vitamin_Y * y_int
+        if nitrous_lhs >= required_nitrous - Fraction(0,1) and vitamin_lhs >= required_vitamin - Fraction(0,1):
+            cost_int = cost_C * x_int + cost_Y * y_int
+            feasible_points.append((x_int, y_int, cost_int))
+
+# Select best feasible point (minimum cost)
+if not feasible_points:
+    # No feasible solution found (should not happen for this problem)
+    value = float('nan')
+else:
+    best = min(feasible_points, key=lambda t: t[2])
+    best_x, best_y, best_cost = best
+    value = float(best_cost)
+
+print(f"FINAL_OBJ: {value}")

@@ -1,0 +1,80 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- S ∈ Z≥0 : number of small bouquets (5 flowers each).
+- L ∈ Z≥0 : number of large bouquets (10 flowers each).
+
+Objective
+Maximize total flowers:
+maximize Z = 5S + 10L
+(or equivalently maximize Z' = S + 2L, since Z = 5·Z').
+
+Constraints
+1. Capacity limits:
+   - S ≤ 80
+   - L ≤ 50
+2. Total bouquets limit:
+   - S + L ≤ 70
+3. Minimum large bouquets:
+   - L ≥ 20
+4. Smalls at least twice larges:
+   - S ≥ 2L
+5. Integrality and nonnegativity:
+   - S, L integers ≥ 0
+
+Analytic solution (short)
+From S ≥ 2L and S + L ≤ 70 we get 3L ≤ 70 ⇒ L ≤ 23 (since L is integer and L ≥ 20). For fixed L the objective increases with S, so take S = 70 − L (max allowed by S+L ≤ 70). That gives objective proportional to 70 + L, so choose the largest feasible L = 23. Then S = 70 − 23 = 47. Check S ≥ 2L: 47 ≥ 46 holds.
+
+Optimal solution
+- Small bouquets S = 47
+- Large bouquets L = 23
+- Total flowers = 5·47 + 10·23 = 235 + 230 = 465
+
+Suggested Python libraries to solve computationally
+- PuLP (for integer linear programming) — easy modeling and CBC solver.
+- OR-Tools CP-SAT (Google OR-Tools) — fast integer/CP solver for small/large problems.
+- scipy.optimize.linprog — only for LP relaxation (not integer), useful for analysis.
+
+Example (PuLP) sketch
+- Define integer variables S,L.
+- Add the constraints listed above.
+- Set objective 5*S + 10*L to maximize.
+- Solve and read S,L (PuLP will return S=47, L=23).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+# Brute-force integer search for the optimal bouquet counts
+# Decision variables:
+#   S: number of small bouquets (5 flowers each), integer >= 0
+#   L: number of large bouquets (10 flowers each), integer >= 0
+#
+# Constraints:
+#   S <= 80
+#   L <= 50
+#   S + L <= 70
+#   L >= 20
+#   S >= 2L
+
+best_obj = -1
+best_S = None
+best_L = None
+
+for L in range(20, 51):  # L must be at least 20 and at most 50
+    # S must satisfy S >= 2L, S <= 80, S + L <= 70
+    S_min = 2 * L
+    S_max = min(80, 70 - L)
+    if S_max < S_min:
+        continue
+    # For fixed L the objective increases with S, so take S = S_max
+    S = S_max
+    obj = 5 * S + 10 * L
+    if obj > best_obj:
+        best_obj = obj
+        best_S = S
+        best_L = L
+
+# Final objective value
+value = best_obj
+print(f"FINAL_OBJ: {value}")

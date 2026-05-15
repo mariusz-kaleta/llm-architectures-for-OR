@@ -1,0 +1,193 @@
+[MODELER]:
+Here’s a clean mathematical formulation of the problem and how to solve it as an optimization model.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \( x \) = number of runner trips (integer, \( x \ge 0 \))  
+- \( y \) = number of canoe trips (integer, \( y \ge 0 \))
+
+(Each "runner" or "canoer" here is effectively one trip: 4 hours per runner trip, 2 hours per canoe trip.)
+
+---
+
+## 2. Objective function
+
+Each runner trip carries 3 bags.  
+Each canoe trip carries 10 bags.
+
+Total mail delivered (in bags):  
+\[
+\text{Maximize } Z = 3x + 10y
+\]
+
+We want to maximize \( Z \).
+
+---
+
+## 3. Constraints
+
+### a) Time (hours) limit
+
+Each runner trip takes 4 hours, each canoe trip takes 2 hours.  
+At most 200 total hours:
+
+\[
+4x + 2y \le 200
+\]
+
+---
+
+### b) At most 33% of deliveries by canoe
+
+“Deliveries” here is naturally interpreted as trips.  
+So:
+
+\[
+\frac{y}{x + y} \le 0.33
+\]
+
+To express this as a linear inequality, multiply both sides by \(x+y\) (assuming \(x+y > 0\), which makes sense if we’re delivering anything):
+
+\[
+y \le 0.33(x + y)
+\]
+
+\[
+y \le 0.33x + 0.33y
+\]
+
+\[
+y - 0.33y \le 0.33x
+\]
+
+\[
+0.67y \le 0.33x
+\]
+
+\[
+y \le \frac{0.33}{0.67} x \approx 0.4925 x
+\]
+
+To keep it exactly rational, 33% can be taken as \( \frac{1}{3} \):
+
+\[
+\frac{y}{x + y} \le \frac{1}{3}
+\Rightarrow 3y \le x + y \Rightarrow 2y \le x \Rightarrow y \le \frac{1}{2} x
+\]
+
+This is cleaner and exact:
+
+\[
+2y \le x
+\]
+
+---
+
+### c) At least 4 runners
+
+At least 4 runner trips must be used:
+
+\[
+x \ge 4
+\]
+
+---
+
+### d) Non-negativity and integrality
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete model (integer linear program)
+
+\[
+\begin{aligned}
+\text{Maximize } & Z = 3x + 10y \\
+\text{subject to } 
+& 4x + 2y \le 200 \\
+& 2y \le x \\
+& x \ge 4 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Solving this model (Python suggestions)
+
+This is a small integer linear programming (ILP) problem. Suitable Python libraries:
+
+- `PuLP` (very straightforward modeling)
+- `ortools.linear_solver` from Google OR-Tools
+- `pyomo` (more scalable, but heavier)
+- `scipy.optimize` is less suited since it doesn’t handle integrality natively; you’d need a MILP solver wrapper.
+
+For simplicity, `pulp` or OR-Tools are ideal.
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("MailDelivery", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('runner_trips', lowBound=4, cat='Integer')
+y = pl.LpVariable('canoe_trips', lowBound=0, cat='Integer')
+
+# Objective
+prob += 3*x + 10*y, "TotalMailBags"
+
+# Constraints
+prob += 4*x + 2*y <= 200, "TimeLimit"
+prob += 2*y <= x, "CanoeFractionLimit"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Runner trips (x):", x.value())
+print("Canoe trips (y):", y.value())
+print("Max total mail (bags):", pl.value(prob.objective))
+```
+
+This will give the optimal numbers of runner and canoe trips and the maximum total bags delivered.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("MailDelivery", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('runner_trips', lowBound=4, cat='Integer')
+    y = pl.LpVariable('canoe_trips', lowBound=0, cat='Integer')
+
+    # Objective function: Maximize 3x + 10y
+    prob += 3 * x + 10 * y, "TotalMailBags"
+
+    # Constraints
+    prob += 4 * x + 2 * y <= 200, "TimeLimit"
+    prob += 2 * y <= x, "CanoeFractionLimit"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Retrieve the objective value
+    final_obj_value = pl.value(prob.objective)
+
+    # Print objective in required format
+    print(f"FINAL_OBJ: {final_obj_value}")
+
+if __name__ == "__main__":
+    main()

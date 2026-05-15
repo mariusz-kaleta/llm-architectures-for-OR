@@ -1,0 +1,198 @@
+[MODELER]:
+Formulate this as a **linear programming (LP)** problem.
+
+---
+
+### Decision variables
+
+Let  
+- \(x\) = number of elephants to make (and sell)  
+- \(y\) = number of tigers to make (and sell)  
+
+Both must be non‑negative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+### Objective (maximize profit)
+
+Profit per unit:  
+- Elephant: \$5  
+- Tiger: \$4  
+
+Total profit:
+\[
+\text{Maximize } Z = 5x + 4y
+\]
+
+---
+
+### Constraints
+
+**Wood constraint**
+
+- Elephant uses 50 g of wood  
+- Tiger uses 40 g of wood  
+- Available wood: 5000 g
+
+\[
+50x + 40y \le 5000
+\]
+
+**Plastic constraint**
+
+- Elephant uses 20 g of plastic  
+- Tiger uses 30 g of plastic  
+- Available plastic: 4000 g
+
+\[
+20x + 30y \le 4000
+\]
+
+---
+
+### Full LP model
+
+\[
+\begin{aligned}
+\text{Maximize } & Z = 5x + 4y \\
+\text{subject to } 
+& 50x + 40y \le 5000 \quad \text{(wood)}\\
+& 20x + 30y \le 4000 \quad \text{(plastic)}\\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+---
+
+### Solving the model (outline)
+
+1. Check intersection of the two resource constraints:
+
+\[
+\begin{cases}
+50x + 40y = 5000 \\
+20x + 30y = 4000
+\end{cases}
+\]
+
+From the second: \(20x = 4000 - 30y \Rightarrow x = 200 - 1.5y\).
+
+Substitute into the first:
+
+\[
+50(200 - 1.5y) + 40y = 5000 \\
+10000 - 75y + 40y = 5000 \\
+10000 - 35y = 5000 \\
+35y = 5000 \Rightarrow y = \frac{5000}{35} \approx 142.857
+\]
+\[
+x = 200 - 1.5\cdot\frac{5000}{35} = 200 - \frac{7500}{35}
+= 200 - 214.2857 \approx -14.2857
+\]
+
+This gives a **negative** \(x\), so the intersection is not feasible. Thus the optimum lies on one of the axes (corner points):
+
+- All elephants: \(y = 0\)
+
+  Wood: \(50x \le 5000 \Rightarrow x \le 100\)  
+  Plastic: \(20x \le 4000 \Rightarrow x \le 200\)
+
+  So max feasible is \(x=100, y=0\).  
+  Profit: \(Z = 5(100)+4(0) = 500\).
+
+- All tigers: \(x = 0\)
+
+  Wood: \(40y \le 5000 \Rightarrow y \le 125\)  
+  Plastic: \(30y \le 4000 \Rightarrow y \le \frac{4000}{30} \approx 133.33\)
+
+  So max feasible is \(x=0, y=125\).  
+  Profit: \(Z = 5(0)+4(125) = 500\).
+
+Both give the same maximum profit:  
+\[
+Z^\* = 500
+\]
+
+Any **feasible combination** on the line segment between these two corner solutions that respects both constraints and integer requirements is also optimal, but because the intersection point is infeasible (negative \(x\)), here the only optimal integer corner points are:
+
+- \(x = 100\), \(y = 0\) (all elephants), or  
+- \(x = 0\), \(y = 125\) (all tigers).
+
+If you insist on **integer** solutions and prefer mixed production, you can check nearby feasible points, but they will not exceed a profit of \$500.
+
+---
+
+### Recommended Python tools
+
+To solve this programmatically:
+
+- **PuLP** (`pulp`) – very straightforward for LP and integer LP.
+- **SciPy** (`scipy.optimize.linprog`) – good for continuous LP (real-valued \(x, y\)).
+- **OR-Tools** (`ortools.linear_solver`) – powerful, supports larger MILPs.
+
+Example with PuLP:
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Souvenir_Production", pl.LpMaximize)
+
+# Variables
+x = pl.LpVariable('elephants', lowBound=0)
+y = pl.LpVariable('tigers', lowBound=0)
+
+# Objective
+prob += 5 * x + 4 * y
+
+# Constraints
+prob += 50 * x + 40 * y <= 5000  # wood
+prob += 20 * x + 30 * y <= 4000  # plastic
+
+# Solve
+prob.solve()
+print("Status:", pl.LpStatus[prob.status])
+print("Elephants:", x.value())
+print("Tigers:", y.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This will return one of the optimal corner solutions (e.g., 100 elephants, 0 tigers, profit 500).
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the LP problem (maximization)
+    prob = pl.LpProblem("Souvenir_Production", pl.LpMaximize)
+
+    # Decision variables: number of elephants (x) and tigers (y)
+    x = pl.LpVariable('elephants', lowBound=0)
+    y = pl.LpVariable('tigers', lowBound=0)
+
+    # Objective function: Maximize profit 5x + 4y
+    prob += 5 * x + 4 * y
+
+    # Constraints
+    # Wood: 50x + 40y <= 5000
+    prob += 50 * x + 40 * y <= 5000
+
+    # Plastic: 20x + 30y <= 4000
+    prob += 20 * x + 30 * y <= 4000
+
+    # Solve the LP
+    prob.solve()
+
+    # Get objective value
+    final_obj = pl.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

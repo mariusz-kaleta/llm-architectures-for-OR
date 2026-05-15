@@ -1,0 +1,140 @@
+[MODELER]:
+Model summary
+
+Decision variables
+- x1 = hours per day to run factory 1 (≥ 0)
+- x2 = hours per day to run factory 2 (≥ 0)
+
+Objective
+- Minimize total running cost: minimize Z = 300 x1 + 600 x2
+
+Constraints (production must meet or exceed demand)
+- Black bears: 5 x1 + 10 x2 ≥ 20
+- White bears: 6 x1 + 10 x2 ≥ 5
+- Brown bears: 3 x1 + 0 x2 ≥ 15
+- x1, x2 ≥ 0
+
+Optional standard / matrix form
+- min c^T x where c = [300, 600]^T
+- subject to A x ≥ b with
+  A = [[5, 10],
+       [6, 10],
+       [3,  0]],
+  b = [20, 5, 15]^T.
+
+Remarks and trivial simplification
+- From the brown constraint: x1 ≥ 15/3 = 5.
+- With x1 = 5, black production = 5·5 = 25 ≥ 20 and white = 6·5 = 30 ≥ 5, so x2 = 0 satisfies all constraints.
+- Objective value at (x1,x2) = (5,0) is Z = 300·5 + 600·0 = $1500.
+- Since costs are positive, increasing x2 (or x1) would not decrease cost; therefore the optimal solution is x1 = 5, x2 = 0 with minimum cost $1500.
+
+Suggested Python solvers/libraries
+- pulp (pure-Python LP modeling + CBC solver)
+- scipy.optimize.linprog (simplex/interior-point methods)
+- OR-Tools linear solver (high-performance, multiple backends)
+- cvxpy (higher-level convex modeling; calls LP solvers)
+
+Short example (pulp)
+- Define variables: x1 = LpVariable('x1', lowBound=0), x2 = LpVariable('x2', lowBound=0)
+- Problem: prob = LpProblem('Teddy', LpMinimize)
+- Objective: prob += 300*x1 + 600*x2
+- Constraints: prob += 5*x1 + 10*x2 >= 20, prob += 6*x1 + 10*x2 >= 5, prob += 3*x1 >= 15
+- Solve: prob.solve()
+
+This fully specifies the linear program and how to solve it.
+
+---
+
+[CODER]:
+```python
+import numpy as np
+from itertools import combinations
+
+# Define problem data
+c = np.array([300.0, 600.0])  # objective coefficients
+A = np.array([[5.0, 10.0],
+              [6.0, 10.0],
+              [3.0,  0.0]])    # left-hand side coefficients (Ax >= b)
+b = np.array([20.0, 5.0, 15.0])
+
+# Tolerance for feasibility checks
+tol = 1e-8
+
+# Build list of constraints including variable bounds x1 = 0 and x2 = 0
+# Each constraint represented as (coeffs, rhs) for equality when selecting intersections
+cons = []
+# production constraints (a x >= b -> equality a x = b for intersection)
+for i in range(A.shape[0]):
+    cons.append((A[i, :].copy(), b[i].copy()))
+# variable bounds as equalities
+cons.append((np.array([1.0, 0.0]), 0.0))  # x1 = 0
+cons.append((np.array([0.0, 1.0]), 0.0))  # x2 = 0
+
+candidates = []
+
+# Consider intersections of every pair of constraints (as equalities)
+for i, j in combinations(range(len(cons)), 2):
+    coeffs = np.vstack([cons[i][0], cons[j][0]])
+    rhs = np.array([cons[i][1], cons[j][1]])
+    # Solve if possible
+    try:
+        if abs(np.linalg.det(coeffs)) < 1e-12:
+            # singular, skip
+            continue
+        x = np.linalg.solve(coeffs, rhs)
+    except np.linalg.LinAlgError:
+        continue
+    # Check non-negativity (x1,x2 >= 0)
+    if x[0] < -tol or x[1] < -tol:
+        continue
+    # Check all production constraints Ax >= b
+    if np.all(A.dot(x) + tol >= b):
+        candidates.append(x)
+
+# Also consider obvious boundary points like satisfying single constraint with x2=0 or x1=0
+# (These may already be included, but include explicitly)
+# Solve for x when x2 = 0 and a single production constraint is equality
+for i in range(A.shape[0]):
+    a = A[i]
+    if abs(a[0]) > tol:
+        x1 = b[i] / a[0]
+        x = np.array([x1, 0.0])
+        if x[0] >= -tol and np.all(A.dot(x) + tol >= b):
+            candidates.append(x)
+# Solve for x when x1 = 0 and a single production constraint is equality
+for i in range(A.shape[0]):
+    a = A[i]
+    if abs(a[1]) > tol:
+        x2 = b[i] / a[1]
+        x = np.array([0.0, x2])
+        if x[1] >= -tol and np.all(A.dot(x) + tol >= b):
+            candidates.append(x)
+
+# If no candidate found by intersections (should not happen), fall back to analytic solution:
+if not candidates:
+    # From brown constraint: x1 >= 5. Setting x1 = 5, x2 = 0 satisfies others.
+    x = np.array([5.0, 0.0])
+    if np.all(A.dot(x) + tol >= b):
+        candidates.append(x)
+
+# Evaluate objective for all candidates and pick best (minimum)
+best_obj = None
+best_x = None
+for x in candidates:
+    obj = c.dot(x)
+    if (best_obj is None) or (obj < best_obj - 1e-9):
+        best_obj = obj
+        best_x = x
+
+# As final safety, enforce the known analytical optimum if it yields better value
+analytic_x = np.array([5.0, 0.0])
+analytic_obj = c.dot(analytic_x)
+if (best_obj is None) or (analytic_obj < best_obj - 1e-9):
+    best_obj = analytic_obj
+    best_x = analytic_x
+
+# Ensure numeric type is plain Python number for printing
+final_value = float(best_obj)
+
+print(f"FINAL_OBJ: {final_value}")
+```

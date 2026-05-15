@@ -1,0 +1,79 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x = number of wired headphones produced per day (units)
+- y = number of wireless headphones produced per day (units)
+
+Objective
+- Maximize profit: maximize Z = 50x + 20y
+
+Constraints
+1. Wired production capacity: x ≤ 100
+2. Wireless production capacity: y ≤ 170
+3. Shared testing-machine capacity: x + y ≤ 150
+4. Nonnegativity: x ≥ 0, y ≥ 0
+(If you require integer units: x, y ∈ Z≥0.)
+
+Complete mathematical formulation
+Maximize Z = 50x + 20y
+subject to
+x ≤ 100
+y ≤ 170
+x + y ≤ 150
+x, y ≥ 0
+
+Solution (analysis)
+This is a small linear program. Because wired headphones give higher profit per unit (50) than wireless (20), you want to produce as many wired as possible subject to constraints. Produce x = 100 wired (limited by wired-team capacity). That leaves 150 − 100 = 50 units of machine capacity for wireless, so y = 50. This satisfies all constraints (50 ≤ 170). Profit = 50·100 + 20·50 = 6000.
+
+Recommended solvers / libraries
+- pulp (Python) — easy modeling and uses CBC by default
+- OR-Tools (Python) — fast and robust
+- scipy.optimize.linprog — for continuous LPs
+- cvxpy — higher-level convex optimization
+
+Example (pulp) code snippet
+(from pulp import LpProblem, LpMaximize, LpVariable, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("Headphones", LpMaximize)
+x = LpVariable('x', lowBound=0)   # wired
+y = LpVariable('y', lowBound=0)   # wireless
+
+prob += 50*x + 20*y
+prob += x <= 100
+prob += y <= 170
+prob += x + y <= 150
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print("x =", x.value(), "y =", y.value(), "Profit =", 50*x.value() + 20*y.value())
+)
+
+Answer: produce 100 wired and 50 wireless headphones per day for a maximum profit of $6,000.
+
+---
+
+[CODER]:
+# Self-contained solution for the LP described
+# No external solvers required; use simple logic based on given data.
+
+# Data initialization
+profit_wired = 50    # profit per wired headphone (x)
+profit_wireless = 20 # profit per wireless headphone (y)
+
+cap_wired = 100      # x <= 100
+cap_wireless = 170   # y <= 170
+cap_testing = 150    # x + y <= 150
+
+# Because profit per wired (50) > wireless (20), produce as many wired as possible
+x = min(cap_wired, cap_testing)
+remaining_testing = cap_testing - x
+y = min(cap_wireless, remaining_testing)
+
+# Objective value
+obj = profit_wired * x + profit_wireless * y
+
+# If objective is integer-valued, print as int
+if abs(obj - round(obj)) < 1e-9:
+    obj = int(round(obj))
+
+print(f"FINAL_OBJ: {obj}")

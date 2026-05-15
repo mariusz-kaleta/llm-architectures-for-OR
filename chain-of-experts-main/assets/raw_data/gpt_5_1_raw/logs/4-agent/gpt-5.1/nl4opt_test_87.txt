@@ -1,0 +1,160 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Minimize Bob’s total daily food cost (noodles + protein bars) while meeting minimum nutrition requirements for calories and protein.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP)  
+   - Reason: Objective and constraints are linear in the decision variables (costs, calories, protein per serving).
+
+3. Main decision variables  
+   Define continuous nonnegative variables representing daily servings:
+   - Variable 1: Number of servings of noodles per day  
+   - Variable 2: Number of servings of protein bars per day  
+
+   (If the modeller wishes, they may later consider integer or nonnegative real servings; by default assume nonnegative real quantities.)
+
+4. Objective function structure  
+   - Minimize total daily cost:  
+     - Cost per serving of noodles: 5  
+     - Cost per serving of protein bar: 2.5  
+   - Objective = (cost of noodles × noodle servings) + (cost of bars × bar servings).
+
+5. Key constraints to consider  
+
+   a) Calorie requirement (minimum)  
+   - Each serving of noodles: 600 calories  
+   - Each serving of protein bar: 250 calories  
+   - Total calories from noodles and bars must be at least 2000.  
+   - Structure: (600 × noodle servings) + (250 × bar servings) ≥ 2000.
+
+   b) Protein requirement (minimum)  
+   - Each serving of noodles: 1.5 grams of protein  
+   - Each serving of protein bar: 5 grams of protein  
+   - Total protein must be at least 16 grams.  
+   - Structure: (1.5 × noodle servings) + (5 × bar servings) ≥ 16.
+
+   c) Nonnegativity constraints  
+   - Noodle servings ≥ 0  
+   - Protein bar servings ≥ 0  
+
+6. Modelling notes for the Modeller  
+   - Use only these two variables; no need for upper bounds unless later dietary limits are added.  
+   - Ensure all coefficients and units are consistent: per day, per serving.  
+   - The final LP should clearly include:  
+     - Objective: minimize daily cost.  
+     - Two nutritional constraints (calories and protein).  
+     - Nonnegativity constraints on both variables.
+
+---
+
+[MODELER]:
+Here is a complete linear programming (LP) formulation of the problem.
+
+### Decision variables
+
+Let  
+- \(x \ge 0\): number of servings of noodles per day  
+- \(y \ge 0\): number of servings of protein bars per day  
+
+Both are continuous and nonnegative.
+
+---
+
+### Objective function
+
+Minimize total daily cost (in dollars):
+
+\[
+\min \; Z = 5x + 2.5y
+\]
+
+where:
+- \(5\) = cost per serving of noodles
+- \(2.5\) = cost per serving of protein bar
+
+---
+
+### Constraints
+
+1. **Calorie requirement**
+
+Each serving of noodles has 600 calories, each protein bar has 250 calories, and Bob needs at least 2000 calories:
+
+\[
+600x + 250y \;\ge\; 2000
+\]
+
+2. **Protein requirement**
+
+Each serving of noodles has 1.5 g of protein, each protein bar has 5 g of protein, and Bob needs at least 16 g of protein:
+
+\[
+1.5x + 5y \;\ge\; 16
+\]
+
+3. **Nonnegativity**
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+### Compact LP model
+
+\[
+\begin{aligned}
+\min\ & 5x + 2.5y \\
+\text{s.t. } 
+& 600x + 250y \ge 2000 \\
+& 1.5x + 5y \ge 16 \\
+& x \ge 0,\ y \ge 0
+\end{aligned}
+\]
+
+---
+
+### Suitable Python libraries
+
+To implement and solve this LP, you can use:
+
+- **PuLP** (`pulp`) – simple, teaching-friendly LP/MIP modeling.
+- **OR-Tools Linear Solver** (`ortools.linear_solver`) – efficient and well-maintained by Google.
+- **SciPy** (`scipy.optimize.linprog`) – good for basic linear programming without advanced modeling constructs.
+
+For teaching and clarity, PuLP or OR-Tools are especially suitable.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the LP problem: minimize cost
+    prob = pulp.LpProblem("Diet_Problem", pulp.LpMinimize)
+
+    # Decision variables: x = servings of noodles, y = servings of protein bars
+    x = pulp.LpVariable('x', lowBound=0, cat='Continuous')
+    y = pulp.LpVariable('y', lowBound=0, cat='Continuous')
+
+    # Objective function: Minimize 5x + 2.5y
+    prob += 5 * x + 2.5 * y
+
+    # Constraints
+    # Calorie requirement: 600x + 250y >= 2000
+    prob += 600 * x + 250 * y >= 2000, "CalorieRequirement"
+
+    # Protein requirement: 1.5x + 5y >= 16
+    prob += 1.5 * x + 5 * y >= 16, "ProteinRequirement"
+
+    # Solve the LP
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the optimal objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print final objective as required
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

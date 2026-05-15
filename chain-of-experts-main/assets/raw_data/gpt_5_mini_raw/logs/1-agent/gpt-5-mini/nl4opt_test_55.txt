@@ -1,0 +1,45 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+total_acres = 300
+watering_budget = 10000
+total_labor_days = 575
+
+# Per-acre requirements and profits
+water_blue = 22     # $ per acre for blueberries
+labor_blue = 6      # days per acre for blueberries
+profit_blue = 56    # $ profit per acre for blueberries
+
+water_rasp = 25     # $ per acre for raspberries
+labor_rasp = 3      # days per acre for raspberries
+profit_rasp = 75    # $ profit per acre for raspberries
+
+# Define LP problem
+prob = pulp.LpProblem("Berry_Farm_Profit_Maximization", pulp.LpMaximize)
+
+# Decision variables: acres of blueberries (b) and raspberries (r)
+b = pulp.LpVariable("Blueberry_Acres", lowBound=0, cat='Continuous')
+r = pulp.LpVariable("Raspberry_Acres", lowBound=0, cat='Continuous')
+
+# Objective: maximize profit
+prob += profit_blue * b + profit_rasp * r, "Total_Profit"
+
+# Constraints
+prob += b + r <= total_acres, "Acreage_Limit"
+prob += water_blue * b + water_rasp * r <= watering_budget, "Watering_Budget"
+prob += labor_blue * b + labor_rasp * r <= total_labor_days, "Labor_Availability"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Retrieve objective value
+value = pulp.value(prob.objective)
+
+# (Optional) print variable values
+print(f"Blueberry acres = {pulp.value(b)}")
+print(f"Raspberry acres = {pulp.value(r)}")
+
+# Final required output line
+print(f"FINAL_OBJ: {value}")

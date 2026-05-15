@@ -1,0 +1,47 @@
+[MONOLITH]:
+import pulp
+
+# Data (initialized directly from the problem statement)
+ship_capacity = 40       # containers per ship trip
+plane_capacity = 20      # containers per plane trip
+ship_fuel = 500          # liters per ship trip
+plane_fuel = 300         # liters per plane trip
+required_containers = 500
+max_plane_trips = 10
+
+# Create the problem
+prob = pulp.LpProblem("Minimize_Fuel", pulp.LpMinimize)
+
+# Decision variables: number of ship trips (S) and plane trips (P), integer and non-negative
+S = pulp.LpVariable("Ships", lowBound=0, cat=pulp.LpInteger)
+P = pulp.LpVariable("Planes", lowBound=0, upBound=max_plane_trips, cat=pulp.LpInteger)
+
+# Objective: minimize total fuel
+prob += ship_fuel * S + plane_fuel * P
+
+# Constraints:
+# 1) Capacity requirement
+prob += ship_capacity * S + plane_capacity * P >= required_containers
+
+# 2) At least 50% of trips must be by ship -> S >= 0.5 * (S + P) -> S >= P
+prob += S >= P
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract results
+ships_opt = int(pulp.value(S))
+planes_opt = int(pulp.value(P))
+total_fuel = pulp.value(prob.objective)
+# Ensure integer representation if it's effectively integer
+if abs(total_fuel - round(total_fuel)) < 1e-6:
+    total_fuel = int(round(total_fuel))
+
+# Print solution (user-relevant info)
+print(f"Optimal number of ship trips: {ships_opt}")
+print(f"Optimal number of plane trips: {planes_opt}")
+print(f"Total fuel consumed (liters): {total_fuel}")
+
+# Final required output line
+print(f"FINAL_OBJ: {total_fuel}")

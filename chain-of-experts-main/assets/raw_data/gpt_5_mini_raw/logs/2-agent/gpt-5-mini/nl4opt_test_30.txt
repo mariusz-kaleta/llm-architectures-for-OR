@@ -1,0 +1,100 @@
+[MODELER]:
+Formal integer linear programming model
+
+Decision variables
+- C ∈ Z_+, number of cows (nonnegative integer)
+- E ∈ Z_+, number of elephants (nonnegative integer)
+
+Objective
+- Minimize Z = C + E (total number of animals)
+
+Constraints
+1. Capacity: 20 C + 50 E ≥ 1000
+2. Elephant not exceed cows: E ≤ C  (equivalently E - C ≤ 0)
+3. At most twice the number of cows as elephants: C ≤ 2 E  (equivalently C - 2 E ≤ 0)
+
+Complete formulation
+minimize Z = C + E
+subject to
+  20 C + 50 E ≥ 1000
+  E - C ≤ 0
+  C - 2 E ≤ 0
+  C, E ∈ Z_+
+
+Analytic solution sketch
+- For a fixed total N = C + E, substitute C = N − E. The feasibility interval for E from constraints E ≤ C and C ≤ 2E becomes
+    ceil(N/3) ≤ E ≤ floor(N/2).
+- The capacity constraint becomes 20(N − E) + 50 E = 20N + 30 E ≥ 1000, i.e. E ≥ (1000 − 20N)/30.
+- Search N from small upward for an integer E in the intersection of these ranges.
+  Testing yields N = 29 feasible with E = 14, C = 15:
+    20·15 + 50·14 = 300 + 700 = 1000 (meets capacity),
+    14 ≤ 15 ≤ 28 (meets the two ratio constraints).
+  N = 28 is infeasible (no integer E in feasible interval satisfies capacity).
+Therefore the minimum total animals is 29 with C = 15 cows and E = 14 elephants.
+
+Recommended solvers / Python libraries
+- pulp (simple MILP modeling with CBC solver)
+- OR‑Tools (CP‑SAT solver excellent for integer problems)
+- Pyomo (for larger models, with CBC/Gurobi/CPLEX backends)
+- gurobipy or cplex (commercial, high-performance MILP solvers)
+
+Example (pulp) — concise snippet
+- Create integer variables C and E, add the three constraints, minimize C+E, and solve. This will return C=15, E=14, Z=29.
+
+If you want, I can provide the exact Python/pulp code to run this model and print the solution.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+# Integer linear program solved by analytic search (no external solvers required)
+import math
+
+# Problem data (directly initialized)
+# Variables: C, E are nonnegative integers
+# Constraints:
+#   20 C + 50 E >= 1000
+#   E <= C
+#   C <= 2 E
+# Objective: minimize N = C + E
+
+solution = None
+
+# Search increasing total animals N for feasibility
+for N in range(0, 1001):
+    # From ratio constraints: ceil(N/3) <= E <= floor(N/2)
+    e_min_ratio = math.ceil(N / 3)
+    e_max_ratio = N // 2
+
+    # From capacity: 20(N - E) + 50 E >= 1000 -> 20N + 30E >= 1000 -> E >= (1000 - 20N)/30
+    # Compute integer lower bound
+    required = (1000 - 20 * N) / 30.0
+    e_min_capacity = math.ceil(required)
+    if e_min_capacity < 0:
+        e_min_capacity = 0
+
+    e_min = max(e_min_ratio, e_min_capacity)
+    e_max = e_max_ratio
+
+    if e_min <= e_max:
+        E = e_min
+        C = N - E
+        # Sanity checks
+        assert C >= 0 and E >= 0 and isinstance(C, int) and isinstance(E, int)
+        assert 20 * C + 50 * E >= 1000
+        assert E <= C
+        assert C <= 2 * E
+        solution = (C, E, N)
+        break
+
+if solution is None:
+    raise RuntimeError("No feasible solution found within search range.")
+
+C_opt, E_opt, N_opt = solution
+
+print(f"C = {C_opt}")
+print(f"E = {E_opt}")
+print(f"Total animals (objective) = {N_opt}")
+print(f"Capacity check: {20*C_opt + 50*E_opt} >= 1000")
+
+# Final required output line (exact format)
+print(f"FINAL_OBJ: {N_opt}")

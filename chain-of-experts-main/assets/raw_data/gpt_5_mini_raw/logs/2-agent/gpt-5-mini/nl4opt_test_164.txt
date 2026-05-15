@@ -1,0 +1,110 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - R = number of refrigerators produced and installed (≥ 0, integer in practice)
+  - S = number of stoves produced and installed (≥ 0, integer in practice)
+
+- Objective
+  - Maximize profit: maximize P = 400 R + 260 S
+
+- Resource constraints
+  - Mover time: 60 R + 45 S ≤ 20,000 (minutes)
+  - Setup time: 20 R + 25 S ≤ 13,000 (minutes)
+
+- Integrality
+  - R, S ∈ Z≥0 (if fractional appliances are not allowed). If you allow fractional solutions (LP relaxation), R,S ≥ 0 real.
+
+Analysis and solution
+
+Compare profit per unit of resource:
+- Profit per mover minute: refrigerator = 400/60 ≈ 6.667, stove = 260/45 ≈ 5.778.
+- Profit per setup minute: refrigerator = 400/20 = 20, stove = 260/25 = 10.4.
+
+Refrigerators dominate stoves on both resources, so the optimal plan is to use mover time entirely for refrigerators.
+
+- Continuous LP optimum: use all mover time for refrigerators:
+  R* = 20000 / 60 ≈ 333.333..., S* = 0, profit ≈ $133,333.33.
+
+- Practical (integer) solution: you cannot produce a fractional refrigerator, so take the largest integer R that respects mover time:
+  R = floor(20000/60) = 333, S = 0.
+  Check resources: mover time used = 333×60 = 19,980 ≤ 20,000; setup used = 333×20 = 6,660 ≤ 13,000.
+  Profit = 333×400 = $133,200.
+
+Thus: produce 333 refrigerators and 0 stoves to maximize profit (profit = $133,200) under integer constraints.
+
+Suggested solvers / libraries
+- Continuous LP: scipy.optimize.linprog, cvxopt
+- Mixed-integer linear programming (preferred for integer counts): PuLP (with CBC, GLPK, or other solvers), OR-Tools (CP-SAT or linear solver), Gurobi or CPLEX (commercial)
+  
+Example (PuLP, integer):
+- Define problem: LpProblem("MaxProfit", LpMaximize)
+- Variables: R = LpVariable("R", lowBound=0, cat='Integer'), S = LpVariable("S", lowBound=0, cat='Integer')
+- Objective: 400*R + 260*S
+- Constraints: 60*R + 45*S <= 20000; 20*R + 25*S <= 13000
+
+This will return R=333, S=0.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained script to solve the integer optimization described.
+# Decision variables:
+#   R = number of refrigerators (integer >=0)
+#   S = number of stoves (integer >=0)
+# Objective:
+#   Maximize P = 400*R + 260*S
+# Constraints:
+#   60*R + 45*S <= 20000   (mover time, minutes)
+#   20*R + 25*S <= 13000   (setup time, minutes)
+
+# Initialize parameters
+profit_R = 400
+profit_S = 260
+
+# Resource coefficients
+mover_R = 60
+mover_S = 45
+mover_capacity = 20000
+
+setup_R = 20
+setup_S = 25
+setup_capacity = 13000
+
+# Upper bounds for search (safe integer bounds)
+R_max = mover_capacity // mover_R  # floor(20000/60) = 333
+S_max = mover_capacity // mover_S  # floor(20000/45) = 444
+
+best_profit = -1
+best_R = 0
+best_S = 0
+
+for R in range(R_max + 1):
+    # Given R, we can limit S further by each constraint to reduce iterations
+    # Compute maximum S allowed by mover time and setup time for this R
+    remaining_mover = mover_capacity - mover_R * R
+    if remaining_mover < 0:
+        break  # increasing R will only make it worse
+    S_max_mover = remaining_mover // mover_S
+
+    remaining_setup = setup_capacity - setup_R * R
+    if remaining_setup < 0:
+        # no feasible S for this R due to setup, continue to next R
+        continue
+    S_max_setup = remaining_setup // setup_S
+
+    S_upper = min(S_max, S_max_mover, S_max_setup)
+
+    for S in range(S_upper + 1):
+        # Both constraints are satisfied by construction of S_upper
+        profit = profit_R * R + profit_S * S
+        if profit > best_profit:
+            best_profit = profit
+            best_R = R
+            best_S = S
+
+# The problem statement's analysis indicates the integer optimum is R=333, S=0 with profit 133200.
+# Print final objective value in the required format.
+print(f"FINAL_OBJ: {best_profit}")
+```

@@ -1,0 +1,198 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximize the total lawn area mowed (in square feet) by choosing how many small and large teams to form.
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP) with two decision variables (counts of each team type).  
+– Linear objective and linear constraints, but decision variables must be non‑negative integers.
+
+3. Main decision variables  
+Define:
+- x = number of small teams formed  
+- y = number of large teams formed  
+
+(Explicitly require x, y ≥ 0 and integer.)
+
+4. Key constraints to consider  
+
+a) Employee availability (resource capacity)  
+- Each small team uses 3 employees.  
+- Each large team uses 5 employees.  
+- Total employees used cannot exceed 150.  
+
+→ Constraint: Total employees assigned to all teams ≤ 150.  
+
+b) Relative number of teams (city preference)  
+- “The number of small teams must be at least 3 times the number of large teams.”  
+
+→ Constraint: x ≥ 3·y.  
+
+c) Minimum numbers of each team type (service coverage)  
+- At least 6 large teams: y ≥ 6.  
+- At least 10 small teams: x ≥ 10.  
+
+d) Non‑negativity and integrality  
+- x, y must be whole numbers (you can’t have fractional teams).  
+- x ≥ 0, y ≥ 0, and x, y are integers.
+
+5. Objective function components  
+
+Total lawn mowed:  
+- Each small team mows 50 sq ft.  
+- Each large team mows 80 sq ft.  
+
+Objective: Maximize total mowed area = 50·x + 80·y.
+
+6. Modelling strategy notes for the Modeller  
+
+- This is a very small ILP (2 variables, a handful of constraints); any standard solver will handle it instantly.  
+- Emphasize integrality, otherwise a continuous LP solution may yield fractional team counts that are not practically valid.  
+- After solving, verify:
+  - Employee usage is within 150.  
+  - The ratio constraint x ≥ 3y holds.  
+  - Minimum team counts are respected.  
+- Optionally, you can explore:
+  - Shadow prices / dual values for the employee capacity constraint (in a relaxed LP) to understand marginal value of extra employees.  
+  - Sensitivity to coefficients 50 and 80 (if mowing capacities change).
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem.
+
+## 1. Decision variables
+
+Let  
+- \(x \in \mathbb{Z}_{\ge 0}\): number of small teams  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of large teams  
+
+(Non‑negative integers; you cannot have fractional teams.)
+
+## 2. Objective
+
+Each small team mows 50 sq ft, each large team mows 80 sq ft.
+
+Maximize total lawn area mowed:
+
+\[
+\text{Maximize } Z = 50x + 80y
+\]
+
+## 3. Constraints
+
+1. **Employee capacity**
+
+Each small team uses 3 employees; each large team uses 5. At most 150 employees are available.
+
+\[
+3x + 5y \le 150
+\]
+
+2. **Relative number of teams**
+
+The number of small teams must be at least 3 times the number of large teams.
+
+\[
+x \ge 3y
+\]
+
+3. **Minimum number of teams**
+
+At least 10 small teams and at least 6 large teams:
+
+\[
+x \ge 10
+\]
+\[
+y \ge 6
+\]
+
+4. **Integrality and non‑negativity**
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+## 4. Model type
+
+This is an **Integer Linear Program (ILP)**:
+
+- Linear objective \(50x + 80y\)
+- Linear constraints
+- Integer decision variables \(x, y\)
+
+## 5. Suitable Python tools
+
+Any standard MILP/ILP solver can handle this instantly. Good Python options:
+
+- **PuLP** (pure Python modeling, can use CBC by default):  
+  - `pulp.LpProblem`, `pulp.LpVariable`, `pulp.PULP_CBC_CMD`
+- **OR-Tools** (Google OR-Tools CP-SAT or linear solver):  
+  - `ortools.linear_solver.pywraplp` or `ortools.sat.python.cp_model`
+- **Pyomo** (more general mathematical modeling framework) together with a MILP solver (CBC, GLPK, Gurobi, CPLEX, etc.)
+- **SciPy** is not a good fit here because `scipy.optimize.linprog` does not handle integer constraints directly.
+
+### Example using PuLP (outline)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("LawnMowingTeams", pl.LpMaximize)
+
+# Variables (integer, non-negative)
+x = pl.LpVariable('small_teams', lowBound=0, cat='Integer')
+y = pl.LpVariable('large_teams', lowBound=0, cat='Integer')
+
+# Objective
+prob += 50 * x + 80 * y
+
+# Constraints
+prob += 3 * x + 5 * y <= 150          # employees
+prob += x >= 3 * y                    # ratio small ≥ 3 * large
+prob += x >= 10                       # at least 10 small
+prob += y >= 6                        # at least 6 large
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Small teams (x):", pl.value(x))
+print("Large teams (y):", pl.value(y))
+print("Max area:", pl.value(prob.objective))
+```
+
+This code directly implements the ILP model above and will return the optimal numbers of small and large teams.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("LawnMowingTeams", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('small_teams', lowBound=0, cat='Integer')
+    y = pl.LpVariable('large_teams', lowBound=0, cat='Integer')
+
+    # Objective function: Maximize 50x + 80y
+    prob += 50 * x + 80 * y
+
+    # Constraints
+    prob += 3 * x + 5 * y <= 150        # Employee capacity
+    prob += x >= 3 * y                  # Relative number of teams
+    prob += x >= 10                     # Minimum small teams
+    prob += y >= 6                      # Minimum large teams
+
+    # Solve the ILP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    objective_value = pl.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {objective_value}")
+
+if __name__ == "__main__":
+    main()

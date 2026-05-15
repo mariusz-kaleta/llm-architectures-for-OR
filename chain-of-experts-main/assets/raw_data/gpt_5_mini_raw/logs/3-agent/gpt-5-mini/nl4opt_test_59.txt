@@ -1,0 +1,113 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x = number of runs of experiment alpha (>= 0)
+- y = number of runs of experiment beta (>= 0)
+
+Objective
+- Maximize total electricity produced: maximize Z = 8x + 10y
+
+Constraints
+- Metal availability: 3x + 5y <= 800
+- Acid availability: 5x + 4y <= 750
+- Nonnegativity: x >= 0, y >= 0
+- (Optional) Integrality: x, y integers if you cannot run fractional experiments
+
+Continuous LP solution (fractions allowed)
+- Solve 3x + 5y = 800 and 5x + 4y = 750 simultaneously:
+  x = 550/13 ≈ 42.307692, y = 1750/13 ≈ 134.615385
+- Objective value: Z = 8x + 10y ≈ 1684.615385
+
+Integer (practical) solution
+- If x and y must be whole runs, solve the integer program. Searching nearby integer points shows the best feasible integer solution is
+  x = 40 (alpha), y = 136 (beta)
+  giving Z = 8*40 + 10*136 = 1680 units of electricity.
+
+Recommended solvers / Python libraries
+- Continuous LP: scipy.optimize.linprog, PuLP, cvxpy
+- Integer (ILP/MIP): PuLP (with CBC), OR-Tools (CP-SAT), Pyomo (with a MIP solver such as CBC/Gurobi)
+- For a small problem like this you can also enumerate integer candidates quickly or use any MIP solver.
+
+Example approaches
+- Use scipy.optimize.linprog or PuLP to get the continuous solution.
+- Use PuLP or OR-Tools CP-SAT to get the integer optimum (x, y integers).
+
+Summary answer
+- If fractional experiments are allowed: run ≈ 42.31 alpha and ≈ 134.62 beta for about 1684.62 units of electricity.
+- If experiments must be whole runs: run 40 alpha and 136 beta to produce 1680 units of electricity (optimal integer solution).
+
+---
+
+[CODER]:
+import math
+
+# Problem data
+# Decision variables:
+# x = number of runs of experiment alpha (>= 0)
+# y = number of runs of experiment beta (>= 0)
+#
+# Objective:
+# maximize Z = 8x + 10y
+#
+# Constraints:
+# 3x + 5y <= 800   (metal)
+# 5x + 4y <= 750   (acid)
+# x, y >= 0
+#
+# We'll compute:
+# 1) Continuous optimal solution (solve the two binding constraints analytically)
+# 2) Integer optimal solution by simple enumeration (small problem)
+
+# Coefficients and supplies
+a1, b1, supply1 = 3, 5, 800   # metal: 3x + 5y <= 800
+a2, b2, supply2 = 5, 4, 750   # acid:  5x + 4y <= 750
+c1, c2 = 8, 10                # objective: 8x + 10y
+
+# 1) Continuous (fractional) solution: solve
+# a1*x + b1*y = supply1
+# a2*x + b2*y = supply2
+det = a1 * b2 - a2 * b1
+if det == 0:
+    raise RuntimeError("Linear system is singular; no unique intersection of constraints.")
+det_x = supply1 * b2 - b1 * supply2
+det_y = a1 * supply2 - supply1 * a2
+
+x_cont = det_x / det
+y_cont = det_y / det
+z_cont = c1 * x_cont + c2 * y_cont
+
+# 2) Integer solution by enumeration
+# Determine reasonable bounds for x
+max_x_by_metal = supply1 // a1
+max_x_by_acid = supply2 // a2
+max_x = int(min(max_x_by_metal, max_x_by_acid))
+
+best_obj = -math.inf
+best_x = None
+best_y = None
+
+for x in range(0, max_x + 1):
+    # compute maximum feasible y for this x (from both constraints)
+    rem1 = supply1 - a1 * x
+    rem2 = supply2 - a2 * x
+    if rem1 < 0 or rem2 < 0:
+        continue
+    y_max1 = rem1 / b1
+    y_max2 = rem2 / b2
+    y_max = math.floor(min(y_max1, y_max2))
+    if y_max < 0:
+        continue
+    y = y_max
+    obj = c1 * x + c2 * y
+    if obj > best_obj:
+        best_obj = obj
+        best_x = x
+        best_y = y
+
+# Print results (informational), then final required line
+print(f"Continuous solution (fractional): x = {x_cont:.6f}, y = {y_cont:.6f}, Z = {z_cont:.6f}")
+print(f"Integer solution (practical): x = {best_x}, y = {best_y}, Z = {int(best_obj)}")
+
+# Final required print line (must be the last line)
+print(f"FINAL_OBJ: {int(best_obj)}")

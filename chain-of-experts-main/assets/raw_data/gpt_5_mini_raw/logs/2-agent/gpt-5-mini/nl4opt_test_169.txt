@@ -1,0 +1,63 @@
+[MODELER]:
+Formal model
+
+- Decision variables
+  - x ∈ Z_{\ge 0}: number of golf carts (capacity 4 each).
+  - y ∈ Z_{\ge 0}: number of pull carts (capacity 1 each).
+
+- Objective
+  - Minimize total number of carts: minimize Z = x + y.
+
+- Constraints
+  1. Capacity requirement: 4x + y ≥ 80 (at least 80 guests transported).
+  2. At most 60% of carts may be golf carts:
+     x ≤ 0.6 (x + y).  
+     Equivalent integer linear form: 2x ≤ 3y (multiply both sides by 5 and rearrange).
+  3. x, y integers ≥ 0.
+
+Solve this integer linear program (minimize x+y subject to 4x+y≥80 and 2x≤3y).
+
+Analytic reasoning / solution
+- To minimize total carts you want as many golf carts as allowed (they carry 4 people).
+- Using the constraint x ≤ 0.6(x+y) and maximizing x for a given total t = x+y gives capacity per cart 2.8 (since if x = 0.6t, capacity = 4x + (t-x) = 2.8t). So t must satisfy 2.8 t ≥ 80 → t ≥ 80/2.8 ≈ 28.571, hence minimum integer t = 29.
+- For t = 29 the maximum allowed x = floor(0.6·29) = 17. Then y = 29 − 17 = 12 and capacity = 4·17 + 12 = 80, satisfying all constraints.
+
+Optimal solution: x = 17 golf carts and y = 12 pull carts (total 29 carts).
+
+Suggested solvers / libraries
+- For MILP: PuLP, OR-Tools (CP-SAT or linear solver), Gurobi or CPLEX (if available).
+- For simple search: plain Python brute-force enumeration (small integer domain).
+- If you prefer modelling frameworks: Pyomo.
+
+Example (short) approaches
+- PuLP or OR-Tools CP-SAT to solve the ILP directly.
+- A quick brute-force loop over small integer ranges (x from 0..20 or 0..80, y computed or enumerated) will also find the solution efficiently.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained script to solve the ILP:
+# Minimize Z = x + y
+# subject to:
+#   4x + y >= 80
+#   2x <= 3y
+#   x, y integers >= 0
+
+best_obj = None
+best_solution = None
+
+# Reasonable bounds: x cannot exceed 80 (if y=0, 4x >= 80 -> x>=20; but we allow safe upper bound)
+# y likewise cannot exceed 80.
+for x in range(0, 81):
+    for y in range(0, 81):
+        if 4*x + y >= 80 and 2*x <= 3*y:
+            obj = x + y
+            if best_obj is None or obj < best_obj:
+                best_obj = obj
+                best_solution = (x, y)
+
+# best_solution should be (17, 12) and best_obj = 29
+# Print final objective value exactly as required:
+print(f"FINAL_OBJ: {best_obj}")
+```

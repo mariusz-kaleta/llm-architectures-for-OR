@@ -1,0 +1,35 @@
+[MONOLITH]:
+import pulp
+
+# Initialize the problem: minimize total number of vehicles
+prob = pulp.LpProblem("Party_Transportation", pulp.LpMinimize)
+
+# Decision variables: number of limousines (L) and buses (B)
+L = pulp.LpVariable('L', lowBound=0, cat='Integer')
+B = pulp.LpVariable('B', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of vehicles
+prob += L + B, "Total_Vehicles"
+
+# Constraint: carry at least 400 people
+prob += 12 * L + 18 * B >= 400, "Capacity_Constraint"
+
+# Constraint: at least 70% of vehicles must be limousines
+# L >= 0.7 * (L + B)  ->  0.3L >= 0.7B  ->  3L >= 7B
+prob += 3 * L >= 7 * B, "Limousine_Percentage_Constraint"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract the solution
+L_val = int(pulp.value(L))
+B_val = int(pulp.value(B))
+obj_val = pulp.value(prob.objective)
+
+# Print results (can be used for inspection if needed)
+print("Number of limousines (L):", L_val)
+print("Number of buses (B):", B_val)
+print("Minimum total number of vehicles:", obj_val)
+
+# Required final objective value print
+print(f"FINAL_OBJ: {obj_val}")

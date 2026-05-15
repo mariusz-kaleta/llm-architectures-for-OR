@@ -1,0 +1,80 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of carrots to buy/sell (units, integer ≥ 0)
+  - y = number of cucumbers to buy/sell (units, integer ≥ 0)
+  (If you allow fractional units, treat x,y as continuous ≥ 0.)
+
+- Objective
+  Maximize monthly profit: maximize P = 0.75 x + 0.80 y
+
+- Constraints
+  1. Budget: 0.30 x + 0.50 y ≤ 500
+  2. Demand ratio: y ≤ x / 3
+  3. Carrot bounds: 300 ≤ x ≤ 500
+  4. Integrality (optional): x, y integers
+
+Solve reasoning (analytical)
+- Profit per dollar spent: carrots = 0.75/0.30 = 2.5 profit per dollar, cucumbers = 0.80/0.50 = 1.6 profit per dollar. Carrots give more profit per dollar, so we should take x as large as allowed by its upper bound.
+- Set x to its maximum, x = 500. Then the demand ratio gives y ≤ 500/3 ≈ 166.666...
+- Because y must be ≤ x/3 and x is capped at 500, the maximum feasible y is 166 if y must be integer (166.666... if fractional allowed). The budget is not binding at these values (cost = 0.30·500 + 0.50·166 = $233 ≤ $500).
+
+Optimal solutions
+- Integer solution (whole vegetables): x = 500 carrots, y = 166 cucumbers.
+  Profit = 0.75·500 + 0.80·166 = $375 + $132.80 = $507.80
+
+- Continuous relaxation (if fractional units allowed): x = 500, y = 500/3 ≈ 166.6667
+  Profit = 0.75·500 + 0.80·(500/3) = $375 + $133.333... = $508.333...
+
+Recommended solvers / Python libraries
+- pulp (for integer or continuous linear programs)
+- ortools.linear_solver (Google OR-Tools, supports MIP)
+- scipy.optimize.linprog (for continuous LP only)
+- cvxpy (for convex/LP modeling with different solvers)
+
+Example (brief) using pulp (integer MIP)
+- Define variables x = LpVariable('x', lowBound=300, upBound=500, cat='Integer')
+  y = LpVariable('y', lowBound=0, cat='Integer')
+- Add constraints 0.3*x + 0.5*y <= 500 and y <= x/3
+- Maximize 0.75*x + 0.80*y and solve.
+
+Conclusion
+Sell 500 carrots and 166 cucumbers (if you must use whole items) to maximize monthly profit (profit = $507.80). If fractional amounts were allowed, the maximum profit would be slightly higher with y = 500/3.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Parameters
+profit_x = 0.75  # profit per carrot
+profit_y = 0.80  # profit per cucumber
+cost_x = 0.30
+cost_y = 0.50
+budget = 500.0
+x_min, x_max = 300, 500
+
+# Reasoning: profit per dollar is higher for carrots -> take x at upper bound
+x_cont = float(x_max)
+# y limited by demand ratio y <= x/3 and by budget: cost_x*x + cost_y*y <= budget
+y_by_ratio = x_cont / 3.0
+y_by_budget = (budget - cost_x * x_cont) / cost_y if cost_y > 0 else float('inf')
+y_cont = min(y_by_ratio, y_by_budget)
+profit_cont = profit_x * x_cont + profit_y * y_cont
+
+# Integer solution: x integer, y integer
+x_int = x_max
+y_int = int(math.floor(x_int / 3.0))
+# Ensure budget feasibility (should be feasible here)
+if cost_x * x_int + cost_y * y_int > budget + 1e-9:
+    # if not feasible, reduce y until feasible
+    while y_int > 0 and cost_x * x_int + cost_y * y_int > budget + 1e-9:
+        y_int -= 1
+
+profit_int = profit_x * x_int + profit_y * y_int
+
+# Final objective: integer solution (as recommended)
+value = profit_int
+
+print(f"FINAL_OBJ: {value}")

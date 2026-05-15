@@ -1,0 +1,99 @@
+[MODELER]:
+Model (decision variables, objective, constraints)
+
+- Decision variables
+  - x = number of trips made by the new company (nonnegative integer, x ∈ Z≥0)
+  - y = number of trips made by the old company (nonnegative integer, y ∈ Z≥0)
+
+- Objective
+  - Minimize total diesel: minimize Z = 30x + 40y   (liters)
+
+- Constraints
+  1. Delivery requirement: 50x + 70y ≥ 1000  (at least 1000 gifts delivered)
+  2. New-company trip limit: x ≤ 15
+  3. At least 40% of trips by old company:
+     y ≥ 0.4 (x + y)  ⇔  0.6 y ≥ 0.4 x  ⇔  3y ≥ 2x
+  4. Integrality and nonnegativity: x, y ∈ Z≥0
+
+Solution approach (exact integer optimization)
+- For each integer x in 0..15 compute the smallest feasible integer y:
+  y = max( ceil((1000 - 50x)/70), ceil(2x/3), 0 ).
+- Evaluate Z = 30x + 40y and pick the minimum.
+
+Optimal result
+- Minimum total diesel = 580 liters.
+- Achieved by two integer solutions:
+  - x = 2 new-company trips, y = 13 old-company trips (delivers 1010 gifts; diesel = 2·30 + 13·40 = 580)
+  - x = 6 new-company trips, y = 10 old-company trips (delivers 1000 gifts; diesel = 6·30 + 10·40 = 580)
+
+Either of these combinations minimizes diesel; you can pick between them on any secondary criterion (e.g., fewer total trips or business preferences).
+
+Recommended Python libraries/tools to solve
+- pulp (open-source linear/integer programming; default CBC solver)
+- OR-Tools CP-SAT or MIP (fast, reliable integer solver)
+- pyomo + a solver (CBC / GLPK / Gurobi) if you prefer a modeling layer
+- For small problems a simple brute-force integer search (plain Python loop) is sufficient and simplest.
+
+Example (sketch) using pulp
+- Formulate integer LP with pulp.LpVariable(..., cat="Integer"), add the constraints above, set objective 30*x+40*y and call solver. The solver will return one of the optimal integer solutions shown.
+
+If you want, I can provide a ready-to-run Python snippet (pulp or OR-Tools) that computes and prints the optimal solution(s).
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+
+def ceil_div(a: int, b: int) -> int:
+    """Integer ceiling division that works for negative and positive a."""
+    return -(-a // b)
+
+# Parameters from the model
+diesel_per_x = 30
+diesel_per_y = 40
+deliver_per_x = 50
+deliver_per_y = 70
+required_delivery = 1000
+max_x = 15
+
+best_obj = None
+best_solutions = []
+
+feasible_solutions = []
+
+for x in range(0, max_x + 1):
+    # Minimum y to satisfy delivery: ceil((1000 - 50x)/70)
+    y_min_delivery = ceil_div(required_delivery - deliver_per_x * x, deliver_per_y)
+    # Minimum y to satisfy y >= (2/3)x : ceil(2x/3)
+    y_min_ratio = ceil_div(2 * x, 3)
+    y = max(y_min_delivery, y_min_ratio, 0)
+    # Ensure integer and constraints are met
+    if y < 0:
+        continue
+    if deliver_per_x * x + deliver_per_y * y < required_delivery:
+        continue
+    if x > max_x:
+        continue
+    if 3 * y < 2 * x:
+        continue
+    obj = diesel_per_x * x + diesel_per_y * y
+    feasible_solutions.append((x, y, obj))
+    if best_obj is None or obj < best_obj:
+        best_obj = obj
+        best_solutions = [(x, y)]
+    elif obj == best_obj:
+        best_solutions.append((x, y))
+
+# Print all feasible solutions found (optional informative output)
+print("Feasible solutions (x, y, diesel):")
+for sol in feasible_solutions:
+    print(sol)
+print()
+print("Best objective value and corresponding (x,y) solutions:")
+print(best_obj, best_solutions)
+
+# Final required output line (exact format)
+print(f"FINAL_OBJ: {best_obj}")
+```

@@ -1,0 +1,195 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- T >= 0 : number of turkey dinners.
+- S >= 0 : number of tuna salad sandwiches.
+
+(If meals must be integer, add T, S integer.)
+
+Objective
+- Minimize total fat F = 12 T + 8 S.
+
+Constraints
+1. Protein requirement: 20 T + 18 S >= 150.
+2. Carbohydrate requirement: 30 T + 25 S >= 200.
+3. At most 40% turkey meals:
+   T <= 0.4 (T + S).
+   Equivalently 0.6 T <= 0.4 S, or 3 T <= 2 S (i.e. T <= (2/3) S).
+4. Nonnegativity: T >= 0, S >= 0.
+
+(If integer meals required also T, S ∈ Z_+.)
+
+Analysis and solution
+
+Because tuna has lower fat per meal (8 g) and supplies more protein and carbs per gram of fat than turkey, the continuous LP optimal solution uses only tuna (T = 0).
+
+Set T = 0, then protein constraint gives S >= 150/18 = 25/3 ≈ 8.3333 and the carbs constraint gives S >= 200/25 = 8. The protein constraint is binding: S* = 25/3 ≈ 8.3333.
+
+Objective value (minimum fat) for the continuous case:
+F* = 8 * (25/3) = 200/3 ≈ 66.6667 grams of fat.
+
+Integer-meal variant
+If meals must be whole numbers, S must be an integer ≥ 9 (since 8 is insufficient for protein). Try T = 0, S = 9 → fat = 8*9 = 72 g. Checking other integer combinations that meet constraints (and the 40% rule) shows (T = 0, S = 9) is optimal among integer solutions.
+
+Recommended solvers / Python libraries
+- For continuous LP: scipy.optimize.linprog (scipy) or PuLP.
+- For mixed-integer (integer meals): PuLP (with CBC), OR-Tools (MIP), or Gurobi/Cplex if available.
+- For larger / more complex models: OR-Tools (python) is robust and fast.
+
+Example (PuLP) — continuous LP
+- Define variables T, S >= 0.
+- Objective: pulp.lpMinimize(12*T + 8*S).
+- Add constraints: 20*T + 18*S >= 150; 30*T + 25*S >= 200; 3*T <= 2*S.
+- Solve with default solver.
+
+Summary answer
+- Continuous solution (meals can be fractional): eat only tuna sandwiches: T = 0, S = 25/3 ≈ 8.3333; minimal fat ≈ 66.67 g.
+- If meals must be integer: T = 0, S = 9; fat = 72 g.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+#!/usr/bin/env python3
+# Self-contained solver for the turkey/tuna meal LP and integer variant.
+# Computes continuous optimal solution by enumerating corner intersections,
+# and computes integer optimal by brute force search over a reasonable range.
+# Prints results and finally prints the required FINAL_OBJ line with the
+# continuous optimal objective value.
+
+from math import isclose
+
+# Constraint coefficients and RHS for equalities:
+# A1: 20 T + 18 S = 150
+# A2: 30 T + 25 S = 200
+# A3: 3 T - 2 S = 0    (from 3T <= 2S)
+# T=0 and S=0 as potential boundary lines
+eqs = {
+    "A1": (20.0, 18.0, 150.0),
+    "A2": (30.0, 25.0, 200.0),
+    "A3": (3.0, -2.0, 0.0),
+    "T0": (1.0, 0.0, 0.0),
+    "S0": (0.0, 1.0, 0.0)
+}
+
+# Feasibility check tolerances
+tol = 1e-9
+
+def solve_two(a1, b1, c1, a2, b2, c2):
+    det = a1*b2 - a2*b1
+    if abs(det) < 1e-12:
+        return None
+    T = (c1*b2 - c2*b1) / det
+    S = (a1*c2 - a2*c1) / det
+    return (T, S)
+
+# Inequality constraint check
+def is_feasible(T, S):
+    if T is None or S is None:
+        return False
+    if T < -tol or S < -tol:
+        return False
+    if 20.0*T + 18.0*S < 150.0 - tol:
+        return False
+    if 30.0*T + 25.0*S < 200.0 - tol:
+        return False
+    if 3.0*T - 2.0*S > tol:
+        return False
+    return True
+
+# Compute objective
+def fat(T, S):
+    return 12.0*T + 8.0*S
+
+# Enumerate intersections of all pairs of boundary/equality lines
+points = []
+keys = list(eqs.keys())
+n = len(keys)
+for i in range(n):
+    for j in range(i+1, n):
+        k1 = keys[i]; k2 = keys[j]
+        a1,b1,c1 = eqs[k1]
+        a2,b2,c2 = eqs[k2]
+        sol = solve_two(a1,b1,c1, a2,b2,c2)
+        if sol is None:
+            continue
+        T,S = sol
+        if is_feasible(T,S):
+            # round small negative zero values to 0
+            if abs(T) < 1e-12: T = 0.0
+            if abs(S) < 1e-12: S = 0.0
+            points.append((T,S))
+
+# Also consider bounding along single-constraint intersections with axes if they produce feasible points
+# But those are covered by pairs with T0 or S0 above.
+
+# Remove duplicates (within tolerance)
+unique_points = []
+for (T,S) in points:
+    found = False
+    for (uT,uS) in unique_points:
+        if isclose(T,uT,rel_tol=1e-9, abs_tol=1e-9) and isclose(S,uS,rel_tol=1e-9, abs_tol=1e-9):
+            found = True
+            break
+    if not found:
+        unique_points.append((T,S))
+
+# Evaluate objective at each feasible corner
+best_cont = None
+best_point_cont = None
+for (T,S) in unique_points:
+    val = fat(T,S)
+    if (best_cont is None) or (val < best_cont - 1e-12):
+        best_cont = val
+        best_point_cont = (T,S)
+
+# As a fallback, also check boundary points obtained by minimizing along lines where one inequality is binding
+# but the minimum may occur at infinity; for this problem objective is bounded below and earlier enumeration should suffice.
+# However, check also pure-T and pure-S directions constrained by inequalities:
+# - Pure tuna (S=0) possible? Check feasibility:
+if is_feasible(0.0, 0.0):
+    val = fat(0.0,0.0)
+    if (best_cont is None) or (val < best_cont - 1e-12):
+        best_cont = val
+        best_point_cont = (0.0,0.0)
+
+# Brute-force integer search for small integer ranges
+# Choose reasonable upper bounds
+max_T = 100
+max_S = 200
+best_int = None
+best_point_int = None
+for Ti in range(0, max_T+1):
+    for Si in range(0, max_S+1):
+        # constraints
+        if 20*Ti + 18*Si < 150:
+            continue
+        if 30*Ti + 25*Si < 200:
+            continue
+        if 3*Ti > 2*Si:
+            continue
+        val = 12*Ti + 8*Si
+        if (best_int is None) or (val < best_int):
+            best_int = val
+            best_point_int = (Ti, Si)
+
+# Output results
+print("Continuous (fractional meals) solution:")
+if best_point_cont is not None:
+    Topt, Sopt = best_point_cont
+    print(f" T = {Topt:.10f}, S = {Sopt:.10f}, fat = {best_cont:.10f}")
+else:
+    print(" No feasible continuous solution found.")
+
+print("Integer (whole meals) optimal solution:")
+if best_point_int is not None:
+    Ti, Si = best_point_int
+    print(f" T = {Ti}, S = {Si}, fat = {best_int}")
+else:
+    print(" No feasible integer solution found within search bounds.")
+
+# Final objective value: choose the continuous optimal objective as the final reported value
+final_value = best_cont if best_cont is not None else float('nan')
+
+# Must be the very last printed line in exactly this format:
+print(f"FINAL_OBJ: {final_value:.10f}")

@@ -1,0 +1,104 @@
+[MODELER]:
+Model (integer linear program)
+
+Decision variables
+- G ∈ Z≥0: number of glass jars filled.
+- P ∈ Z≥0: number of plastic jars filled.
+
+Objective
+- Maximize total jars: maximize Z = G + P.
+
+Constraints
+1. Volume (honey) constraint: 250·G + 300·P ≤ 20 000.
+2. Plastic ≥ twice glass: P ≥ 2·G.
+3. Minimum glass jars: G ≥ 20.
+4. Integrality/nonnegativity: G, P ∈ Z≥0.
+
+Solution reasoning (short)
+- For any fixed G, the maximum feasible P is P_max = floor((20000 − 250·G) / 300), provided P_max ≥ 2·G.
+- Evaluate feasible G (G ≥ 20) and compute N(G) = G + P_max. Doing so gives:
+  - G = 20 → P_max = 50 → N = 70 (uses all 20000 ml).
+  - G = 21 → P_max = 49 → N = 70 (uses 19950 ml).
+  - G = 22 → P_max = 48 → N = 70 (uses 19900 ml).
+  - G = 23 → P_max = 47 → N = 70 (uses 19850 ml).
+  - G = 24 is infeasible because required P ≥ 48 but P_max = 46.
+- Maximum total jars = 70. There are multiple optimal (G,P) solutions: (20,50), (21,49), (22,48), (23,47).
+
+Recommended solvers / Python libraries
+- pulp (mixed-integer linear programming, user-friendly)
+- OR-Tools CP-SAT (very fast integer solver)
+- mip (python-mip) or pyomo (with a MILP solver like CBC/Gurobi)
+- For small problems a simple brute-force loop is fine (no heavy solver needed)
+
+Example PuLP code (concise)
+```python
+import pulp
+
+# Define problem
+prob = pulp.LpProblem("HoneyJars", pulp.LpMaximize)
+G = pulp.LpVariable('G', lowBound=20, cat='Integer')   # glass
+P = pulp.LpVariable('P', lowBound=0, cat='Integer')    # plastic
+
+prob += G + P                       # objective
+prob += 250*G + 300*P <= 20000      # volume
+prob += P >= 2*G                    # plastic >= 2*glass
+
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+print("Status:", pulp.LpStatus[prob.status])
+print("G (glass) =", int(G.value()), "P (plastic) =", int(P.value()))
+print("Total jars =", int(G.value() + P.value()))
+```
+
+Answer
+- Maximum number of jars = 70. Possible fillings: (G,P) = (20,50), (21,49), (22,48) or (23,47).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Honey jars integer optimization (brute-force)
+# Decision variables:
+#  - G: number of glass jars (integer, >=20)
+#  - P: number of plastic jars (integer, >=0)
+# Objective: maximize G + P
+# Constraints:
+#  - 250*G + 300*P <= 20000
+#  - P >= 2*G
+
+from typing import List, Tuple
+
+# Parameters
+VOL_G = 250
+VOL_P = 300
+CAPACITY = 20000
+G_MIN = 20
+
+best_obj = -1
+best_solutions: List[Tuple[int,int]] = []
+
+# Upper bound for G from capacity
+G_upper = CAPACITY // VOL_G
+
+for G in range(G_MIN, G_upper + 1):
+    remaining = CAPACITY - VOL_G * G
+    if remaining < 0:
+        continue
+    P_max = remaining // VOL_P  # best P for this G (maximize total jars)
+    if P_max < 2 * G:
+        continue  # fails P >= 2G
+    total = G + P_max
+    if total > best_obj:
+        best_obj = total
+        best_solutions = [(G, P_max)]
+    elif total == best_obj:
+        best_solutions.append((G, P_max))
+
+# Print found optimal solutions (optional informational output)
+print("Optimal (G, P) solutions found:")
+for G, P in best_solutions:
+    print(f"  G = {G}, P = {P}, Total jars = {G+P}, Volume used = {250*G + 300*P} ml")
+
+# Final required output line (must be the last line)
+value = best_obj if best_obj >= 0 else 0
+print(f"FINAL_OBJ: {value}")
+```

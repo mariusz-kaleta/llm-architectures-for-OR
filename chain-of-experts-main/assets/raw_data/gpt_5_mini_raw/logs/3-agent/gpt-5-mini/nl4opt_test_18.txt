@@ -1,0 +1,100 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x = number of elephants produced (units, x ≥ 0).
+- y = number of tigers produced (units, y ≥ 0).
+
+(If problem requires integer production, add x,y ∈ Z≥0. Otherwise treat as continuous.)
+
+Constraints
+- Wood: 50x + 40y ≤ 5000 (grams of wood available per week).
+- Plastic: 20x + 30y ≤ 4000 (grams of plastic available per week).
+- Nonnegativity: x ≥ 0, y ≥ 0.
+- (Optional integrality: x, y ∈ Z≥0)
+
+Objective
+- Maximize profit: maximize Z = 5x + 4y (dollars).
+
+Remarks and solution
+- Divide the wood constraint by 10: 5x + 4y ≤ 500. The objective is exactly 5x + 4y, so Z ≤ 500 for any feasible x,y. Thus the maximum achievable profit is Z* = $500.
+- Any feasible (x,y) that uses all the wood (i.e., satisfies 5x + 4y = 500) attains the maximum profit. The plastic constraint is never tighter than the wood constraint for x,y ≥ 0 (the two constraint lines intersect at a negative x), so the feasible region is the triangle with vertices (0,0), (100,0), (0,125), and the entire segment between (100,0) and (0,125) is optimal.
+- Example optimal integer solutions: produce 100 elephants and 0 tigers (profit $500), or 0 elephants and 125 tigers (profit $500). There are many integer optimal solutions given by x = 4k, y = 125 − 5k for integer k = 0,1,...,25.
+
+Recommended solver libraries
+- For linear programming (continuous): scipy.optimize.linprog, cvxpy.
+- For integer/LP with easy modeling: PuLP (with CBC/Gurobi/CPLEX backends), OR-Tools linear solver.
+- If you want to enumerate integer optimal solutions or enforce integrality, use PuLP or OR-Tools.
+
+Optional: simple PuLP model (sketch)
+- Use pulp.LpProblem(..., pulp.LpMaximize), define x,y = pulp.LpVariable(..., lowBound=0, cat='Integer' or 'Continuous'), add constraints 50*x+40*y<=5000 and 20*x+30*y<=4000, set objective 5*x+4*y, and solve.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the LP:
+# max 5x + 4y
+# s.t. 50x + 40y <= 5000
+#      20x + 30y <= 4000
+#      x,y >= 0
+
+import math
+
+# Problem data
+profits = (5, 4)            # profit coefficients for x and y
+wood_coeff = (50, 40)       # grams of wood per unit (x,y)
+plastic_coeff = (20, 30)    # grams of plastic per unit (x,y)
+avail_wood = 5000
+avail_plastic = 4000
+
+final_obj_value = None
+
+# Try to solve using PuLP if available; otherwise use geometric reasoning (vertices).
+try:
+    import pulp
+
+    prob = pulp.LpProblem("Toy_Animals", pulp.LpMaximize)
+    x = pulp.LpVariable("x", lowBound=0, cat="Continuous")
+    y = pulp.LpVariable("y", lowBound=0, cat="Continuous")
+
+    # Objective
+    prob += profits[0] * x + profits[1] * y
+
+    # Constraints
+    prob += wood_coeff[0] * x + wood_coeff[1] * y <= avail_wood
+    prob += plastic_coeff[0] * x + plastic_coeff[1] * y <= avail_plastic
+
+    # Solve (CBC solver). Suppress output.
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    val = pulp.value(prob.objective)
+    final_obj_value = float(val) if val is not None else None
+
+except Exception:
+    # Fallback: evaluate corner points of feasible region.
+    # Feasible region vertices for these constraints (by inspection) are:
+    # (0,0), (100,0) from wood binding with y=0, and (0,125) from wood binding with x=0.
+    # The plastic constraint does not cut inside the segment between (100,0) and (0,125).
+    vertices = [(0.0, 0.0), (100.0, 0.0), (0.0, 125.0)]
+    best = -math.inf
+    for xv, yv in vertices:
+        # verify feasibility just in case
+        if (wood_coeff[0]*xv + wood_coeff[1]*yv <= avail_wood + 1e-9 and
+            plastic_coeff[0]*xv + plastic_coeff[1]*yv <= avail_plastic + 1e-9 and
+            xv >= -1e-9 and yv >= -1e-9):
+            obj = profits[0]*xv + profits[1]*yv
+            if obj > best:
+                best = obj
+    final_obj_value = float(best)
+
+# Post-process numeric formatting: convert to int if essentially integer
+if final_obj_value is None:
+    final_obj_value = 0.0
+
+if abs(final_obj_value - round(final_obj_value)) < 1e-8:
+    final_obj_value = int(round(final_obj_value))
+
+print(f"FINAL_OBJ: {final_obj_value}")
+```

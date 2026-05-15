@@ -1,0 +1,91 @@
+[MODELER]:
+Below is a compact mathematical model, the reasoning to get the optimal integer solution, and suggestions for solver libraries and a short solving method.
+
+1) Decision variables
+- c ∈ Z≥0 : number of servers delivering by cart (integer).
+- h ∈ Z≥0 : number of servers delivering by hand (integer).
+
+2) Objective
+Minimize total refills per hour:
+minimize R = 5c + 20h
+
+3) Constraints
+- Customer interaction requirement:
+70 c + 85 h ≥ 4000
+- At least 70% of delivery shifts must be by cart:
+c ≥ 0.7 (c + h)  ⇔  c ≥ (7/3) h
+- At least 3 hand servers:
+h ≥ 3
+- Integrality / nonnegativity:
+c, h ∈ Z, c ≥ 0, h ≥ 0
+
+(If you allowed fractional servers, remove integrality constraints and treat c,h ≥ 0 continuous.)
+
+4) Analysis and solution
+- Cart refills per interaction: 5 / 70 ≈ 0.07143
+- Hand refills per interaction: 20 / 85 ≈ 0.23529
+
+Because carts use far fewer refills per interaction, we want as many carts as allowed and minimize h (subject to h ≥ 3). Set h = 3 (lowest allowed). Then interaction constraint gives:
+70 c + 85·3 ≥ 4000  ⇒  70 c ≥ 3745  ⇒  c ≥ 3745 / 70 = 53.5 ⇒ c must be integer so c = 54.
+
+Total refills: R = 5·54 + 20·3 = 270 + 60 = 330 refills per hour.
+
+Checking other feasible integer choices (small exhaustive check or LP relaxation) confirms (c, h) = (54, 3) is optimal.
+
+5) Suggested Python libraries / methods
+- pulp (pure-Python MILP solver interface; uses CBC by default)
+- ortools (Google OR-Tools CP-SAT for integer programs)
+- scipy.optimize (for continuous relaxation only)
+- gurobi or cplex (commercial solvers if available)
+
+Simple approach: small integer domain so you can either:
+- solve the MILP with pulp or ortools directly, or
+- loop h from 3 up to a reasonable upper bound (e.g., 100), compute the minimum feasible integer c for each h and track minimal R.
+
+Example sketch using pulp:
+- define integer variables c,h
+- add constraints 70*c +85*h >=4000, c >= (7/3)*h, h>=3
+- set objective minimize 5*c +20*h
+- solve and read c,h
+
+Final answer
+- Schedule 54 cart servers and 3 hand-delivery servers.
+- This yields 4,035 customer interactions/hour and minimizes refills to 330 per hour.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+
+def ceil_div(a: int, b: int) -> int:
+    """Integer ceiling division for b>0."""
+    return -((-a) // b)
+
+best = None
+best_c = None
+best_h = None
+
+# Search integer h from 3 to a safe upper bound
+for h in range(3, 201):
+    # c must satisfy interaction constraint: 70*c + 85*h >= 4000 -> c >= (4000 - 85*h)/70
+    c_from_interactions = ceil_div(4000 - 85*h, 70)
+    # c must satisfy proportion constraint: c >= (7/3)*h -> c >= ceil(7*h/3)
+    c_from_proportion = ceil_div(7 * h, 3)
+    c_min = max(0, c_from_interactions, c_from_proportion)
+    # Check feasibility explicitly
+    if 70 * c_min + 85 * h < 4000:
+        continue
+    if c_min < (7 * h) / 3:
+        continue
+    # objective
+    R = 5 * c_min + 20 * h
+    if (best is None) or (R < best):
+        best = R
+        best_c = c_min
+        best_h = h
+
+# Print final objective value in required format
+print(f"FINAL_OBJ: {best}")
+```

@@ -1,0 +1,125 @@
+[MODELER]:
+Formal model (integer linear program)
+
+Decision variables
+- x ∈ Z≥0 : number of high-volume pipes
+- y ∈ Z≥0 : number of low-volume pipes
+
+Objective
+- Minimize total number of pipes: minimize Z = x + y
+
+Constraints
+1. Capacity (meet daily demand ≥ 150000 US gal):
+   10000 x + 5000 y ≥ 150000
+   (or equivalently 2 x + y ≥ 30)
+
+2. Technicians (available ≤ 160):
+   12 x + 5 y ≤ 160
+
+3. At most 35% of the pipes can be high-volume:
+   x ≤ 0.35 (x + y)
+   Linearized: 0.65 x ≤ 0.35 y  →  multiply by 100: 65 x ≤ 35 y
+   (or equivalently 65 x - 35 y ≤ 0)
+
+4. Minimum low-volume pipes:
+   y ≥ 8
+
+5. Integrality and nonnegativity:
+   x, y integers ≥ 0
+
+Explicit LP formulation
+Minimize Z = x + y
+subject to:
+- 2 x + y ≥ 30
+- 12 x + 5 y ≤ 160
+- 65 x - 35 y ≤ 0
+- y ≥ 8
+- x, y ∈ Z≥0
+
+Solution (optimal)
+Solving this MILP gives:
+- x = 5 high-volume pipes
+- y = 20 low-volume pipes
+Total pipes = 25
+
+This solution satisfies all constraints:
+- Capacity: 10000·5 + 5000·20 = 150000 (meets demand)
+- Technicians: 12·5 + 5·20 = 160 (uses available technicians)
+- Proportion: 5/(5+20) = 0.20 ≤ 0.35
+- y ≥ 8 satisfied
+
+Recommended Python libraries to solve
+- pulp (free, uses CBC by default) — simple API for MILP
+- OR-Tools CP-SAT (very fast, supports integer problems)
+- mip (Python-MIP) or Pyomo with a MILP solver (Gurobi, CPLEX if available) — for larger/advanced models
+- scipy.optimize is not recommended here because integrality is required
+
+Example (pulp) quick code snippet
+- Create integer variables x,y
+- Add constraints listed above
+- Solve with pulp.PULP_CBC_CMD() to get the solution (x=5, y=20)
+
+If you want, I can provide the explicit pulp (or OR-Tools) code and run through solver output.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Brute-force integer search for the MILP:
+# Minimize Z = x + y
+# s.t.
+#   2x + y >= 30
+#   12x + 5y <= 160
+#   65x - 35y <= 0
+#   y >= 8
+#   x, y integers >= 0
+
+best_Z = None
+best_solution = None
+feasible_solutions = []
+
+# Bound x by technicians constraint when y >= 0: 12x <= 160 -> x <= 13
+for x in range(0, 14):
+    # y must satisfy:
+    #   y >= 30 - 2x
+    #   y >= 8
+    #   y >= ceil(65x / 35)
+    y_min1 = 30 - 2 * x
+    y_min2 = 8
+    y_min3 = math.ceil((65 * x) / 35)
+    y_min = max(y_min1, y_min2, y_min3)
+    # y must satisfy technician upper bound: 12x + 5y <= 160 -> y <= floor((160 - 12x)/5)
+    y_max = math.floor((160 - 12 * x) / 5)
+
+    if y_min > y_max:
+        continue
+
+    for y in range(y_min, y_max + 1):
+        # Verify constraints (redundant but safe)
+        if 2 * x + y < 30:
+            continue
+        if 12 * x + 5 * y > 160:
+            continue
+        if 65 * x - 35 * y > 0:
+            continue
+        if y < 8:
+            continue
+        if x < 0 or y < 0:
+            continue
+
+        Z = x + y
+        feasible_solutions.append((x, y, Z))
+        if best_Z is None or Z < best_Z or (Z == best_Z and x < best_solution[0]):
+            best_Z = Z
+            best_solution = (x, y, Z)
+
+# Print found feasible solutions summary
+if best_solution is None:
+    print("No feasible integer solution found.")
+else:
+    x_opt, y_opt, Z_opt = best_solution
+    print(f"Found optimal integer solution: x = {x_opt}, y = {y_opt}, Z = {Z_opt}")
+
+# Final required line (must be last line and exact format)
+print(f"FINAL_OBJ: {best_Z}")

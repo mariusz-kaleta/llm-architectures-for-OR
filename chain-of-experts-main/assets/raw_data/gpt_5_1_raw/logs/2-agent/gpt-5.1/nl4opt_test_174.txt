@@ -1,0 +1,107 @@
+[MODELER]:
+Let’s translate the problem into a mathematical optimization model.
+
+## 1. Decision variables
+
+Let  
+- \( x \) = number of patients checked with the **electronic** thermometer  
+- \( y \) = number of patients checked with the **regular** thermometer  
+
+Both must be nonnegative:
+- \( x \ge 0 \)
+- \( y \ge 0 \)
+
+(And in reality, also integer, since patients are discrete.)
+
+## 2. Objective function
+
+We want to **maximize the total number of patients**:
+\[
+\max \; Z = x + y
+\]
+
+## 3. Constraints
+
+### a) Time constraint
+
+Each patient with the electronic thermometer takes 3 minutes; with the regular thermometer, 2 minutes. The office is open for 15,000 minutes:
+
+\[
+3x + 2y \le 15000
+\]
+
+### b) At least twice as many electronic as regular
+
+“At least twice as many patients should have their temperature checked by the electronic thermometer than the regular thermometer”:
+
+\[
+x \ge 2y
+\]
+
+### c) Minimum number of regular thermometer patients
+
+“At least 50 patients should have their temperature checked by a regular thermometer”:
+
+\[
+y \ge 50
+\]
+
+### d) Integrality
+
+Patients are counted in whole numbers:
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+So the complete model:
+
+\[
+\begin{aligned}
+\max \quad & x + y \\
+\text{s.t.} \quad
+& 3x + 2y \le 15000 \\
+& x \ge 2y \\
+& y \ge 50 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+## 4. Suitable Python libraries
+
+This is a simple integer linear programming (ILP) problem. Good choices in Python:
+
+- **PuLP** (`pulp`) – easy to model and solve small/medium LP/ILPs.
+- **OR-Tools Linear Solver** (`ortools.linear_solver.pywraplp`) – powerful and efficient for ILP.
+- **SciPy** (`scipy.optimize.linprog`) – for linear programming; can handle the **relaxed** (non-integer) version. For integrality you’d need an additional MILP solver, so PuLP or OR-Tools are preferable here.
+
+Any of PuLP or OR-Tools is ideal for this problem.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+# Define the problem
+problem = pulp.LpProblem("Thermometer_Patient_Allocation", pulp.LpMaximize)
+
+# Decision variables (integers, nonnegative)
+x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # electronic thermometer patients
+y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # regular thermometer patients
+
+# Objective function: maximize total number of patients
+problem += x + y, "Total_Patients"
+
+# Constraints
+problem += 3 * x + 2 * y <= 15000, "Time_Constraint"
+problem += x >= 2 * y, "At_Least_Twice_Electronic"
+problem += y >= 50, "Minimum_Regular_Patients"
+
+# Solve the problem
+problem.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Get the optimal objective value
+objective_value = pulp.value(problem.objective)
+
+# Print the final objective value
+print(f"FINAL_OBJ: {objective_value}")

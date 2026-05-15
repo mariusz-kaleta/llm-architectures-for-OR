@@ -1,0 +1,167 @@
+[MODELER]:
+Model formulation
+
+- Decision variables
+  - x = number of model trains produced (≥ 0)
+  - y = number of model planes produced (≥ 0)
+
+  (If the hobbyist cannot produce fractional models, x and y should be integer variables. The LP solution below is integer anyway.)
+
+- Objective
+  - Maximize profit: maximize P = 8x + 10y
+
+- Constraints
+  - Wood: 3x + 4y ≤ 120
+  - Paint: 3x + 2y ≤ 90
+  - Nonnegativity: x ≥ 0, y ≥ 0
+  - Optionally integrality: x, y ∈ Z≥0
+
+Solve analytically
+- Solve the two resource equalities simultaneously:
+  3x + 4y = 120
+  3x + 2y = 90
+  Subtracting gives 2y = 30 → y = 15. Then 3x + 2·15 = 90 → 3x = 60 → x = 20.
+
+- Check corner points:
+  - (x,y) = (0,30) → profit = 10·30 = 300
+  - (x,y) = (30,0) (paint limits) → profit = 8·30 = 240
+  - (x,y) = (20,15) → profit = 8·20 + 10·15 = 310
+
+Optimal solution: produce 20 trains and 15 planes for maximum profit $310.
+
+Suggested Python libraries to solve this
+- pulp (easy LP/MIP modeling; uses CBC by default)
+- ortools.linear_solver (Google OR-Tools)
+- scipy.optimize.linprog (continuous LP solver)
+- cvxpy (convex optimization interface)
+
+Example using pulp (with integer variables):
+```
+import pulp
+
+x = pulp.LpVariable('trains', lowBound=0, cat='Integer')
+y = pulp.LpVariable('planes', lowBound=0, cat='Integer')
+
+prob = pulp.LpProblem('ModelShop', pulp.LpMaximize)
+prob += 8*x + 10*y                     # objective
+prob += 3*x + 4*y <= 120               # wood
+prob += 3*x + 2*y <= 90                # paint
+
+prob.solve()
+print(pulp.value(x), pulp.value(y), pulp.value(prob.objective))
+```
+
+Example using scipy.optimize.linprog (continuous LP):
+```
+from scipy.optimize import linprog
+# minimize c^T x so use negative profits
+c = [-8, -10]
+A = [[3, 4],
+     [3, 2]]
+b = [120, 90]
+bounds = [(0, None), (0, None)]
+
+res = linprog(c, A_ub=A, b_ub=b, bounds=bounds, method='highs')
+print(res.x, -res.fun)
+```
+
+Answer: Make 20 model trains and 15 model planes; maximum profit = $310.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+#!/usr/bin/env python3
+# Self-contained solver for the model hobbyist LP
+# Decision variables:
+#   x = number of model trains
+#   y = number of model planes
+# Maximize P = 8x + 10y
+# s.t.
+#   3x + 4y <= 120
+#   3x + 2y <= 90
+#   x, y >= 0
+
+import math
+
+# Problem data
+c = [8.0, 10.0]              # profits
+A = [[3.0, 4.0],
+     [3.0, 2.0]]
+b = [120.0, 90.0]
+
+tol = 1e-9
+
+# Helper: check feasibility of a point
+def feasible(pt):
+    x, y = pt
+    if x < -tol or y < -tol:
+        return False
+    for (a1, a2), bi in zip(A, b):
+        if a1 * x + a2 * y > bi + tol:
+            return False
+    return True
+
+candidates = []
+
+# Origin
+candidates.append((0.0, 0.0))
+
+# x-axis extreme: x = min_i b_i / a_i1 for a_i1 > 0, y = 0
+x_vals = []
+for (a1, a2), bi in zip(A, b):
+    if abs(a1) > tol:
+        x_vals.append(bi / a1)
+if x_vals:
+    x_ax = min(x_vals)
+    candidates.append((x_ax, 0.0))
+
+# y-axis extreme: y = min_i b_i / a_i2 for a_i2 > 0, x = 0
+y_vals = []
+for (a1, a2), bi in zip(A, b):
+    if abs(a2) > tol:
+        y_vals.append(bi / a2)
+if y_vals:
+    y_ax = min(y_vals)
+    candidates.append((0.0, y_ax))
+
+# Intersection of the two constraints (2x2 solve)
+a11, a12 = A[0]
+a21, a22 = A[1]
+b1, b2 = b
+det = a11 * a22 - a12 * a21
+if abs(det) > tol:
+    xi = (b1 * a22 - a12 * b2) / det
+    yi = (a11 * b2 - b1 * a21) / det
+    candidates.append((xi, yi))
+
+# Evaluate all candidates, keep feasible ones, compute profit
+feasible_candidates = []
+for pt in candidates:
+    if feasible(pt):
+        profit = c[0] * pt[0] + c[1] * pt[1]
+        feasible_candidates.append((profit, pt))
+
+# If none feasible (shouldn't happen), exit with zero
+if not feasible_candidates:
+    best_profit = 0.0
+    best_point = (0.0, 0.0)
+else:
+    feasible_candidates.sort(key=lambda t: t[0], reverse=True)
+    best_profit, best_point = feasible_candidates[0]
+
+# Round objective to integer if very close
+if abs(best_profit - round(best_profit)) < 1e-6:
+    best_profit = int(round(best_profit))
+
+# Optionally print solution details (not the final required line)
+x_opt, y_opt = best_point
+# Round decision variables if near integers
+if abs(x_opt - round(x_opt)) < 1e-6:
+    x_opt = int(round(x_opt))
+if abs(y_opt - round(y_opt)) < 1e-6:
+    y_opt = int(round(y_opt))
+
+print(f"Optimal solution: x = {x_opt}, y = {y_opt}, profit = {best_profit}")
+
+# Final required output line
+print(f"FINAL_OBJ: {best_profit}")

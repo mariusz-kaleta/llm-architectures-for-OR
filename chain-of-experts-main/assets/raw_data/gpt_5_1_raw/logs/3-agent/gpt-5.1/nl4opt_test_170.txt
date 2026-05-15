@@ -1,0 +1,127 @@
+[MODELER]:
+Here is a clean mathematical model of the problem as a linear program (LP).
+
+### 1. Decision variables
+
+Let  
+- \(x\) = number of small bottles used  
+- \(y\) = number of large bottles used  
+
+Both must be nonnegative integers:
+- \(x \ge 0,\; y \ge 0\)
+- And in a refined model: \(x, y \in \mathbb{Z}\)
+
+### 2. Objective function
+
+Each small bottle holds 5 units of honey, each large bottle holds 20 units.  
+We want to **maximize the total amount of honey transported**:
+
+\[
+\text{Maximize } Z = 5x + 20y
+\]
+
+### 3. Constraints
+
+1. **Availability of bottles**
+   - At most 300 small bottles:
+     \[
+     x \le 300
+     \]
+   - At most 100 large bottles:
+     \[
+     y \le 100
+     \]
+
+2. **Preference for small bottles**  
+   At least twice as many small bottles as large bottles:
+   \[
+   x \ge 2y
+   \]
+
+3. **Total number of bottles**  
+   At most 200 bottles in total:
+   \[
+   x + y \le 200
+   \]
+
+4. **Minimum number of large bottles**  
+   At least 50 large bottles:
+   \[
+   y \ge 50
+   \]
+
+5. **Nonnegativity (and integrality if enforced)**
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+   and typically \(x, y \in \mathbb{Z}\) for bottle counts.
+
+### 4. Summary of the LP model
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 5x + 20y \\
+\text{subject to} \quad
+& x \le 300 \\
+& y \le 100 \\
+& x \ge 2y \\
+& x + y \le 200 \\
+& y \ge 50 \\
+& x, y \ge 0 \quad (\text{and integer})
+\end{aligned}
+\]
+
+### 5. Solving recommendations in Python
+
+This is a small linear/integer program; several libraries can handle it:
+
+- **PuLP** – very straightforward for LP/MIP modeling:
+  - `pulp.LpProblem`, `pulp.LpVariable`, solver like CBC (default).
+- **OR-Tools** (Google) – powerful MIP solver:
+  - Use `pywraplp.Solver.CreateSolver("CBC")` or `"SCIP"`.
+- **SciPy** – `scipy.optimize.linprog` works if you relax integrality (treat \(x, y\) as continuous).
+- **Pyomo** – more general algebraic modeling language for optimization.
+
+For exact integer solutions, prefer **PuLP** or **OR-Tools**. For example, with PuLP:
+
+- Define `x = LpVariable('x', lowBound=0, cat='Integer')`
+- Define `y = LpVariable('y', lowBound=0, cat='Integer')`
+- Add constraints exactly as above.
+- Set the objective to `5*x + 20*y` and call `prob.solve()`.
+
+If you’d like, I can also show the exact PuLP or OR-Tools code for this model.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Define the problem
+    prob = pulp.LpProblem("Honey_Bottles_Maximization", pulp.LpMaximize)
+
+    # Decision variables (integer, nonnegative)
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # small bottles
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # large bottles
+
+    # Objective function: Maximize total honey transported
+    prob += 5 * x + 20 * y, "Total_Honey"
+
+    # Constraints
+    prob += x <= 300, "Max_Small_Bottles"
+    prob += y <= 100, "Max_Large_Bottles"
+    prob += x >= 2 * y, "Preference_Small_Bottles"
+    prob += x + y <= 200, "Total_Bottles_Limit"
+    prob += y >= 50, "Min_Large_Bottles"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    value = pulp.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {value}")
+
+if __name__ == "__main__":
+    main()

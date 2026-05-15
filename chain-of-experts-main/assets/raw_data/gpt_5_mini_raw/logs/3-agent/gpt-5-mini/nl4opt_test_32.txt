@@ -1,0 +1,70 @@
+[MODELER]:
+Model
+
+Decision variables
+- x = units of sulfate (≥ 0)
+- y = units of ginger (≥ 0)
+
+Constraints
+- Total content: x + y = 400
+- Minimum sulfate: x ≥ 100
+- Sulfate at most twice ginger: x ≤ 2y
+
+Objective
+- Minimize total processing time (no overlap allowed; one ingredient is added completely before the other):
+  T = 0.5 x + 0.75 y
+
+(If you add all of one ingredient first then all of the other, the time to finish is the sum of the per-unit times.)
+
+Solve algebraically
+From x + y = 400 => y = 400 − x. Substitute in the objective:
+T(x) = 0.5 x + 0.75(400 − x) = 300 − 0.25 x.
+
+T(x) is decreasing in x, so to minimize T we maximize x subject to the constraints:
+- x ≤ 2y = 2(400 − x) ⇒ 3x ≤ 800 ⇒ x ≤ 800/3 ≈ 266.6667
+- x ≥ 100
+- (and 0 ≤ x ≤ 400 implied)
+
+So the maximal feasible x is x* = 800/3 ≈ 266.6667 and y* = 400 − x* = 400/3 ≈ 133.3333.
+
+Minimum time
+T* = 0.5·(800/3) + 0.75·(400/3) = 233 + 1/3 ≈ 233.3333 minutes.
+
+Notes
+- The order in which you add the two ingredients does not change the total time here because no overlap is allowed: total time is simply 0.5 x + 0.75 y regardless of which is first.
+- If units must be integers, solve the same linear program with integer constraints. The closest integer-feasible maximum x is x = 266, y = 134, giving T = 0.5·266 + 0.75·134 = 233.5 minutes.
+
+Recommended Python solvers
+- pulp (for linear/integer programming)
+- scipy.optimize.linprog (continuous LP)
+- ortools.linear_solver (CP-SAT or linear solver for integer / mixed problems)
+
+All three can model the constraints and objective above; for integer unit requirements use pulp with PULP_CBC_CMD or OR-Tools CP-SAT.
+
+---
+
+[CODER]:
+```python
+# Self-contained script to solve the described optimization problem analytically
+
+from fractions import Fraction
+
+# Problem data
+total = Fraction(400)
+min_x = Fraction(100)   # x >= 100
+# constraint x <= 2y and x + y = 400 -> x <= 2(400 - x) -> 3x <= 800 -> x <= 800/3
+max_x_from_ratio = Fraction(800, 3)
+
+# feasible range for x is [min_x, min(400, max_x_from_ratio)]
+x_star = max_x_from_ratio  # objective decreases with x, so maximize x subject to constraints
+y_star = total - x_star
+
+# Objective T = 0.5 x + 0.75 y
+T_star = Fraction(1, 2) * x_star + Fraction(3, 4) * y_star
+
+# Convert to float for output
+value = float(T_star)
+
+# Final required print (only this exact line at the end)
+print(f"FINAL_OBJ: {value}")
+```

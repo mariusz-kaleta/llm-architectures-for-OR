@@ -1,0 +1,182 @@
+[MODELER]:
+Let’s turn this into a clear optimization model and then solve it.
+
+## 1. Define decision variables
+
+Let  
+- \(x\) = number of premium desktops made and sold (per month)  
+- \(y\) = number of regular desktops made and sold (per month)
+
+Both must be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+If you want strictly integer numbers of desktops, then also:
+\[
+x, y \in \mathbb{Z}
+\]
+
+## 2. Objective function (maximize profit)
+
+Profit per unit:  
+- Premium: \$500  
+- Regular: \$300  
+
+Total monthly profit:
+\[
+\text{Maximize } Z = 500x + 300y
+\]
+
+## 3. Constraints
+
+### a) Sales/production capacity (at most 200 desktops)
+\[
+x + y \le 200
+\]
+
+### b) Production budget (at most \$300{,}000)
+
+Cost per unit:  
+- Premium: \$2,000  
+- Regular: \$1,000  
+
+Total cost cannot exceed \$300,000:
+\[
+2000x + 1000y \le 300000
+\]
+
+We can simplify by dividing the cost constraint by 1000 (optional, just for easier numbers):
+\[
+2x + y \le 300
+\]
+
+So the complete model is:
+
+\[
+\begin{aligned}
+\text{Maximize } & Z = 500x + 300y \\
+\text{subject to } 
+& x + y \le 200, \\
+& 2x + y \le 300, \\
+& x \ge 0, \; y \ge 0, \\
+& x, y \in \mathbb{Z} \text{ (if integer solutions required).}
+\end{aligned}
+\]
+
+## 4. Solve analytically (quick reasoning)
+
+Check the binding constraints:
+
+1. Capacity: \(x + y \le 200\)  
+2. Budget: \(2x + y \le 300\)
+
+Subtract (1) from (2):
+\[
+(2x + y) - (x + y) = 300 - 200 \Rightarrow x = 100
+\]
+Then from \(x + y \le 200\):
+\[
+100 + y \le 200 \Rightarrow y = 100
+\]
+
+Check feasibility and profit:
+
+- Cost: \(2000(100) + 1000(100) = 200{,}000 + 100{,}000 = 300{,}000\) (within budget)  
+- Total units: \(100 + 100 = 200\) (within limit)  
+
+Profit:
+\[
+Z = 500(100) + 300(100) = 50{,}000 + 30{,}000 = 80{,}000
+\]
+
+To confirm optimality:  
+We should check corner points of the feasible region:
+
+1. All regular, limited by capacity: \((x,y) = (0,200)\)  
+   - Cost = \(1000 \cdot 200 = 200{,}000\) (OK)  
+   - Profit = \(300 \cdot 200 = 60{,}000\)
+
+2. All premium, limited by budget: from \(2x + y \le 300\), if \(y = 0\) then \(x \le 150\).  
+   Also must satisfy \(x + y \le 200\), so \(x=150\) feasible.  
+   - Profit = \(500 \cdot 150 = 75{,}000\)
+
+3. Intersection: \((100, 100)\), we already computed profit = \$80,000.
+
+Thus maximum profit occurs at:
+\[
+x = 100 \text{ premium},\quad y = 100 \text{ regular}
+\]
+
+## 5. Recommended libraries to solve this in Python
+
+To implement and solve this optimization model in Python, any of these libraries is suitable:
+
+- **PuLP**:  
+  Lightweight, easy for linear programming and integer programming.
+  ```python
+  import pulp as pl
+
+  # Define problem
+  prob = pl.LpProblem("Desktop_Production", pl.LpMaximize)
+
+  # Variables
+  x = pl.LpVariable('premium', lowBound=0, cat='Integer')
+  y = pl.LpVariable('regular', lowBound=0, cat='Integer')
+
+  # Objective
+  prob += 500*x + 300*y
+
+  # Constraints
+  prob += x + y <= 200
+  prob += 2000*x + 1000*y <= 300000
+
+  # Solve
+  prob.solve()
+  print("Premium:", pl.value(x))
+  print("Regular:", pl.value(y))
+  print("Profit:", pl.value(500*x + 300*y))
+  ```
+
+- **SciPy (`scipy.optimize.linprog`)**:  
+  Good for continuous LP (without integrality). You’d get \(x=100, y=100\) as well.
+
+- **OR-Tools (Google OR-Tools Linear Solver)**:  
+  Strong choice if you expand to larger mixed integer problems later.
+
+For this small problem, **PuLP** is an excellent and simple choice.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("Desktop_Production", pl.LpMaximize)
+
+    # Decision variables (integer, non-negative)
+    x = pl.LpVariable('premium', lowBound=0, cat='Integer')  # number of premium desktops
+    y = pl.LpVariable('regular', lowBound=0, cat='Integer')  # number of regular desktops
+
+    # Objective function: Maximize profit = 500x + 300y
+    prob += 500 * x + 300 * y
+
+    # Constraints
+    # 1) Sales/production capacity: x + y <= 200
+    prob += x + y <= 200
+
+    # 2) Production budget: 2000x + 1000y <= 300000
+    prob += 2000 * x + 1000 * y <= 300000
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract the objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,44 @@
+[MONOLITH]:
+import pulp
+
+# Data (from the problem statement)
+meals_per_bike = 8
+meals_per_scooter = 5
+charge_per_bike = 3
+charge_per_scooter = 2
+total_charge_available = 200
+min_scooters = 20
+# "At most 30% of the electric vehicles can be bikes" -> B <= 0.3*(B+S)
+# Rearranged to integer-coefficient form: 7*B <= 3*S
+
+# Define the problem
+prob = pulp.LpProblem("Maximize_Meals", pulp.LpMaximize)
+
+# Decision variables: number of bikes (B) and scooters (S), integer and non-negative
+B = pulp.LpVariable("Bikes", lowBound=0, cat="Integer")
+S = pulp.LpVariable("Scooters", lowBound=0, cat="Integer")
+
+# Objective: maximize total meals delivered
+prob += meals_per_bike * B + meals_per_scooter * S, "Total_Meals"
+
+# Constraints
+prob += charge_per_bike * B + charge_per_scooter * S <= total_charge_available, "Charge_Limit"
+prob += 7 * B <= 3 * S, "Bike_Percentage_Limit"  # equivalent to B <= 0.3*(B+S)
+prob += S >= min_scooters, "Minimum_Scooters"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract solution
+bikes_used = int(pulp.value(B))
+scooters_used = int(pulp.value(S))
+objective_value = int(pulp.value(prob.objective))
+
+# Print solution details
+print(f"Bikes used: {bikes_used}")
+print(f"Scooters used: {scooters_used}")
+print(f"Total meals delivered: {objective_value}")
+
+# Final required output line (must be the last line)
+print(f"FINAL_OBJ: {objective_value}")

@@ -1,0 +1,35 @@
+[MONOLITH]:
+import pulp
+
+# Decision variables: number of ads on z-tube (z), soorchle (s), and wassa (w)
+z = pulp.LpVariable('z', lowBound=0, cat='Integer')
+s = pulp.LpVariable('s', lowBound=0, cat='Integer')
+w = pulp.LpVariable('w', lowBound=0, cat='Integer')
+
+# Problem: maximize total audience
+prob = pulp.LpProblem('Ad_Placement', pulp.LpMaximize)
+
+# Objective: viewers attracted
+prob += 400000 * z + 5000 * s + 3000 * w
+
+# Constraints
+prob += 1000 * z + 200 * s + 100 * w <= 10000            # budget
+prob += s <= 15                                           # soorchle limit
+prob += 2 * w <= z + s                                    # wassa at most 1/3 of total => 3w <= z+s+w -> 2w <= z+s
+prob += 19 * z - s - w >= 0                               # z at least 5% of total => 19z >= s + w
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+z_val = int(pulp.value(z))
+s_val = int(pulp.value(s))
+w_val = int(pulp.value(w))
+obj_val = pulp.value(prob.objective)
+
+print(f"z-tube ads: {z_val}")
+print(f"soorchle ads: {s_val}")
+print(f"wassa ads: {w_val}")
+print(f"Objective (total viewers): {obj_val}")
+
+print(f"FINAL_OBJ: {obj_val}")

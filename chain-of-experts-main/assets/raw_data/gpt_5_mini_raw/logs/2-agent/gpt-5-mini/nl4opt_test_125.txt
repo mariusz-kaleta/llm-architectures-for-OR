@@ -1,0 +1,148 @@
+[MODELER]:
+Below I convert the story into a formal optimization model, show how to solve it, and give the optimal (integer) solution.
+
+1) Decision variables
+- B = number of bananas (nonnegative integer)
+- M = number of mangoes (nonnegative integer)
+
+(You can also allow B, M ≥ 0 real if treating fruits as divisible; I provide both formulations below.)
+
+2) Data (per fruit)
+- Banana: 80 calories, 20 g potassium, 10 g sugar.
+- Mango: 100 calories, 15 g potassium, 8 g sugar.
+
+3) Objective
+Minimize total sugar:
+ minimize S = 10 B + 8 M
+
+4) Constraints
+- Calorie requirement: 80 B + 100 M ≥ 4000
+- Potassium requirement: 20 B + 15 M ≥ 150
+- Mango proportion: M/(B + M) ≤ 0.33  (i.e. at most 33% of fruits are mangoes)
+  Equivalent linear form (for B+M>0):
+    M ≤ 0.33 (B + M)  →  (1 − 0.33) M ≤ 0.33 B  →  0.67 M ≤ 0.33 B
+  or
+    M ≤ (0.33/0.67) B  ≈ 0.492537 B
+- Nonnegativity and integrality: B ≥ 0, M ≥ 0 (and B,M integers if fruits must be whole)
+
+Notes:
+- If the phrasing “33%” was intended to mean exactly 1/3, replace 0.33 by 1/3; then the proportion constraint becomes M ≤ (1/2) B.
+
+5) Type of problem
+This is a linear program (LP). With the integer requirement on B and M it becomes a mixed-integer linear program (MILP, actually an integer linear program since all variables are integers).
+
+6) Solvers / Python libraries
+- For LP (continuous variables): scipy.optimize.linprog, cvxpy, or PuLP (CBC) are suitable.
+- For integer variables (recommended): PuLP (with CBC), OR-Tools CP-SAT or MIP, or commercial solvers (Gurobi, CPLEX) if available.
+- Example: use PuLP with LpInteger variables or OR-Tools CP-SAT for guaranteed integer solution.
+
+7) Solution (analysis + numbers)
+
+First consider the continuous LP (fruits divisible). The LP objective is linear and the mango-proportion upper bound is binding at the optimum. Solving the continuous LP with proportion M ≤ (33/67) B (from 0.33) gives
+
+- Continuous optimum (0.33 interpreted literally):
+  B* ≈ 30.98 bananas, M* ≈ 15.37 mangoes,
+  sugar ≈ 431.2 g.
+
+- If 33% is intended as exactly 1/3, the continuous optimum is
+  B* ≈ 30.77, M* ≈ 15.38,
+  sugar ≈ 430.77 g.
+
+However, fruits are naturally integer. Solving the integer (MILP) with the 0.33 interpretation yields the best integer feasible solution:
+
+- Integer optimum (fruits must be whole, 0.33 used as given):
+  B = 32 bananas, M = 15 mangoes.
+  Check:
+    calories = 80·32 + 100·15 = 2560 + 1500 = 4060 ≥ 4000 OK
+    potassium = 20·32 + 15·15 = 640 + 225 = 865 ≥ 150 OK
+    mango fraction = 15/(32+15) ≈ 0.319 ≤ 0.33 OK
+  Total sugar = 10·32 + 8·15 = 320 + 120 = 440 grams (minimum integer-feasible sugar).
+
+The same integer solution (B=32, M=15) is also optimal if “33%” is interpreted as 1/3 (it still satisfies the stricter 1/3 constraint and beats other integer feasible combos).
+
+8) How to implement quickly (sketch with PuLP)
+- Define integer variables B and M.
+- Add constraints as above.
+- Minimize 10*B + 8*M.
+- Solve with the default CBC solver or a faster solver if available.
+
+Suggested code libraries: PuLP (simple), OR-Tools CP-SAT (very fast for integer), cvxpy (for continuous LP), scipy.optimize.linprog (continuous LP).
+
+Summary answer: Feed the gorilla 32 bananas and 15 mangoes (total sugar 440 g). If fruits could be fractional, the continuous LP optimum is about 30.98 bananas and 15.37 mangoes (sugar ≈ 431 g), but rounding to whole fruits gives the integer-optimal 32 bananas and 15 mangoes.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the fruit optimization described.
+# No external solver dependencies; integer solution found by enumeration.
+
+# Data (per fruit)
+cal_banana = 80
+pot_banana = 20
+sugar_banana = 10
+
+cal_mango = 100
+pot_mango = 15
+sugar_mango = 8
+
+# Requirements
+req_cal = 4000
+req_pot = 150
+
+# Mango proportion limit (0.33 interpreted literally => 33/100)
+# Linearized form used: (1 - 0.33) * M <= 0.33 * B  =>  67/100 * M <= 33/100 * B
+# Multiply both sides by 100 to avoid floats: 67*M <= 33*B
+num_prop_numer = 33
+num_prop_denom = 67  # corresponds to 0.33 and 0.67 scaling
+
+# 1) Continuous LP solution (assuming proportion constraint binding M = (33/67) B and calorie binding)
+ratio = num_prop_numer / num_prop_denom  # M = ratio * B
+# Solve 80*B + 100*M = 4000  -> 80*B + 100*(ratio*B) = 4000
+B_cont = req_cal / (cal_banana + cal_mango * ratio)
+M_cont = ratio * B_cont
+sugar_cont = sugar_banana * B_cont + sugar_mango * M_cont
+
+# 2) Integer solution by brute-force enumeration
+# Upper bounds: if all calories from bananas -> B >= ceil(4000/80) = 50, but we search a bit beyond to be safe.
+B_max = 200
+M_max = 200
+
+best_sugar = None
+best_sol = None
+
+for B in range(0, B_max + 1):
+    for M in range(0, M_max + 1):
+        # Constraints
+        if (cal_banana * B + cal_mango * M) < req_cal:
+            continue
+        if (pot_banana * B + pot_mango * M) < req_pot:
+            continue
+        # proportion: 67*M <= 33*B
+        if (num_prop_denom * M) > (num_prop_numer * B):
+            continue
+        sugar = sugar_banana * B + sugar_mango * M
+        if (best_sugar is None) or (sugar < best_sugar) or (sugar == best_sugar and (B + M) < (best_sol[0] + best_sol[1])):
+            best_sugar = sugar
+            best_sol = (B, M)
+
+# Print results
+print("Continuous (fractional fruits) solution (with proportion 0.33):")
+print(f"  B_cont ≈ {B_cont:.6f}, M_cont ≈ {M_cont:.6f}, sugar ≈ {sugar_cont:.6f}")
+
+if best_sol is None:
+    print("No integer feasible solution found in the searched bounds.")
+else:
+    B_int, M_int = best_sol
+    cal_int = cal_banana * B_int + cal_mango * M_int
+    pot_int = pot_banana * B_int + pot_mango * M_int
+    prop_int = M_int / (B_int + M_int) if (B_int + M_int) > 0 else 0.0
+    print("Integer optimal solution (searched by enumeration):")
+    print(f"  B = {B_int}, M = {M_int}")
+    print(f"  calories = {cal_int}, potassium = {pot_int}, mango_fraction = {prop_int:.6f}")
+    print(f"  total_sugar = {best_sugar}")
+
+# Final required single-line output (must be the last line)
+print(f"FINAL_OBJ: {best_sugar}")
+```

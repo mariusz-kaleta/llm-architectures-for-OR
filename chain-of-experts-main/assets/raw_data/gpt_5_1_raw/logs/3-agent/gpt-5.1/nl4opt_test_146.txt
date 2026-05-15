@@ -1,0 +1,139 @@
+[MODELER]:
+Let’s model this as a linear programming (LP) problem.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of large pizzas to make  
+- \(y\) = number of medium pizzas to make  
+
+We assume \(x, y \ge 0\) and (in practice) integer, though the LP relaxation may give integer values naturally.
+
+## 2. Objective function (minimize baking time)
+
+Each large pizza takes 12 minutes, each medium 8 minutes.
+
+Minimize total baking time:
+\[
+\min \; Z = 12x + 8y
+\]
+
+## 3. Constraints
+
+### Resource usage constraints
+
+- Dough: large uses 12 units, medium 8 units, and at least 10,000 units must be used:
+  \[
+  12x + 8y \;\ge\; 10000
+  \]
+
+- Toppings: large uses 5 units, medium 4 units, and at least 4,400 units must be used:
+  \[
+  5x + 4y \;\ge\; 4400
+  \]
+
+### Demand / policy constraints
+
+- At least 200 medium pizzas:
+  \[
+  y \;\ge\; 200
+  \]
+
+- At least twice as many large pizzas as medium pizzas:
+  \[
+  x \;\ge\; 2y
+  \]
+
+- Nonnegativity (and implicitly, integrality):
+  \[
+  x \ge 0,\quad y \ge 0
+  \]
+
+## 4. Full LP model
+
+\[
+\begin{aligned}
+\min \quad & Z = 12x + 8y \\
+\text{s.t.} \quad 
+& 12x + 8y \ge 10000 \\
+& 5x + 4y \ge 4400 \\
+& y \ge 200 \\
+& x \ge 2y \\
+& x, y \ge 0
+\end{aligned}
+\]
+
+## 5. Solving the model (Python libraries)
+
+This is a linear program with 2 variables and 4 constraints. Suitable Python libraries:
+
+- **PuLP** (`pulp`) – easy for LP/MILP, good for teaching and small/medium problems.
+- **OR-Tools Linear Solver** (`ortools.linear_solver.pywraplp`) – efficient, supports LP/MIP.
+- **SciPy** (`scipy.optimize.linprog`) – good for continuous LP (without integrality).
+- **Pyomo** – more general algebraic modeling, good for extensible models.
+
+### Example using PuLP
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Pizza_Production", pl.LpMinimize)
+
+# Decision variables (integer; use LpVariable if continuous is OK)
+x = pl.LpVariable('Large', lowBound=0, cat='Integer')
+y = pl.LpVariable('Medium', lowBound=0, cat='Integer')
+
+# Objective: minimize baking time
+prob += 12*x + 8*y, "Total_Baking_Time"
+
+# Constraints
+prob += 12*x + 8*y >= 10000, "Dough"
+prob += 5*x + 4*y >= 4400, "Toppings"
+prob += y >= 200, "Min_Medium"
+prob += x >= 2*y, "Large_at_least_twice_Medium"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Large pizzas (x):", pl.value(x))
+print("Medium pizzas (y):", pl.value(y))
+print("Minimum total baking time:", pl.value(12*x + 8*y))
+```
+
+You can use the same formulation with OR-Tools or SciPy (`linprog`, with `bounds` and `A_ub`/`A_eq` appropriately) if you don’t require integrality.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the LP problem (minimization)
+    prob = pl.LpProblem("Pizza_Production", pl.LpMinimize)
+
+    # Decision variables (integer, non-negative)
+    x = pl.LpVariable('Large', lowBound=0, cat='Integer')
+    y = pl.LpVariable('Medium', lowBound=0, cat='Integer')
+
+    # Objective: minimize total baking time
+    prob += 12 * x + 8 * y, "Total_Baking_Time"
+
+    # Constraints
+    prob += 12 * x + 8 * y >= 10000, "Dough"
+    prob += 5 * x + 4 * y >= 4400, "Toppings"
+    prob += y >= 200, "Min_Medium"
+    prob += x >= 2 * y, "Large_at_least_twice_Medium"
+
+    # Solve using CBC (default solver in PuLP)
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

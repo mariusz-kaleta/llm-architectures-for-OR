@@ -1,0 +1,46 @@
+[MONOLITH]:
+```python
+import pulp
+
+# Problem data (from the problem statement)
+# Nutritional values per fruit:
+# Banana: 80 calories, 20 g potassium, 10 g sugar
+# Mango:  100 calories, 15 g potassium, 8 g sugar
+cal_req = 4000     # minimum calories
+pot_req = 150      # minimum potassium
+
+# Build MILP (integer counts of fruits)
+prob = pulp.LpProblem("Gorilla_Fruit_MinSugar", pulp.LpMinimize)
+
+# Decision variables: number of bananas (B) and mangoes (M), integers >= 0
+B = pulp.LpVariable("Bananas", lowBound=0, cat="Integer")
+M = pulp.LpVariable("Mangoes", lowBound=0, cat="Integer")
+
+# Objective: minimize total sugar intake (grams)
+prob += 10 * B + 8 * M, "Total_Sugar"
+
+# Constraints
+prob += 80 * B + 100 * M >= cal_req, "Calories"
+prob += 20 * B + 15 * M >= pot_req, "Potassium"
+
+# Preference constraint: at most 33% of the fruits can be mangoes.
+# M <= 0.33 * (B + M)  -> 100*M <= 33*(B+M) -> 67*M <= 33*B
+prob += 67 * M <= 33 * B, "Mango_Preference"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+result = prob.solve(solver)
+
+# Extract results
+bananas = int(pulp.value(B))
+mangoes = int(pulp.value(M))
+obj_value = pulp.value(prob.objective)
+
+# Print solution details
+print(f"Bananas: {bananas}")
+print(f"Mangoes: {mangoes}")
+print(f"Total sugar (g): {obj_value}")
+
+# Final required print (exact format)
+print(f"FINAL_OBJ: {obj_value}")
+```

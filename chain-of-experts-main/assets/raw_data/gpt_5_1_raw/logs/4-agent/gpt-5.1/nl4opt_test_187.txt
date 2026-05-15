@@ -1,0 +1,217 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximize the total number of people supplied with vitamins (via shots and pills), given vitamin C and D availability and production limits.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP).  
+   - If you want to enforce that batches are whole numbers, treat it as an Integer Linear Programming (ILP) problem.
+
+3. Main decision variables  
+   Define decision variables as:  
+   - x = number of batches of vitamin shots produced  
+   - y = number of batches of vitamin pills produced  
+
+4. Objective function structure  
+   - Each batch of shots supplies 10 people.  
+   - Each batch of pills supplies 7 people.  
+   - Objective: Maximize total people supplied = 10·x + 7·y.
+
+5. Key constraints to consider  
+
+   a) Vitamin C resource constraint  
+   - Each batch of shots uses 30 units of vitamin C.  
+   - Each batch of pills uses 50 units of vitamin C.  
+   - Total vitamin C available is 1200 units.  
+   - Constraint structure: 30·x + 50·y ≤ 1200.
+
+   b) Vitamin D resource constraint  
+   - Each batch of shots uses 40 units of vitamin D.  
+   - Each batch of pills uses 30 units of vitamin D.  
+   - Total vitamin D available is 1500 units.  
+   - Constraint structure: 40·x + 30·y ≤ 1500.
+
+   c) Popularity constraint (pills more popular)  
+   - Number of pill batches must be larger than number of shot batches.  
+   - Constraint structure: y > x.  
+   - In standard LP/ILP form, implement as y ≥ x + ε.  
+     - If variables are constrained to be integers, you can use y ≥ x + 1.
+
+   d) Maximum production of shots  
+   - At most 10 batches of shots can be made.  
+   - Constraint structure: x ≤ 10.
+
+   e) Non-negativity and integrality  
+   - Non-negativity: x ≥ 0, y ≥ 0.  
+   - If needed, integrality: x, y must be integers (batches cannot be fractional).
+
+6. Modelling notes / strategy  
+   - Start with a continuous LP to understand the structure and check feasibility.  
+   - Then, if the context requires whole batches, add integrality constraints and solve as an ILP.  
+   - Sensitivity considerations (optional for later analysis):  
+     - How solution changes with more vitamin C or D.  
+     - Effect of relaxing the “pills more popular” constraint (e.g., y ≥ x).
+
+---
+
+[MODELER]:
+Here is a clear mathematical model of the problem.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of batches of vitamin shots produced  
+- \(y\) = number of batches of vitamin pills produced  
+
+Depending on whether partial batches are allowed:
+
+- Continuous LP: \(x, y \ge 0\) (real numbers)  
+- Integer LP: \(x, y \in \mathbb{Z}_{\ge 0}\) (whole batches only)
+
+Given the context (“batches”), it is more realistic to use integers.
+
+---
+
+## 2. Objective function
+
+Each batch of shots supplies 10 people, each batch of pills supplies 7 people.
+
+Maximize the total people supplied:
+\[
+\max\ Z = 10x + 7y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Vitamin C availability
+
+Each batch of shots uses 30 units of vitamin C, each batch of pills uses 50 units.  
+Total vitamin C available: 1200 units.
+
+\[
+30x + 50y \le 1200
+\]
+
+---
+
+### b) Vitamin D availability
+
+Each batch of shots uses 40 units of vitamin D, each batch of pills uses 30 units.  
+Total vitamin D available: 1500 units.
+
+\[
+40x + 30y \le 1500
+\]
+
+---
+
+### c) Popularity constraint (pills more popular)
+
+Number of pill batches must be larger than number of shot batches.
+
+- Conceptually: \(y > x\)
+- For linear models:
+
+  - LP relaxation: \(y \ge x + \varepsilon\) for some small \(\varepsilon > 0\)  
+  - ILP with integers (recommended):  
+    \[
+    y \ge x + 1
+    \]
+
+---
+
+### d) Maximum production of shots
+
+At most 10 batches of shots:
+
+\[
+x \le 10
+\]
+
+---
+
+### e) Non-negativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+If enforcing whole batches:
+
+\[
+x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete ILP model
+
+Maximize:
+\[
+\max\ Z = 10x + 7y
+\]
+
+Subject to:
+\[
+\begin{aligned}
+30x + 50y &\le 1200 &\text{(vitamin C)}\\
+40x + 30y &\le 1500 &\text{(vitamin D)}\\
+y &\ge x + 1 &\text{(pills more popular)}\\
+x &\le 10 &\text{(max shots)}\\
+x, y &\ge 0 &\text{(non-negativity)}\\
+x, y &\in \mathbb{Z} &\text{(integrality, if required)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suggested Python libraries
+
+For solving this model in Python, suitable libraries include:
+
+- **PuLP**  
+  - Easy modeling of LP/ILP with a clean syntax.  
+  - Integrates with CBC (default MILP solver), GLPK, Gurobi, CPLEX, etc.
+
+- **OR-Tools (Google OR-Tools)**  
+  - Excellent for Integer and Mixed-Integer Programming.  
+  - Use the `pywraplp` or `linear_solver` module.
+
+- **Pyomo**  
+  - More general algebraic modeling language; great if you will extend this model.
+
+For a problem of this size, any of these will solve it instantly; PuLP or OR-Tools are usually the most straightforward.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: maximization
+    prob = pulp.LpProblem("Vitamin_Production", pulp.LpMaximize)
+
+    # Decision variables (integer, non-negative)
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # batches of shots
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # batches of pills
+
+    # Objective function: maximize people supplied
+    prob += 10 * x + 7 * y
+
+    # Constraints
+    prob += 30 * x + 50 * y <= 1200   # Vitamin C
+    prob += 40 * x + 30 * y <= 1500   # Vitamin D
+    prob += y >= x + 1                # Pills more popular
+    prob += x <= 10                   # Max production of shots
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    final_obj = pulp.value(prob.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

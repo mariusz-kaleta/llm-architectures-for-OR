@@ -1,0 +1,47 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+C_available = 1200  # units of vitamin C
+D_available = 1500  # units of vitamin D
+
+C_per_shot = 30
+D_per_shot = 40
+people_per_shot = 10
+max_shots = 10
+
+C_per_pill = 50
+D_per_pill = 30
+people_per_pill = 7
+
+# Define problem
+prob = pulp.LpProblem("Maximize_People_Supplied", pulp.LpMaximize)
+
+# Decision variables: integer number of batches
+x = pulp.LpVariable("shots_batches", lowBound=0, cat="Integer")  # batches of vitamin shots
+y = pulp.LpVariable("pills_batches", lowBound=0, cat="Integer")  # batches of vitamin pills
+
+# Objective: maximize number of people supplied
+prob += people_per_shot * x + people_per_pill * y
+
+# Constraints
+prob += C_per_shot * x + C_per_pill * y <= C_available, "Vitamin_C_constraint"
+prob += D_per_shot * x + D_per_pill * y <= D_available, "Vitamin_D_constraint"
+prob += y >= x + 1, "Pills_more_than_shots"  # pills must be strictly more than shots
+prob += x <= max_shots, "Max_shots_limit"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve objective value
+obj_val = pulp.value(prob.objective)
+# If objective is effectively integer, convert to int for cleaner output
+if abs(obj_val - round(obj_val)) < 1e-6:
+    obj_val = int(round(obj_val))
+
+# (Optional) print solution details
+print(f"Optimal batches of vitamin shots (x): {int(pulp.value(x))}")
+print(f"Optimal batches of vitamin pills (y): {int(pulp.value(y))}")
+
+# Final required output line (must be the very last print)
+print(f"FINAL_OBJ: {obj_val}")

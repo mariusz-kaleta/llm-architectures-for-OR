@@ -1,0 +1,42 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem: minimize number of stores
+prob = pulp.LpProblem("Store_Distribution", pulp.LpMinimize)
+
+# Decision variables: number of retail (R) and factory outlet (F) stores
+R = pulp.LpVariable('Retail_Stores', lowBound=0, cat='Integer')
+F = pulp.LpVariable('Factory_Stores', lowBound=0, cat='Integer')
+
+# Parameters
+customers_retail = 200
+customers_factory = 80
+employees_retail = 6
+employees_factory = 4
+min_customers = 1200
+max_employees = 50
+
+# Objective: Minimize total number of stores
+prob += R + F, "Total_Stores"
+
+# Constraints
+prob += customers_retail * R + customers_factory * F >= min_customers, "Customer_Requirement"
+prob += employees_retail * R + employees_factory * F <= max_employees, "Employee_Limit"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+# Extract results
+retail_opt = pulp.value(R)
+factory_opt = pulp.value(F)
+final_obj = pulp.value(prob.objective)
+
+# Print solution details
+print(f"Optimal number of retail stores: {retail_opt}")
+print(f"Optimal number of factory outlet stores: {factory_opt}")
+print(f"Total customers served: {customers_retail * retail_opt + customers_factory * factory_opt}")
+print(f"Total employees used: {employees_retail * retail_opt + employees_factory * factory_opt}")
+print(f"Minimum number of stores: {final_obj}")
+
+# Required final objective print
+print(f"FINAL_OBJ: {final_obj}")

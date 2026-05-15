@@ -1,0 +1,84 @@
+[MODELER]:
+Model
+
+Decision variables
+- S = number of seasonal snow removers (integer, S >= 0)
+- P = number of permanent snow removers (integer, P >= 0)
+
+Objective
+- Minimize the total number of workers: minimize Z = S + P
+
+Constraints
+- Labor-hour requirement: 6 S + 10 P >= 300
+- Budget limit: 120 S + 250 P <= 6500
+- Integrality and nonnegativity: S, P ∈ Z_{\ge 0}
+
+Solution (short reasoning)
+Because the problem is a small integer linear program, you can enumerate feasible integer P (0..floor(6500/250)=26) and for each compute the minimum S needed to meet hours, then check the budget. Doing that (or solving the ILP) yields the optimal solution:
+- P = 9 permanent workers
+- S = 35 seasonal workers
+Total workers = 9 + 35 = 44
+
+Check:
+- Hours: 10*9 + 6*35 = 90 + 210 = 300 (meets requirement)
+- Cost: 250*9 + 120*35 = 2250 + 4200 = 6450 ≤ 6500
+
+Suggested Python libraries
+- pulp (open-source MILP solver interface; good for small ILPs)
+- OR-Tools CP-SAT (fast, robust integer solver)
+- mip or gurobipy (if you have commercial solver access)
+- Note: scipy.optimize.linprog solves LP relaxations only (continuous), so not suitable alone for integer solutions.
+
+Example using pulp
+(from which you can get the exact solution)
+
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpInteger, LpStatus, value
+
+prob = LpProblem("Snow_Removers", LpMinimize)
+S = LpVariable('S', lowBound=0, cat=LpInteger)
+P = LpVariable('P', lowBound=0, cat=LpInteger)
+
+prob += S + P  # objective
+prob += 6*S + 10*P >= 300
+prob += 120*S + 250*P <= 6500
+
+prob.solve()
+print(LpStatus[prob.status], value(S), value(P), value(prob.objective))
+
+This will return S=35, P=9, objective 44.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data
+HOURS_REQUIRED = 300
+BUDGET_LIMIT = 6500
+COST_S = 120
+COST_P = 250
+HOURS_S = 6
+HOURS_P = 10
+
+# Enumerate feasible integer solutions
+best_total = None
+best_S = None
+best_P = None
+
+max_P = BUDGET_LIMIT // COST_P
+for P in range(max_P + 1):
+    # hours still needed after P permanent workers
+    remaining_hours = max(0, HOURS_REQUIRED - HOURS_P * P)
+    # minimum seasonal workers needed (integer)
+    S = (remaining_hours + HOURS_S - 1) // HOURS_S  # ceil division
+    # check budget constraint
+    if COST_S * S + COST_P * P <= BUDGET_LIMIT:
+        total_workers = S + P
+        if best_total is None or total_workers < best_total:
+            best_total = total_workers
+            best_S = S
+            best_P = P
+
+# At this point best_total should hold the optimal objective value
+# Print final objective value in specified format
+print(f"FINAL_OBJ: {best_total}")

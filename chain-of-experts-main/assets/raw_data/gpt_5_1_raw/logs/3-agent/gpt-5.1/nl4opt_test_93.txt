@@ -1,0 +1,188 @@
+[MODELER]:
+Let’s translate this into a mathematical optimization model and then suggest how to solve it in Python.
+
+---
+
+## 1. Define decision variables
+
+Let
+
+- \( x \) = number of circular tables  
+- \( y \) = number of rectangular tables  
+
+We will assume \( x, y \ge 0 \) and they must be integers (you can’t have a fraction of a table).
+
+---
+
+## 2. Parameters (from the problem statement)
+
+- Circular table:
+  - Participants per table: 5  
+  - Poster boards per table: 4  
+  - Guests catered per table: 8  
+  - Space per table: 15 units  
+
+- Rectangular table:
+  - Participants per table: 4  
+  - Poster boards per table: 4  
+  - Guests catered per table: 12  
+  - Space per table: 20 units  
+
+- Requirements / capacities:
+  - At least 500 participants must be accommodated  
+  - At least 300 poster boards must be accommodated  
+  - At most 1900 units of space available  
+
+---
+
+## 3. Objective function
+
+We want to **maximize the total number of guests catered**.
+
+- Guests from circular tables: \( 8x \)  
+- Guests from rectangular tables: \( 12y \)
+
+So the objective is:
+
+\[
+\max Z = 8x + 12y
+\]
+
+---
+
+## 4. Constraints
+
+### 4.1 Participant capacity constraint
+Total participant capacity from all tables must be at least 500:
+
+- Each circular table: 5 participants  
+- Each rectangular table: 4 participants  
+
+\[
+5x + 4y \;\ge\; 500
+\]
+
+### 4.2 Poster board capacity constraint
+Total poster board capacity from all tables must be at least 300:
+
+- Each table (of either type): 4 poster boards  
+
+\[
+4x + 4y \;\ge\; 300
+\]
+or simplified:
+\[
+x + y \;\ge\; 75
+\]
+
+### 4.3 Space constraint
+Total space used by tables cannot exceed 1900 units:
+
+- Each circular table: 15 units  
+- Each rectangular table: 20 units  
+
+\[
+15x + 20y \;\le\; 1900
+\]
+
+### 4.4 Non-negativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+## 5. Complete model (integer linear program)
+
+\[
+\begin{aligned}
+\text{Maximize } & Z = 8x + 12y \\
+\text{subject to } 
+& 5x + 4y \ge 500 \quad \text{(participants)}\\
+& 4x + 4y \ge 300 \quad \text{(poster boards)}\\
+& 15x + 20y \le 1900 \quad \text{(space)}\\
+& x, y \ge 0,\; x,y \in \mathbb{Z}
+\end{aligned}
+\]
+
+---
+
+## 6. Suitable Python libraries
+
+This is a small integer linear programming (ILP) problem. Good Python libraries to solve it:
+
+- **PuLP** (easy-to-use LP/MIP modeling, open-source solvers included)
+- **OR-Tools** (Google’s optimization suite, excellent MILP support via CBC or Gurobi/CP-SAT)
+- **Pyomo** (more general algebraic modeling, works with many solvers)
+- **scipy.optimize** is *not* ideal here because it doesn’t handle integer variables directly.
+
+---
+
+## 7. Example implementation in Python with PuLP
+
+```python
+import pulp as pl
+
+# Create the problem: maximize objective
+prob = pl.LpProblem("Science_Fair_Tables", pl.LpMaximize)
+
+# Decision variables (integer, non-negative)
+x = pl.LpVariable('x_circular', lowBound=0, cat='Integer')
+y = pl.LpVariable('y_rectangular', lowBound=0, cat='Integer')
+
+# Objective function: maximize number of guests
+prob += 8 * x + 12 * y, "Total_Guests"
+
+# Constraints
+prob += 5 * x + 4 * y >= 500, "Participants"
+prob += 4 * x + 4 * y >= 300, "Poster_Boards"
+prob += 15 * x + 20 * y <= 1900, "Space"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Retrieve results
+x_opt = pl.value(x)
+y_opt = pl.value(y)
+z_opt = pl.value(prob.objective)
+
+print("Optimal number of circular tables:", x_opt)
+print("Optimal number of rectangular tables:", y_opt)
+print("Maximum number of guests catered:", z_opt)
+```
+
+You can swap PuLP for OR-Tools or Pyomo with the same model structure (objective + linear constraints + integer variables).
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem: maximize objective
+    prob = pl.LpProblem("Science_Fair_Tables", pl.LpMaximize)
+
+    # Decision variables (integer, non-negative)
+    x = pl.LpVariable('x_circular', lowBound=0, cat='Integer')
+    y = pl.LpVariable('y_rectangular', lowBound=0, cat='Integer')
+
+    # Objective function: maximize number of guests
+    prob += 8 * x + 12 * y, "Total_Guests"
+
+    # Constraints
+    prob += 5 * x + 4 * y >= 500, "Participants"
+    prob += 4 * x + 4 * y >= 300, "Poster_Boards"
+    prob += 15 * x + 20 * y <= 1900, "Space"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Retrieve objective value
+    z_opt = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {z_opt}")
+
+if __name__ == "__main__":
+    main()

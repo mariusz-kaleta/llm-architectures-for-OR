@@ -1,0 +1,43 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+eggs_total = 40
+bacon_total = 70
+
+eggs_per_regular = 2
+bacon_per_regular = 3
+profit_regular = 3
+
+eggs_per_special = 3
+bacon_per_special = 5
+profit_special = 4
+
+# Define the problem
+prob = pulp.LpProblem("Sandwich_Production", pulp.LpMaximize)
+
+# Decision variables (integers because sandwiches are whole)
+regular = pulp.LpVariable("Regular", lowBound=0, cat="Integer")
+special = pulp.LpVariable("Special", lowBound=0, cat="Integer")
+
+# Objective: maximize profit
+prob += profit_regular * regular + profit_special * special
+
+# Constraints
+prob += eggs_per_regular * regular + eggs_per_special * special <= eggs_total, "EggsConstraint"
+prob += bacon_per_regular * regular + bacon_per_special * special <= bacon_total, "BaconConstraint"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+regular_opt = int(pulp.value(regular))
+special_opt = int(pulp.value(special))
+obj_value = pulp.value(prob.objective)
+
+# Print solution
+print(f"Optimal number of regular sandwiches: {regular_opt}")
+print(f"Optimal number of special sandwiches: {special_opt}")
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {obj_value}")

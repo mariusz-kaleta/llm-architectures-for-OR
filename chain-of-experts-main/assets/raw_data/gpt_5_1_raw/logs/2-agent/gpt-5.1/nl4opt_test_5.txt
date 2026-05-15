@@ -1,0 +1,191 @@
+[MODELER]:
+Formulate this as a linear programming (LP) problem.
+
+### 1. Decision variables
+
+Let
+
+- \(x\) = square feet of hardwood produced per week  
+- \(y\) = square feet of vinyl planks produced per week  
+
+with \(x \ge 0, y \ge 0\).
+
+### 2. Objective function
+
+Profit per square foot:
+
+- Hardwood: \$2.50  
+- Vinyl: \$3.00  
+
+Maximize total weekly profit:
+\[
+\max \; Z = 2.5x + 3y
+\]
+
+### 3. Constraints
+
+**Demand (minimum production) constraints:**
+
+1. Hardwood demand:
+   \[
+   x \;\ge\; 20{,}000
+   \]
+2. Vinyl demand:
+   \[
+   y \;\ge\; 10{,}000
+   \]
+
+**Shipping contract (total minimum output):**
+
+3. Total square footage shipped:
+   \[
+   x + y \;\ge\; 60{,}000
+   \]
+
+**Capacity (maximum production) constraints:**
+
+4. Hardwood capacity:
+   \[
+   x \;\le\; 50{,}000
+   \]
+5. Vinyl capacity:
+   \[
+   y \;\le\; 30{,}000
+   \]
+
+**Non-negativity:**
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+### 4. Model summary
+
+Maximize
+\[
+Z = 2.5x + 3y
+\]
+
+subject to
+\[
+\begin{aligned}
+x &\ge 20{,}000 \\
+y &\ge 10{,}000 \\
+x + y &\ge 60{,}000 \\
+x &\le 50{,}000 \\
+y &\le 30{,}000 \\
+x, y &\ge 0
+\end{aligned}
+\]
+
+### 5. Logical solution reasoning
+
+Profit per square foot is higher for vinyl (3) than hardwood (2.5), so within the bounds, we want as much vinyl as possible:
+
+- Set \(y\) to its maximum: \(y = 30{,}000\).
+- Then satisfy the total shipment minimum:
+  \[
+  x + 30{,}000 \ge 60{,}000 \Rightarrow x \ge 30{,}000
+  \]
+- Check all constraints:
+
+  - \(x = 30{,}000 \ge 20{,}000\) ✓  
+  - \(y = 30{,}000 \ge 10{,}000\) ✓  
+  - \(x + y = 60{,}000 \ge 60{,}000\) ✓  
+  - \(x = 30{,}000 \le 50{,}000\) ✓  
+  - \(y = 30{,}000 \le 30{,}000\) ✓  
+
+Profit at this point:
+\[
+Z = 2.5(30{,}000) + 3(30{,}000) = 75{,}000 + 90{,}000 = 165{,}000
+\]
+
+Check if increasing \(x\) (staying within feasible region) could help: profit for hardwood is lower than for vinyl, so replacing any possible vinyl with hardwood would reduce profit; with vinyl already at its upper bound, increasing hardwood only increases total production (which is allowed) and adds profit at rate 2.5. However, there is no upper bound on total production, only on each type.
+
+So another extreme is \(x = 50{,}000, y = 30{,}000\) (both at max):
+
+- Feasible?
+  - \(x=50{,}000 \ge 20{,}000\) ✓
+  - \(y=30{,}000 \ge 10{,}000\) ✓
+  - \(x + y = 80{,}000 \ge 60{,}000\) ✓
+- Profit:
+  \[
+  Z = 2.5(50{,}000) + 3(30{,}000) = 125{,}000 + 90{,}000 = 215{,}000
+  \]
+
+Since profit is increasing in both \(x\) and \(y\) (positive coefficients) and each has an upper bound, the optimum is at the maximum of both:
+
+**Optimal solution:**
+- Produce \(x^* = 50{,}000\) sq ft of hardwood per week  
+- Produce \(y^* = 30{,}000\) sq ft of vinyl per week  
+- Maximum profit: \(Z^* = \$215{,}000\) per week
+
+### 6. Suggested Python libraries and approach
+
+To solve this LP programmatically in Python, any standard LP solver works:
+
+- **PuLP** (`pulp`) – user-friendly, integrates with CBC by default.
+- **OR-Tools Linear Solver** (`ortools.linear_solver`) – efficient and well-documented.
+- **SciPy** (`scipy.optimize.linprog`) – general-purpose LP but somewhat more low-level.
+
+Example using PuLP (structure only):
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Flooring_Production", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('hardwood', lowBound=0)
+y = pl.LpVariable('vinyl', lowBound=0)
+
+# Objective
+prob += 2.5 * x + 3.0 * y
+
+# Constraints
+prob += x >= 20000          # hardwood demand
+prob += y >= 10000          # vinyl demand
+prob += x + y >= 60000      # shipping contract
+prob += x <= 50000          # hardwood capacity
+prob += y <= 30000          # vinyl capacity
+
+# Solve
+prob.solve()
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal hardwood:", x.varValue)
+print("Optimal vinyl:", y.varValue)
+print("Max profit:", pl.value(prob.objective))
+```
+
+This model exactly encodes the mathematical formulation above.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+# Define the linear programming problem
+prob = pl.LpProblem("Flooring_Production", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('hardwood', lowBound=0)
+y = pl.LpVariable('vinyl', lowBound=0)
+
+# Objective function: Maximize profit
+prob += 2.5 * x + 3.0 * y
+
+# Constraints
+prob += x >= 20000          # Hardwood minimum demand
+prob += y >= 10000          # Vinyl minimum demand
+prob += x + y >= 60000      # Shipping contract minimum total output
+prob += x <= 50000          # Hardwood capacity
+prob += y <= 30000          # Vinyl capacity
+
+# Solve the LP
+prob.solve()
+
+# Extract the optimal objective value
+optimal_profit = pl.value(prob.objective)
+
+# Final required output
+print(f"FINAL_OBJ: {optimal_profit}")

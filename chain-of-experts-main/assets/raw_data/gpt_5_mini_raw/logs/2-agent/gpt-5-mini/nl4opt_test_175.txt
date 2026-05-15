@@ -1,0 +1,106 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x ∈ Z≥0: number of van trips.
+- y ∈ Z≥0: number of truck trips.
+
+Objective
+- Minimize total number of trips: minimize T = x + y.
+
+Constraints
+1. Capacity: 50 x + 80 y ≥ 1500.  (must transport at least 1500 boxes)
+2. Budget: 30 x + 50 y ≤ 1000.   (total cost limit)
+3. Advertising / strict inequality: x ≥ y + 1.  (number of van trips must be strictly larger than trucks)
+4. Integrality: x, y integers ≥ 0.
+
+Discussion and solution
+- This is an integer linear program (ILP).
+- You can solve it with an ILP solver (pulp, ortools CP-SAT, mip, gurobi, etc.). Scipy.optimize is not appropriate because it does not handle integer variables directly.
+
+By inspection/enumeration (or solving the ILP), the minimum possible value of T is 24 trips. There are two optimal integer solutions that achieve T = 24:
+- x = 14 van trips and y = 10 truck trips (total capacity = 50·14 + 80·10 = 700 + 800 = 1500, cost = 30·14 + 50·10 = 420 + 500 = 920).
+- x = 13 van trips and y = 11 truck trips (capacity = 50·13 + 80·11 = 650 + 880 = 1530, cost = 30·13 + 50·11 = 390 + 550 = 940).
+
+Both satisfy x ≥ y + 1 and the budget constraint. If you prefer the cheaper of the two optimal solutions, choose x = 14 vans and y = 10 trucks (cost $920).
+
+Recommended Python solvers / libraries
+- pulp (easy to use, open source) — use if you want a quick ILP formulation.
+- ortools (CP-SAT) — robust and fast for integer problems.
+- mip (python-mip) or gurobi (commercial) — also fine for ILPs.
+
+Example (pulp) code snippet
+
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpInteger, PULP_CBC_CMD
+
+prob = LpProblem("Chocolates", LpMinimize)
+x = LpVariable("vans", lowBound=0, cat=LpInteger)
+y = LpVariable("trucks", lowBound=0, cat=LpInteger)
+
+prob += x + y  # objective
+prob += 50*x + 80*y >= 1500  # capacity
+prob += 30*x + 50*y <= 1000  # budget
+prob += x >= y + 1           # vans strictly more than trucks
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print("vans:", int(x.value()), "trucks:", int(y.value()), "total trips:", int(x.value()+y.value()))
+
+This will return one of the optimal solutions (typically vans=14, trucks=10).
+
+If you want, I can provide a full runnable script, run a quick enumeration table, or show the solver output.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+#!/usr/bin/env python3
+# Self-contained script to solve the ILP by enumeration
+# Decision variables:
+#   x >= 0 integer: number of van trips
+#   y >= 0 integer: number of truck trips
+# Objective: minimize T = x + y
+# Constraints:
+#   50*x + 80*y >= 1500   (capacity)
+#   30*x + 50*y <= 1000   (budget)
+#   x >= y + 1            (vans strictly more than trucks)
+
+def main():
+    feasible = []
+    # Reasonable search bounds based on budget and capacity
+    # Budget: 30x + 50y <= 1000 => x <= 33, y <= 20
+    # We'll search a bit wider to be safe
+    for x in range(0, 51):
+        for y in range(0, 51):
+            if x < y + 1:
+                continue
+            cap = 50*x + 80*y
+            cost = 30*x + 50*y
+            if cap >= 1500 and cost <= 1000:
+                T = x + y
+                feasible.append((T, x, y, cap, cost))
+    if not feasible:
+        print("No feasible solutions found.")
+        # Print final objective as something indicative (e.g., -1)
+        print(f"FINAL_OBJ: {-1}")
+        return
+
+    feasible.sort()  # sort by T then x then y
+    min_T = feasible[0][0]
+    # gather all solutions achieving min_T
+    opt_sols = [s for s in feasible if s[0] == min_T]
+
+    # Print all optimal solutions
+    print("Optimal solutions (T, x, y, capacity, cost):")
+    for sol in opt_sols:
+        print(sol)
+
+    # If multiple optimal solutions, choose the one with minimum cost
+    opt_sols.sort(key=lambda s: (s[4], s[1], s[2]))  # sort by cost then x then y
+    best = opt_sols[0]
+    _, best_x, best_y, best_cap, best_cost = best
+    print(f"Chosen optimal solution: x={best_x}, y={best_y}, capacity={best_cap}, cost={best_cost}, T={min_T}")
+
+    # Final required print (must be the very last line)
+    print(f"FINAL_OBJ: {min_T}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,251 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Minimise the total amount of Vitamin K in the final mix (in “units” of Vitamin K).  
+
+2. Suggested model type  
+   - Model: Linear Programming (LP)  
+   - Reason: Objective and all constraints are linear relationships in the amounts (cups) of drinks A and B.  
+
+3. Main decision variables  
+   - Let:  
+     - x = number of cups of drink A in the mix  
+     - y = number of cups of drink B in the mix  
+   - Domain:  
+     - x ≥ 0, y ≥ 0 (continuous, not necessarily integer unless explicitly required).  
+
+4. Objective function (conceptual)  
+   - A cup of drink A has 4 units of Vitamin K.  
+   - A cup of drink B has 12 units of Vitamin K.  
+   - Total Vitamin K = 4x + 12y.  
+   - Objective: Minimise 4x + 12y.  
+
+5. Key constraints to consider  
+
+   a) Vitamin A requirement (minimum)  
+   - Each cup of A has 8 units of Vitamin A.  
+   - Each cup of B has 15 units of Vitamin A.  
+   - Required: at least 150 units total.  
+   - Constraint form:  
+     - 8x + 15y ≥ 150.  
+
+   b) Vitamin D requirement (minimum)  
+   - Each cup of A has 6 units of Vitamin D.  
+   - Each cup of B has 2 units of Vitamin D.  
+   - Required: at least 300 units total.  
+   - Constraint form:  
+     - 6x + 2y ≥ 300.  
+
+   c) Vitamin E limit (maximum)  
+   - Each cup of A has 10 units of Vitamin E.  
+   - Each cup of B has 20 units of Vitamin E.  
+   - Allowed: at most 400 units total.  
+   - Constraint form:  
+     - 10x + 20y ≤ 400.  
+
+   d) Non-negativity  
+   - Cannot use negative cups of either drink:  
+     - x ≥ 0  
+     - y ≥ 0  
+
+6. Modelling / solution strategy  
+
+   - Build the LP with:  
+     - Decision variables: x, y.  
+     - Objective: minimise 4x + 12y.  
+     - Constraints:  
+       - 8x + 15y ≥ 150  
+       - 6x + 2y ≥ 300  
+       - 10x + 20y ≤ 400  
+       - x ≥ 0, y ≥ 0  
+
+   - Solution approach (for the Modeller, not to be fully written out here):  
+     - Since this is a 2-variable LP, it can be solved geometrically or with the simplex method.  
+     - Identify all constraint boundary lines and feasible region.  
+     - Check intersection points of binding constraints (including with axes where appropriate) that lie in the feasible region.  
+     - Evaluate the objective 4x + 12y at each feasible corner point; select the one with the smallest value.  
+
+   - Points of special interest (for further computation):  
+     - Intersections of:  
+       - Vitamin A & Vitamin D constraints  
+       - Vitamin A & Vitamin E constraints  
+       - Vitamin D & Vitamin E constraints  
+       - Each of these with x = 0 and y = 0 (as applicable)  
+     - Use only intersection points that satisfy all inequalities.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model of the problem and how you would typically encode it for an optimizer.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x \ge 0\): number of cups of drink A in the mix  
+- \(y \ge 0\): number of cups of drink B in the mix  
+
+Variables are continuous (fractions of a cup allowed) unless explicitly required to be integers.
+
+---
+
+## 2. Objective: minimise total Vitamin K
+
+- Drink A: 4 units of Vitamin K per cup  
+- Drink B: 12 units of Vitamin K per cup  
+
+Total Vitamin K in the mix:
+\[
+K_{\text{total}} = 4x + 12y
+\]
+
+**Objective function**:
+\[
+\min\; 4x + 12y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Vitamin A requirement (minimum)
+
+- Drink A: 8 units Vitamin A per cup  
+- Drink B: 15 units Vitamin A per cup  
+- Need at least 150 units:
+
+\[
+8x + 15y \;\ge\; 150
+\]
+
+---
+
+### b) Vitamin D requirement (minimum)
+
+- Drink A: 6 units Vitamin D per cup  
+- Drink B: 2 units Vitamin D per cup  
+- Need at least 300 units:
+
+\[
+6x + 2y \;\ge\; 300
+\]
+
+---
+
+### c) Vitamin E requirement (maximum)
+
+- Drink A: 10 units Vitamin E per cup  
+- Drink B: 20 units Vitamin E per cup  
+- At most 400 units allowed:
+
+\[
+10x + 20y \;\le\; 400
+\]
+
+---
+
+### d) Non-negativity
+
+\[
+x \;\ge\; 0,\quad y \;\ge\; 0
+\]
+
+---
+
+## 4. Complete LP formulation
+
+\[
+\begin{aligned}
+\min\;& 4x + 12y \\
+\text{s.t. } 
+& 8x + 15y \;\ge\; 150 \quad &(\text{Vitamin A})\\
+& 6x + 2y \;\ge\; 300 \quad &(\text{Vitamin D})\\
+& 10x + 20y \;\le\; 400 \quad &(\text{Vitamin E})\\
+& x \;\ge\; 0,\; y \;\ge\; 0
+\end{aligned}
+\]
+
+This is a standard linear program.
+
+---
+
+## 5. Suitable Python libraries
+
+Any LP-capable solver will work. Common choices:
+
+- **PuLP**  
+  - Pure Python, easy syntax, interfaces to CBC, GLPK, etc.  
+  - Good for teaching and small/medium problems.
+
+- **SciPy (`scipy.optimize.linprog`)**  
+  - Good if you’re already using SciPy stack.  
+  - Handles linear constraints and objectives directly.
+
+- **OR-Tools (Google OR-Tools Linear Solver)**  
+  - Industrial-strength, supports multiple back-end solvers (CBC, GLOP, CLP, etc.).  
+  - Good for larger or more complex models.
+
+Example outline with PuLP (just to show mapping, not to solve here):
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("VitaminMix", pl.LpMinimize)
+
+# Variables
+x = pl.LpVariable('x', lowBound=0)
+y = pl.LpVariable('y', lowBound=0)
+
+# Objective
+prob += 4*x + 12*y
+
+# Constraints
+prob += 8*x + 15*y >= 150   # Vitamin A
+prob += 6*x + 2*y >= 300    # Vitamin D
+prob += 10*x + 20*y <= 400  # Vitamin E
+
+# Solve
+prob.solve()
+print(x.value(), y.value())
+```
+
+This code directly implements the mathematical model given above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("VitaminMix", pl.LpMinimize)
+
+    # Decision variables (continuous, non-negative)
+    x = pl.LpVariable('x', lowBound=0)
+    y = pl.LpVariable('y', lowBound=0)
+
+    # Objective function: Minimize total Vitamin K
+    prob += 4 * x + 12 * y
+
+    # Constraints
+    # Vitamin A: 8x + 15y >= 150
+    prob += 8 * x + 15 * y >= 150
+
+    # Vitamin D: 6x + 2y >= 300
+    prob += 6 * x + 2 * y >= 300
+
+    # Vitamin E: 10x + 20y <= 400
+    prob += 10 * x + 20 * y <= 400
+
+    # Solve the problem
+    prob.solve()
+
+    # Get the objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

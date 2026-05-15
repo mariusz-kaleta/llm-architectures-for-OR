@@ -1,0 +1,123 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x ∈ Z_{\ge 0}: number of refrigerated trucks (trips).
+- y ∈ Z_{\ge 0}: number of vans (trips).
+
+Objective
+- Minimize total trips: minimize Z = x + y.
+
+Constraints
+1. Capacity: 1000 x + 500 y ≥ 50,000 (must ship at least 50,000 patties).
+2. Budget: 300 x + 100 y ≤ 12,500 (cost limit).
+3. Trucks limited by vans: x ≤ y.
+4. Integrality: x, y integers and nonnegative.
+
+Remarks / reformulation
+Because every truck must be matched by at least one van (x ≤ y), it is convenient to set p = x (number of truck+van pairs) and q = y − x (extra vans). Then
+
+- Capacity: 1500 p + 500 q ≥ 50,000 → 3 p + q ≥ 100.
+- Cost: 400 p + 100 q ≤ 12,500 → 4 p + q ≤ 125.
+- Variables: p, q ∈ Z_{\ge 0}.
+- Objective: minimize 2 p + q.
+
+Solve analytically: for fixed p choose smallest feasible q = max(0, 100 − 3p). Feasibility requires q ≤ 125 − 4p, which implies p ≤ 25. For p ≤ 25 the objective becomes 2p + (100 − 3p) = 100 − p, which is minimized by taking p as large as possible, p = 25. Then q = 100 − 3·25 = 25.
+
+Solution (optimal)
+- p = 25 → x = 25 trucks
+- q = 25 → y = p + q = 50 vans
+- Total trips = x + y = 75
+- Capacity used = 25·1000 + 50·500 = 50,000 patties (exact)
+- Cost used = 25·300 + 50·100 = $12,500 (budget exhausted)
+
+This solution is feasible and optimal (unique under the integer constraints above).
+
+Suggested Python libraries to solve/verify
+- pulp (a Python interface to CBC or other MILP solvers)
+- OR-Tools (CP-SAT is excellent for integer problems)
+- mip (Python-MIP) or gurobipy (if you have Gurobi license)
+
+Example (pulp) code snippet
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpInteger, value
+
+prob = LpProblem('ship', LpMinimize)
+x = LpVariable('trucks', lowBound=0, cat='Integer')
+y = LpVariable('vans',   lowBound=0, cat='Integer')
+
+prob += x + y
+prob += 1000*x + 500*y >= 50000
+prob += 300*x + 100*y <= 12500
+prob += x <= y
+
+prob.solve()
+print('trucks =', int(x.value()), 'vans =', int(y.value()), 'total trips =', int(value(prob.objective)))
+
+Conclusion
+Ship 25 trucks and 50 vans (75 trips total).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained script to solve the refrigerated trucks / vans integer problem by enumeration.
+
+# Problem:
+# Minimize Z = x + y
+# s.t.
+#   1000*x + 500*y >= 50000
+#   300*x + 100*y <= 12500
+#   x, y are nonnegative integers
+#   x <= y
+
+def main():
+    feasible_solutions = []
+    # Upper bounds for search:
+    # From budget: 300*x + 100*y <= 12500 => x <= 12500/300 < 42, y <= 12500/100 = 125
+    # We'll search x in [0, 50], y in [0, 125] (safe)
+    max_x = 50
+    max_y = 125
+
+    for x in range(0, max_x + 1):
+        for y in range(0, max_y + 1):
+            if x > y:
+                continue
+            if 1000 * x + 500 * y < 50000:
+                continue
+            if 300 * x + 100 * y > 12500:
+                continue
+            feasible_solutions.append((x, y))
+
+    if not feasible_solutions:
+        print("No feasible solution found.")
+        final_obj = None
+    else:
+        # Find minimal objective (x + y)
+        best_obj = None
+        best_solutions = []
+        for (x, y) in feasible_solutions:
+            obj = x + y
+            if best_obj is None or obj < best_obj:
+                best_obj = obj
+                best_solutions = [(x, y)]
+            elif obj == best_obj:
+                best_solutions.append((x, y))
+
+        # For completeness, pick the first best solution
+        best_x, best_y = best_solutions[0]
+        capacity_used = 1000 * best_x + 500 * best_y
+        cost_used = 300 * best_x + 100 * best_y
+
+        print(f"Optimal integer solutions (may be multiple). Found {len(best_solutions)} with objective {best_obj}:")
+        for sol in best_solutions:
+            bx, by = sol
+            print(f"  trucks (x) = {bx}, vans (y) = {by}, total trips = {bx+by}, capacity = {1000*bx+500*by}, cost = {300*bx+100*by}")
+
+        final_obj = int(best_obj)
+
+    # Final required print line (exact format)
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()
+```

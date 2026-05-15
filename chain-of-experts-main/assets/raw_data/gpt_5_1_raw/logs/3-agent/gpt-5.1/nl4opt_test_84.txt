@@ -1,0 +1,189 @@
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by solving it and suggesting tools to implement it.
+
+---
+
+## 1. Decision Variables
+
+Let
+- \( b \in \mathbb{Z}_{\ge 0} \): number of buses
+- \( c \in \mathbb{Z}_{\ge 0} \): number of personal cars
+
+---
+
+## 2. Objective
+
+Minimize the total number of vehicles:
+\[
+\min \; b + c
+\]
+
+---
+
+## 3. Constraints
+
+1. **Capacity (must pick up at least 100 children)**  
+   Each bus carries 9 children, each car 4 children:
+   \[
+   9b + 4c \;\ge\; 100
+   \]
+
+2. **More buses than personal cars (pollution constraint)**  
+   \[
+   b \;>\; c
+   \]
+   For an integer model, rewrite as:
+   \[
+   b \;\ge\; c + 1
+   \]
+
+3. **At least 5 personal cars (extra attention requirement)**  
+   \[
+   c \;\ge\; 5
+   \]
+
+4. **Nonnegativity and integrality**  
+   \[
+   b, c \in \mathbb{Z}_{\ge 0}
+   \]
+
+---
+
+## 4. Solving the Model (by reasoning)
+
+We want to minimize \( b + c \).
+
+From \( c \ge 5 \) and \( b \ge c + 1 \), the smallest possible values are:
+- \( c = 5 \Rightarrow b \ge 6 \Rightarrow b + c \ge 11 \)
+
+Check whether \( b + c = 11 \) can satisfy capacity:
+
+Take \( c = 5 \) and \( b = 6 \):
+\[
+9b + 4c = 9 \cdot 6 + 4 \cdot 5 = 54 + 20 = 74 < 100
+\]
+Not enough capacity. So we need more vehicles.
+
+Try increasing \( b \) first (buses have higher capacity per vehicle):
+
+Keep \( c = 5 \), increase \( b \):
+
+- \( b = 7 \Rightarrow b + c = 12 \):
+  \[
+  9 \cdot 7 + 4 \cdot 5 = 63 + 20 = 83 < 100
+  \]
+
+- \( b = 8 \Rightarrow b + c = 13 \):
+  \[
+  9 \cdot 8 + 4 \cdot 5 = 72 + 20 = 92 < 100
+  \]
+
+- \( b = 9 \Rightarrow b + c = 14 \):
+  \[
+  9 \cdot 9 + 4 \cdot 5 = 81 + 20 = 101 \ge 100
+  \]
+  Capacity is satisfied, and \( b = 9 > c = 5 \), so all constraints are met.
+
+Now check if total vehicles could be smaller with more cars and fewer buses, but still ≥14 vehicles would be required if capacity can’t be met with 13:
+
+To see if any solution with 13 vehicles exists:
+- \( b + c = 13 \), \( b \ge c + 1 \Rightarrow b \ge 7 \), so possible integer pairs are:
+  - \( (b, c) = (7, 6) \):  
+    \( 9 \cdot 7 + 4 \cdot 6 = 63 + 24 = 87 < 100 \)
+  - \( (b, c) = (8, 5) \):  
+    \( 9 \cdot 8 + 4 \cdot 5 = 72 + 20 = 92 < 100 \)
+
+No feasible solution with 13 vehicles. Therefore, 14 is minimal.
+
+**Optimal solution:**
+- \( b^* = 9 \) buses  
+- \( c^* = 5 \) personal cars  
+- Total vehicles = 14
+
+---
+
+## 5. Suitable Python Libraries
+
+This is a small **integer linear programming (ILP)** problem. Appropriate Python libraries:
+
+- **PuLP**: Simple and very readable for teaching/modelling ILPs.
+- **OR-Tools (Google)**: `ortools.linear_solver.pywraplp` for MIP.
+- **Pyomo**: More general modeling language, also suitable.
+- **SciPy**: Not ideal here, since this is a discrete (integer) problem; SciPy’s main solvers are for continuous optimization.
+
+For a direct, clean implementation, **PuLP** or **OR-Tools** are best.
+
+---
+
+## 6. Example PuLP Model (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Daycare_Transportation", pl.LpMinimize)
+
+# Variables
+b = pl.LpVariable('buses', lowBound=0, cat='Integer')
+c = pl.LpVariable('cars', lowBound=0, cat='Integer')
+
+# Objective
+prob += b + c
+
+# Constraints
+prob += 9*b + 4*c >= 100        # capacity
+prob += b >= c + 1              # more buses than cars
+prob += c >= 5                  # at least 5 cars
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Buses:", pl.value(b))
+print("Cars:", pl.value(c))
+print("Total vehicles:", pl.value(b + c))
+```
+
+This will return:
+- Buses: 9  
+- Cars: 5  
+- Total vehicles: 14
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Daycare_Transportation", pl.LpMinimize)
+
+    # Decision variables
+    b = pl.LpVariable('buses', lowBound=0, cat='Integer')
+    c = pl.LpVariable('cars', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of vehicles
+    prob += b + c
+
+    # Constraints
+    prob += 9 * b + 4 * c >= 100     # capacity
+    prob += b >= c + 1               # more buses than cars
+    prob += c >= 5                   # at least 5 cars
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    buses = pl.value(b)
+    cars = pl.value(c)
+    total_vehicles = pl.value(b + c)
+
+    # Optional: print detailed solution (not required by the instructions)
+    print(f"Buses: {buses}")
+    print(f"Cars: {cars}")
+    print(f"Total vehicles: {total_vehicles}")
+
+    # Final required output
+    print(f"FINAL_OBJ: {int(total_vehicles)}")
+
+if __name__ == "__main__":
+    main()

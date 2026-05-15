@@ -1,0 +1,37 @@
+[MONOLITH]:
+import pulp
+
+# Define the LP problem
+prob = pulp.LpProblem("Orchard_Profit_Maximization", pulp.LpMaximize)
+
+# Decision variables: acres of apples (A) and pears (P)
+# Minimum acres: apples >= 5, pears >= 10
+A = pulp.LpVariable("Apples", lowBound=5, cat="Continuous")
+P = pulp.LpVariable("Pears", lowBound=10, cat="Continuous")
+
+# Objective: maximize profit = 2*A + 4*P
+prob += 2 * A + 4 * P, "Total_Profit"
+
+# Constraints
+prob += A + P <= 50, "Land_Availability"
+prob += P <= 2 * A, "Workforce_Limit"   # at most twice the pears as apples
+# He prefers to grow more pears than apples (included as P >= A). 
+# This is a preference typically modeled as a constraint here.
+prob += P >= A, "Preference_Pears_More_Than_Apples"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+apples_acres = A.varValue
+pears_acres = P.varValue
+objective_value = pulp.value(prob.objective)
+
+# Print results
+print(f"Optimal acres of apples: {apples_acres}")
+print(f"Optimal acres of pears: {pears_acres}")
+print(f"Optimal profit: ${objective_value}")
+
+# Final required output line (must be the very last print)
+value = round(objective_value, 6)
+print(f"FINAL_OBJ: {value}")

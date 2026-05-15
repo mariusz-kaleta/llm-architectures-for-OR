@@ -1,0 +1,51 @@
+[MONOLITH]:
+import pulp
+
+# Initialize the problem: minimize total number of trips
+prob = pulp.LpProblem("Candle_Transport", pulp.LpMinimize)
+
+# Decision variables: number of freight trips (f) and air trips (a)
+f = pulp.LpVariable('freight_trips', lowBound=0, cat='Integer')
+a = pulp.LpVariable('air_trips', lowBound=0, cat='Integer')
+
+# Parameters
+freight_capacity = 5     # tons per freight trip
+air_capacity = 3         # tons per air trip
+freight_cost = 300       # cost per freight trip
+air_cost = 550           # cost per air trip
+min_tons = 200           # minimum tons to transport
+budget = 20000           # total budget
+min_freight_trips = 5    # minimum freight trips
+
+# Objective: minimize total number of trips
+prob += f + a, "Total_Trips"
+
+# Constraints
+
+# Capacity constraint: total tons transported must be at least 200
+prob += freight_capacity * f + air_capacity * a >= min_tons, "Capacity"
+
+# Budget constraint: total cost must not exceed 20000
+prob += freight_cost * f + air_cost * a <= budget, "Budget"
+
+# At least 30% of total tons must be transported by air
+# 3a >= 0.3 * (5f + 3a)  =>  2.1a >= 1.5f  =>  7a >= 5f
+prob += 7 * a >= 5 * f, "Air_Share"
+
+# At least 5 freight trips
+prob += f >= min_freight_trips, "Min_Freight_Trips"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+# Extract results
+f_opt = int(pulp.value(f))
+a_opt = int(pulp.value(a))
+obj_value = pulp.value(prob.objective)
+
+# Print results
+print("Optimal number of freight trips:", f_opt)
+print("Optimal number of air trips:", a_opt)
+print("Minimum total number of trips:", obj_value)
+
+print(f"FINAL_OBJ: {obj_value}")

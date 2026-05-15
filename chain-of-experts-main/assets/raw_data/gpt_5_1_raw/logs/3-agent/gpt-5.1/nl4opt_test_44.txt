@@ -1,0 +1,184 @@
+[MODELER]:
+Here is a mathematical optimization model of the problem.
+
+---
+
+### 1. Decision variables
+
+Let
+
+- \(x\) = number of vintage bottles to produce  
+- \(y\) = number of regular bottles to produce  
+
+Both must be nonnegative integers:
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}.
+\]
+
+---
+
+### 2. Objective function
+
+We want to maximize the total number of bottles:
+
+\[
+\text{Maximize } Z = x + y.
+\]
+
+---
+
+### 3. Constraints
+
+1. **Wine volume constraint**  
+   Each vintage bottle uses 500 ml, each regular bottle uses 750 ml. Total wine available is 100,000 ml:
+
+   \[
+   500x + 750y \le 100000.
+   \]
+
+2. **Regular bottles at least 4 times vintage**  
+
+   \[
+   y \ge 4x.
+   \]
+
+3. **At least 10 vintage bottles**  
+
+   \[
+   x \ge 10.
+   \]
+
+4. **Nonnegativity and integrality**
+
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}.
+   \]
+
+This is a small Integer Linear Programming (ILP) problem.
+
+---
+
+### 4. Analytical solution
+
+Use the proportion constraint \(y \ge 4x\). To maximize bottles, we typically try to use as much wine as possible, and with more (cheaper-in-volume) bottles. Regular bottles use more wine (750 ml) than vintage (500 ml) per bottle, so if we keep the ratio at the minimum allowed (to not “waste” volume on the larger bottles), we set:
+
+\[
+y = 4x
+\]
+
+(We’ll check feasibility afterward.)
+
+Substitute into the volume constraint:
+
+\[
+500x + 750(4x) \le 100000
+\]
+\[
+500x + 3000x \le 100000
+\]
+\[
+3500x \le 100000
+\]
+\[
+x \le \frac{100000}{3500} \approx 28.57.
+\]
+
+Since \(x\) must be an integer and at least 10, the largest feasible integer is:
+
+\[
+x = 28.
+\]
+
+Then:
+
+\[
+y = 4x = 112.
+\]
+
+Check wine usage:
+
+\[
+500 \cdot 28 + 750 \cdot 112 = 14000 + 84000 = 98000 \le 100000,
+\]
+
+so this is feasible and leaves 2000 ml unused. If we try to increase \(y\) beyond \(4x\), we consume more wine per additional bottle (750 ml each), and we will hit the wine limit with fewer total bottles than the tight-ratio case; so \(y = 4x\) is optimal for maximizing count.
+
+Total bottles:
+
+\[
+x + y = 28 + 112 = 140.
+\]
+
+Thus, the optimal production plan is:
+
+- Vintage bottles: **28**  
+- Regular bottles: **112**
+
+Maximizing total number of bottles: **140**.
+
+---
+
+### 5. Suitable Python libraries
+
+To model and solve this programmatically, you can use any standard linear/integer programming library:
+
+- **PuLP** (pure Python, user-friendly):
+  ```python
+  import pulp as pl
+
+  # Define problem
+  prob = pl.LpProblem("Wine_Bottling", pl.LpMaximize)
+
+  # Decision variables (integer)
+  x = pl.LpVariable("vintage", lowBound=0, cat="Integer")
+  y = pl.LpVariable("regular", lowBound=0, cat="Integer")
+
+  # Objective
+  prob += x + y
+
+  # Constraints
+  prob += 500*x + 750*y <= 100000
+  prob += y >= 4*x
+  prob += x >= 10
+
+  # Solve
+  prob.solve()
+  print("Vintage:", x.value())
+  print("Regular:", y.value())
+  ```
+
+- **OR-Tools (Google)** – `ortools.linear_solver.pywraplp` for MIP.
+- **Pyomo** – more general modeling framework, works with external solvers (CBC, GLPK, Gurobi, CPLEX, etc.).
+- **scipy.optimize** – suitable mainly for continuous linear programs; to enforce integrality, you’d typically prefer PuLP, OR-Tools, or Pyomo instead.
+
+For a problem this small, PuLP or OR-Tools is more than sufficient and very convenient.
+
+---
+
+[CODER]:
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Wine_Bottling", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable("vintage", lowBound=0, cat="Integer")
+y = pl.LpVariable("regular", lowBound=0, cat="Integer")
+
+# Objective function: maximize total bottles
+prob += x + y
+
+# Constraints
+prob += 500 * x + 750 * y <= 100000      # Wine volume constraint
+prob += y >= 4 * x                       # Regular at least 4 times vintage
+prob += x >= 10                          # At least 10 vintage bottles
+
+# Solve the problem
+prob.solve()
+
+# Extract objective value
+final_obj = pl.value(prob.objective)
+
+# Print final objective value in required format
+print(f"FINAL_OBJ: {final_obj}")

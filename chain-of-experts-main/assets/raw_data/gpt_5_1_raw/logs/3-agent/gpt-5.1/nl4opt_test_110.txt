@@ -1,0 +1,127 @@
+[MODELER]:
+Here is a clean mathematical model of the problem as a linear program.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of pill vaccines administered  
+- \(y\) = number of shot vaccines administered  
+
+We assume fractional solutions are allowed (standard LP). If vaccinated people must be counted as whole numbers, we will later make \(x,y\) integers (an ILP).
+
+## 2. Objective function
+
+Maximize the total number of patients vaccinated:
+
+\[
+\max \; Z = x + y
+\]
+
+## 3. Constraints
+
+1. **Time (capacity) constraint**
+
+Each pill takes 10 minutes, each shot takes 20 minutes, and the clinic has 10,000 minutes total:
+
+\[
+10x + 20y \le 10000
+\]
+
+2. **Shot vs pill ratio**
+
+The clinic must deliver at least 3 times as many shots as pills:
+
+\[
+y \;\ge\; 3x
+\]
+
+3. **Minimum number of pills**
+
+At least 30 pill vaccines must be administered:
+
+\[
+x \;\ge\; 30
+\]
+
+4. **Non-negativity**
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+If you require integer numbers of vaccines:
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+This becomes an integer linear program (ILP).
+
+## 4. Model summary
+
+**Maximize**
+\[
+Z = x + y
+\]
+
+**Subject to**
+\[
+\begin{aligned}
+10x + 20y &\le 10000 \\
+y - 3x &\ge 0 \\
+x &\ge 30 \\
+x, y &\ge 0 \quad (\text{and optionally } x,y \in \mathbb{Z})
+\end{aligned}
+\]
+
+## 5. Suitable Python libraries
+
+To implement and solve this optimization model in Python, you could use:
+
+- **PuLP** – Simple interface for linear and integer programming; works with CBC, GLPK, etc.
+- **OR-Tools (Google)** – Strong for linear, integer, and constraint programming.
+- **Pyomo** – More general modeling framework for LP/MIP/NLP.
+- **SciPy (`scipy.optimize.linprog`)** – Good for continuous LP; does not directly support integrality.
+
+For this problem:
+
+- If integrality is important: use **PuLP** or **OR-Tools** (MILP solvers).
+- If a continuous solution is acceptable: **SciPy’s `linprog`**, **PuLP**, **OR-Tools**, or **Pyomo** all work.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: maximize total vaccinations
+    prob = pulp.LpProblem("Vaccine_Allocation", pulp.LpMaximize)
+
+    # Decision variables (integer, non-negative)
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # pills
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # shots
+
+    # Objective function: maximize x + y
+    prob += x + y, "Total_Vaccinated"
+
+    # Constraints
+    # 1) Time capacity: 10x + 20y <= 10000
+    prob += 10 * x + 20 * y <= 10000, "Time_Capacity"
+
+    # 2) Shot vs pill ratio: y >= 3x
+    prob += y >= 3 * x, "Shot_vs_Pill"
+
+    # 3) Minimum number of pills: x >= 30
+    prob += x >= 30, "Min_Pills"
+
+    # Solve the problem using default solver (CBC)
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print the final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

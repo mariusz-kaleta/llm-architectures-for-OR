@@ -1,0 +1,103 @@
+[MODELER]:
+Below is a clear mathematical formulation, a short discussion that finds the optimal solution, and recommended software for solving.
+
+Variables
+- h ∈ Z_{\ge 0}: number of helicopter trips.
+- b ∈ Z_{\ge 0}: number of bus trips.
+
+Objective
+- Minimize total time spent (sum of durations of all trips):
+  minimize Z = 1·h + 3·b.
+
+Constraints
+1. Patient capacity: 5h + 8b ≥ 120 (at least 120 patients transported).
+2. At least 30% of trips by helicopter:
+   h / (h + b) ≥ 0.3  (for h+b > 0).
+   This is equivalent to the linear integer constraint 7h − 3b ≥ 0 (derived from 0.7h ≥ 0.3b).
+3. Bus-trip limit: b ≤ 10.
+4. Integrality/nonnegativity: h, b ∈ Z_{\ge 0} and h + b ≥ 1.
+
+Comments on the model
+- All constraints are linear and the objective is linear → an integer linear program (ILP).
+- The helicopter is more time-efficient per patient (1 hour / 5 patients = 0.2 h/patient) than the bus (3 hours / 8 patients = 0.375 h/patient), so we expect the optimal solution to favor helicopter trips.
+
+Solve by inspection / small enumeration
+- For b = 0..10 compute the minimal h satisfying both 5h + 8b ≥ 120 and 7h − 3b ≥ 0, take integer h.
+- This yields the best (minimum Z = h + 3b) at:
+  h = 24, b = 0.
+- That gives Z = 24 total hours and transports exactly 5·24 = 120 patients. The helicopter-share constraint holds (100% helicopters).
+
+Final answer (under the given interpretation)
+- Use 24 helicopter trips and 0 bus trips.
+- Total time (sum of trip durations) = 24 hours.
+
+If your objective was intended differently (for example minimize the makespan / completion time when trips can run in parallel on multiple vehicles), the model would be different (a scheduling/minimax model) — tell me if that is the intended objective and I will reformulate.
+
+Recommended solvers / Python libraries
+- pulp (simple Python ILP modelling with CBC solver)
+- ortools CP-SAT (fast, robust integer solver)
+- gurobi or cbc via PuLP if you have commercial/academic licenses
+- For continuous relaxations: scipy.optimize.linprog (but integrality must be handled separately)
+
+Optional: short PuLP code (sketch)
+- Define integer variables h and b, add constraints above, set objective h + 3*b, call solver, read h,b.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data (directly initialized)
+patient_requirement = 120
+helicopter_capacity = 5   # patients per helicopter trip
+bus_capacity = 8          # patients per bus trip
+helicopter_time = 1       # hours per helicopter trip
+bus_time = 3              # hours per bus trip
+bus_max = 10
+
+best_solution = None  # tuple (objective, h, b)
+
+for b in range(0, bus_max + 1):
+    # Minimal h to satisfy patient capacity: 5h + 8b >= 120 => h >= ceil((120 - 8b)/5)
+    remaining_patients = patient_requirement - bus_capacity * b
+    if remaining_patients <= 0:
+        need_h_patients = 0
+    else:
+        need_h_patients = (remaining_patients + helicopter_capacity - 1) // helicopter_capacity
+
+    # Minimal h to satisfy helicopter-share constraint: 7h - 3b >= 0 => h >= ceil(3b/7)
+    need_h_share = (3 * b + 7 - 1) // 7  # integer ceiling
+
+    h = max(need_h_patients, need_h_share, 0)
+
+    # Ensure at least one trip
+    if h + b < 1:
+        h = 1  # if b==0 and h==0, force at least one trip (but must still satisfy other constraints)
+        # Re-check constraints after forcing h=1
+        if 5 * h + 8 * b < patient_requirement:
+            # if still not enough patients, raise h to meet patients
+            remaining_patients = patient_requirement - 8 * b
+            if remaining_patients > 0:
+                h = max(h, (remaining_patients + helicopter_capacity - 1) // helicopter_capacity)
+        if 7 * h - 3 * b < 0:
+            # enforce share constraint
+            h = max(h, (3 * b + 7 - 1) // 7)
+
+    # Now h is a feasible candidate; compute objective Z = h + 3*b (total hours)
+    # but ensure constraints truly satisfied
+    if 5 * h + 8 * b >= patient_requirement and 7 * h - 3 * b >= 0 and b <= bus_max and h >= 0:
+        Z = helicopter_time * h + bus_time * b
+        if best_solution is None or Z < best_solution[0]:
+            best_solution = (Z, h, b)
+
+# If no feasible solution found (shouldn't happen), raise an error
+if best_solution is None:
+    raise RuntimeError("No feasible solution found under given constraints.")
+
+final_obj, final_h, final_b = best_solution
+
+# The required final print line (only this text on the line)
+print(f"FINAL_OBJ: {final_obj}")
+```

@@ -1,0 +1,150 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Minimise total meat used to produce bones.
+
+2) Suggested model type
+- Model: Linear Programming (LP). Because decision variables are counts of two product types and all relationships are linear, an LP is appropriate. If you require whole bones only, treat variables as integer (Mixed Integer LP); otherwise LP relaxation should be fine and integrality can be enforced afterwards.
+
+3) Main decision variables
+- Number of small bones to produce (call it "small").
+- Number of large bones to produce (call it "large").
+
+(If modelling as integer problem, declare these variables integer and nonnegative.)
+
+4) Key constraints to include (described in words)
+- Medication availability: total tooth medication consumed by all bones cannot exceed 2000 units. (Each small uses 10 units, each large 15 units.)
+- Preference proportion: at least 50% of the bones produced must be small. (Equivalently, the number of small bones must be at least the number of large bones.)
+- Minimum production: at least 30 large bones must be produced.
+- Nonnegativity and integrality: numbers of bones cannot be negative; impose integer restrictions if required.
+
+5) Objective function (described conceptually)
+- Minimise total meat consumed across both types: sum of meat per small times number of small plus meat per large times number of large. (Small uses 12 units of meat each; large uses 15.)
+
+6) Solution guidance and checks for the Modeller
+- Solve the LP (or MIP if integrality enforced) using a standard solver. The feasible region is small (two variables) so inspect corner/active constraints for the optimum.
+- Important boundaries to check: the medication limit, the small>=large boundary (the 50% rule), and the lower bound large >=30. The optimum will occur where at least two constraints are tight.
+- After solving, verify integer feasibility; if LP relaxation yields non-integers and integrality is required, resolve as an integer program.
+- Run a quick sensitivity check: how much meat changes if medication availability changes or the 50% requirement is relaxed.
+
+7) Output required from the Modeller
+- Optimal numbers of small and large bones (with justification which constraints are binding).
+- Total meat used and total medication used at the optimum.
+- Note whether the solution used integer variables or not; if LP relaxation was used, confirm integer rounding does not violate constraints or report MIP solution.
+
+---
+
+[MODELER]:
+Below I convert the textual problem into a clear mathematical model, solve it analytically, and give solver recommendations and example code you can run.
+
+1) Decision variables
+- s ∈ Z≥0 : number of small bones produced
+- l ∈ Z≥0 : number of large bones produced
+
+(If you allow fractional bones, s,l ∈ R≥0, but in practice bones are integer.)
+
+2) Objective
+Minimise total meat used:
+minimise  M = 12 s + 15 l
+
+3) Constraints
+- Medication availability:
+10 s + 15 l ≤ 2000
+- Preference (at least 50% small):
+s ≥ l  (equivalently 2s ≥ s + l)
+- Minimum large bones:
+l ≥ 30
+- Integrality / nonnegativity:
+s, l ≥ 0 and integer
+
+4) Analytical solution (short reasoning)
+Both objective coefficients are positive, so to minimise meat we want s and l as small as allowed by constraints. l has a lower bound l ≥ 30, and s must satisfy s ≥ l, so the smallest feasible integers are l = 30 and s = 30. Check medication:
+10·30 + 15·30 = 300 + 450 = 750 ≤ 2000 (medication constraint is not tight).
+Total meat = 12·30 + 15·30 = 360 + 450 = 810 units.
+
+No feasible choice with fewer bones exists because l cannot be below 30 and s must be at least l. Any increase in either variable increases total meat (coefficients positive), so (s,l) = (30,30) is optimal. The binding constraints at the optimum are l ≥ 30 and s ≥ l (active as equality s = l = 30); the medication constraint is slack.
+
+5) Output required
+- Optimal numbers: small = 30, large = 30
+- Total meat used: 810 units
+- Total medication used: 750 units
+- Integers used: yes — integer solution is natural and optimal
+
+6) Solver recommendations and example code
+- For a small/academic LP/MIP: PuLP (CBC), OR-Tools (CP-SAT), or scipy.optimize (for continuous LP). Use PuLP or OR-Tools if you require integer solutions.
+- Commercial solvers (Gurobi, CPLEX) also work if available.
+
+Example PuLP (MIP) snippet:
+- Define variables as LpInteger
+- Objective: lpSum([12*s, 15*l])
+- Constraints as above
+(You can easily implement and solve in a few lines with PuLP or OR-Tools.)
+
+7) Sensitivity checks to consider
+- If medication limit falls below 750 the current solution becomes infeasible and you must trade off meat vs. medication (medication constraint would bind).
+- If the 50% small requirement (s ≥ l) is relaxed, the model may prefer more large bones because large bones use less meat per unit of medication (but check other constraints).
+
+If you’d like, I can:
+- provide runnable PuLP and OR-Tools code,
+- show the LP relaxation versus integer solution,
+- run a small sensitivity study (e.g., vary medication from 1500–2500 or change the 50% requirement).
+
+---
+
+[CODER]:
+#!/usr/bin/env python3
+# Self-contained solver for the "bones" integer optimisation problem.
+# Decision variables:
+#   s >= 0 integer: number of small bones
+#   l >= 0 integer: number of large bones
+# Objective:
+#   minimize M = 12*s + 15*l
+# Constraints:
+#   10*s + 15*l <= 2000   (medication)
+#   s >= l                (at least 50% small)
+#   l >= 30               (minimum large bones)
+#
+# The script performs an exhaustive integer search over feasible ranges.
+
+def main():
+    med_limit = 2000
+    l_min = 30
+    # Upper bound for l: medication constraint with s = l => 25*l <= med_limit
+    l_max = med_limit // 25  # floor(2000/25) = 80
+    if l_max < l_min:
+        raise SystemExit("No feasible solution because l_min > l_max under medication limit.")
+    best_obj = None
+    best_s = None
+    best_l = None
+    best_med = None
+
+    for l in range(l_min, l_max + 1):
+        s_min = l  # s >= l
+        # medication: 10*s + 15*l <= med_limit  => s <= (med_limit - 15*l)/10
+        s_max = (med_limit - 15 * l) // 10
+        if s_max < s_min:
+            continue
+        for s in range(s_min, s_max + 1):
+            med = 10 * s + 15 * l
+            obj = 12 * s + 15 * l
+            if med <= med_limit:
+                if (best_obj is None) or (obj < best_obj):
+                    best_obj = obj
+                    best_s = s
+                    best_l = l
+                    best_med = med
+
+    if best_obj is None:
+        raise SystemExit("No feasible integer solution found.")
+
+    # Print solution details
+    print(f"Optimal small = {best_s}")
+    print(f"Optimal large = {best_l}")
+    print(f"Total meat used = {best_obj}")
+    print(f"Total medication used = {best_med}")
+    print(f"Integers used = yes")
+
+    # Final required single-line output (must be the last line)
+    print(f"FINAL_OBJ: {best_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,124 @@
+[MODELER]:
+Formulate this as an integer linear programming (ILP) problem.
+
+### Decision variables
+Let  
+- \(x\) = number of small teams (integer, \(\ge 0\))  
+- \(y\) = number of large teams (integer, \(\ge 0\))
+
+### Objective
+Each small team mows 50 sq ft, each large team mows 80 sq ft.  
+Maximize total lawn mowed:
+
+\[
+\max \; Z = 50x + 80y
+\]
+
+### Constraints
+
+1. **Employee availability**:  
+   Each small team uses 3 employees, each large team uses 5 employees, and there are 150 employees total:
+
+   \[
+   3x + 5y \le 150
+   \]
+
+2. **Small vs large teams**:  
+   The number of small teams must be at least 3 times the number of large teams:
+
+   \[
+   x \ge 3y
+   \]
+
+3. **Minimum number of large teams**:
+
+   \[
+   y \ge 6
+   \]
+
+4. **Minimum number of small teams**:
+
+   \[
+   x \ge 10
+   \]
+
+5. **Integrality**:
+
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+This is a small ILP and can also be solved as an LP with integrality checked, since the constraint matrix is simple.
+
+### Solving in Python
+
+Suitable libraries:
+- `PuLP` (user-friendly for linear/integer programs)
+- `ortools.linear_solver` (Google OR-Tools, strong MILP solver)
+- `scipy.optimize.linprog` (for LP; you’d then search over integer solutions or rely on structure)
+
+#### Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("LawnMowing", pl.LpMaximize)
+
+# Variables
+x = pl.LpVariable('small_teams', lowBound=0, cat='Integer')
+y = pl.LpVariable('large_teams', lowBound=0, cat='Integer')
+
+# Objective
+prob += 50 * x + 80 * y
+
+# Constraints
+prob += 3 * x + 5 * y <= 150          # employees
+prob += x >= 3 * y                    # small >= 3 * large
+prob += y >= 6                        # at least 6 large teams
+prob += x >= 10                       # at least 10 small teams
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Small teams:", x.value())
+print("Large teams:", y.value())
+print("Max lawn mowed:", pl.value(prob.objective))
+```
+
+This model fully captures the described problem and can be directly solved with the above code using PuLP.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Problem
+    prob = pl.LpProblem("LawnMowing", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('small_teams', lowBound=0, cat='Integer')
+    y = pl.LpVariable('large_teams', lowBound=0, cat='Integer')
+
+    # Objective: Maximize total lawn mowed
+    prob += 50 * x + 80 * y
+
+    # Constraints
+    prob += 3 * x + 5 * y <= 150      # Employee availability
+    prob += x >= 3 * y                # Small vs large teams
+    prob += y >= 6                    # Minimum large teams
+    prob += x >= 10                   # Minimum small teams
+
+    # Solve the ILP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

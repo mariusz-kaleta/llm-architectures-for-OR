@@ -1,0 +1,148 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Maximise total amount of paste produced.
+
+2) Suggested model type
+- Model: Integer Linear Programming (ILP). (If fractional batches are allowed, a Linear Programming (LP) relaxation is acceptable; otherwise use a MILP solver.)
+
+3) Main decision variables
+- Number of small-container batches to run (non‑negative integer).
+- Number of large-container batches to run (non‑negative integer).
+
+4) Key constraints to consider (described verbally)
+- Water availability: each small batch consumes 10 units of water and each large batch consumes 20 units; total water used must not exceed the 500 units available.
+- Powdered pill availability: each small batch consumes 15 units of pill and each large batch consumes 20 units; total pill used must not exceed the 700 units available.
+- Non‑negativity and integrality: batch counts must be zero or positive; impose integer constraints if partial batches are not allowed.
+- Optional practical limits: if there are any limits on how many small or large containers exist or on simultaneous runs, include upper bounds per container type.
+
+5) Modelling / solution guidance for the Modeller
+- Objective function: sum the paste produced by small batches (20 units each) and large batches (30 units each) and maximise it.
+- Start by solving the LP relaxation (allow fractional batches) to find the continuous optimum and identify which resource(s) bind; this gives a candidate region for the integer solution.
+- If integer solutions are required, solve as an ILP/MILP with a solver (CBC, GLPK, Gurobi, CPLEX, etc.). Given the small numerical bounds (upper bounds on batches are modest), simple enumeration of feasible integer pairs is also feasible and fast.
+- Useful diagnostics: compute paste per unit of water and per unit of pill for each container type to understand tradeoffs (small is more water‑efficient; large is more pill‑efficient) — this helps interpret which resource is the bottleneck and why the optimal mix chooses one type over the other.
+
+6) Expected outputs from the Modeller
+- Optimal numbers of small and large batches (integer or continuous, per the chosen model).
+- Maximum total paste produced.
+- Which constraint(s) are binding at optimum (water and/or pill).
+- If integer relaxation changes the solution, report the LP solution and the final integer solution with any rounding or gap information.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- x = number of small-container batches (>= 0).  
+- y = number of large-container batches (>= 0).
+
+If partial batches are not allowed: x, y ∈ Z≥0.  
+If partial batches are allowed: x, y ∈ R≥0.
+
+Constraints
+- Water: 10x + 20y ≤ 500.
+- Powdered pill: 15x + 20y ≤ 700.
+- Non-negativity: x ≥ 0, y ≥ 0.
+- (Optional) Upper bounds if there are physical limits: x ≤ Xmax, y ≤ Ymax.
+
+Objective
+Maximise total paste produced:
+max Z = 20x + 30y.
+
+Summary (mathematical)
+max Z = 20x + 30y
+s.t.
+10x + 20y ≤ 500
+15x + 20y ≤ 700
+x, y ≥ 0  (and integer if required)
+
+Solve the LP relaxation first; if integrality required, solve as an ILP/MILP.
+
+Analytic solution (LP and ILP)
+Solve the two binding constraints simultaneously:
+10x + 20y = 500  => x + 2y = 50  => x = 50 − 2y
+15x + 20y = 700
+
+Substitute x into the pill constraint:
+15(50 − 2y) + 20y = 700
+750 − 30y + 20y = 700
+−10y = −50  =>  y = 5
+Then x = 50 − 2·5 = 40.
+
+Objective value: Z = 20·40 + 30·5 = 800 + 150 = 950 units of paste.
+
+Both resource constraints are binding at the optimum (water and pill). The LP relaxation gives x=40, y=5 (integers), so the ILP solution is identical.
+
+Interpretation / diagnostics
+- Paste per unit water: small = 20/10 = 2.0, large = 30/20 = 1.5 → small is more water-efficient.
+- Paste per unit pill: small = 20/15 ≈ 1.333, large = 30/20 = 1.5 → large is more pill-efficient.
+The optimum mixes both to exactly exhaust both resources.
+
+Recommended solvers / Python libraries
+- LP continuous: scipy.optimize.linprog.
+- MIP/ILP: PuLP (CBC/GLPK backends), OR-Tools (CP-SAT), Pyomo with CBC/Gurobi/CPLEX, or direct commercial solvers (Gurobi, CPLEX) if available.
+- For small integer bounds, simple enumeration of integer (x,y) satisfying both constraints is also trivial and fast.
+
+Example (short PuLP sketch)
+- Define LpVariable x,y (cat='Continuous' or 'Integer').
+- Add constraints 10*x + 20*y <= 500, 15*x + 20*y <= 700.
+- Set objective 20*x + 30*y to maximize.
+- Solve and report x, y, Z.
+
+Final answer
+Use 40 small-container batches and 5 large-container batches. This produces 950 units of paste, with both water and powdered pill constraints binding.
+
+---
+
+[CODER]:
+import numpy as np
+
+# Problem data (initialized directly)
+# Constraints:
+# 10x + 20y <= 500
+# 15x + 20y <= 700
+# Objective: maximize Z = 20x + 30y
+A = np.array([[10.0, 20.0],
+              [15.0, 20.0]])
+b = np.array([500.0, 700.0])
+c = np.array([20.0, 30.0])  # objective coefficients (to maximize)
+
+# Solve LP relaxation by solving the two binding constraints (if non-singular)
+try:
+    sol = np.linalg.solve(A, b)
+    x_lp, y_lp = sol[0], sol[1]
+    # Check feasibility (non-negativity)
+    feasible_lp = (x_lp >= -1e-9) and (y_lp >= -1e-9)
+    Z_lp = c.dot(sol)
+except np.linalg.LinAlgError:
+    # Fallback (should not happen for this 2x2 A)
+    x_lp = y_lp = 0.0
+    Z_lp = 0.0
+    feasible_lp = False
+
+# Prepare integer (ILP) search: enumerate feasible integer (x,y)
+# Determine safe upper bounds from individual constraints
+x_max = int(np.floor(min(500.0 / 10.0, 700.0 / 15.0)))  # floor(min(50, 46.666...)) -> 46
+y_max = int(np.floor(min(500.0 / 20.0, 700.0 / 20.0)))  # floor(min(25, 35)) -> 25
+
+best_obj = -np.inf
+best_x = None
+best_y = None
+
+for xi in range(0, x_max + 1):
+    # For given xi, we can compute max possible y bound to speed up
+    # but simple enumeration over y_max is small so ok
+    for yi in range(0, y_max + 1):
+        if (10 * xi + 20 * yi) <= 500 + 1e-9 and (15 * xi + 20 * yi) <= 700 + 1e-9:
+            obj = 20 * xi + 30 * yi
+            if obj > best_obj + 1e-9:
+                best_obj = obj
+                best_x = xi
+                best_y = yi
+
+# Print results (LP and ILP) and final objective line as required.
+print(f"LP solution (relaxation): x = {x_lp:.6f}, y = {y_lp:.6f}, Z = {Z_lp:.6f}")
+print(f"ILP optimal integer solution: x = {best_x}, y = {best_y}, Z = {int(best_obj)}")
+
+# Final required print line (must be exactly this format)
+print(f"FINAL_OBJ: {int(best_obj)}")

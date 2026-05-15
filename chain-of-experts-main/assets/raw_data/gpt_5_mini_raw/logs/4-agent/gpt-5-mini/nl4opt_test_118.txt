@@ -1,0 +1,139 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Minimise the total transport time (sum of minutes spent on all trips).
+
+2. Suggested model type
+- Model: Integer Linear Programming (ILP) — two integer decision variables (counts of trips). Because trips are indivisible, require integer solutions. If you instead allow trips to be done in parallel (minimise makespan) you'll need a different model; here assume trips are sequential and total time is additive.
+
+3. Main decision variables
+- h = number of helicopter trips (integer, ≥ 0)
+- c = number of car trips (integer, ≥ 0)
+
+4. Objective (conceptual)
+- Minimise total time = (time per helicopter trip) * h + (time per car trip) * c
+  - Helicopter time per trip = 40 minutes
+  - Car time per trip = 30 minutes
+
+5. Key constraints to include (verbal, not algebraic)
+- Capacity requirement: total fish carried must be at least 300. (Helicopter carries 30 fish per trip; car carries 20 fish per trip.)
+- Helicopter-trip upper bound: h cannot exceed 5 (at most 5 helicopter trips).
+- Trip-composition requirement: at least 60% of the trips must be by car. Express this as a relation between c and h (equivalently c ≥ 0.6*(h + c) which simplifies to c ≥ 1.5*h). Enforce with integer arithmetic (rounding/ceiling as needed when searching integer solutions).
+- Integrality and nonnegativity: h and c must be nonnegative integers.
+- Optional practical constraints to consider (if relevant): maximum available cars, maximum available helicopters, or an upper bound on total trips to speed up solution.
+
+6. Solver / solution approach recommendations
+- Use a small ILP solver (e.g., any MILP solver) or simple enumeration: h ranges 0..5 (small), for each h compute minimal integer c that satisfies both the capacity and the car-share constraint, then evaluate total time and pick the minimal-time feasible pair.
+- Include feasibility checks (e.g., if helicopter capacity upper bound alone makes it impossible to reach 300 fish, detect infeasibility).
+
+7. Output required from modeller
+- Report the optimal integer values of h and c, the achieved total transported fish, and the minimized total time (minutes). Also show the feasible alternatives if multiple optima exist.
+- State any modelling assumptions explicitly (especially the assumption that trips are sequential and times add).
+
+---
+
+[MODELER]:
+Below I convert the planner text into a formal integer optimization model, show how to solve it (small enumeration or ILP), and give the optimal solution.
+
+1) Decision variables
+- h ∈ Z≥0 : number of helicopter trips (integer)
+- c ∈ Z≥0 : number of car trips (integer)
+
+2) Parameters
+- capacity per helicopter trip: 30 fish
+- capacity per car trip: 20 fish
+- time per helicopter trip: 40 minutes
+- time per car trip: 30 minutes
+- required total fish: 300
+- helicopter-trip upper bound: h ≤ 5
+- required share of trips by car: at least 60% of total trips
+
+3) Objective
+Minimise total transport time:
+minimize T = 40 h + 30 c
+
+4) Constraints (algebraic)
+- Capacity: 30 h + 20 c ≥ 300
+- Helicopter upper bound: 0 ≤ h ≤ 5
+- Car-share (at least 60% of trips are by car):
+  c ≥ 0.6 (h + c)  which rearranges to 0.4 c ≥ 0.6 h  →  c ≥ 1.5 h
+  (since c is integer, implement as c ≥ ceil(1.5 h))
+- Integrality and nonnegativity: h, c ∈ Z≥0
+
+5) Small-domain solution method (recommended)
+Because h is bounded 0..5, it is simplest and exact to enumerate h = 0..5 and for each take the smallest integer c that satisfies both:
+  c ≥ ceil(1.5 h) and c ≥ ceil((300 − 30 h)/20) (if RHS ≤ 0 then use 0).
+Compute T = 40 h + 30 c and pick the minimum feasible pair.
+
+6) Enumeration/calculation (explicit)
+Compute minimal feasible c for each h:
+
+- h = 0: c ≥ max(ceil(1.5·0)=0, ceil(300/20)=15) → c = 15 → T = 30·15 = 450 min
+- h = 1: c ≥ max(2, ceil(270/20)=14) → c = 14 → T = 40 + 30·14 = 460 min
+- h = 2: c ≥ max(3, ceil(240/20)=12) → c = 12 → T = 80 + 30·12 = 440 min
+- h = 3: c ≥ max(5, ceil(210/20)=11) → c = 11 → T = 120 + 30·11 = 450 min
+- h = 4: c ≥ max(6, ceil(180/20)=9) → c = 9  → T = 160 + 30·9  = 430 min
+- h = 5: c ≥ max(8, ceil(150/20)=8) → c = 8  → T = 200 + 30·8  = 440 min
+
+Minimum total time is 430 minutes at h = 4, c = 9. This pair transports 30·4 + 20·9 = 300 fish exactly and satisfies c ≥ 1.5·4 = 6 (indeed c = 9).
+
+There are no other (h,c) pairs achieving a lower T in the feasible set, so the optimum is unique: h = 4 helicopter trips, c = 9 car trips, total time 430 minutes, total fish = 300.
+
+7) Modelling assumptions (explicit)
+- Trips are sequential and times add (we are minimising total person-trip time, not makespan or parallel time).
+- “At least 60% of trips by car” is interpreted as c ≥ 0.6 (h + c) (i.e., fraction of trips), not 60% of fish or of capacity.
+- Trips are indivisible (h,c integers).
+
+8) Solver / implementation suggestions
+- For a one-off solution: simple enumeration as above (pure Python) is simplest and exact.
+- For an ILP solver formulation (if you want to use a solver library):
+  - pulp (LP/MIP), OR-Tools CP-SAT, or gurobi/cplex (if available).
+  - Example libraries: pulp, ortools.sat.python.cp_model, or pyomo with a MILP solver.
+- scipy.optimize is not appropriate by itself because this is an integer program.
+
+Short example (conceptual Python outline using enumeration):
+- For h in range(0,6):
+    c_min1 = math.ceil(1.5*h)
+    c_min2 = max(0, math.ceil((300 - 30*h)/20))
+    c = max(c_min1, c_min2)
+    compute T = 40*h + 30*c; keep best.
+
+If you want, I can provide a ready-to-run Python snippet using pulp or OR-Tools.
+
+---
+
+[CODER]:
+import math
+
+# Parameters
+capacity_helicopter = 30
+capacity_car = 20
+time_helicopter = 40
+time_car = 30
+required_fish = 300
+h_upper = 5
+
+best_T = None
+best_h = None
+best_c = None
+
+for h in range(0, h_upper + 1):
+    # car share constraint: c >= ceil(1.5 * h)
+    c_min_share = math.ceil(1.5 * h)
+    # capacity constraint: 30*h + 20*c >= 300 -> c >= ceil((300 - 30*h)/20)
+    rem = required_fish - capacity_helicopter * h
+    c_min_capacity = 0
+    if rem > 0:
+        c_min_capacity = math.ceil(rem / capacity_car)
+    c = max(c_min_share, c_min_capacity)
+    # c must be non-negative integer
+    if c < 0:
+        c = 0
+    T = time_helicopter * h + time_car * c
+    # store best (minimize T). If tie, keep first found.
+    if (best_T is None) or (T < best_T):
+        best_T = T
+        best_h = h
+        best_c = c
+
+# final objective value
+print(f"FINAL_OBJ: {best_T}")

@@ -1,0 +1,236 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise total pollution produced by the cruise trips while meeting customer demand and policy limits on trip mix and capacity.
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP) – small and large trips will be counted as whole numbers (integer decision variables); the structure is linear.
+
+3. Main decision variables  
+Define non‑negative integer variables such as:
+
+- L = number of large cruise ship trips  
+- S = number of small cruise ship trips  
+
+(If Modeller prefers, they can initially relax integrality to solve as an LP, then enforce integrality.)
+
+4. Objective function (conceptual)  
+- Minimise total pollution:  
+  - Each large trip produces 20 units  
+  - Each small trip produces 15 units  
+  Objective: Minimise 20·L + 15·S
+
+5. Key constraints to consider  
+
+a) Customer demand (capacity constraint)  
+- Each large trip carries 2000 customers  
+- Each small trip carries 800 customers  
+- At least 20,000 customers must be transported:  
+  - 2000·L + 800·S ≥ 20,000
+
+b) Limit on large trips  
+- At most 7 large cruise ship trips:  
+  - L ≤ 7
+
+c) Proportion of small trips  
+- At least 40% of total trips are small:  
+  - S ≥ 0.4·(L + S)  
+  - This is linearizable: 0.6·S ≥ 0.4·L, or an equivalent linear form.
+
+d) Non‑negativity and integrality  
+- L ≥ 0, S ≥ 0  
+- L, S integers (non‑negative integers).
+
+6. Modelling notes / strategy  
+
+- Check feasibility: demand capacity with max 7 large trips implies small trips are necessary; ensure model allows sufficient S.  
+- Because variable count is tiny and structure is simple, you can solve it analytically or with any ILP solver.  
+- After solving, verify:  
+  - Customer capacity is at least 20,000  
+  - Number of large trips does not exceed 7  
+  - Small trips make up at least 40% of total trips  
+  - Pollution is minimal under those constraints.
+
+---
+
+[MODELER]:
+Here’s a clean mathematical model of the problem and how you would solve it with an ILP solver.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(L \in \mathbb{Z}_{\ge 0}\): number of large cruise ship trips  
+- \(S \in \mathbb{Z}_{\ge 0}\): number of small cruise ship trips  
+
+Both are non‑negative integers.
+
+---
+
+## 2. Objective function
+
+Each trip produces pollution:
+
+- Large trip: 20 units  
+- Small trip: 15 units  
+
+Minimise the total pollution:
+
+\[
+\min \; Z = 20L + 15S
+\]
+
+---
+
+## 3. Constraints
+
+### a) Transport demand (capacity)
+
+Each trip carries:
+
+- Large: 2000 customers  
+- Small: 800 customers  
+
+Must transport at least 20,000 customers:
+
+\[
+2000L + 800S \;\ge\; 20000
+\]
+
+---
+
+### b) Limit on large trips
+
+At most 7 large trips:
+
+\[
+L \;\le\; 7
+\]
+
+---
+
+### c) Proportion of small trips
+
+At least 40% of total trips are small:
+
+\[
+S \;\ge\; 0.4(L + S)
+\]
+
+This is linear. To make it explicit:
+
+\[
+S \ge 0.4L + 0.4S  
+\Rightarrow S - 0.4S \ge 0.4L  
+\Rightarrow 0.6S \ge 0.4L  
+\Rightarrow 3S \ge 2L
+\]
+
+So we can model it as:
+
+\[
+3S - 2L \;\ge\; 0
+\]
+
+---
+
+### d) Non‑negativity and integrality
+
+\[
+L \ge 0,\quad S \ge 0,\quad L, S \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full ILP model
+
+\[
+\begin{align}
+\min\ & 20L + 15S \\
+\text{s.t. } 
+& 2000L + 800S \ge 20000 \\
+& L \le 7 \\
+& 3S - 2L \ge 0 \\
+& L, S \in \mathbb{Z}_{\ge 0}
+\end{align}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard MILP/ILP solver can handle this tiny model:
+
+- **PuLP** (pure Python interface, can call CBC, GLPK, etc.)  
+- **OR‑Tools** (`ortools.linear_solver`)  
+- **Pyomo** (general modelling language, can use many solvers)  
+- **SciPy** is more for continuous optimisation; here, use it only if you relax integrality (LP), then round/check integer feasibility manually. For “proper” integer treatment, prefer PuLP, OR‑Tools, or Pyomo.
+
+---
+
+## 6. Example with PuLP (sketch)
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Cruise_Pollution_Minimization", pl.LpMinimize)
+
+# Decision variables
+L = pl.LpVariable('L', lowBound=0, cat='Integer')
+S = pl.LpVariable('S', lowBound=0, cat='Integer')
+
+# Objective
+prob += 20 * L + 15 * S
+
+# Constraints
+prob += 2000 * L + 800 * S >= 20000        # demand
+prob += L <= 7                             # max large trips
+prob += 3 * S - 2 * L >= 0                 # 40% small trips
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("L =", L.value())
+print("S =", S.value())
+print("Total pollution =", 20 * L.value() + 15 * S.value())
+```
+
+This code directly implements the mathematical model above and finds the pollution‑minimising values of \(L\) and \(S\).
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("Cruise_Pollution_Minimization", pl.LpMinimize)
+
+    # Decision variables
+    L = pl.LpVariable('L', lowBound=0, cat='Integer')
+    S = pl.LpVariable('S', lowBound=0, cat='Integer')
+
+    # Objective: Minimize total pollution
+    prob += 20 * L + 15 * S
+
+    # Constraints
+    # Transport demand
+    prob += 2000 * L + 800 * S >= 20000
+    # Limit on large trips
+    prob += L <= 7
+    # Proportion of small trips: 3S - 2L >= 0
+    prob += 3 * S - 2 * L >= 0
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Retrieve objective value
+    final_obj = pl.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,220 @@
+[MODELER]:
+This is a linear programming (LP) problem: choose how many bottles of each milk tea to produce to maximize profit under resource (milk, honey) constraints.
+
+Let’s model it step by step.
+
+---
+
+### Decision Variables
+
+Let  
+- \( x \) = number of bottles of black milk tea to produce  
+- \( y \) = number of bottles of matcha milk tea to produce  
+
+Both must be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+(If we require integer bottles, then \(x, y \in \mathbb{Z}_{\ge 0}\).)
+
+---
+
+### Objective Function
+
+Profit:
+- Black milk tea: \$7.5 profit per bottle → \( 7.5x \)
+- Matcha milk tea: \$5 profit per bottle → \( 5y \)
+
+Maximize total profit:
+\[
+\max\; Z = 7.5x + 5y
+\]
+
+---
+
+### Constraints
+
+Resource limits:
+
+1. **Milk constraint**
+
+   - Black: 600 g milk per bottle  
+   - Matcha: 525 g milk per bottle  
+   - Available: 30000 g total  
+
+   \[
+   600x + 525y \le 30000
+   \]
+
+2. **Honey constraint**
+
+   - Black: 10 g honey per bottle  
+   - Matcha: 5 g honey per bottle  
+   - Available: 500 g total  
+
+   \[
+   10x + 5y \le 500
+   \]
+
+3. **Nonnegativity**
+
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+
+---
+
+### Complete Mathematical Model
+
+\[
+\begin{aligned}
+\max\; & Z = 7.5x + 5y \\
+\text{s.t. } 
+& 600x + 525y \le 30000 \\
+& 10x + 5y \le 500 \\
+& x \ge 0,\ y \ge 0 \\
+&\text{(optionally } x,y \in \mathbb{Z})
+\end{aligned}
+\]
+
+---
+
+### Solving the Model (Analytical Insight)
+
+The honey constraint simplifies (divide by 5):
+
+\[
+2x + y \le 100
+\]
+
+Milk constraint (divide by 75):
+
+\[
+8x + 7y \le 400
+\]
+
+The binding constraints for the optimal solution will be the resources that get fully used. Profit per unit of each resource:
+
+- Black:
+  - Milk: \(7.5 / 600 \approx 0.0125\) per g
+  - Honey: \(7.5 / 10 = 0.75\) per g
+
+- Matcha:
+  - Milk: \(5 / 525 \approx 0.00952\) per g
+  - Honey: \(5 / 5 = 1.0\) per g
+
+Matcha is better per gram of honey, black is better per gram of milk. Solve at the intersection of both constraints:
+
+\[
+\begin{cases}
+600x + 525y = 30000 \\
+10x + 5y = 500
+\end{cases}
+\]
+
+Simplify the second: \(2x + y = 100 \Rightarrow y = 100 - 2x\).
+
+Substitute into milk constraint:
+\[
+600x + 525(100 - 2x) = 30000 \\
+600x + 52500 - 1050x = 30000 \\
+-450x = -22500 \Rightarrow x = 50
+\]
+Then \(y = 100 - 2(50) = 0\).
+
+Check feasibility:  
+Milk used: \(600 \cdot 50 = 30000\) (all milk used).  
+Honey used: \(10 \cdot 50 = 500\) (all honey used).
+
+Profit at candidates:
+
+- \( (x,y) = (50, 0)\): \(Z = 7.5 \cdot 50 = 375\)
+- \( (0, 100)\): check feasibility: honey OK, milk = \(525 \cdot 100 = 52500\) > 30000 → infeasible.
+- Endpoints if only 1 resource is binding:
+  - Only milk: \(600x \le 30000 \Rightarrow x \le 50\): best is \(x=50,y=0\).
+  - Only honey: \(5y \le 500 \Rightarrow y \le 100\). With milk: \(525y \le 30000 \Rightarrow y \le 57.14\). So max feasible \(y=57\) if integers. Profit = \(5 \cdot 57 = 285 < 375\).
+
+So optimal solution:  
+- Produce 50 bottles of black milk tea  
+- Produce 0 bottles of matcha milk tea  
+- Maximum profit: \$375
+
+---
+
+### Suggested Python Libraries for Implementation
+
+This is a linear program with 2 variables and linear constraints. Suitable libraries:
+
+- **PuLP**: Very straightforward for LPs, integrates with CBC solver.
+- **OR-Tools (from Google)**: `ortools.linear_solver` for LP/MIP.
+- **SciPy**: `scipy.optimize.linprog` for continuous LP (no integrality).
+- **Pyomo**: More general modeling, good for larger or more complex models.
+
+A minimal PuLP formulation:
+
+```python
+import pulp
+
+# Define problem
+model = pulp.LpProblem("Milk_Tea_Production", pulp.LpMaximize)
+
+# Decision variables (continuous; use cat='Integer' if needed)
+x = pulp.LpVariable('black_tea', lowBound=0)
+y = pulp.LpVariable('matcha_tea', lowBound=0)
+
+# Objective
+model += 7.5 * x + 5 * y
+
+# Constraints
+model += 600 * x + 525 * y <= 30000  # Milk
+model += 10 * x + 5 * y <= 500       # Honey
+
+# Solve
+model.solve()
+
+print("Status:", pulp.LpStatus[model.status])
+print("Black milk tea bottles:", x.value())
+print("Matcha milk tea bottles:", y.value())
+print("Max profit:", pulp.value(model.objective))
+```
+
+This should return approximately:
+- Black milk tea: 50
+- Matcha milk tea: 0
+- Max profit: 375
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def main():
+    # Define the LP problem: maximize profit
+    model = pulp.LpProblem("Milk_Tea_Production", pulp.LpMaximize)
+
+    # Decision variables (continuous, non-negative)
+    x = pulp.LpVariable('black_tea', lowBound=0)
+    y = pulp.LpVariable('matcha_tea', lowBound=0)
+
+    # Objective function: Maximize 7.5x + 5y
+    model += 7.5 * x + 5 * y
+
+    # Constraints
+    # Milk: 600x + 525y <= 30000
+    model += 600 * x + 525 * y <= 30000
+
+    # Honey: 10x + 5y <= 500
+    model += 10 * x + 5 * y <= 500
+
+    # Solve the LP
+    model.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract the objective value
+    final_obj = pulp.value(model.objective)
+
+    # Print the required final objective value
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

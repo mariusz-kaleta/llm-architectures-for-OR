@@ -1,0 +1,113 @@
+[MODELER]:
+Let
+
+- \(x_1\) = number of days to operate the **old farm**  
+- \(x_2\) = number of days to operate the **new farm**
+
+Both \(x_1, x_2 \ge 0\) and can be fractional (e.g., partial days), so this is a linear program (LP).
+
+### Objective
+
+Minimize total operating cost:
+
+\[
+\min \; Z = 300 x_1 + 200 x_2
+\]
+
+### Constraints
+
+Demand (contract) constraints for each berry type:
+
+- **Raspberries**:  
+  Old farm: 2 kg/day, New farm: 4 kg/day, Need at least 10 kg
+  \[
+  2x_1 + 4x_2 \ge 10
+  \]
+
+- **Blueberries**:  
+  Old farm: 2 kg/day, New farm: 1 kg/day, Need at least 9 kg
+  \[
+  2x_1 + x_2 \ge 9
+  \]
+
+- **Strawberries**:  
+  Old farm: 4 kg/day, New farm: 2 kg/day, Need at least 15 kg
+  \[
+  4x_1 + 2x_2 \ge 15
+  \]
+
+- **Non-negativity**:
+  \[
+  x_1 \ge 0,\quad x_2 \ge 0
+  \]
+
+This is a standard linear programming problem.
+
+### Suitable Python libraries
+
+You can model and solve this LP using:
+
+- `PuLP` (very straightforward LP modeling in Python)
+- `scipy.optimize.linprog` (for linear programs without integer constraints)
+- `ortools.linear_solver` from Google OR-Tools (for LPs and MILPs)
+
+For example, with PuLP:
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("BerryFarm", pl.LpMinimize)
+
+# Decision variables
+x1 = pl.LpVariable("x_old", lowBound=0)   # days old farm
+x2 = pl.LpVariable("x_new", lowBound=0)   # days new farm
+
+# Objective
+prob += 300*x1 + 200*x2
+
+# Constraints
+prob += 2*x1 + 4*x2 >= 10   # raspberries
+prob += 2*x1 + 1*x2 >= 9    # blueberries
+prob += 4*x1 + 2*x2 >= 15   # strawberries
+
+# Solve
+prob.solve()
+print("Status:", pl.LpStatus[prob.status])
+print("x_old =", x1.value())
+print("x_new =", x2.value())
+print("Min cost =", pl.value(prob.objective))
+```
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("BerryFarm", pl.LpMinimize)
+
+    # Decision variables
+    x1 = pl.LpVariable("x_old", lowBound=0)   # days old farm
+    x2 = pl.LpVariable("x_new", lowBound=0)   # days new farm
+
+    # Objective
+    prob += 300 * x1 + 200 * x2
+
+    # Constraints
+    prob += 2 * x1 + 4 * x2 >= 10   # raspberries
+    prob += 2 * x1 + 1 * x2 >= 9    # blueberries
+    prob += 4 * x1 + 2 * x2 >= 15   # strawberries
+
+    # Solve
+    prob.solve()
+
+    # Get objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print final objective as required
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

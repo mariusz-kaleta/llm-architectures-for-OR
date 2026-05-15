@@ -1,0 +1,41 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+capacity_truck = 1000
+capacity_van = 500
+cost_truck = 300
+cost_van = 100
+min_patties = 50000
+budget = 12500
+
+# Define problem
+prob = pulp.LpProblem("Minimize_Trips", pulp.LpMinimize)
+
+# Decision variables: number of trucks (T) and vans (V), integers >= 0
+T = pulp.LpVariable('Trucks', lowBound=0, cat='Integer')
+V = pulp.LpVariable('Vans', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of trips
+prob += T + V, "Total_Trips"
+
+# Constraints
+prob += capacity_truck * T + capacity_van * V >= min_patties, "Capacity"
+prob += cost_truck * T + cost_van * V <= budget, "Budget"
+prob += T <= V, "Truck_Van_Relation"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve results
+T_val = int(pulp.value(T))
+V_val = int(pulp.value(V))
+obj_val = int(pulp.value(prob.objective))
+
+# Print plan and final objective (final print must be last)
+print(f"Trucks: {T_val}")
+print(f"Vans: {V_val}")
+print(f"Total patties shipped: {capacity_truck * T_val + capacity_van * V_val}")
+print(f"Total cost: ${cost_truck * T_val + cost_van * V_val}")
+print(f"TOTAL_TRIPS: {obj_val}")
+print(f"FINAL_OBJ: {obj_val}")

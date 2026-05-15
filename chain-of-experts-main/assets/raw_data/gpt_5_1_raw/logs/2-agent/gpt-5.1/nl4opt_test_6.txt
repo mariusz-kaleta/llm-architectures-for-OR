@@ -1,0 +1,130 @@
+[MODELER]:
+Formulate this as an integer linear programming (ILP) problem.
+
+### Decision variables
+
+Let  
+- \(b \in \mathbb{Z}_{\ge 0}\): number of bikes  
+- \(s \in \mathbb{Z}_{\ge 0}\): number of scooters  
+
+### Objective
+
+Maximize the total number of meals delivered:
+
+\[
+\max\; Z = 8b + 5s
+\]
+
+### Constraints
+
+1. **Charge availability (200 units total)**  
+   Bikes use 3 units, scooters use 2 units:
+
+   \[
+   3b + 2s \le 200
+   \]
+
+2. **At most 30% of vehicles can be bikes**  
+
+   “At most 30% bikes” means:
+
+   \[
+   b \le 0.3(b + s)
+   \]
+
+   Rearranging:
+
+   \[
+   b \le 0.3b + 0.3s \\
+   0.7b \le 0.3s \\
+   7b \le 3s
+   \]
+
+3. **At least 20 scooters must be used**
+
+   \[
+   s \ge 20
+   \]
+
+4. **Integrality and non-negativity**
+
+   \[
+   b, s \in \mathbb{Z}_{\ge 0}
+   \]
+
+---
+
+### Solving / Interpretation
+
+This is a small ILP that can be solved with standard solvers. The solution (by inspection or solver) is:
+
+- \(b = 15\) bikes  
+- \(s = 35\) scooters  
+
+Check:
+
+- Charge: \(3 \cdot 15 + 2 \cdot 35 = 45 + 70 = 115 \le 200\)  
+- Bike proportion: \(15 / (15 + 35) = 15/50 = 0.3\) → exactly 30%  
+- Scooters: \(s = 35 \ge 20\)  
+- Meals: \(8 \cdot 15 + 5 \cdot 35 = 120 + 175 = 295\) meals  
+
+This combination satisfies all constraints and maximizes meals under those constraints.
+
+---
+
+### Suitable Python libraries
+
+You can model and solve this ILP with any of the following:
+
+- **PuLP** (`pulp`): Simple and pure-Python LP/MILP modeling interface.
+- **OR-Tools** (`ortools.linear_solver` or `ortools.sat.python.cp_model`): Google’s optimization suite, good MILP/CP solvers.
+- **Pyomo**: More general algebraic modeling, suitable for ILP as well.
+- **SciPy** (`scipy.optimize.linprog`): Can handle LPs; for integrality you’d need an extension or rounding heuristic, so it’s less ideal here unless you relax integrality.
+
+For this discrete vehicle-count problem, PuLP or OR-Tools are the most straightforward choices.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def solve_ilp():
+    # Define the problem
+    model = pulp.LpProblem("Meals_Delivery_Optimization", pulp.LpMaximize)
+
+    # Decision variables: number of bikes (b) and scooters (s)
+    b = pulp.LpVariable('b', lowBound=0, cat='Integer')
+    s = pulp.LpVariable('s', lowBound=0, cat='Integer')
+
+    # Objective function: Maximize total meals delivered
+    model += 8 * b + 5 * s
+
+    # Constraints
+
+    # 1. Charge availability: 3b + 2s <= 200
+    model += 3 * b + 2 * s <= 200, "ChargeConstraint"
+
+    # 2. At most 30% of vehicles can be bikes: 7b <= 3s
+    model += 7 * b <= 3 * s, "BikeProportionConstraint"
+
+    # 3. At least 20 scooters: s >= 20
+    model += s >= 20, "ScooterMinimumConstraint"
+
+    # Solve the model
+    model.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    b_opt = pulp.value(b)
+    s_opt = pulp.value(s)
+    obj_value = pulp.value(model.objective)
+
+    # Optional: ensure integrality as a sanity check
+    b_opt = int(round(b_opt))
+    s_opt = int(round(s_opt))
+    obj_value = int(round(obj_value))
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    solve_ilp()

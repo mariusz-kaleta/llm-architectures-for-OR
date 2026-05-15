@@ -1,0 +1,141 @@
+[MODELER]:
+Here is a clean optimization model for this problem and how to solve it.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of bike shifts (integer, \(x \ge 0\))  
+- \(y\) = number of scooter shifts (integer, \(y \ge 0\))
+
+---
+
+## 2. Objective function
+
+Maximize total tips:
+
+- Each bike shift: \$50  
+- Each scooter shift: \$43  
+
+\[
+\text{Maximize } Z = 50x + 43y
+\]
+
+---
+
+## 3. Constraints
+
+1. **Shift limit** (at most 40 shifts per month):
+\[
+x + y \le 40
+\]
+
+2. **Energy limit** (at most 230 units of energy):
+- Bike shift uses 5 energy units  
+- Scooter shift uses 6 energy units
+
+\[
+5x + 6y \le 230
+\]
+
+3. **Order requirement** (must deliver at least 320 orders):
+- Bike shift delivers 10 orders  
+- Scooter shift delivers 7 orders  
+
+\[
+10x + 7y \ge 320
+\]
+
+4. **Minimum scooter shifts** (at least 5 scooter shifts):
+
+\[
+y \ge 5
+\]
+
+5. **Integrality and non-negativity**:
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+This is a **mixed integer linear programming (MILP)** problem (integer but linear constraints and objective), but here both variables are integers.
+
+---
+
+## 4. Suitable Python libraries
+
+You can model and solve this with any standard MILP solver. Common Python options:
+
+- **PuLP** – very convenient modeling library; works with CBC (included) and others.
+- **OR-Tools** (`ortools.linear_solver` or `ortools.math_opt`) – very fast and industrial-grade.
+- **Pyomo** – general-purpose optimization modeling.
+- **scipy.optimize** – not ideal here because it doesn’t directly support integer variables.
+
+For this problem, **PuLP** or **OR-Tools** are the simplest choices.
+
+---
+
+## 5. Example in PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("DeliveryShifts", pl.LpMaximize)
+
+# Decision variables (integer)
+x = pl.LpVariable("bike_shifts", lowBound=0, cat="Integer")
+y = pl.LpVariable("scooter_shifts", lowBound=0, cat="Integer")
+
+# Objective: maximize tips
+prob += 50 * x + 43 * y
+
+# Constraints
+prob += x + y <= 40                 # shift limit
+prob += 5 * x + 6 * y <= 230        # energy limit
+prob += 10 * x + 7 * y >= 320       # orders requirement
+prob += y >= 5                      # minimum scooter shifts
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Bike shifts (x):", pl.value(x))
+print("Scooter shifts (y):", pl.value(y))
+print("Max tips:", pl.value(prob.objective))
+```
+
+This will compute the optimal numbers of bike and scooter shifts to maximize tips while satisfying all constraints.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Problem definition
+    prob = pl.LpProblem("DeliveryShifts", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable("bike_shifts", lowBound=0, cat="Integer")
+    y = pl.LpVariable("scooter_shifts", lowBound=0, cat="Integer")
+
+    # Objective: maximize tips
+    prob += 50 * x + 43 * y
+
+    # Constraints
+    prob += x + y <= 40                 # shift limit
+    prob += 5 * x + 6 * y <= 230        # energy limit
+    prob += 10 * x + 7 * y >= 320       # orders requirement
+    prob += y >= 5                      # minimum scooter shifts
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    final_obj = pl.value(prob.objective)
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

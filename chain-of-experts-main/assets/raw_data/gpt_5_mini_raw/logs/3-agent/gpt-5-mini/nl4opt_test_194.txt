@@ -1,0 +1,185 @@
+[MODELER]:
+Model
+
+Decision variables
+- x = number of fish meals (>= 0)
+- y = number of chicken meals (>= 0)
+
+Objective
+- Minimize total fat: F(x,y) = 7x + 10y
+
+Constraints
+- Protein requirement: 10x + 15y >= 130
+- Iron requirement: 12x + 8y >= 120
+- Preference (chicken at least twice fish): y >= 2x
+- Nonnegativity: x >= 0, y >= 0
+- Optional integrality: x, y integer (meals are usually whole numbers)
+
+Mathematical formulation (continuous LP)
+minimize 7x + 10y
+subject to
+10x + 15y >= 130
+12x + 8y  >= 120
+y - 2x >= 0
+x, y >= 0
+
+If meals must be whole numbers, add x, y ∈ Z_+.
+
+Solution (analysis + results)
+- The continuous LP optimum is at the intersection of the iron constraint and y = 2x:
+  12x + 8y = 120 and y = 2x -> x = 30/7 ≈ 4.2857, y = 60/7 ≈ 8.5714, fat ≈ 115.714.
+- If x and y must be integers (practical case), check integer feasible points near the continuous solution. The best integer solution is
+  x = 4 fish meals, y = 9 chicken meals.
+  This meets constraints:
+   - Protein: 10*4 + 15*9 = 175 >= 130
+   - Iron:    12*4 + 8*9  = 120 >= 120
+   - Preference: 9 >= 2*4 = 8
+  Total fat = 7*4 + 10*9 = 28 + 90 = 118 (units).
+- So the recommended integer solution: 4 fish meals and 9 chicken meals (total fat = 118 units).
+
+Suggested Python libraries to solve
+- Continuous LP: scipy.optimize.linprog, or PuLP (with CBC/GLPK)
+- Mixed-integer (integer meals): PuLP (CBC), OR-Tools CP-SAT (ortools.sat.python.cp_model), or commercial solvers (Gurobi, CPLEX) if available.
+
+Short PuLP sketch (integer)
+- Define variables x, y = LpVariable(..., cat='Integer')
+- Define objective LpMinimize(7*x + 10*y)
+- Add constraints 10*x + 15*y >= 130, 12*x + 8*y >= 120, y >= 2*x, x >= 0, y >= 0
+- Solve and read x.value(), y.value().
+
+If you want, I can provide full Python code (both continuous and integer versions) and run through the solver steps.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Problem data
+# Decision variables: x = fish meals, y = chicken meals
+# Objective: minimize 7x + 10y
+# Constraints (>=):
+#   10x + 15y >= 130    (protein)
+#   12x +  8y >= 120    (iron)
+#    y - 2x    >= 0     (preference)
+# x, y >= 0
+
+# Helper: solve 2x2 linear system:
+# a1*x + b1*y = c1
+# a2*x + b2*y = c2
+def solve2(a1, b1, c1, a2, b2, c2):
+    det = a1 * b2 - a2 * b1
+    if abs(det) < 1e-12:
+        return None
+    x = (c1 * b2 - c2 * b1) / det
+    y = (a1 * c2 - a2 * c1) / det
+    return (x, y)
+
+# Define constraints as functions returning left-hand side value
+def protein_lhs(x, y): return 10 * x + 15 * y
+def iron_lhs(x, y):    return 12 * x + 8  * y
+def pref_lhs(x, y):    return y - 2 * x
+
+# Objective
+def fat(x, y): return 7 * x + 10 * y
+
+# Build candidate vertices for the continuous LP by intersecting pairs of boundaries
+candidates = []
+
+# Equations:
+# protein: 10x + 15y = 130
+# iron:    12x + 8y  = 120
+# pref:    -2x + y   = 0   (i.e., y = 2x)
+
+# intersections among protein, iron, pref
+p = solve2(10, 15, 130, 12, 8, 120)
+if p is not None:
+    candidates.append(p)
+q = solve2(10, 15, 130, -2, 1, 0)
+if q is not None:
+    candidates.append(q)
+r = solve2(12, 8, 120, -2, 1, 0)
+if r is not None:
+    candidates.append(r)
+
+# intersections with axes (x=0, y=0) combined with each equality
+# x = 0 with protein: 15y = 130 -> y = 130/15
+candidates.append((0.0, 130.0 / 15.0))
+# x = 0 with iron: 8y = 120 -> y = 120/8
+candidates.append((0.0, 120.0 / 8.0))
+# x = 0 with pref: y = 0  (not useful but include)
+candidates.append((0.0, 0.0))
+
+# y = 0 with protein: 10x = 130 -> x = 13
+candidates.append((130.0 / 10.0, 0.0))
+# y = 0 with iron: 12x = 120 -> x = 10
+candidates.append((120.0 / 12.0, 0.0))
+# y = 0 with pref: -2x = 0 -> x = 0
+candidates.append((0.0, 0.0))
+
+# Filter feasible (satisfy all >= constraints) and x,y >= 0
+feasible_continuous = []
+tol = 1e-9
+for (x, y) in candidates:
+    # skip NaN or infinite
+    if x is None or y is None or math.isinf(x) or math.isinf(y) or math.isnan(x) or math.isnan(y):
+        continue
+    if x + tol < 0 or y + tol < 0:
+        continue
+    if protein_lhs(x, y) + tol >= 130 and iron_lhs(x, y) + tol >= 120 and pref_lhs(x, y) + tol >= 0:
+        feasible_continuous.append((x, y, fat(x, y)))
+
+# It's possible the true vertex uses intersection with axes not exactly matching equalities;
+# however above covers candidate vertices for this small LP. If no feasible candidate found (unlikely),
+# we can fallback to scanning a grid for continuous approx.
+if not feasible_continuous:
+    # grid scan over reasonable range to approximate continuous optimum
+    best = None
+    for x in [i * 0.25 for i in range(0, 401)]:  # 0..100 step 0.25
+        for y in [j * 0.25 for j in range(0, 401)]:
+            if protein_lhs(x, y) >= 130 - tol and iron_lhs(x, y) >= 120 - tol and pref_lhs(x, y) >= -tol:
+                val = fat(x, y)
+                if best is None or val < best[2]:
+                    best = (x, y, val)
+    if best:
+        feasible_continuous.append(best)
+
+# Choose best continuous solution
+if feasible_continuous:
+    cont_best = min(feasible_continuous, key=lambda t: t[2])
+    cont_x, cont_y, cont_val = cont_best
+else:
+    cont_x = cont_y = cont_val = None
+
+# Integer solution by brute force search (meals are whole numbers)
+# Set reasonable upper bounds for search
+# We'll search x,y in range 0..50 which is small and safe
+max_search = 50
+best_int = None
+best_int_xy = (None, None)
+for xi in range(0, max_search + 1):
+    for yi in range(0, max_search + 1):
+        if (10 * xi + 15 * yi) >= 130 and (12 * xi + 8 * yi) >= 120 and (yi >= 2 * xi):
+            val = 7 * xi + 10 * yi
+            if best_int is None or val < best_int:
+                best_int = val
+                best_int_xy = (xi, yi)
+
+# If not found within bounds, expand search (unlikely)
+if best_int is None:
+    max_search = 200
+    for xi in range(0, max_search + 1):
+        for yi in range(0, max_search + 1):
+            if (10 * xi + 15 * yi) >= 130 and (12 * xi + 8 * yi) >= 120 and (yi >= 2 * xi):
+                val = 7 * xi + 10 * yi
+                if best_int is None or val < best_int:
+                    best_int = val
+                    best_int_xy = (xi, yi)
+
+# At this point, best_int holds the integer optimal objective (fat) and best_int_xy is the solution
+final_obj = int(best_int) if best_int is not None and abs(best_int - round(best_int)) < 1e-9 else best_int
+
+# Final required print line
+print(f"FINAL_OBJ: {final_obj}")
+```

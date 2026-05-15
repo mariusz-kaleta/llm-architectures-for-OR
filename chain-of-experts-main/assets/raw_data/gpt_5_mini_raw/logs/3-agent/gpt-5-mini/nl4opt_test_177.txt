@@ -1,0 +1,84 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- c ∈ Z≥0 : number of small canoes
+- d ∈ Z≥0 : number of diesel boats
+
+Objective
+- Minimize total boats: minimize z = c + d
+
+Constraints
+- Capacity requirement: 10 c + 15 d ≥ 1000
+- Environmental rule: c ≥ 3 d
+- Integrality and nonnegativity: c, d ∈ Z≥0
+
+Remarks / solution sketch
+- For any fixed d, to minimize c you should take the smallest feasible c:
+  c = max(3d, ceil((1000 − 15 d) / 10)).
+- For d ≥ 23 the first term dominates (3d) and capacity with c = 3d gives 45 d ≥ 1035 (so those d give at least 4·23 = 92 boats).
+- Checking d = 0..22 (or solving the integer program) yields the optimum at
+  d = 22, c = 67, giving capacity 10·67 + 15·22 = 1000 and total boats c + d = 89.
+- Therefore the minimal number of boats is 89, achieved with 67 canoes and 22 diesel boats.
+
+Suggested Python libraries to solve / model this
+- pulp (open-source MILP modeling, default CBC solver)
+- ortools (CP-SAT / MILP solver from Google)
+- pyomo with a solver backend (GLPK, CBC, Gurobi, CPLEX)
+- mip (python-mip, good interface to CBC/Gurobi)
+(Do not use scipy.optimize for integer programs; it is for continuous problems.)
+
+Example (pulp)
+  from pulp import LpProblem, LpMinimize, LpVariable, LpInteger, lpSum, PULP_CBC_CMD
+
+  prob = LpProblem("boats", LpMinimize)
+  c = LpVariable("canoes", lowBound=0, cat=LpInteger)
+  d = LpVariable("diesels", lowBound=0, cat=LpInteger)
+
+  prob += c + d
+  prob += 10*c + 15*d >= 1000
+  prob += c >= 3*d
+
+  prob.solve(PULP_CBC_CMD(msg=False))
+  print("canoes =", int(c.value()), "diesels =", int(d.value()), "total =", int(c.value()+d.value()))
+
+This returns c = 67, d = 22, total = 89.
+
+---
+
+[CODER]:
+#!/usr/bin/env python3
+# Solve the integer program:
+# Minimize c + d
+# s.t. 10 c + 15 d >= 1000
+#      c >= 3 d
+#      c, d integer >= 0
+
+capacity_required = 1000
+cap_c = 10
+cap_d = 15
+ratio = 3
+
+best_obj = None
+best_c = None
+best_d = None
+
+# Search d in a reasonable range. Upper bound: if d is very large, objective grows.
+# We'll search up to 1000 (more than sufficient here).
+for d in range(0, 1001):
+    # minimal c to satisfy capacity: ceil((capacity_required - cap_d*d) / cap_c)
+    rem = capacity_required - cap_d * d
+    if rem <= 0:
+        c_capacity = 0
+    else:
+        c_capacity = (rem + cap_c - 1) // cap_c
+    c_env = ratio * d
+    c = max(c_capacity, c_env)
+    obj = c + d
+    if best_obj is None or obj < best_obj:
+        best_obj = obj
+        best_c = c
+        best_d = d
+
+# Print final objective in required format
+print(f"FINAL_OBJ: {best_obj}")

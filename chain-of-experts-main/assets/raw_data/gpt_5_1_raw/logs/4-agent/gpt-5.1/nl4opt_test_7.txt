@@ -1,0 +1,219 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- **Goal:** Maximise total weekly profit from producing chairs and dressers.
+
+2. **Suggested model type**
+
+- **Model:** Linear Programming (LP) with two decision variables.
+- Problem is small enough to be solved graphically or with simple LP techniques, but should still be structured as an LP.
+
+3. **Main decision variables**
+
+Define:
+- **Variable 1:** Number of chairs produced per week.
+- **Variable 2:** Number of dressers produced per week.
+
+(Depending on modelling assumptions, you may note they should be non‑negative and typically integer, but the core LP can treat them as continuous.)
+
+4. **Key constraints to consider**
+
+a) **Stain usage constraint**
+- Total gallons of stain used by chairs and dressers must not exceed the 17 gallons available.
+- Each chair uses 1.4 gallons.
+- Each dresser uses 1.1 gallons.
+- Form a linear inequality linking chair and dresser quantities to the 17-gallon limit.
+
+b) **Oak wood constraint**
+- Total oak wood lengths used must not exceed the 11 lengths available.
+- Each chair uses 2 lengths.
+- Each dresser uses 3 lengths.
+- Form a linear inequality linking chair and dresser quantities to the 11-length limit.
+
+c) **Non-negativity constraints**
+- Number of chairs ≥ 0.
+- Number of dressers ≥ 0.
+
+d) **(Optional) Integrality constraint**
+- If necessary, specify that the number of chairs and dressers must be integers. For a basic LP treatment, they can be continuous; integrality can be checked at the optimal solution.
+
+5. **Objective function structure**
+
+- Profit per chair: $43.
+- Profit per dresser: $52.
+- Objective is a linear combination of the two decision variables using these coefficients.
+
+6. **Solution strategy outline for the Modeller**
+
+- Set up the LP with the two constraints plus non-negativity.
+- For a didactic/small-scale approach:
+  - Solve using a graphical method: draw both resource constraints, identify the feasible region, find corner points, and evaluate profit at each.
+- Alternatively, solve using any LP solver and then:
+  - Verify whether the optimal solution is integral.
+  - If not integral and integrality is required, check nearby integer points around the optimal continuous solution.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem and how you could solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of chairs produced per week  
+- \(y\) = number of dressers produced per week  
+
+Non-negativity:
+
+- \(x \ge 0\)  
+- \(y \ge 0\)
+
+(If you require whole items, you can later add \(x, y \in \mathbb{Z}\).)
+
+---
+
+## 2. Objective function
+
+Profit per chair = \$43  
+Profit per dresser = \$52
+
+Maximise total weekly profit:
+
+\[
+\max Z = 43x + 52y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Stain usage
+
+Each chair uses 1.4 gallons, each dresser 1.1 gallons, total available is 17 gallons:
+
+\[
+1.4x + 1.1y \le 17
+\]
+
+### b) Oak wood usage
+
+Each chair uses 2 lengths, each dresser 3 lengths, total available is 11 lengths:
+
+\[
+2x + 3y \le 11
+\]
+
+### c) Non-negativity
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+### d) (Optional) Integrality
+
+If needed:
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete LP model
+
+\[
+\begin{aligned}
+\text{Maximise} \quad & Z = 43x + 52y\\
+\text{subject to} \quad 
+& 1.4x + 1.1y \le 17 \quad \text{(stain)}\\
+& 2x + 3y \le 11 \quad \text{(oak wood)}\\
+& x \ge 0,\; y \ge 0 \\
+& \text{(optionally } x,y \in \mathbb{Z})
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+For this small LP, any standard LP solver is fine. Good choices:
+
+- **PuLP** (`pulp`): Easy, pure Python, works with CBC solver by default.
+- **OR-Tools** (`ortools.linear_solver`): Very good for linear and integer programming.
+- **SciPy** (`scipy.optimize.linprog`): For continuous LP (no integrality).
+
+If you **need integer** decisions (whole chairs/dressers), prefer **PuLP** or **OR-Tools**.
+
+---
+
+## 6. Example using PuLP (continuous LP)
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("ElmFurnitureProfitMax", pl.LpMaximize)
+
+# Decision variables (continuous, non-negative)
+x = pl.LpVariable('chairs', lowBound=0)
+y = pl.LpVariable('dressers', lowBound=0)
+
+# Objective function
+prob += 43 * x + 52 * y
+
+# Constraints
+prob += 1.4 * x + 1.1 * y <= 17   # stain
+prob += 2 * x + 3 * y <= 11       # oak wood
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Chairs (x)   =", x.value())
+print("Dressers (y) =", y.value())
+print("Max profit   =", pl.value(prob.objective))
+```
+
+To enforce integrality, just define the variables as integers:
+
+```python
+x = pl.LpVariable('chairs', lowBound=0, cat='Integer')
+y = pl.LpVariable('dressers', lowBound=0, cat='Integer')
+```
+
+This fully specifies the optimisation model and a straightforward way to solve it programmatically.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem: maximize profit
+    prob = pl.LpProblem("ElmFurnitureProfitMax", pl.LpMaximize)
+
+    # Decision variables: integer number of chairs and dressers, non-negative
+    x = pl.LpVariable('chairs', lowBound=0, cat='Integer')
+    y = pl.LpVariable('dressers', lowBound=0, cat='Integer')
+
+    # Objective function: maximize 43x + 52y
+    prob += 43 * x + 52 * y
+
+    # Constraints
+    prob += 1.4 * x + 1.1 * y <= 17   # stain
+    prob += 2 * x + 3 * y <= 11       # oak wood
+
+    # Solve the problem
+    prob.solve()
+
+    # Extract objective value
+    obj_value = pl.value(prob.objective)
+
+    # Final required print
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

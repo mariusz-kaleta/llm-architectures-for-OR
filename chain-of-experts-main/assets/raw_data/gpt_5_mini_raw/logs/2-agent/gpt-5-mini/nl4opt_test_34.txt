@@ -1,0 +1,111 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x ∈ Z_{\ge 0} = number of carts
+- y ∈ Z_{\ge 0} = number of trolleys
+
+Parameters
+- cart capacity = 5 kg/min, cart workers = 2
+- trolley capacity = 7 kg/min, trolley workers = 4
+- required delivery ≥ 100 kg/min
+- at least 12 trolleys: y ≥ 12
+- at most 40% of transported mass can be by trolleys
+
+Objective
+Minimize total workers: minimize W = 2x + 4y
+
+Constraints
+1) Delivery requirement:
+   5x + 7y ≥ 100
+
+2) Trolley share ≤ 40%:
+   (7y) / (5x + 7y) ≤ 0.4
+   This can be rearranged to a linear integer-friendly form:
+   7y ≤ 0.4(5x + 7y)  ⇒  multiply by 10 ⇒ 70y ≤ 4(5x + 7y)
+   ⇒ 42y ≤ 20x  ⇒ 21y ≤ 10x  ⇒ 10x - 21y ≥ 0
+
+3) Integer, nonnegativity:
+   x, y integers ≥ 0; and y ≥ 12
+
+So the MILP is
+minimize 2x + 4y
+subject to
+  5x + 7y ≥ 100
+  10x - 21y ≥ 0
+  y ≥ 12
+  x, y ∈ Z_{≥0}
+
+Solution (analysis + result)
+- Carts are more labor-efficient per capacity (2/5 = 0.4 workers per kg/min) than trolleys (4/7 ≈ 0.5714), so you want as few trolleys as allowed.
+- Set y = 12 (minimum). The 10x - 21y ≥ 0 constraint gives x ≥ (21/10) y = 2.1·y = 25.2, so x must be integer x ≥ 26.
+- With x = 26, y = 12: capacity = 5·26 + 7·12 = 130 + 84 = 214 ≥ 100, and trolley share = 84/214 ≈ 0.392 < 0.4. Total workers W = 2·26 + 4·12 = 52 + 48 = 100.
+
+No smaller worker total is possible because increasing y increases total workers (trolleys are less efficient) and y cannot be reduced below 12. Therefore the optimal integer solution is:
+- Carts x = 26
+- Trolleys y = 12
+- Total workers = 100
+
+Recommended solvers / libraries
+- pulp (simple MILP modeling in Python; uses CBC by default)
+- OR-Tools (CP-SAT or MIP solver; good performance)
+- scipy.optimize is not suited for integer problems (use the above for MILP)
+- commercial solvers (CPLEX, Gurobi) if available for faster solve on large variants
+
+Optional: example with pulp (Python)
+- Define integer variables x,y, add constraints 5*x+7*y >= 100, 10*x - 21*y >= 0, y >= 12, x>=0,y>=0, objective 2*x+4*y and solve. The model will return x=26, y=12.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+#!/usr/bin/env python3
+import math
+
+# Parameters
+cart_cap = 5       # kg/min per cart
+cart_workers = 2   # workers per cart
+trol_cap = 7       # kg/min per trolley
+trol_workers = 4   # workers per trolley
+required = 100     # required delivery kg/min
+y_min = 12         # minimum number of trolleys
+
+best_W = None
+best_x = None
+best_y = None
+
+# Search over reasonable range for y (start at y_min). Upper bound large enough to be safe.
+for y in range(y_min, 1001):
+    # Constraint: 10x - 21y >= 0  => x >= ceil(21*y / 10)
+    x1 = (21 * y + 10 - 1) // 10  # integer ceil for positive values
+
+    # Constraint: 5x + 7y >= 100 => x >= ceil((100 - 7y) / 5)
+    rem = required - trol_cap * y
+    if rem > 0:
+        x2 = (rem + cart_cap - 1) // cart_cap
+    else:
+        x2 = 0
+
+    x = max(0, x1, x2)
+
+    # Compute objective
+    W = cart_workers * x + trol_workers * y
+
+    # Feasibility check (redundant but safe)
+    if cart_cap * x + trol_cap * y < required:
+        continue
+    if 10 * x - 21 * y < 0:
+        continue
+    if y < y_min:
+        continue
+
+    if best_W is None or W < best_W:
+        best_W = W
+        best_x = x
+        best_y = y
+
+# Print final objective in required format
+if best_W is None:
+    # No feasible solution found (shouldn't happen for this problem)
+    print(f"FINAL_OBJ: None")
+else:
+    print(f"FINAL_OBJ: {best_W}")

@@ -1,0 +1,135 @@
+[MODELER]:
+Model type: Linear program (maximize linear objective subject to linear inequalities).
+
+Decision variables
+- x1 = kilograms of Mix 1 (20% cat paw, 80% gold shark)
+- x2 = kilograms of Mix 2 (35% cat paw, 65% gold shark)
+
+Parameters
+- Available cat paw snacks = 20 kg
+- Available gold shark snacks = 50 kg
+- Profit per kg: p1 = $12 (Mix 1), p2 = $15 (Mix 2)
+- Composition:
+  - Mix 1 uses 0.20 kg cat paw and 0.80 kg gold per kg
+  - Mix 2 uses 0.35 kg cat paw and 0.65 kg gold per kg
+
+Objective
+Maximize total profit: Z = 12 x1 + 15 x2
+
+Constraints
+1) Cat paw availability: 0.20 x1 + 0.35 x2 ≤ 20
+2) Gold shark availability: 0.80 x1 + 0.65 x2 ≤ 50
+3) Nonnegativity: x1 ≥ 0, x2 ≥ 0
+
+Standard LP:
+maximize Z = 12 x1 + 15 x2
+subject to
+0.2 x1 + 0.35 x2 ≤ 20
+0.8 x1 + 0.65 x2 ≤ 50
+x1, x2 ≥ 0
+
+Analytical solution (2×2): Solve the two binding constraints as equalities:
+0.2 x1 + 0.35 x2 = 20
+0.8 x1 + 0.65 x2 = 50
+Solving gives x1 = 30 kg, x2 = 40 kg. Profit = 12·30 + 15·40 = $960. Both resource constraints are exactly used.
+
+Suggested Python libraries to solve
+- pulp (simple, pure-Python LP modeling)
+- scipy.optimize.linprog (efficient solver, use method='highs')
+- OR-Tools (commercial-scale solvers from Google)
+- cvxpy (convex optimization modeling)
+
+Example (pulp):
+from pulp import LpProblem, LpMaximize, LpVariable, value
+prob = LpProblem('Mix', LpMaximize)
+x1 = LpVariable('x1', lowBound=0)
+x2 = LpVariable('x2', lowBound=0)
+prob += 12*x1 + 15*x2
+prob += 0.2*x1 + 0.35*x2 <= 20
+prob += 0.8*x1 + 0.65*x2 <= 50
+prob.solve()
+print(value(x1), value(x2), value(prob.objective))
+
+Example (scipy):
+from scipy.optimize import linprog
+c = [-12, -15]                     # minimize so use negatives
+A_ub = [[0.2, 0.35], [0.8, 0.65]]
+b_ub = [20, 50]
+res = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=(0, None), method='highs')
+x1_opt, x2_opt = res.x
+profit = 12*x1_opt + 15*x2_opt
+
+Answer
+Produce 30 kg of the first mix and 40 kg of the second mix; maximum profit = $960.
+
+---
+
+[CODER]:
+import math
+
+# Data (initialized directly)
+p1 = 12.0  # profit per kg for Mix 1
+p2 = 15.0  # profit per kg for Mix 2
+
+cat_avail = 20.0   # kg of cat paw snacks available
+gold_avail = 50.0  # kg of gold shark snacks available
+
+# Coefficients in resource constraints
+# 0.2 x1 + 0.35 x2 <= 20
+# 0.8 x1 + 0.65 x2 <= 50
+
+a11, a12, b1 = 0.2, 0.35, cat_avail
+a21, a22, b2 = 0.8, 0.65, gold_avail
+
+tol = 1e-9
+
+# Helper to check feasibility
+def feasible(x1, x2):
+    if x1 < -tol or x2 < -tol:
+        return False
+    if a11 * x1 + a12 * x2 - b1 > tol:
+        return False
+    if a21 * x1 + a22 * x2 - b2 > tol:
+        return False
+    return True
+
+# Candidate vertices:
+vertices = []
+
+# Origin
+vertices.append((0.0, 0.0))
+
+# x1 = 0, use the most restrictive of the two constraints for x2
+x2_from_cat = b1 / a12 if abs(a12) > tol else float('inf')
+x2_from_gold = b2 / a22 if abs(a22) > tol else float('inf')
+x2_candidate = min(x2_from_cat, x2_from_gold)
+vertices.append((0.0, x2_candidate))
+
+# x2 = 0, use the most restrictive constraint for x1
+x1_from_cat = b1 / a11 if abs(a11) > tol else float('inf')
+x1_from_gold = b2 / a21 if abs(a21) > tol else float('inf')
+x1_candidate = min(x1_from_cat, x1_from_gold)
+vertices.append((x1_candidate, 0.0))
+
+# Intersection of the two binding constraints (solve 2x2)
+det = a11 * a22 - a12 * a21
+if abs(det) > tol:
+    x1_inter = (b1 * a22 - a12 * b2) / det
+    x2_inter = (a11 * b2 - b1 * a21) / det
+    vertices.append((x1_inter, x2_inter))
+
+# Evaluate objective on feasible vertices and pick best
+best_profit = -math.inf
+best_x = (0.0, 0.0)
+for x1, x2 in vertices:
+    if feasible(x1, x2):
+        profit = p1 * x1 + p2 * x2
+        if profit > best_profit + tol:
+            best_profit = profit
+            best_x = (x1, x2)
+
+# If best_profit is very close to an integer, cast to int for neatness
+if abs(best_profit - round(best_profit)) < 1e-9:
+    best_profit = int(round(best_profit))
+
+print(f"FINAL_OBJ: {best_profit}")

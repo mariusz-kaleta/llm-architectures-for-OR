@@ -1,0 +1,96 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of smoothies (≥ 0, integer)
+  - y = number of protein bars (≥ 0, integer)
+
+- Data
+  - Protein per smoothie = 2 units
+  - Protein per bar = 7 units
+  - Calories per smoothie = 300
+  - Calories per bar = 250
+  - Calorie limit = 2000
+
+- Constraint interpreting "must eat 2 times more protein bars than smoothies":
+  - Common interpretation: twice as many bars as smoothies, i.e. y = 2x.
+    (If you meant a different interpretation — e.g. "2 times more" meaning bars = 3x — replace this constraint accordingly.)
+
+- Objective
+  - Maximize total protein P = 2x + 7y
+
+- Full (integer) formulation
+  Maximize P = 2x + 7y
+  subject to
+    300x + 250y ≤ 2000
+    y = 2x
+    x, y ∈ Z, x ≥ 0, y ≥ 0
+
+Solution (analytic)
+
+Use y = 2x and substitute into the calorie constraint:
+  300x + 250(2x) = 300x + 500x = 800x ≤ 2000 → x ≤ 2000/800 = 2.5
+
+Since x must be integer and nonnegative, x ∈ {0,1,2}. Evaluate P:
+  - x = 0 → y = 0 → P = 0
+  - x = 1 → y = 2 → P = 2(1) + 7(2) = 16 units
+  - x = 2 → y = 4 → P = 2(2) + 7(4) = 32 units
+
+Maximum integer-feasible solution: x = 2 smoothies and y = 4 protein bars, giving 32 protein units and using 1600 calories.
+
+Notes
+- If fractional servings were allowed (continuous variables), x = 2.5, y = 5 uses all 2000 calories and yields P = 40 units, but fractional meals are usually not realistic.
+- If you intended a different interpretation of "2 times more" (e.g. bars = 3 × smoothies), let me know and I will re-solve.
+
+Recommended solvers/libraries
+- For integer (mixed) linear programming: PuLP, OR-Tools (Python), or CBC/Gurobi (via interfaces)
+- For continuous linear programming: scipy.optimize.linprog or PuLP/ORTools as well
+
+If you want, I can provide a short Python example using PuLP or OR-Tools that solves the integer formulation.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained Python script to solve the integer optimization described.
+# Decision variables:
+#   x = number of smoothies (integer >= 0)
+#   y = number of protein bars (integer >= 0)
+# Constraint: y = 2*x and 300*x + 250*y <= 2000
+# Objective: maximize P = 2*x + 7*y
+
+# Initialize data
+protein_smoothie = 2
+protein_bar = 7
+cal_smoothie = 300
+cal_bar = 250
+cal_limit = 2000
+bar_multiplier = 2  # y = bar_multiplier * x
+
+# Compute an upper bound for x (using the calorie constraint after substitution)
+cal_per_x = cal_smoothie + cal_bar * bar_multiplier
+max_x = cal_limit // cal_per_x  # floor division gives safe upper bound
+
+best_obj = None
+best_x = None
+best_y = None
+
+for x in range(0, max_x + 1):
+    y = bar_multiplier * x
+    total_cal = cal_smoothie * x + cal_bar * y
+    if total_cal <= cal_limit:
+        P = protein_smoothie * x + protein_bar * y
+        if (best_obj is None) or (P > best_obj):
+            best_obj = P
+            best_x = x
+            best_y = y
+
+# If no feasible solution found (shouldn't happen here), set objective to 0
+if best_obj is None:
+    best_obj = 0
+    best_x = 0
+    best_y = 0
+
+# Final required print line (must be the last printed line)
+print(f"FINAL_OBJ: {best_obj}")
+```

@@ -1,0 +1,100 @@
+[PLANNER]:
+1. Key optimisation goal:
+- Goal: Minimise the number of vans used to meet the city demand of at least 2000 pairs of shoes.
+
+2. Suggested model type:
+- Model: Integer Linear Programming (ILP) — two integer decision variables (counts of vehicles).
+
+3. Main decision variables:
+- V = number of vans used (integer, >= 0).
+- T = number of trucks used (integer, >= 0).
+
+4. Key constraints to consider:
+- Capacity constraint: total transported pairs must be at least 2000 (each van 50 pairs, each truck 100 pairs).
+- Fleet relation constraint: number of trucks cannot exceed number of vans (T ≤ V).
+- Integrality and bounds: V and T must be nonnegative integers.
+- Practicality: consider minimality of V; given the objective, you will generally want as many trucks as allowed (up to V) to reduce vans.
+
+Suggested solution strategy for the modeller:
+- Because the objective is to minimise V while T ≤ V, at optimum you can set T = V (use the maximum allowed trucks for each van), reducing the problem to finding the smallest integer V such that combined capacity of V vans and V trucks meets demand.
+- Compute required V by checking capacity per matched pair (van+truck) = 50 + 100 = 150 pairs; find smallest integer V with 150·V ≥ 2000.
+
+Result (derived from the model): 150·V ≥ 2000 → V ≥ 2000/150 ≈ 13.333..., so minimal integer V = 14. Thus the minimum number of vans required is 14.
+
+---
+
+[MODELER]:
+Formal ILP model
+
+Decision variables
+- V ∈ Z≥0 : number of vans used.
+- T ∈ Z≥0 : number of trucks used.
+
+Objective
+- Minimise V.
+
+Constraints
+1. Capacity constraint: 50·V + 100·T ≥ 2000 (must supply at least 2000 pairs).
+2. Fleet relation: T ≤ V (trucks cannot exceed vans).
+3. Integrality and nonnegativity: V, T ∈ Z≥0.
+
+Observation (model simplification)
+- Because the objective is to minimise V and trucks increase total capacity without increasing V, at any optimal solution you will use as many trucks as allowed by the fleet relation. Thus T = V at optimum.
+- Substitute T = V into the capacity constraint: 50·V + 100·V = 150·V ≥ 2000 ⇒ V ≥ 2000/150 ≈ 13.333...
+- Therefore minimal integer V = ceil(2000/150) = 14. Corresponding T = 14.
+- Check: capacity = 50·14 + 100·14 = 2100 ≥ 2000.
+
+Solution
+- Minimum number of vans V = 14 (with T = 14 trucks). Total transported pairs = 2100.
+
+Suggested solvers / libraries
+- For small problems this can be solved arithmetically as above.
+- If you want to solve programmatically or extend the model, use:
+  - pulp (pure-Python LP/MIP),
+  - OR-Tools (CP-SAT solver for integers),
+  - python-mip (mixed-integer programming),
+  - commercial: Gurobi or CPLEX (if available).
+- If you only need a quick brute-force search, simple Python loops are sufficient.
+
+(Optional) Minimal example using pulp
+- Define integer variables V, T; objective min V; add constraints 50*V + 100*T >= 2000 and T <= V; solve — result V=14, T=14.
+
+---
+
+[CODER]:
+import math
+
+# Problem data
+capacity_van = 50
+capacity_truck = 100
+demand = 2000
+
+# Brute-force search for minimal V (number of vans) satisfying constraints:
+#   50*V + 100*T >= 2000
+#   0 <= T <= V, V integer >= 0, T integer >= 0
+max_V = math.ceil(demand / capacity_van)  # trivial upper bound (all vans)
+minimal_V = None
+corresponding_T = None
+
+for V in range(0, max_V + 1):
+    feasible = False
+    best_T_for_V = None
+    # Try trucks from 0..V (we could try descending to prefer larger T)
+    for T in range(V, -1, -1):  # prefer larger T (more capacity)
+        if capacity_van * V + capacity_truck * T >= demand:
+            feasible = True
+            best_T_for_V = T
+            break
+    if feasible:
+        minimal_V = V
+        corresponding_T = best_T_for_V
+        break
+
+# As a fallback (shouldn't be needed), compute analytic solution
+if minimal_V is None:
+    # Using observation T = V gives total capacity (capacity_van + capacity_truck)*V
+    minimal_V = math.ceil(demand / (capacity_van + capacity_truck))
+    corresponding_T = minimal_V
+
+# Final objective is minimal_V (minimise number of vans)
+print(f"FINAL_OBJ: {minimal_V}")

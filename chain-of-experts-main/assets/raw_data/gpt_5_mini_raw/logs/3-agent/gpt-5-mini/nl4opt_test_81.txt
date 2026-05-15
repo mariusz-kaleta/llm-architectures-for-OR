@@ -1,0 +1,88 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x = acres processed by the windrower (acres), x ≥ 0
+- y = acres processed by the hay harvester (acres), y ≥ 0
+
+Objective
+Maximize total hay processed:
+Maximize H = 10 x + 8 y  (kg)
+
+Constraints
+- Land: x + y = 200 (the 200 acres must be processed)
+  (If you interpret "at most 200" use x + y ≤ 200; the solution is the same here.)
+- Fuel: 2 x + 1 y ≤ 300 (kg of fuel available)
+- Methane: 5 x + 3 y ≤ 800 (kg methane production limit)
+- Nonnegativity: x ≥ 0, y ≥ 0
+
+Solve analytically
+From x + y = 200 ⇒ y = 200 − x. Substitute into the other constraints:
+- Fuel: 2x + (200 − x) ≤ 300 ⇒ x ≤ 100
+- Methane: 5x + 3(200 − x) ≤ 800 ⇒ 2x ≤ 200 ⇒ x ≤ 100
+
+Feasible x ∈ [0, 100]. Objective becomes H(x) = 10x + 8(200 − x) = 2x + 1600, which is increasing in x, so maximum at x = 100. Then y = 100.
+
+Optimal solution
+- Windrower: x = 100 acres
+- Harvester: y = 100 acres
+- Total hay = 10(100) + 8(100) = 1800 kg
+- Fuel used = 2(100) + 1(100) = 300 kg (all fuel)
+- Methane = 5(100) + 3(100) = 800 kg (at limit)
+
+Suggested Python libraries for solving
+- PuLP (easy to model LPs)
+- scipy.optimize.linprog
+- OR-Tools (linear solver)
+- CVXOPT (convex optimization)
+
+Example (PuLP) — minimal code
+from pulp import LpProblem, LpVariable, LpMaximize, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("Hay", LpMaximize)
+x = LpVariable('x', lowBound=0)  # windrower acres
+y = LpVariable('y', lowBound=0)  # harvester acres
+
+prob += 10*x + 8*y                     # objective
+prob += x + y == 200                   # land
+prob += 2*x + 1*y <= 300               # fuel
+prob += 5*x + 3*y <= 800               # methane
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print(x.value(), y.value(), "Total hay:", 10*x.value()+8*y.value())
+
+This will return x = 100, y = 100 and total hay = 1800 kg.
+
+---
+
+[CODER]:
+```python
+# Self-contained script to solve the hay-processing LP analytically
+
+# Data
+# Objective coefficients (kg per acre)
+h_x = 10  # windrower
+h_y = 8   # harvester
+
+# Total land (acres)
+land_total = 200
+
+# Resource constraints
+# Fuel: 2*x + 1*y <= 300
+# Methane: 5*x + 3*y <= 800
+
+# Analytical solution using x + y = 200 -> y = 200 - x
+# Derive upper bounds on x from other constraints:
+# Fuel: 2x + (200 - x) <= 300 -> x <= 100
+# Methane: 5x + 3(200 - x) <= 800 -> 2x <= 200 -> x <= 100
+# So feasible x in [0, 100]. Objective H(x) = 10x + 8(200 - x) = 2x + 1600 (increasing in x)
+# Max at x = 100
+x_opt = 100.0
+y_opt = land_total - x_opt
+
+# Compute final objective
+final_obj = h_x * x_opt + h_y * y_opt
+
+# Print final objective in required format
+print(f"FINAL_OBJ: {final_obj}")
+```

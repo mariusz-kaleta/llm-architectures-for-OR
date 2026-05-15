@@ -1,0 +1,113 @@
+[MODELER]:
+Model
+
+Decision variables
+- x = number of regular vans (integer, x >= 0)
+- y = number of hybrid vans (integer, y >= 0)
+
+Parameters (given)
+- regular: delivers 500 packages/day, emits 200 pollution units/day
+- hybrid: delivers 300 packages/day, emits 100 pollution units/day
+- pollution limit: 7000 units/day
+- package requirement: at least 20000 packages/day
+
+Objective
+- Minimize total number of vans: minimize Z = x + y
+
+Constraints
+- Package requirement: 500 x + 300 y >= 20000
+- Pollution limit: 200 x + 100 y <= 7000
+- Integrality and nonnegativity: x, y ∈ Z_{\ge 0}
+
+You can simplify the constraints by dividing by 100:
+- 5 x + 3 y >= 200
+- 2 x + y <= 70
+
+Analytic solution
+Solving the two constraints as equalities (they intersect at a feasible point) gives
+5x + 3y = 200
+2x + y = 70
+Solving yields x = 10, y = 50. This meets both constraints exactly:
+- packages: 500·10 + 300·50 = 20000
+- pollution: 200·10 + 100·50 = 7000
+Total vans = 60. Checking other integer feasible pairs shows no combination gives fewer than 60 vans, so (x, y) = (10, 50) is optimal.
+
+Suggested Python libraries for solving
+- pulp (open-source; supports integer linear programming with CBC)
+- ortools (Google OR-Tools CP-SAT or linear solver; good for integer problems)
+- mip or python-mip (interfaces to CBC/Gurobi)
+- gurobi or CPLEX (commercial, high-performance)
+
+Example (pulp)
+- Use LpVariable(..., cat='Integer') and LpProblem with LpMinimize. Solve with the default CBC solver.
+
+Short pulp code sketch
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("vans", LpMinimize)
+x = LpVariable('regular', lowBound=0, cat='Integer')
+y = LpVariable('hybrid',  lowBound=0, cat='Integer')
+prob += x + y
+prob += 500*x + 300*y >= 20000
+prob += 200*x + 100*y <= 7000
+prob.solve(PULP_CBC_CMD(msg=False))
+print(x.value(), y.value(), "total", x.value()+y.value())
+
+Result: x = 10 regular vans, y = 50 hybrid vans, total = 60 vans.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+#!/usr/bin/env python3
+import math
+
+# Problem parameters (directly initialized)
+packages_regular = 500    # packages/day per regular van
+packages_hybrid = 300     # packages/day per hybrid van
+pollution_regular = 200   # pollution units/day per regular van
+pollution_hybrid = 100    # pollution units/day per hybrid van
+
+package_req = 20000      # required packages/day
+pollution_limit = 7000   # max pollution units/day
+
+# Simplified coefficients (dividing by 100) for convenience
+# 5x + 3y >= 200
+# 2x + y <= 70
+
+# Search bounds derived from constraints:
+# From 2x + y <= 70 and y >= 0 => x <= 35
+x_max = 35
+# From y >= 0 and 2x + y <= 70 => y <= 70
+y_max = 70
+
+best_obj = None
+best_solutions = []
+
+for x in range(0, x_max + 1):
+    for y in range(0, y_max + 1):
+        # Check constraints
+        if 5 * x + 3 * y < 200:
+            continue
+        if 2 * x + y > 70:
+            continue
+        # Feasible
+        obj = x + y
+        if (best_obj is None) or (obj < best_obj):
+            best_obj = obj
+            best_solutions = [(x, y)]
+        elif obj == best_obj:
+            best_solutions.append((x, y))
+
+# If no feasible solution found (shouldn't happen for this problem), handle it
+if best_obj is None:
+    raise RuntimeError("No feasible solution found.")
+
+# Choose one optimal solution (there may be ties). We'll pick the one with smallest x then smallest y.
+best_solutions.sort()
+x_opt, y_opt = best_solutions[0]
+
+# Optional summary output (not the required final line)
+print(f"Optimal solution found: regular vans (x) = {x_opt}, hybrid vans (y) = {y_opt}, total vans = {best_obj}")
+
+# Final required output line (must be the very last line in this exact format)
+print(f"FINAL_OBJ: {best_obj}")

@@ -1,0 +1,159 @@
+[MODELER]:
+Formulate this as a linear programming (LP) problem.
+
+### Decision variables
+Let  
+- \(x\) = number of model trains produced  
+- \(y\) = number of model planes produced  
+
+Both must be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+### Objective function
+Profit per train = \$8  
+Profit per plane = \$10  
+
+Maximize total profit:
+\[
+\max Z = 8x + 10y
+\]
+
+### Constraints
+
+**Wood constraint**  
+Each train uses 3 units; each plane uses 4 units. Total available: 120 units.
+\[
+3x + 4y \le 120
+\]
+
+**Paint constraint**  
+Each train uses 3 units; each plane uses 2 units. Total available: 90 units.
+\[
+3x + 2y \le 90
+\]
+
+So the complete LP model is:
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 8x + 10y \\
+\text{subject to} \quad 
+& 3x + 4y \le 120 \quad (\text{wood})\\
+& 3x + 2y \le 90 \quad (\text{paint})\\
+& x \ge 0,\ y \ge 0
+\end{aligned}
+\]
+
+### Solving analytically
+
+Solve the two binding constraints simultaneously (where both resources are fully used):
+
+\[
+\begin{cases}
+3x + 4y = 120 \\
+3x + 2y = 90
+\end{cases}
+\]
+
+Subtract the second from the first:
+\[
+(3x + 4y) - (3x + 2y) = 120 - 90 \Rightarrow 2y = 30 \Rightarrow y = 15
+\]
+
+Substitute into \(3x + 2y = 90\):
+\[
+3x + 2(15) = 90 \Rightarrow 3x + 30 = 90 \Rightarrow 3x = 60 \Rightarrow x = 20
+\]
+
+Check feasibility:
+- Wood: \(3(20) + 4(15) = 60 + 60 = 120 \le 120\)  
+- Paint: \(3(20) + 2(15) = 60 + 30 = 90 \le 90\)
+
+Compute profit at \((x,y) = (20,15)\):
+\[
+Z = 8(20) + 10(15) = 160 + 150 = 310
+\]
+
+This will be the maximum profit because in a 2-variable LP, the optimum occurs at a corner point, and this is the intersection of the two binding constraints.
+
+**Optimal solution:**  
+- Make **20 model trains**  
+- Make **15 model planes**  
+- Maximum profit: **\$310**
+
+---
+
+### Python libraries suitable for solving this
+
+For this LP, the following libraries are appropriate:
+
+- **PuLP**: user-friendly for linear programming.
+- **OR-Tools (Google OR-Tools, `ortools.linear_solver`)**: efficient and powerful.
+- **SciPy**: `scipy.optimize.linprog` can solve LPs, though the interface is more generic.
+
+#### Example in PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Model_Production", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable("trains", lowBound=0)
+y = pl.LpVariable("planes", lowBound=0)
+
+# Objective
+prob += 8 * x + 10 * y
+
+# Constraints
+prob += 3 * x + 4 * y <= 120  # wood
+prob += 3 * x + 2 * y <= 90   # paint
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Trains:", x.value())
+print("Planes:", y.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This will return:
+- Trains = 20  
+- Planes = 15  
+- Max profit = 310
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the LP problem (maximization)
+    prob = pl.LpProblem("Model_Production", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable("trains", lowBound=0)
+    y = pl.LpVariable("planes", lowBound=0)
+
+    # Objective function: Maximize 8x + 10y
+    prob += 8 * x + 10 * y
+
+    # Constraints
+    prob += 3 * x + 4 * y <= 120  # Wood constraint
+    prob += 3 * x + 2 * y <= 90   # Paint constraint
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

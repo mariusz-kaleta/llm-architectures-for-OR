@@ -1,0 +1,115 @@
+[MODELER]:
+Below is a clean mathematical model, reasoning, and a small solver option.
+
+Decision variables
+- F = number of first-dose vaccines (nonnegative integer)
+- S = number of second-dose vaccines (nonnegative integer)
+
+Objective
+- Minimize total gelatine used: minimize Z = 20 F + 60 S (mg)
+
+Constraints
+1. Antibiotic availability: 30 F + 65 S ≤ 35,000
+2. Production order (first dose must be more than second dose): F ≥ S + 1
+   - (If you treat F and S as continuous variables you would use F ≥ S + ε for some small ε; for integer counts F ≥ S + 1 models the strict inequality.)
+3. Minimum second-dose requirement: S ≥ 40
+4. Integrality and nonnegativity: F, S ∈ Z, F ≥ 0, S ≥ 0
+
+Analysis (simple argument)
+- The second-dose uses more gelatine per unit (60 mg) than the first-dose (20 mg). To minimize gelatine we want S as small as possible.
+- Constraint (3) gives S ≥ 40, so the smallest feasible S is 40.
+- Given F ≥ S + 1, the smallest feasible F is F = 41.
+- Check antibiotics: 30·41 + 65·40 = 1,230 + 2,600 = 3,830 ≤ 35,000, so the pair (F,S) = (41,40) is feasible.
+- Increasing either F or S increases gelatine, so (41,40) is optimal.
+
+Optimal solution
+- First-dose vaccines: F = 41
+- Second-dose vaccines: S = 40
+- Total gelatine used: 20·41 + 60·40 = 3,220 mg
+- Antibiotics used: 3,830 units (well below 35,000)
+
+Suggested solvers / libraries
+- pulp (easy integer linear programming in Python)
+- OR-Tools (Google) for integer/linear programming
+- scipy.optimize.linprog (only for continuous LPs; OK if you relax integrality)
+- cvxpy (general convex/LP modeling; also supports integer programming with appropriate solvers)
+
+Example (pulp) snippet
+- You can solve this with pulp as an MILP:
+
+from pulp import LpProblem, LpMinimize, LpVariable, LpInteger, lpSum, PULP_CBC_CMD
+
+prob = LpProblem('vaccine', LpMinimize)
+F = LpVariable('F', lowBound=0, cat=LpInteger)
+S = LpVariable('S', lowBound=40, cat=LpInteger)   # enforces S >= 40
+prob += 20*F + 60*S
+prob += 30*F + 65*S <= 35000
+prob += F - S >= 1
+prob.solve(PULP_CBC_CMD(msg=0))
+print(F.value(), S.value(), (20*F.value()+60*S.value()))
+
+This returns F = 41, S = 40, total gelatine = 3220 mg.
+
+If you prefer a continuous LP relaxation, use scipy.optimize.linprog or pulp with cat='Continuous' and model F ≥ S + ε instead of the integer constraint.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained Python script to solve the integer minimization problem described.
+# Decision variables:
+#   F = number of first-dose vaccines (integer >= 0)
+#   S = number of second-dose vaccines (integer >= 40)
+# Objective:
+#   Minimize Z = 20*F + 60*S
+# Constraints:
+#   30*F + 65*S <= 35000
+#   F >= S + 1
+
+import math
+
+# Problem data (initialized directly)
+ANTIBIOTIC_LIMIT = 35000
+COEF_F_ANTIBIOTIC = 30
+COEF_S_ANTIBIOTIC = 65
+COEF_F_GEL = 20
+COEF_S_GEL = 60
+MIN_S = 40
+
+# Search bounds
+max_possible_S = ANTIBIOTIC_LIMIT // COEF_S_ANTIBIOTIC  # upper bound for S from antibiotic constraint
+if max_possible_S < MIN_S:
+    raise ValueError("No feasible S given the antibiotic limit and minimum S requirement.")
+
+best_obj = None
+best_F = None
+best_S = None
+
+for S in range(MIN_S, max_possible_S + 1):
+    # From antibiotic constraint: 30*F <= ANTIBIOTIC_LIMIT - 65*S
+    remaining_antibiotic = ANTIBIOTIC_LIMIT - COEF_S_ANTIBIOTIC * S
+    if remaining_antibiotic < 0:
+        continue  # infeasible for this S
+    max_F_by_antibiotic = remaining_antibiotic // COEF_F_ANTIBIOTIC
+    min_F_by_order = S + 1  # F must be at least S+1
+
+    if max_F_by_antibiotic < min_F_by_order:
+        continue  # no feasible F for this S
+
+    # To minimize gelatine, choose the smallest feasible F (since coefficients are positive)
+    F = min_F_by_order
+    obj = COEF_F_GEL * F + COEF_S_GEL * S
+
+    if (best_obj is None) or (obj < best_obj):
+        best_obj = obj
+        best_F = F
+        best_S = S
+
+# Output results (optional details)
+if best_obj is None:
+    print("No feasible solution found.")
+else:
+    print(f"Optimal solution found: F = {best_F}, S = {best_S}, Objective = {best_obj}")
+    # Final required line (must be the very last printed line in this exact format)
+    print(f"FINAL_OBJ: {best_obj}")
+```

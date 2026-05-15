@@ -1,0 +1,195 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total number of vans purchased (regular + hybrid) while meeting delivery and pollution requirements.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with integer decision variables (effectively a small Integer Linear Program, ILP), since the number of vans must be whole numbers.
+
+3. Main decision variables  
+Define non‑negative integer variables such as:
+- R = number of regular vans purchased
+- H = number of hybrid vans purchased
+
+4. Key constraints to consider  
+
+a) Delivery capacity requirement  
+- Each regular van delivers 500 packages/day.  
+- Each hybrid van delivers 300 packages/day.  
+- The total daily capacity must be at least 20,000 packages.
+
+  Constraint structure:  
+  - Total packages from regular + total packages from hybrid ≥ 20,000
+
+b) Pollution limit  
+- Each regular van produces 200 units of pollutants/day.  
+- Each hybrid van produces 100 units of pollutants/day.  
+- Total pollutants must be at most 7,000 units/day.
+
+  Constraint structure:  
+  - Total pollution from all vans ≤ 7,000
+
+c) Non-negativity and integrality  
+- R ≥ 0, H ≥ 0  
+- Both R and H must be integers.
+
+5. Objective function structure  
+Objective: Minimise total number of vans  
+- Minimise (R + H)
+
+6. Modelling strategy / notes for the modeller  
+
+- Formulate the LP with integer variables; this will likely result in a small, tractable problem.  
+- Since it’s a 2-variable problem, you can also:  
+  - Analyse the feasible region graphically (delivery constraint and pollution constraint lines in R–H plane).  
+  - Identify the feasible integer points that satisfy both constraints.  
+  - Among these feasible points, choose the one with the smallest R + H.  
+
+- You may want to:
+  - First solve the LP relaxation (R, H real-valued) to see where the optimal fractional solution lies.  
+  - Then inspect nearby integer points to find the integer optimum.  
+
+- Check corner (boundary) solutions:  
+  - Solutions that sit exactly on one or both constraints (delivery at equality and/or pollution at equality) are strong candidates for the minimum number of vans.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem and how to solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(R \in \mathbb{Z}_{\ge 0}\): number of regular vans purchased  
+- \(H \in \mathbb{Z}_{\ge 0}\): number of hybrid vans purchased  
+
+These must be non‑negative integers.
+
+---
+
+## 2. Objective
+
+Minimize the *total number of vans*:
+
+\[
+\min \; R + H
+\]
+
+---
+
+## 3. Constraints
+
+### a) Delivery capacity
+
+Each regular van delivers 500 packages/day, each hybrid van delivers 300 packages/day, and the fleet must deliver at least 20,000 packages/day:
+
+\[
+500R + 300H \;\ge\; 20000
+\]
+
+### b) Pollution limit
+
+Each regular van produces 200 pollution units/day, each hybrid van produces 100 pollution units/day, and total pollution must not exceed 7,000 units/day:
+
+\[
+200R + 100H \;\le\; 7000
+\]
+
+### c) Non‑negativity and integrality
+
+\[
+R \ge 0,\quad H \ge 0,\quad R,H \in \mathbb{Z}
+\]
+
+---
+
+## 4. Final ILP formulation
+
+\[
+\begin{aligned}
+\min \quad & R + H \\
+\text{s.t.} \quad
+& 500R + 300H \;\ge\; 20000 \\
+& 200R + 100H \;\le\; 7000 \\
+& R,H \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+This is a small Integer Linear Program (ILP). Any MILP solver is appropriate. Common Python options:
+
+- **PuLP** (pure Python, easy to use; can use CBC by default)
+- **OR‑Tools** (`ortools.linear_solver` for MILP)
+- **Pyomo** (general modeling framework; can use CBC, GLPK, Gurobi, CPLEX, etc.)
+- **scipy.optimize** is *not* ideal here because it doesn’t handle integer variables directly.
+
+A simple and practical choice for this problem: **PuLP** or **OR-Tools**.
+
+---
+
+## 6. Example PuLP implementation
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Van_Fleet_Optimization", pl.LpMinimize)
+
+# Decision variables (non-negative integers)
+R = pl.LpVariable("Regular_vans", lowBound=0, cat=pl.LpInteger)
+H = pl.LpVariable("Hybrid_vans",  lowBound=0, cat=pl.LpInteger)
+
+# Objective: minimize total number of vans
+prob += R + H
+
+# Constraints
+prob += 500*R + 300*H >= 20000, "Delivery_capacity"
+prob += 200*R + 100*H <= 7000,  "Pollution_limit"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Regular vans (R):", pl.value(R))
+print("Hybrid vans  (H):", pl.value(H))
+print("Total vans:", pl.value(R + H))
+```
+
+This code directly solves the model described above and returns the optimal numbers of regular and hybrid vans.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Van_Fleet_Optimization", pl.LpMinimize)
+
+    # Decision variables (non-negative integers)
+    R = pl.LpVariable("Regular_vans", lowBound=0, cat=pl.LpInteger)
+    H = pl.LpVariable("Hybrid_vans", lowBound=0, cat=pl.LpInteger)
+
+    # Objective: minimize total number of vans
+    prob += R + H, "Total_vans"
+
+    # Constraints
+    prob += 500 * R + 300 * H >= 20000, "Delivery_capacity"
+    prob += 200 * R + 100 * H <= 7000, "Pollution_limit"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    final_obj = pl.value(R + H)
+
+    # Print the final objective strictly in the requested format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

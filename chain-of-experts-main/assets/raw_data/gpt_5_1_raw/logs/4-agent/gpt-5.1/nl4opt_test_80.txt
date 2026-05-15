@@ -1,0 +1,203 @@
+[PLANNER]:
+1. **Key optimisation goal**  
+   - Goal: Maximise total daily profit from selling color and black‑and‑white printers.
+
+2. **Suggested model type**  
+   - Model: Linear Programming (LP) with two decision variables and linear constraints.
+
+3. **Main decision variables**  
+   Define daily production quantities:
+   - Variable 1: Number of color printers produced per day.  
+   - Variable 2: Number of black and white printers produced per day.
+
+4. **Objective function structure**  
+   - Profit contribution:
+     - Each color printer: \$200 profit.
+     - Each black and white printer: \$70 profit.
+   - Objective: Maximise (200 × color printers) + (70 × black and white printers).
+
+5. **Key constraints to consider**
+
+   a. **Section capacity constraints**
+   - Color printer team capacity:  
+     - Daily production of color printers cannot exceed 20 units.
+   - Black and white printer team capacity:  
+     - Daily production of black and white printers cannot exceed 30 units.
+
+   b. **Shared machine capacity constraint**
+   - Paper tray installing machine:
+     - Total printers processed (color + black and white) cannot exceed 35 units per day.
+
+   c. **Non-negativity constraints**
+   - Both decision variables must be ≥ 0 (no negative production).
+
+6. **Model behaviour / structure notes for the Modeller**
+   - There are only two decision variables and three binding resource constraints (color capacity, black-and-white capacity, shared machine).
+   - The feasible region will be a polygon in 2D defined by:
+     - Color ≤ 20
+     - B&W ≤ 30
+     - Color + B&W ≤ 35
+     - Color ≥ 0
+     - B&W ≥ 0
+   - The solution can be found graphically or via simplex by:
+     - Enumerating all corner points of the feasible region defined by the intersections of these constraints.
+     - Evaluating the objective function at each corner to determine which yields the highest total profit.
+   - Expect the shared machine constraint to be binding at optimum because both products give positive profit; the model will likely fully use this shared resource.
+   - Check whether it is more profitable per unit of machine time to allocate capacity to color or black and white printers by comparing their profit coefficients, within the limits of each team’s capacity.
+
+---
+
+[MODELER]:
+Here is a clear mathematical model of the problem and how you could implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\): number of color printers produced per day  
+- \(y\): number of black-and-white printers produced per day  
+
+Both are continuous and nonnegative (in practice, integer, but the text is clearly a linear-programming style problem, and an LP solution will be integer here).
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+## 2. Objective function
+
+Profit contributions:  
+- Color: \$200 per unit  
+- Black-and-white: \$70 per unit  
+
+Maximize daily profit:
+
+\[
+\max Z = 200x + 70y
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Team capacities
+
+Color team capacity:
+\[
+x \le 20
+\]
+
+Black-and-white team capacity:
+\[
+y \le 30
+\]
+
+### 3.2 Shared machine capacity
+
+Paper tray installing machine can handle at most 35 printers total:
+
+\[
+x + y \le 35
+\]
+
+### 3.3 Non-negativity
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+## 4. Full LP formulation
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 200x + 70y \\
+\text{subject to} \quad
+& x \le 20 \quad &&\text{(color team capacity)} \\
+& y \le 30 \quad &&\text{(B\&W team capacity)} \\
+& x + y \le 35 \quad &&\text{(shared machine capacity)} \\
+& x \ge 0,\; y \ge 0 \quad &&\text{(non-negativity)}
+\end{aligned}
+\]
+
+This is a small linear programming problem with 2 variables and 3 main constraints.
+
+---
+
+## 5. Suitable Python libraries
+
+All of the following can handle this LP easily:
+
+- `PuLP` – very simple interface for small LPs/MIPs.
+- `ortools.linear_solver` (Google OR-Tools) – industrial strength, good for larger models.
+- `scipy.optimize.linprog` – suitable for continuous LPs, less “modelling language” style but works fine.
+
+For teaching / clarity, I recommend `PuLP` or OR-Tools.  
+
+### Sample with PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Printer_Profit_Maximization", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable("Color_Printer", lowBound=0)          # x >= 0
+y = pl.LpVariable("BW_Printer", lowBound=0)             # y >= 0
+
+# Objective
+prob += 200 * x + 70 * y, "Total_Profit"
+
+# Constraints
+prob += x <= 20, "Color_Capacity"
+prob += y <= 30, "BW_Capacity"
+prob += x + y <= 35, "Machine_Capacity"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal number of color printers:", x.value())
+print("Optimal number of B&W printers:", y.value())
+print("Maximum profit:", pl.value(prob.objective))
+```
+
+This code directly implements the mathematical model above and will return the optimal production quantities and maximum profit.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the LP problem: maximize profit
+    prob = pl.LpProblem("Printer_Profit_Maximization", pl.LpMaximize)
+
+    # Decision variables: x = color printers, y = black-and-white printers
+    x = pl.LpVariable("Color_Printer", lowBound=0)
+    y = pl.LpVariable("BW_Printer", lowBound=0)
+
+    # Objective function: Maximize 200x + 70y
+    prob += 200 * x + 70 * y, "Total_Profit"
+
+    # Constraints
+    prob += x <= 20, "Color_Capacity"
+    prob += y <= 30, "BW_Capacity"
+    prob += x + y <= 35, "Machine_Capacity"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the optimal objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print only the final objective in the requested format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,242 @@
+[MODELER]:
+**Model type:** Linear programming (LP) – production planning / resource allocation.
+
+---
+
+## 1. Decision variables
+
+Let:
+
+- \(x\) = number of **regular glass panes** produced per day  
+- \(y\) = number of **tempered glass panes** produced per day  
+
+We assume fractional production is allowed mathematically; in practice, you’d take integer values.
+
+---
+
+## 2. Objective function
+
+Profit per pane:
+
+- Regular pane: \$8 per unit  
+- Tempered pane: \$10 per unit  
+
+Total daily profit:
+
+\[
+\text{Maximize } Z = 8x + 10y
+\]
+
+---
+
+## 3. Constraints
+
+### (a) Heating machine time
+
+Time per pane:
+
+- Regular: 3 minutes  
+- Tempered: 5 minutes  
+
+Total heating time cannot exceed 300 minutes:
+
+\[
+3x + 5y \leq 300
+\]
+
+### (b) Cooling machine time
+
+Time per pane:
+
+- Regular: 5 minutes  
+- Tempered: 8 minutes  
+
+Total cooling time cannot exceed 300 minutes:
+
+\[
+5x + 8y \leq 300
+\]
+
+### (c) Non-negativity
+
+\[
+x \geq 0,\quad y \geq 0
+\]
+
+If you must have integer numbers of panes: \(x, y \in \mathbb{Z}_{\ge 0}\).
+
+---
+
+## 4. Solving the model analytically
+
+We solve the LP:
+
+\[
+\begin{aligned}
+\text{Maximize } & Z = 8x + 10y\\
+\text{s.t. } 
+& 3x + 5y \leq 300 \quad (\text{heating})\\
+& 5x + 8y \leq 300 \quad (\text{cooling})\\
+& x, y \geq 0
+\end{aligned}
+\]
+
+The optimal solution will lie at a corner point (feasible region vertex). Check intersections of constraints and axes.
+
+1. **Intersection with axes**
+
+- If \(x = 0\):
+
+  - Heating: \(5y \leq 300 \Rightarrow y \leq 60\)  
+  - Cooling: \(8y \leq 300 \Rightarrow y \leq 37.5\)  
+  ⇒ Feasible: \(y = 37.5\) (cooling is binding)  
+  Profit: \(Z = 8(0) + 10(37.5) = 375\)
+
+- If \(y = 0\):
+
+  - Heating: \(3x \leq 300 \Rightarrow x \leq 100\)  
+  - Cooling: \(5x \leq 300 \Rightarrow x \leq 60\)  
+  ⇒ Feasible: \(x = 60\) (cooling is binding)  
+  Profit: \(Z = 8(60) + 10(0) = 480\)
+
+2. **Intersection of heating and cooling constraints**
+
+Solve:
+
+\[
+\begin{cases}
+3x + 5y = 300 \\
+5x + 8y = 300
+\end{cases}
+\]
+
+From the first equation: \(3x = 300 - 5y \Rightarrow x = \frac{300 - 5y}{3}\).
+
+Substitute into the second:
+
+\[
+5\left(\frac{300 - 5y}{3}\right) + 8y = 300
+\]
+
+\[
+\frac{1500 - 25y}{3} + 8y = 300
+\]
+
+Multiply by 3:
+
+\[
+1500 - 25y + 24y = 900
+\Rightarrow 1500 - y = 900
+\Rightarrow y = 600
+\]
+
+Then:
+
+\[
+x = \frac{300 - 5 \cdot 600}{3} = \frac{300 - 3000}{3} = \frac{-2700}{3} = -900
+\]
+
+This gives \(x = -900\), which is infeasible (violates \(x \ge 0\)). So the intersection of the two lines lies outside the feasible region. The optimal point, therefore, must be at one of the axis intersections we tested.
+
+So far, profits:
+
+- At \((x, y) = (0, 37.5)\): \(Z = 375\)
+- At \((x, y) = (60, 0)\): \(Z = 480\)
+
+No other corner point exists (since the two time constraints intersect outside the first quadrant). Thus:
+
+**Optimal solution (continuous LP):**
+- \(x^* = 60\) regular panes  
+- \(y^* = 0\) tempered panes  
+- Maximum profit: \(Z^* = \$480\) per day  
+
+If you require integers, this is already integral.
+
+---
+
+## 5. Recommended Python libraries
+
+To model and solve this linear program:
+
+- **PuLP**  
+  - Simple interface for LP/MILP.  
+  - Integrates with CBC (default free solver), GLPK, CPLEX, Gurobi, etc.
+- **OR-Tools (Google)**  
+  - `pywraplp` for linear and mixed-integer programming.  
+  - Very good for combinatorial or larger optimization problems.
+- **SciPy (`scipy.optimize.linprog`)**  
+  - Good for continuous LPs, no integer constraints.
+
+---
+
+## 6. Example PuLP formulation (Python)
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Glass_Production", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('regular_panes', lowBound=0, cat='Integer')
+y = pl.LpVariable('tempered_panes', lowBound=0, cat='Integer')
+
+# Objective function
+prob += 8 * x + 10 * y
+
+# Constraints
+prob += 3 * x + 5 * y <= 300  # heating
+prob += 5 * x + 8 * y <= 300  # cooling
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Regular panes (x):", x.varValue)
+print("Tempered panes (y):", y.varValue)
+print("Maximum profit:", pl.value(prob.objective))
+```
+
+This should yield:
+
+- Regular panes: 60  
+- Tempered panes: 0  
+- Maximum profit: 480
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the LP problem: maximize profit
+    prob = pl.LpProblem("Glass_Production", pl.LpMaximize)
+
+    # Decision variables: integer number of panes, non-negative
+    x = pl.LpVariable('regular_panes', lowBound=0, cat='Integer')
+    y = pl.LpVariable('tempered_panes', lowBound=0, cat='Integer')
+
+    # Objective function: maximize 8x + 10y
+    prob += 8 * x + 10 * y
+
+    # Constraints
+    prob += 3 * x + 5 * y <= 300  # heating time
+    prob += 5 * x + 8 * y <= 300  # cooling time
+
+    # Solve the problem
+    prob.solve()
+
+    # Get the optimal objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print results (optional detail)
+    print("Status:", pl.LpStatus[prob.status])
+    print("Regular panes (x):", x.varValue)
+    print("Tempered panes (y):", y.varValue)
+    print("Maximum profit:", final_obj)
+
+    # Required final line
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

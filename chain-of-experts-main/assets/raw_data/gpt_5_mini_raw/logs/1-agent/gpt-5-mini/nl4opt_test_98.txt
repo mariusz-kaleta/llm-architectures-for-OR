@@ -1,0 +1,58 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization (from the problem)
+patients_required = 120
+heli_capacity = 5        # patients per helicopter trip
+heli_time = 1            # hours per helicopter trip
+bus_capacity = 8         # patients per bus trip
+bus_time = 3             # hours per bus trip
+bus_max_trips = 10
+heli_min_fraction = 0.30  # at least 30% of trips should be by helicopter
+
+# Define the problem
+prob = pulp.LpProblem("Transport_Minimize_Total_Time", pulp.LpMinimize)
+
+# Decision variables: number of helicopter trips (x) and bus trips (y)
+x = pulp.LpVariable('heli_trips', lowBound=0, cat='Integer')  # helicopter trips
+y = pulp.LpVariable('bus_trips', lowBound=0, cat='Integer')   # bus trips
+
+# Objective: minimize total time (sum of times of all trips)
+prob += heli_time * x + bus_time * y, "Total_Time"
+
+# Constraints:
+# 1) Enough capacity to transport at least required patients
+prob += heli_capacity * x + bus_capacity * y >= patients_required, "Capacity"
+
+# 2) At least 30% of trips by helicopter: x >= 0.3*(x+y) -> 0.7x >= 0.3y -> 7x >= 3y
+prob += 7 * x >= 3 * y, "Helicopter_Min_Fraction"
+
+# 3) At most 10 bus trips
+prob += y <= bus_max_trips, "Bus_Max_Trips"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=0)
+prob.solve(solver)
+
+# Retrieve results
+status = pulp.LpStatus[prob.status]
+heli_trips = int(pulp.value(x)) if pulp.value(x) is not None else None
+bus_trips = int(pulp.value(y)) if pulp.value(y) is not None else None
+total_patients = heli_capacity * heli_trips + bus_capacity * bus_trips
+total_time = pulp.value(prob.objective)
+
+# Print the solution details
+print(f"Status: {status}")
+print(f"Helicopter trips (x): {heli_trips}")
+print(f"Bus trips (y): {bus_trips}")
+print(f"Total patients transported: {total_patients}")
+print(f"Total time (hours): {total_time}")
+
+# Final objective print (required format)
+# If total_time is effectively integer, print as int
+if total_time is None:
+    final_value = None
+else:
+    final_value = int(round(total_time)) if abs(total_time - round(total_time)) < 1e-6 else total_time
+
+print(f"FINAL_OBJ: {final_value}")

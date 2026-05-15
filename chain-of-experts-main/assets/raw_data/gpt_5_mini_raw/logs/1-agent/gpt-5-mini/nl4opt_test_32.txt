@@ -1,0 +1,40 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization (from problem statement)
+time_per_unit_sulfate = 0.5   # minutes per unit of sulfate
+time_per_unit_ginger  = 0.75  # minutes per unit of ginger
+min_sulfate = 100             # at least 100 units of sulfate
+total_units = 400             # total units (sulfate + ginger) must equal 400
+# Sulfate can be at most twice the amount of ginger: S <= 2*G
+
+# Define LP problem: minimize total processing time (sequential processing)
+prob = pulp.LpProblem("Shampoo_Mix_Time_Minimization", pulp.LpMinimize)
+
+# Decision variables: amounts of sulfate (S) and ginger (G)
+S = pulp.LpVariable("Sulfate_units", lowBound=0, cat="Continuous")
+G = pulp.LpVariable("Ginger_units",  lowBound=0, cat="Continuous")
+
+# Objective: total time = time_per_unit_sulfate * S + time_per_unit_ginger * G
+prob += time_per_unit_sulfate * S + time_per_unit_ginger * G, "Total_Time"
+
+# Constraints
+prob += S >= min_sulfate, "Min_Sulfate"
+prob += S + G == total_units, "Total_Units"
+prob += S <= 2 * G, "Sulfate_At_Most_Twice_Ginger"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract solution
+s_val = S.varValue
+g_val = G.varValue
+value = pulp.value(prob.objective)
+
+# Print results
+print(f"Sulfate units (S): {s_val}")
+print(f"Ginger units  (G): {g_val}")
+print(f"Total time (minutes): {value}")
+
+# Final required output line (must be the last line)
+print(f"FINAL_OBJ: {value}")

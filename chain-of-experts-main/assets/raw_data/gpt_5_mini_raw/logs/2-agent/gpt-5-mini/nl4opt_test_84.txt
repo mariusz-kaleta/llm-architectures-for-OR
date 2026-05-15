@@ -1,0 +1,86 @@
+[MODELER]:
+Model
+
+Decision variables
+- b ∈ Z≥0 : number of buses
+- c ∈ Z≥0 : number of personal cars
+
+Objective
+- Minimize total vehicles: minimize Z = b + c
+
+Constraints
+1. Capacity: 9b + 4c ≥ 100  (each bus carries 9 children, each car 4)
+2. More buses than cars (strict): b > c. Replace strict inequality by an integer-safe form: b ≥ c + 1
+3. Minimum cars: c ≥ 5
+4. Integrality and nonnegativity: b, c ∈ Z, b ≥ 0, c ≥ 0
+
+Solve analytically / by enumeration
+For each feasible integer c ≥ 5 compute the minimum feasible b:
+b = max(c + 1, ceil((100 − 4c)/9)).
+Then evaluate b + c and choose the pair minimizing it.
+
+Calculation (short)
+- For c = 5: b = max(6, ceil((100 − 20)/9)) = max(6, 9) = 9 → total = 9 + 5 = 14
+- Testing larger c gives totals ≥ 15, so the minimum is at c = 5, b = 9.
+
+Optimal solution
+- Buses: 9
+- Cars: 5
+- Minimum total vehicles: 14
+
+Suggested solvers / Python libraries
+- pulp (uses CBC by default) — convenient for small integer linear programs
+- OR-Tools CP-SAT (good for integer/CP problems, very fast)
+- mip (python-mip) — interface to CBC/Gurobi/CPLEX if available
+
+Minimal example using pulp
+(from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpInteger, value)
+prob = LpProblem("Daycare", LpMinimize)
+b = LpVariable("b", lowBound=0, cat=LpInteger)
+c = LpVariable("c", lowBound=5, cat=LpInteger)  # enforces c >= 5
+prob += b + c
+prob += 9*b + 4*c >= 100
+prob += b >= c + 1
+prob.solve()
+print(value(b), value(c), value(prob.objective))
+
+This returns b = 9, c = 5 (objective = 14).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+import math
+
+# Problem data
+total_children = 100
+bus_capacity = 9
+car_capacity = 4
+min_cars = 5
+
+best_obj = None
+best_b = None
+best_c = None
+
+# Search over feasible integer c values (cars)
+# Upper bound: if cars alone carry all children -> ceil(100/4) = 25, but search a bit beyond safely
+for c in range(min_cars, total_children + 1):
+    # minimum buses to satisfy capacity (ceil of remaining children / bus_capacity)
+    remaining = total_children - car_capacity * c
+    if remaining > 0:
+        needed_b_by_capacity = math.ceil(remaining / bus_capacity)
+    else:
+        needed_b_by_capacity = 0
+    # enforce b > c -> b >= c + 1
+    b = max(c + 1, needed_b_by_capacity, 0)
+    # check feasibility
+    if 9 * b + 4 * c >= total_children:
+        obj = b + c
+        if best_obj is None or obj < best_obj:
+            best_obj = obj
+            best_b = b
+            best_c = c
+
+# Final objective value
+print(f"FINAL_OBJ: {best_obj}")
+```

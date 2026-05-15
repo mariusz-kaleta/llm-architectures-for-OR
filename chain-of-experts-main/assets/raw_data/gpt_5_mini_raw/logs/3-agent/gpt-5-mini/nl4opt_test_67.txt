@@ -1,0 +1,133 @@
+[MODELER]:
+Assumptions
+- We treat “one unit takes x minutes” as additive (serial) processing time, so total time = 0.5·(units of fertilizer) + 1.5·(units of seeds).
+- Units are continuous (if units must be integer, note that the integer version is trivial here because the optimal values are integers).
+
+Decision variables
+- F = units of fertilizer added (≥ 0)
+- S = units of seed added (≥ 0)
+
+Objective
+- Minimize total time T = 0.5·F + 1.5·S
+
+Constraints
+- Total units: F + S ≤ 300
+- Minimum fertilizer: F ≥ 50
+- Fertilizer at most twice seeds: F ≤ 2·S
+
+Mathematical model
+Minimize T = 0.5F + 1.5S
+subject to
+- F + S ≤ 300
+- F ≥ 50
+- F − 2S ≤ 0
+- F ≥ 0, S ≥ 0
+
+Solution reasoning
+All coefficients in the objective are positive, so the objective decreases as we reduce F and S. The constraints force F ≥ 50 and, because F ≤ 2S, S ≥ F/2. Thus choose the smallest feasible F and the smallest S consistent with that: F = 50 and S = 25. This satisfies F+S = 75 ≤ 300.
+
+Objective value
+T = 0.5·50 + 1.5·25 = 25 + 37.5 = 62.5 minutes.
+
+Suitable solvers / Python libraries
+- pulp (easy LP modelling)
+- scipy.optimize.linprog (simple LP solver)
+- ortools.linear_solver (Google OR-Tools)
+- cvxpy (convex optimisation modelling)
+
+Simple example with pulp
+- Define variables F,S >= 0
+- Add constraints F+S <= 300, F >= 50, F <= 2*S
+- Minimize 0.5*F + 1.5*S
+- Solve; expected result F=50, S=25, total time 62.5
+
+Answer
+Add 50 units of fertilizer and 25 units of seeds. This minimizes total time to 62.5 minutes.
+
+---
+
+[CODER]:
+#!/usr/bin/env python3
+# Self-contained solver for the described LP with two variables (F, S).
+# It enumerates intersections of constraint boundaries, filters feasible points,
+# evaluates the objective, and reports the minimum objective value.
+
+def find_intersection(eq1, eq2, tol=1e-9):
+    # eq: tuple (a, b, c) representing a*F + b*S = c
+    a1, b1, c1 = eq1
+    a2, b2, c2 = eq2
+    det = a1 * b2 - a2 * b1
+    if abs(det) < tol:
+        return None
+    F = (c1 * b2 - c2 * b1) / det
+    S = (a1 * c2 - a2 * c1) / det
+    return (F, S)
+
+def is_feasible(point, tol=1e-9):
+    if point is None:
+        return False
+    F, S = point
+    # Constraints:
+    # F + S <= 300
+    # F >= 50
+    # F - 2S <= 0
+    # F >= 0, S >= 0
+    if F + S - 300 > tol:
+        return False
+    if F + tol < 50:
+        return False
+    if F - 2*S > tol:
+        return False
+    if F < -tol or S < -tol:
+        return False
+    return True
+
+def objective(point):
+    F, S = point
+    return 0.5 * F + 1.5 * S
+
+def main():
+    # Define equality forms of the constraint boundaries:
+    # 1) F + S = 300  -> (1, 1, 300)
+    # 2) F = 50       -> (1, 0, 50)
+    # 3) F - 2S = 0   -> (1, -2, 0)
+    # 4) F = 0        -> (1, 0, 0)
+    # 5) S = 0        -> (0, 1, 0)
+    eqs = [
+        (1.0,  1.0, 300.0),
+        (1.0,  0.0,  50.0),
+        (1.0, -2.0,   0.0),
+        (1.0,  0.0,   0.0),
+        (0.0,  1.0,   0.0),
+    ]
+
+    # Compute all pairwise intersections
+    candidates = []
+    n = len(eqs)
+    for i in range(n):
+        for j in range(i+1, n):
+            pt = find_intersection(eqs[i], eqs[j])
+            if pt is not None:
+                candidates.append(pt)
+
+    # Also consider some obvious feasible interior points (optional)
+    # but vertices suffice for LP with 2 variables.
+
+    # Filter feasible points
+    feasible_points = [pt for pt in candidates if is_feasible(pt)]
+
+    if not feasible_points:
+        raise RuntimeError("No feasible point found (unexpected).")
+
+    # Evaluate objective at feasible vertices and pick minimum
+    best_pt = min(feasible_points, key=objective)
+    best_obj = objective(best_pt)
+
+    # For numeric cleanliness, round small floating error
+    # But keep as float for printing
+    best_obj = float(round(best_obj, 10))
+
+    print(f"FINAL_OBJ: {best_obj}")
+
+if __name__ == "__main__":
+    main()

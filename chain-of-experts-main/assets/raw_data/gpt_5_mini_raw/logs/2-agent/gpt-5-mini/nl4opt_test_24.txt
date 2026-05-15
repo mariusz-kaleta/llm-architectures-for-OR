@@ -1,0 +1,101 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- L ∈ Z≥0 : number of large mobile production units.
+- S ∈ Z≥0 : number of small mobile production units.
+
+Objective
+- Minimize total parking spots P = 2L + 1S.
+
+Constraints
+1. Capacity: 6L + 2S ≥ 80 (must carry 80 people).
+2. Minimum small units: S ≥ 5.
+3. Vehicle composition: large units must be at least 75% of all vehicles:
+   L ≥ 0.75 (L + S). Equivalently, 4L ≥ 3(L + S) → L ≥ 3S.
+4. Integrality: L, S integers.
+
+Complete Integer Program
+minimize P = 2L + S
+subject to
+  6L + 2S ≥ 80
+  S ≥ 5
+  L ≥ 3S
+  L, S ∈ Z≥0
+
+Analytic simplification and optimal solution
+- From L ≥ 3S we get P = 2L + S ≥ 2(3S) + S = 7S.
+- With S ≥ 5, P ≥ 7·5 = 35. So 35 is a lower bound.
+- Check feasibility at S = 5 and L = 3S = 15:
+  capacity 6·15 + 2·5 = 90 + 10 = 100 ≥ 80, and L = 15 ≥ 0.75·20 = 15.
+- Therefore the bound is attainable and optimal solution is:
+  S* = 5, L* = 15, minimum parking spots P* = 35.
+
+Notes and alternative interpretations
+- The 75% constraint algebraically reduces to L ≥ 3S, which strongly favors small S; combined with S ≥ 5 this gives the tight bound above.
+- If the phrase “75% of all vehicles” was intended differently (e.g., by capacity or by parking-spot share), the model and solution would change. Clarify if that is the case.
+
+Recommended Python libraries to solve this
+- PuLP (simple MILP modeling with CBC solver) — good for short integer programs.
+- OR-Tools (Google) — fast MIP solver.
+- Pyomo + GLPK/CPLEX/Gurobi — for larger or more complex models (requires external solver).
+- scipy.optimize is not suitable for integer variables unless using wrappers.
+
+Example (PuLP) — minimal snippet
+(from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpInteger, PULP_CBC_CMD
+prob = LpProblem("units", LpMinimize)
+L = LpVariable("L", lowBound=0, cat=LpInteger)
+S = LpVariable("S", lowBound=5, cat=LpInteger)
+prob += 2*L + S
+prob += 6*L + 2*S >= 80
+prob += L >= 3*S
+prob.solve(PULP_CBC_CMD(msg=False))
+print(L.value(), S.value(), "spots=", 2*L.value()+S.value()))
+
+This model will return L = 15, S = 5, spots = 35.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+#!/usr/bin/env python3
+import math
+
+# Problem data
+required_capacity = 80
+min_S = 5  # S >= 5
+
+best_P = None
+best_L = None
+best_S = None
+
+# We'll search over S starting at min_S. For each S, the minimal feasible L is:
+# L >= 3S (vehicle composition) and L >= ceil((required_capacity - 2S)/6)
+# For fixed S, increasing L increases objective P = 2L + S, so only the minimal feasible L matters.
+# We'll stop exploring S once 7*S (a lower bound on P from L>=3S) exceeds current best found.
+for S in range(min_S, 501):  # 500 is a safe upper limit; loop will break earlier
+    # lower bound from capacity: L >= ceil((required_capacity - 2*S)/6)
+    cap_req = required_capacity - 2 * S
+    L_from_capacity = math.ceil(cap_req / 6) if cap_req > 0 else 0
+    L_candidate = max(3 * S, L_from_capacity)
+    # Check feasibility explicitly
+    if L_candidate < 0:
+        continue
+    if 6 * L_candidate + 2 * S < required_capacity:
+        # not feasible (shouldn't happen because of ceil), skip
+        continue
+    P = 2 * L_candidate + S
+    if (best_P is None) or (P < best_P):
+        best_P = P
+        best_L = L_candidate
+        best_S = S
+    # pruning: lower bound for any larger S is 7*S (since L >= 3S => P >= 7S)
+    if best_P is not None and 7 * (S + 1) >= best_P:
+        # further S will not give better P
+        break
+
+# If no solution found (should not happen), raise error
+if best_P is None:
+    raise RuntimeError("No feasible solution found.")
+
+# Optionally, we could print the solution details (not required). Final required print:
+print(f"FINAL_OBJ: {best_P}")

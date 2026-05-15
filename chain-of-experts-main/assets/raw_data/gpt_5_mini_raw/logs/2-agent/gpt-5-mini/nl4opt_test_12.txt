@@ -1,0 +1,89 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - v ∈ Z≥0 : number of vans (capacity 6 each)
+  - c ∈ Z≥0 : number of cars (capacity 3 each)
+
+- Objective
+  - Minimize c (the total number of cars)
+
+- Constraints
+  1. Capacity: 6v + 3c ≥ 200
+  2. Vans at most 30% of vehicles: v ≤ 0.3·(v + c). Equivalently
+     0.7 v ≤ 0.3 c  ⇒  c ≥ (7/3) v
+  3. Integrality and nonnegativity: v, c ∈ Z≥0
+
+Remarks: from (2) we require c ≥ (7/3)v; from (1) we require c ≥ (200 − 6v)/3. Thus for a given integer v the minimal feasible c is
+c(v) = max( ceil((200 − 6v)/3), ceil((7/3) v), 0 ).
+
+Solve by scanning integer v from 0 to floor(200/6)=33 and selecting the v that gives the smallest c(v).
+
+Solution (analytic / short search)
+- The two lower bounds are equal when 7/3 v = (200 − 6v)/3 ⇒ 7v = 200 − 6v ⇒ v = 200/13 ≈ 15.3846.
+- Check integer v near that value:
+  - v = 15 ⇒ c = max( ceil((200 − 90)/3)=37, ceil(7/3·15)=35 ) = 37
+  - v = 16 ⇒ c = max( ceil((200 − 96)/3)=35, ceil(7/3·16)=38 ) = 38
+  - other v give c ≥ 37
+
+Therefore the minimum number of cars is 37, achieved with v = 15 vans and c = 37 cars.
+Check: capacity 6·15 + 3·37 = 90 + 111 = 201 ≥ 200; vans fraction = 15/(15+37) = 15/52 ≈ 28.85% ≤ 30%.
+
+Suggested solvers / libraries
+- For small problem and brute-force: plain Python (loop over v).
+- For integer programming:
+  - pulp (uses CBC) — easy MIP modelling
+  - ortools (CP-SAT) — fast MIP/CP solver
+  - pyscipopt or gurobipy (if available/licensed) — professional solvers
+
+Example simple Python approach (outline)
+- Loop v from 0..33, compute c(v) = max( ceil((200−6v)/3), ceil((7/3·v)), 0 ), pick v with minimal c.
+
+Answer: Use 15 vans and 37 cars (minimizes the number of cars).
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data
+total_required = 200
+van_capacity = 6
+car_capacity = 3
+
+# Search range for v (vans)
+max_v = total_required // van_capacity  # floor(200/6) = 33
+
+best_solution = None  # tuple (v, c)
+
+for v in range(max_v + 1):
+    # capacity constraint: 6v + 3c >= 200 -> c >= (200 - 6v)/3
+    rem = total_required - van_capacity * v
+    bound_capacity = math.ceil(rem / car_capacity) if rem > 0 else 0
+
+    # vans-at-most-30%-of-vehicles constraint: c >= (7/3) v
+    bound_ratio = math.ceil((7.0 / 3.0) * v)
+
+    c = max(bound_capacity, bound_ratio, 0)
+
+    # record best (minimize c). Tie-breaker: prefer smaller v.
+    if best_solution is None or c < best_solution[1] or (c == best_solution[1] and v < best_solution[0]):
+        best_solution = (v, c)
+
+# Extract solution
+v_opt, c_opt = best_solution
+
+# Basic feasibility check (should pass)
+assert 6 * v_opt + 3 * c_opt >= total_required
+assert v_opt <= 0.3 * (v_opt + c_opt) + 1e-9  # allow tiny float tolerance
+assert isinstance(v_opt, int) and isinstance(c_opt, int)
+assert v_opt >= 0 and c_opt >= 0
+
+# Optional human-readable output (not the final required line)
+print(f"Optimal vans (v): {v_opt}")
+print(f"Optimal cars (c): {c_opt}")
+print(f"Total capacity: {6*v_opt + 3*c_opt}")
+print(f"Vans fraction: {v_opt}/{v_opt + c_opt} = {v_opt/(v_opt + c_opt):.6f}")
+
+# Final required output line
+print(f"FINAL_OBJ: {c_opt}")

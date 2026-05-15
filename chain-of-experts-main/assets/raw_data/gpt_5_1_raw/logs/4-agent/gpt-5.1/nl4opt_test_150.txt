@@ -1,0 +1,200 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total machine running time across both labs (i.e., minimise total lab hours), while satisfying pill production requirements and worker-hour limits.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with two continuous decision variables (lab operating hours).
+
+3. Main decision variables  
+Define continuous variables (nonnegative):
+
+- \(x_1\): Number of hours lab 1 is run.
+- \(x_2\): Number of hours lab 2 is run.
+
+4. Key constraints to consider  
+
+a) Production capacity constraints  
+Use pill outputs per hour at each lab:
+
+- Heart medication requirement:  
+  - Lab 1 produces 20 heart pills per hour.  
+  - Lab 2 produces 30 heart pills per hour.  
+  - Total heart pills must be at least 20,000.  
+  → Constraint linking \(x_1\) and \(x_2\) to meet the minimum heart pill production.
+
+- Lung medication requirement:  
+  - Lab 1 produces 30 lung pills per hour.  
+  - Lab 2 produces 40 lung pills per hour.  
+  - Total lung pills must be at least 30,000.  
+  → Constraint linking \(x_1\) and \(x_2\) to meet the minimum lung pill production.
+
+b) Worker-hours constraint  
+Each hour of lab operation corresponds to a “session” with a specific worker-hour requirement:
+
+- Lab 1: 3 worker hours per hour of operation.
+- Lab 2: 5 worker hours per hour of operation.
+- Total available worker hours: 1,500.
+
+Create a total worker-hour constraint combining \(x_1\) and \(x_2\) and ensure it does not exceed 1,500.
+
+c) Non-negativity constraints  
+
+- \(x_1 \ge 0\)  
+- \(x_2 \ge 0\)
+
+5. Objective function structure  
+
+Objective: Minimise total lab operating time:
+
+- Total time = \(x_1 + x_2\)
+
+No need to include worker hours in the objective, as they are limited via a constraint; the objective focuses purely on minimising total operating hours of the labs.
+
+6. Additional modelling notes for the Modeller  
+
+- Verify feasibility: confirm that the pill production requirements can be met within 1,500 worker hours given the per-hour production and worker usage.  
+- If using a graphical solution, plot the feasible region in the \(x_1\)–\(x_2\) plane with:  
+  - Heart production line (>= region).  
+  - Lung production line (>= region).  
+  - Worker-hour line (<= region).  
+- The optimal solution will lie at one of the corner points of the feasible region (intersection of constraints), so explicitly compute and compare total time at each relevant intersection.
+
+---
+
+[MODELER]:
+Here is a clean mathematical optimisation model for the problem, with all elements laid out.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_1 \ge 0\): hours that lab 1 is operated  
+- \(x_2 \ge 0\): hours that lab 2 is operated  
+
+These are continuous (real-valued) variables.
+
+---
+
+## 2. Objective
+
+Minimise total lab operating time (sum of hours across both labs):
+
+\[
+\min \; Z = x_1 + x_2
+\]
+
+---
+
+## 3. Constraints
+
+### a) Heart medication requirement
+
+Lab 1 produces 20 heart pills/hour, lab 2 produces 30 heart pills/hour.  
+At least 20,000 heart pills are required:
+
+\[
+20 x_1 + 30 x_2 \;\ge\; 20{,}000
+\]
+
+### b) Lung medication requirement
+
+Lab 1 produces 30 lung pills/hour, lab 2 produces 40 lung pills/hour.  
+At least 30,000 lung pills are required:
+
+\[
+30 x_1 + 40 x_2 \;\ge\; 30{,}000
+\]
+
+### c) Worker-hours constraint
+
+- Lab 1: 3 worker-hours per hour of operation  
+- Lab 2: 5 worker-hours per hour of operation  
+- Total available worker-hours: 1,500
+
+So:
+
+\[
+3 x_1 + 5 x_2 \;\le\; 1{,}500
+\]
+
+### d) Non-negativity
+
+\[
+x_1 \;\ge\; 0, \quad x_2 \;\ge\; 0
+\]
+
+---
+
+## 4. Full LP formulation
+
+\[
+\begin{aligned}
+\min \quad & x_1 + x_2 \\
+\text{s.t.} \quad
+& 20 x_1 + 30 x_2 \;\ge\; 20{,}000 \quad &\text{(heart pills)}\\
+& 30 x_1 + 40 x_2 \;\ge\; 30{,}000 \quad &\text{(lung pills)}\\
+& 3 x_1 + 5 x_2 \;\le\; 1{,}500 \quad &\text{(worker hours)}\\
+& x_1, x_2 \;\ge\; 0 \quad &\text{(non-negativity)}
+\end{aligned}
+\]
+
+This is a standard linear program (LP) with two variables and three functional constraints.
+
+---
+
+## 5. Suitable Python libraries
+
+Any linear programming-capable library will work. Common, accessible choices:
+
+- **PuLP**  
+  - High-level modeling, pure Python, easy to install.  
+  - Solver can be CBC (bundled), GLPK, or others.
+- **SciPy** (`scipy.optimize.linprog`)  
+  - Good for small to medium LPs, easy to use; constraints must be put into \(\le\) form.
+- **OR-Tools** (Google OR-Tools, `ortools.linear_solver`)  
+  - Industrial-strength, supports many solvers (CBC, GLOP, etc.), good performance and flexibility.
+- **Pyomo**  
+  - General algebraic modeling language in Python; good if you’ll scale up or extend to more complex models.
+
+For simplicity and readability for this two-variable LP, **PuLP** or **SciPy’s `linprog`** are very natural choices.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create LP problem: minimize total operating hours
+    model = pulp.LpProblem("Lab_Operation_Time_Minimization", pulp.LpMinimize)
+
+    # Decision variables: hours of operation for each lab (non-negative)
+    x1 = pulp.LpVariable('x1', lowBound=0)  # hours lab 1
+    x2 = pulp.LpVariable('x2', lowBound=0)  # hours lab 2
+
+    # Objective: minimize x1 + x2
+    model += x1 + x2
+
+    # Constraints
+
+    # Heart medication requirement: 20 x1 + 30 x2 >= 20000
+    model += 20 * x1 + 30 * x2 >= 20000, "Heart_pills"
+
+    # Lung medication requirement: 30 x1 + 40 x2 >= 30000
+    model += 30 * x1 + 40 * x2 >= 30000, "Lung_pills"
+
+    # Worker-hours constraint: 3 x1 + 5 x2 <= 1500
+    model += 3 * x1 + 5 * x2 <= 1500, "Worker_hours"
+
+    # Solve the model
+    model.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pulp.value(model.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

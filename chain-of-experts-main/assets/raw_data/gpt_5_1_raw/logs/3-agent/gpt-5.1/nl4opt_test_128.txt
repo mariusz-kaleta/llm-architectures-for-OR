@@ -1,0 +1,181 @@
+[MODELER]:
+Formulate this as an integer linear optimization problem.
+
+### Decision variables
+Let  
+- \(x\) = number of glass bottles (integer, \(x \ge 0\))  
+- \(y\) = number of plastic bottles (integer, \(y \ge 0\))
+
+### Parameters
+- Glass bottle capacity: 500 ml  
+- Plastic bottle capacity: 750 ml  
+- Total available water: 250,000 ml  
+
+### Objective
+Maximize the total number of bottles:
+\[
+\max \; Z = x + y
+\]
+
+### Constraints
+
+1. **Water availability**  
+   Total water used by all bottles cannot exceed the available water:
+   \[
+   500x + 750y \le 250{,}000
+   \]
+
+2. **Customer preference**  
+   Number of plastic bottles must be at least 3 times the number of glass bottles:
+   \[
+   y \ge 3x
+   \]
+
+3. **Minimum glass bottles**  
+   There must be at least 20 glass bottles:
+   \[
+   x \ge 20
+   \]
+
+4. **Integrality and non-negativity**  
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+This is an Integer Linear Programming (ILP) problem. Because the coefficients are simple and the feasible region is small, it’s also effectively a Linear Programming (LP) problem where the optimal solution will occur at integer corner points.
+
+### Solving the model (sketch of solution logic)
+
+To maximize \(x+y\) under a binding water constraint, you generally want more of the smaller-volume bottle (500 ml) because it uses less water per bottle. But you’re forced to keep at least three times as many plastic bottles as glass bottles, which pushes the mix towards the 750 ml bottles.
+
+Given \(y \ge 3x\), you will use the least water for a given \(x\) when \(y = 3x\). Since we want to maximize the number of bottles, we will be at this minimum-ratio boundary; any larger \(y\) for the same \(x\) uses more water and leaves room for fewer bottles.
+
+Set \(y = 3x\) and use the full water budget:
+
+\[
+500x + 750(3x) = 500x + 2250x = 2750x \le 250{,}000
+\]
+\[
+2750x \le 250{,}000 \quad \Rightarrow \quad x \le \frac{250{,}000}{2750} \approx 90.9
+\]
+
+Since \(x\) must be an integer and \(x \ge 20\), take \(x = 90\):
+
+- Then \(y = 3x = 270\).  
+- Check water use:  
+  \[
+  500 \cdot 90 + 750 \cdot 270 = 45{,}000 + 202{,}500 = 247{,}500 \le 250{,}000
+  \]
+  Remaining water: 2,500 ml, which is not enough to add any bottle (smallest is 500 ml, but adding any bottle also must preserve \(y \ge 3x\), making it even more restrictive).
+
+Check if we could do better by increasing \(y\) for the same \(x\):  
+For \(x = 90\), the max possible \(y\) s.t. water constraint holds:
+\[
+750y \le 250{,}000 - 500 \cdot 90 = 205{,}000 \quad\Rightarrow\quad y \le 273.33
+\]
+So \(y\) could be at most 273. Try \(y = 271, 272, 273\) (just to see if total bottles increases while maintaining \(y \ge 3x\)):
+
+- \(x = 90, y = 271\): total = 361 bottles, water = \(45{,}000 + 203{,}250 = 248{,}250\)
+- \(x = 90, y = 272\): total = 362 bottles, water = \(45{,}000 + 204{,}000 = 249{,}000\)
+- \(x = 90, y = 273\): total = 363 bottles, water = \(45{,}000 + 204{,}750 = 249{,}750\)
+
+All satisfy \(y \ge 3x = 270\) and use less than 250,000 ml. \(y=273\) gives the most bottles: \(90 + 273 = 363\).
+
+Try \(x = 91\):  
+- Minimum \(y = 3x = 273\). Water use:
+  \[
+  500\cdot 91 + 750 \cdot 273 = 45{,}500 + 204{,}750 = 250{,}250 > 250{,}000
+  \]
+So \(x\) cannot exceed 90.
+
+Thus the optimal solution is:
+- Glass bottles: \(x = 90\)  
+- Plastic bottles: \(y = 273\)  
+- Total bottles: 363  
+
+### Final answer (numbers requested)
+To maximize the total number of bottles:
+- Make 90 glass bottles  
+- Make 273 plastic bottles  
+
+### Python libraries suitable for solving this
+
+To model and solve this programmatically, you can use:
+
+- **PuLP** (`pulp`): Very convenient for small and medium-sized LP/ILP models.
+- **OR-Tools Linear Solver** (`ortools.linear_solver`): Powerful Google library for LP/MIP.
+- **Pyomo**: More general modeling environment for optimization.
+
+Example using PuLP:
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Bottle_Production", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('glass', lowBound=20, cat='Integer')
+y = pl.LpVariable('plastic', lowBound=0, cat='Integer')
+
+# Objective: maximize total number of bottles
+prob += x + y
+
+# Constraints
+prob += 500*x + 750*y <= 250000          # water constraint
+prob += y >= 3*x                         # preference constraint
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Glass bottles:", x.value())
+print("Plastic bottles:", y.value())
+print("Total bottles:", x.value() + y.value())
+```
+
+This will return 90 glass and 273 plastic bottles as the optimal solution.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def solve_bottle_problem():
+    # Create the problem: maximize number of bottles
+    prob = pl.LpProblem("Bottle_Production", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('glass', lowBound=0, cat='Integer')   # number of glass bottles
+    y = pl.LpVariable('plastic', lowBound=0, cat='Integer') # number of plastic bottles
+
+    # Objective: maximize total number of bottles
+    prob += x + y
+
+    # Constraints
+    # Water availability: 500x + 750y <= 250000
+    prob += 500 * x + 750 * y <= 250000
+
+    # Customer preference: y >= 3x
+    prob += y >= 3 * x
+
+    # Minimum glass bottles: x >= 20
+    prob += x >= 20
+
+    # Solve the ILP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    x_val = pl.value(x)
+    y_val = pl.value(y)
+    total_bottles = x_val + y_val
+
+    # Print detailed solution (optional)
+    print(f"Glass bottles (x): {x_val}")
+    print(f"Plastic bottles (y): {y_val}")
+    print(f"Total bottles (objective): {total_bottles}")
+
+    return total_bottles
+
+if __name__ == "__main__":
+    obj_value = solve_bottle_problem()
+    print(f"FINAL_OBJ: {obj_value}")

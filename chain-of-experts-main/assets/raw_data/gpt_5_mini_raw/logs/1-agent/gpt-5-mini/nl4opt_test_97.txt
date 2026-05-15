@@ -1,0 +1,40 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+truck_capacity = 50     # packages per truck trip
+car_capacity = 30       # packages per car trip
+truck_gas = 20          # liters gas per truck trip
+car_gas = 15            # liters gas per car trip
+truck_max_trips = 5     # max truck trips
+car_min_ratio = 0.30    # at least 30% of all trips must be by car
+demand_packages = 500   # required packages to transport
+
+# Create the LP problem (minimization)
+prob = pulp.LpProblem("Minimize_Gas_Consumption", pulp.LpMinimize)
+
+# Decision variables: integer number of trips
+x = pulp.LpVariable("truck_trips", lowBound=0, upBound=truck_max_trips, cat="Integer")
+y = pulp.LpVariable("car_trips", lowBound=0, cat="Integer")
+
+# Objective: minimize total gas
+prob += truck_gas * x + car_gas * y
+
+# Constraints
+prob += truck_capacity * x + car_capacity * y >= demand_packages, "PackageRequirement"
+# Car trips must be at least 30% of total trips: y >= 0.3*(x+y) -> (1-0.3)*y >= 0.3*x
+prob += (1 - car_min_ratio) * y >= car_min_ratio * x, "CarTripRatio"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve results
+truck_result = int(pulp.value(x))
+car_result = int(pulp.value(y))
+objective_value = pulp.value(prob.objective)
+
+# Print results (final line must be the FINAL_OBJ line)
+print(f"Truck trips: {truck_result}")
+print(f"Car trips: {car_result}")
+print(f"Total gas consumed (liters): {objective_value}")
+print(f"FINAL_OBJ: {objective_value}")

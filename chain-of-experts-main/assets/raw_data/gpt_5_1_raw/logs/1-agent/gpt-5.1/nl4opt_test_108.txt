@@ -1,0 +1,38 @@
+[MONOLITH]:
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Butcher_Slicer_Problem", pulp.LpMinimize)
+
+# Decision variables: number of manual (m) and automatic (a) slicers
+m = pulp.LpVariable('manual_slicers', lowBound=0, cat='Integer')
+a = pulp.LpVariable('automatic_slicers', lowBound=0, cat='Integer')
+
+# Objective: Minimize total number of slicers
+prob += m + a, "Total_Slicers"
+
+# Constraints:
+# At least 50 slices per minute: 5m + 8a >= 50
+prob += 5 * m + 8 * a >= 50, "Slice_Capacity"
+
+# At most 35 units of grease per minute: 3m + 6a <= 35
+prob += 3 * m + 6 * a <= 35, "Grease_Usage"
+
+# Manual slicers must be less than automatic slicers: m <= a - 1
+prob += m <= a - 1, "Manual_Less_Than_Automatic"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+# Extract results
+manual_opt = pulp.value(m)
+automatic_opt = pulp.value(a)
+final_obj = pulp.value(prob.objective)
+
+# Print solution details
+print(f"Optimal number of manual slicers: {manual_opt}")
+print(f"Optimal number of automatic slicers: {automatic_opt}")
+print(f"Minimum total number of slicers: {final_obj}")
+
+# Required final objective print
+print(f"FINAL_OBJ: {final_obj}")

@@ -1,0 +1,147 @@
+[MODELER]:
+Here is a clean mathematical model of the problem and how you would approach solving it.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of servings of almonds (nonnegative, real or integer)  
+- \(y\) = number of servings of cashews (nonnegative, real or integer)
+
+Depending on whether fractional servings make sense, you can treat \(x,y\) as continuous (\(\ge 0\)) or integers (\(\in \mathbb{Z}_{\ge 0}\)). The math model is the same; only the solver type changes.
+
+---
+
+## 2. Objective function (minimize fat intake)
+
+Fat per serving:  
+- Almonds: 15 g/serving  
+- Cashews: 12 g/serving  
+
+Total fat:
+
+\[
+\text{Fat} = 15x + 12y
+\]
+
+**Objective:**
+
+\[
+\min\; 15x + 12y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Calorie requirement (at least 10,000 calories)
+
+- Almonds: 200 calories/serving  
+- Cashews: 300 calories/serving  
+
+\[
+200x + 300y \;\ge\; 10000
+\]
+
+### b) Protein requirement (at least 800 grams)
+
+- Almonds: 20 g protein/serving  
+- Cashews: 25 g protein/serving  
+
+\[
+20x + 25y \;\ge\; 800
+\]
+
+### c) Almond servings at least twice cashew servings
+
+\[
+x \;\ge\; 2y
+\]
+
+### d) Nonnegativity
+
+\[
+x \;\ge\; 0,\quad y \;\ge\; 0
+\]
+
+Optionally, add integrality if whole servings are required:  
+\(x, y \in \mathbb{Z}_{\ge 0}\).
+
+---
+
+## 4. Full linear program
+
+\[
+\begin{aligned}
+\min\quad & 15x + 12y \\
+\text{s.t.}\quad
+& 200x + 300y \ge 10000 \\
+& 20x + 25y \ge 800 \\
+& x - 2y \ge 0 \\
+& x \ge 0,\; y \ge 0 \\
+& (\text{optionally } x,y \in \mathbb{Z}_{\ge 0})
+\end{aligned}
+\]
+
+This is a **linear programming (LP)** problem; with integrality, it becomes an **integer linear program (ILP)**.
+
+---
+
+## 5. Suitable Python libraries
+
+For solving this model in Python, good choices are:
+
+- **PuLP**  
+  - Very straightforward for LP/ILP.  
+  - Good for educational and small/medium problems.  
+  - Example structure: define `LpProblem`, create `LpVariable`s, add constraints, and call `solve()`.
+
+- **OR-Tools (Google OR-Tools)**  
+  - Use the **Linear Solver** (`pywraplp.Solver`) for LP or MIP.  
+  - Very efficient and industrial-strength.
+
+- **SciPy (`scipy.optimize.linprog`)**  
+  - Works well for **continuous** LPs (no integer requirement).  
+  - Not suitable for integer constraints directly.
+
+If you need **integer servings**, use **PuLP** or **OR-Tools** (MIP solvers).  
+If fractional servings are acceptable, **SciPy** or any LP solver in PuLP/OR-Tools is fine.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def main():
+    # Create the problem: minimize total fat
+    prob = pulp.LpProblem("Nut_Mix_Problem", pulp.LpMinimize)
+
+    # Decision variables: nonnegative, integer servings
+    x = pulp.LpVariable('almonds_servings', lowBound=0, cat='Integer')
+    y = pulp.LpVariable('cashews_servings', lowBound=0, cat='Integer')
+
+    # Objective function: minimize fat = 15x + 12y
+    prob += 15 * x + 12 * y, "Total_Fat"
+
+    # Constraints
+    # Calorie requirement: 200x + 300y >= 10000
+    prob += 200 * x + 300 * y >= 10000, "Calorie_Requirement"
+
+    # Protein requirement: 20x + 25y >= 800
+    prob += 20 * x + 25 * y >= 800, "Protein_Requirement"
+
+    # Almond servings at least twice cashew servings: x >= 2y
+    prob += x - 2 * y >= 0, "Almonds_At_Least_Twice_Cashews"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract the objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

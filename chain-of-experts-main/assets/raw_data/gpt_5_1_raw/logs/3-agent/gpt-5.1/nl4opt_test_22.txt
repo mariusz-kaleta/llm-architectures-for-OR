@@ -1,0 +1,122 @@
+[MODELER]:
+Let’s turn this into a linear optimization model.
+
+### 1. Decision variables
+
+Let  
+- \(x\) = number of palladium-heavy catalysts used  
+- \(y\) = number of platinum-heavy catalysts used  
+
+Assume \(x, y \ge 0\) and can be real numbers (continuous model). If they must be whole catalysts, we add integer constraints later.
+
+---
+
+### 2. Objective function
+
+Each catalyst type has a conversion rate:
+
+- Palladium-heavy: 5 units CO₂ per second  
+- Platinum-heavy: 4 units CO₂ per second  
+
+Total conversion rate:
+
+\[
+\text{maximize } Z = 5x + 4y
+\]
+
+---
+
+### 3. Constraints
+
+Resource usage:
+
+- Platinum:  
+  - Palladium-heavy uses 15 units per catalyst  
+  - Platinum-heavy uses 20 units per catalyst  
+  - Total available: 450 units  
+
+  \[
+  15x + 20y \le 450
+  \]
+
+- Palladium:  
+  - Palladium-heavy uses 25 units per catalyst  
+  - Platinum-heavy uses 14 units per catalyst  
+  - Total available: 390 units  
+
+  \[
+  25x + 14y \le 390
+  \]
+
+Nonnegativity:
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+If you need an integer model:
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+### 4. Model summary
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 5x + 4y \\
+\text{subject to} \quad 
+& 15x + 20y \le 450 \quad \text{(platinum)}\\
+& 25x + 14y \le 390 \quad \text{(palladium)}\\
+& x \ge 0,\ y \ge 0 \quad (\text{and optionally } x,y \in \mathbb{Z})
+\end{aligned}
+\]
+
+---
+
+### 5. Suitable Python libraries
+
+You can model and solve this with:
+
+- **PuLP** – very simple for linear programs and MILPs.
+- **OR-Tools (Linear Solver)** – efficient, supports LP/MIP.
+- **SciPy** (`scipy.optimize.linprog`) – for continuous linear programming (no integers).
+
+For integer decision variables, prefer **PuLP** or **OR-Tools**.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the LP maximization problem
+    model = pulp.LpProblem("Catalyst_Optimization", pulp.LpMaximize)
+
+    # Decision variables: x = palladium-heavy, y = platinum-heavy
+    x = pulp.LpVariable('x', lowBound=0, cat='Continuous')
+    y = pulp.LpVariable('y', lowBound=0, cat='Continuous')
+
+    # Objective function: Maximize Z = 5x + 4y
+    model += 5 * x + 4 * y, "Total_CO2_Conversion"
+
+    # Constraints
+    # Platinum constraint: 15x + 20y <= 450
+    model += 15 * x + 20 * y <= 450, "Platinum_Constraint"
+
+    # Palladium constraint: 25x + 14y <= 390
+    model += 25 * x + 14 * y <= 390, "Palladium_Constraint"
+
+    # Solve the model
+    model.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pulp.value(model.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

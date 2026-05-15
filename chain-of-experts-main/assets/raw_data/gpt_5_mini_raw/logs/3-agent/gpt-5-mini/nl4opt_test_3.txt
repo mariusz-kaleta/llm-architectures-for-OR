@@ -1,0 +1,78 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x ∈ Z_{\ge 0} = number of counter-top machines
+  - y ∈ Z_{\ge 0} = number of fridge-sized machines
+
+- Objective
+  - Minimize total machines: minimize Z = x + y
+
+- Constraints
+  - Production requirement: 80 x + 150 y ≥ 1000
+  - Heat limit: 50 x + 70 y ≤ 500
+  - Integrality and nonnegativity: x, y ∈ Z_{\ge 0}
+
+Solution reasoning (short)
+- Lower bound: the fridge machine gives more cones per machine (150). Even if you use only fridges you need at least ceil(1000/150) = 7 machines.
+- Check feasibility of 7 fridges: cones = 7·150 = 1050 (≥1000), heat = 7·70 = 490 (≤500) → feasible.
+- Check 6 machines: best-case cones (all fridges) = 6·150 = 900 < 1000 → infeasible.
+- Therefore the minimum total number of machines is 7, achieved by x = 0 (counter-top), y = 7 (fridge-sized).
+
+Answer
+- Buy 0 counter-top machines and 7 fridge-sized machines.
+
+Suggested solvers / Python libraries
+- pulp (uses CBC by default) — simple to model MILP
+- OR-Tools CP-SAT — fast integer solver for small/large problems
+- Pyomo + GLPK/CPLEX/Gurobi — for larger modelling needs
+(scikit-learn/scipy.optimize are for continuous problems; use the above for integer programming)
+
+Example (pulp) snippet
+- You can model and solve this with pulp easily (pseudocode):
+  import pulp
+  x = pulp.LpVariable('x', lowBound=0, cat='Integer')
+  y = pulp.LpVariable('y', lowBound=0, cat='Integer')
+  prob = pulp.LpProblem('machines', pulp.LpMinimize)
+  prob += x + y
+  prob += 80*x + 150*y >= 1000
+  prob += 50*x + 70*y <= 500
+  prob.solve()
+  print(x.value(), y.value())  # yields 0, 7
+
+This returns the optimal solution x=0, y=7.
+
+---
+
+[CODER]:
+import math
+
+# Problem data
+# Decision variables: x (counter-top), y (fridge-sized) - nonnegative integers
+# Constraints:
+#   80*x + 150*y >= 1000   (production)
+#   50*x + 70*y <= 500     (heat)
+# Objective: minimize x + y
+
+best_obj = None
+best_solution = None
+
+# Set reasonable bounds for search based on constraints
+# Heat constraint implies: 50*x <= 500 -> x <= 10; 70*y <= 500 -> y <= 7
+max_x = 20
+max_y = 20
+
+for x in range(0, max_x + 1):
+    for y in range(0, max_y + 1):
+        if 80 * x + 150 * y >= 1000 and 50 * x + 70 * y <= 500:
+            obj = x + y
+            if best_obj is None or obj < best_obj:
+                best_obj = obj
+                best_solution = (x, y)
+
+# best_obj should be found; print final objective value in required format
+if best_obj is None:
+    # If no feasible solution (not the case here), set to None or large
+    print(f"FINAL_OBJ: None")
+else:
+    print(f"FINAL_OBJ: {best_obj}")

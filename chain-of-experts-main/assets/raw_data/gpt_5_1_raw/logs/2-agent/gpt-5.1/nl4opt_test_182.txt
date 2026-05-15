@@ -1,0 +1,170 @@
+[MODELER]:
+Here is a clean mathematical formulation of the problem as a linear program.
+
+---
+
+### 1. Decision variables
+
+Let
+
+- \(x\) = number of ship trips (continuous ≥ 0; in reality should be integer)
+- \(y\) = number of plane trips (continuous ≥ 0; in reality should be integer)
+
+---
+
+### 2. Objective
+
+Minimize total fuel consumption:
+
+\[
+\min\; Z = 500x + 300y
+\]
+
+---
+
+### 3. Constraints
+
+1. **Capacity requirement (at least 500 containers):**
+
+   Each ship trip carries 40 containers, each plane trip 20:
+
+   \[
+   40x + 20y \;\ge\; 500
+   \]
+
+2. **Maximum number of plane trips (at most 10):**
+
+   \[
+   y \;\le\; 10
+   \]
+
+3. **At least 50% of trips must be by ship:**
+
+   At least half of all trips are ship trips:
+
+   \[
+   x \;\ge\; y
+   \]
+
+   (since \(x \ge \frac{1}{2}(x+y) \iff x \ge y\))
+
+4. **Non-negativity:**
+
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+
+5. **(Optional) Integrality:**
+
+   If trips must be whole numbers:
+
+   \[
+   x, y \in \mathbb{Z}_{\ge 0}
+   \]
+
+---
+
+### 4. Model summary
+
+**Linear Programming (LP) model:**
+
+\[
+\begin{aligned}
+\min\quad & 500x + 300y \\
+\text{s.t.}\quad 
+& 40x + 20y \ge 500 \\
+& y \le 10 \\
+& x \ge y \\
+& x \ge 0,\; y \ge 0 \\
+& x, y \in \mathbb{Z}_{\ge 0}\; (\text{if integer trips are required})
+\end{aligned}
+\]
+
+---
+
+### 5. Suitable Python libraries
+
+To solve this optimization problem programmatically, good choices are:
+
+- **PuLP** (`pulp`)
+  - Easy syntax for linear and integer programming.
+  - Integrates with CBC (default solver) and others (GLPK, CPLEX, Gurobi).
+- **OR-Tools** (`ortools.linear_solver`)
+  - Google’s optimization suite, supports LP/MIP with multiple solvers.
+- **Pyomo**
+  - More general modelling language, suitable if your models may get more complex.
+- For continuous (non-integer) version only:
+  - **SciPy** (`scipy.optimize.linprog`)
+
+For this problem, **PuLP** or **OR-Tools** is the most straightforward.
+
+---
+
+### 6. Example PuLP code skeleton
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Shipping_Optimization", pl.LpMinimize)
+
+# Variables (integer trips)
+x = pl.LpVariable("ship_trips", lowBound=0, cat="Integer")
+y = pl.LpVariable("plane_trips", lowBound=0, cat="Integer")
+
+# Objective
+prob += 500 * x + 300 * y
+
+# Constraints
+prob += 40 * x + 20 * y >= 500        # capacity
+prob += y <= 10                       # max plane trips
+prob += x >= y                        # at least 50% trips by ship
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Ship trips:", x.value())
+print("Plane trips:", y.value())
+print("Minimum fuel:", pl.value(prob.objective))
+```
+
+This code directly encodes the mathematical model above and will yield the optimal number of ship and plane trips minimizing fuel.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Shipping_Optimization", pl.LpMinimize)
+
+    # Decision variables: integer trips
+    x = pl.LpVariable("ship_trips", lowBound=0, cat="Integer")
+    y = pl.LpVariable("plane_trips", lowBound=0, cat="Integer")
+
+    # Objective: Minimize fuel consumption
+    prob += 500 * x + 300 * y
+
+    # Constraints
+    prob += 40 * x + 20 * y >= 500      # Capacity requirement
+    prob += y <= 10                     # Max plane trips
+    prob += x >= y                      # At least 50% of trips by ship
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print some internal details (not required, but useful if running script)
+    print("Status:", pl.LpStatus[prob.status])
+    print("Ship trips (x):", x.value())
+    print("Plane trips (y):", y.value())
+    print("Minimum fuel:", final_obj)
+
+    # Final required output
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

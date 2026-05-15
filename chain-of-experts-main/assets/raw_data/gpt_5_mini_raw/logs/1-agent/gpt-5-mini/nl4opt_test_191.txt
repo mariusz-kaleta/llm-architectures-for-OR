@@ -1,0 +1,47 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization
+heating_capacity = 300  # minutes per day
+cooling_capacity = 300  # minutes per day
+
+# Times (minutes per pane)
+heat_time_regular = 3
+cool_time_regular = 5
+
+heat_time_tempered = 5
+cool_time_tempered = 8
+
+# Profits
+profit_regular = 8
+profit_tempered = 10
+
+# Define the problem
+prob = pulp.LpProblem("Glass_Panes_Profit_Maximization", pulp.LpMaximize)
+
+# Decision variables: number of panes (integer, non-negative)
+x_reg = pulp.LpVariable("regular_panes", lowBound=0, cat='Integer')
+x_temp = pulp.LpVariable("tempered_panes", lowBound=0, cat='Integer')
+
+# Objective: maximize profit
+prob += profit_regular * x_reg + profit_tempered * x_temp
+
+# Constraints
+prob += heat_time_regular * x_reg + heat_time_tempered * x_temp <= heating_capacity, "Heating_Time"
+prob += cool_time_regular * x_reg + cool_time_tempered * x_temp <= cooling_capacity, "Cooling_Time"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+# Extract results
+regular_solution = int(pulp.value(x_reg))
+tempered_solution = int(pulp.value(x_temp))
+objective_value = pulp.value(prob.objective)
+
+# Output results
+print(f"Regular panes to produce: {regular_solution}")
+print(f"Tempered panes to produce: {tempered_solution}")
+print(f"Maximum profit: ${objective_value}")
+
+# Final required line
+print(f"FINAL_OBJ: {objective_value}")

@@ -1,0 +1,126 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x = number of top-loading machines (integer, x >= 0)
+- y = number of front-loading machines (integer, y >= 0)
+
+Objective
+- Minimize the total number of machines: minimize Z = x + y
+
+Constraints
+1. Washing capacity (at least 5000 items/day):
+   50 x + 75 y >= 5000
+
+2. Energy available (at most 7000 kWh/day):
+   85 x + 100 y <= 7000
+
+3. At most 40% of machines are top-loading:
+   x <= 0.4 (x + y)
+   which can be rearranged to a linear form: 3 x - 2 y <= 0
+
+4. At least 10 front-loading machines:
+   y >= 10
+
+5. Integrality and nonnegativity:
+   x, y ∈ Z, x >= 0, y >= 0
+
+Remarks: Constraint (3) was algebraically converted: x <= 0.4(x+y) -> 0.6x <= 0.4y -> 3x <= 2y -> 3x - 2y <= 0.
+
+Solution reasoning (simple analytic check)
+- Front-loading machines wash more items per machine (75 vs 50), so to minimize the number of machines we prefer front-loading machines.
+- If x = 0 (no top-loading), the washing constraint requires y >= ceil(5000/75) = 67. Energy then is 100 * 67 = 6700 <= 7000, so feasible.
+- Thus one feasible solution with minimal count is x = 0, y = 67 (total 67 machines).
+- There is another feasible solution with the same objective value: x = 1, y = 66 also meets all constraints (50*1 + 75*66 = 5000, energy 85 + 6600 = 6685 <= 7000). Both give total 67 machines.
+- There is no feasible solution with fewer than 67 machines (try x + y = 66 leads to insufficient washing capacity).
+
+Therefore the minimum possible total number of machines is 67. Given the preference to avoid top-loading machines (they are harder to use), the natural choice is:
+- Top-loading: x = 0
+- Front-loading: y = 67
+
+Suggested Python libraries for solving this integer linear program
+- pulp (pure-Python, easy to use for small ILPs)
+- OR-Tools (Google) — very fast and scalable integer solvers
+- mip (python-mip) — convenient interface to CBC/Gurobi/CPLEX if available
+(Do not use scipy.optimize for integer linear programs; it is for continuous problems.)
+
+Example using pulp (quick reference)
+- Create integer LpVariables x,y
+- Add constraints as above
+- Minimize x+y and solve
+This will return the same optimal outcome (x=0,y=67), or an equivalent optimum (x=1,y=66).
+
+If you want, I can provide a ready-to-run pulp or OR-Tools script that solves the model and prints all optimal integer solutions.
+
+---
+
+[CODER]:
+```python
+# Self-contained script to solve the integer linear program described.
+# It minimizes the total number of machines x (top-loading) and y (front-loading)
+# subject to given constraints.
+
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Laundry_Machines_Minimization", pulp.LpMinimize)
+
+# Decision variables: integers >= 0
+x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # top-loading machines
+y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # front-loading machines
+
+# Objective: minimize total number of machines
+prob += x + y, "Total_Machines"
+
+# Constraints
+prob += 50 * x + 75 * y >= 5000    # washing capacity
+prob += 85 * x + 100 * y <= 7000   # energy limit
+prob += 3 * x - 2 * y <= 0         # at most 40% are top-loading -> 3x - 2y <= 0
+prob += y >= 10                    # at least 10 front-loading machines
+
+# Solve using the default CBC solver
+solver = pulp.PULP_CBC_CMD(msg=False)
+result_status = prob.solve(solver)
+
+# Retrieve solution (with safe rounding)
+def val(var):
+    v = var.value()
+    if v is None:
+        return None
+    return int(round(v))
+
+x_val = val(x)
+y_val = val(y)
+
+# If solver failed for some reason, fall back to a brute-force search for small ranges
+if x_val is None or y_val is None or pulp.LpStatus[result_status] not in ("Optimal", "Optimal Solution Found"):
+    best = None
+    # search reasonable bounds: since front-loading 75 items each, need at most ceil(5000/75)=67 if x=0
+    # but allow some x up to 100 to be safe
+    for X in range(0, 101):
+        for Y in range(10, 201):  # Y at least 10; upper bound 200 is safe
+            if 50 * X + 75 * Y < 5000:
+                continue
+            if 85 * X + 100 * Y > 7000:
+                continue
+            if 3 * X - 2 * Y > 0:
+                continue
+            total = X + Y
+            if best is None or total < best[0] or (total == best[0] and (X < best[1] or (X == best[1] and Y < best[2]))):
+                best = (total, X, Y)
+    if best is None:
+        # No feasible solution found
+        final_obj = None
+    else:
+        final_obj = best[0]
+        x_val = best[1]
+        y_val = best[2]
+else:
+    final_obj = x_val + y_val
+
+# Print variable values (optional, can be commented out)
+# print(f"x = {x_val}, y = {y_val}")
+
+# Final required line (must be exactly this format)
+print(f"FINAL_OBJ: {final_obj}")
+```

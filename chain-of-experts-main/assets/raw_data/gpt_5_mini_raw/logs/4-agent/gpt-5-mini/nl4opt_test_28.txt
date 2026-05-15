@@ -1,0 +1,156 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Maximise the total number of fish transported.
+
+2) Suggested model type
+- Model: Mixed-Integer Linear Program (MILP).  
+  Reason: trip counts are integer variables (you cannot make a fractional trip) and a strict ordering constraint ("dog trips must be less than truck trips") is easiest to enforce with integer variables. If you must use a pure continuous LP, you can relax integrality but you will need to round results (may become infeasible or suboptimal).
+
+3) Main decision variables
+- Nd = number of sled-dog trips (integer, >= 0).  
+- Nt = number of truck trips (integer, >= 0).  
+- (Optional convenience variable) F = total fish transported (continuous, >= 0), where F = Nd * DogCapability + Nt * TruckCapability. You can also compute the objective directly from Nd and Nt.
+
+(Use the concrete data: DogCapability = 100 fish/trip, TruckCapability = 300 fish/trip, DogCost = 50 per trip, TruckCost = 100 per trip, MaxBudget = 1000.)
+
+4) Key constraints to include (conceptual description)
+- Budget constraint: total transport cost cannot exceed MaxBudget. Form the cost as DogCost * Nd + TruckCost * Nt <= MaxBudget.
+- Capacity -> objective link: total fish moved is capacity per trip times trips (F = DogCapability * Nd + TruckCapability * Nt, or compute directly in objective).
+- Ordering constraint (problem-specific): the number of dog trips must be less than the number of truck trips. Represent this as Nd <= Nt - 1. Note: this enforces a strict “less than” when Nd, Nt are integers. If you use continuous variables you cannot enforce strict inequality; you'd have to use Nd <= Nt - epsilon or change the rule.
+- Integrality and sign constraints: Nd and Nt must be integer and non-negative (Nd, Nt ∈ Z, Nd >= 0, Nt >= 0). If you relax integrality, add a post-processing rounding step and re-check feasibility.
+- Implicit upper bounds from budget (useful for solver efficiency): Nd <= floor(MaxBudget / DogCost) and Nt <= floor(MaxBudget / TruckCost). These are not additional logical constraints (they follow from budget) but help define variable bounds.
+- Feasibility check: because Nd <= Nt - 1, if budget does not allow at least one truck trip (Nt >= 1), any positive Nd will be infeasible. Ensure the model allows Nt = 0 and Nd = 0 as a feasible solution, or decide to require at least one truck trip explicitly if that matches business rules.
+
+5) Objective (conceptual)
+- Maximise F = DogCapability * Nd + TruckCapability * Nt (or directly maximise DogCapability * Nd + TruckCapability * Nt).
+
+6) Practical/modeling notes and suggestions
+- Cost-efficiency insight: trucks are more fish-per-cost efficient here (TruckCost per fish = 100/300 ≈ 0.333; DogCost per fish = 50/100 = 0.5). Expect optimal solution to prefer trucks subject to the Nd < Nt constraint and integrality.
+- Solver recommendation: use an MILP solver (e.g., CBC, Gurobi, CPLEX, GLPK) to enforce integrality and Nd <= Nt - 1 exactly.
+- If you must produce a pure LP solution, relax integrality, solve, then round down Nd and Nt to integers and re-check budget and ordering constraints; if violated, adjust using small combinatorial search (this is suboptimal compared to an MILP).
+- Check edge cases: if MaxBudget < TruckCost (no truck trips affordable) but the Nd < Nt requirement is mandatory, the only feasible solution may be Nd = Nt = 0; decide whether the business rule should be relaxed in such scenarios.
+
+Summary of components the Modeller should implement
+- Variables: Nd (int), Nt (int), optional F (continuous).  
+- Objective: maximise fish = DogCapability*Nd + TruckCapability*Nt.  
+- Constraints: budget (DogCost*Nd + TruckCost*Nt <= MaxBudget), ordering (Nd <= Nt - 1), non-negativity and integrality, variable upper bounds for solver speed.
+
+---
+
+[MODELER]:
+Below is a clear MILP formulation of the problem, with variables, objective, constraints, practical notes and solver recommendations. I also give the optimal integer solution for the concrete data and a short example of how to implement it in Python (PuLP or OR-Tools).
+
+1) Parameters (given)
+- DogCapability = 100 (fish per dog trip)
+- TruckCapability = 300 (fish per truck trip)
+- DogCost = 50 ($ per dog trip)
+- TruckCost = 100 ($ per truck trip)
+- MaxBudget = 1000 ($)
+
+2) Decision variables
+- Nd ∈ Z≥0 : number of sled-dog trips
+- Nt ∈ Z≥0 : number of truck trips
+
+(you may optionally include F ≥ 0 as a continuous convenience variable for total fish, with F = 100 Nd + 300 Nt)
+
+3) Objective
+Maximise total fish transported:
+Maximise Z = 100 Nd + 300 Nt
+
+4) Constraints
+- Budget constraint:
+50 Nd + 100 Nt ≤ 1000
+
+- Ordering (problem statement: “number of sled dog trips must be less than the number of truck trips” — strict inequality):
+Nd ≤ Nt − 1
+(With integer variables this enforces Nd < Nt. Note: this also implies Nt ≥ 1.)
+
+- Nonnegativity and integrality:
+Nd, Nt ∈ Z≥0
+
+- Useful implicit bounds (for solver efficiency):
+Nd ≤ floor(1000 / 50) = 20
+Nt ≤ floor(1000 / 100) = 10
+
+Full MILP:
+Maximise Z = 100 Nd + 300 Nt
+s.t.
+50 Nd + 100 Nt ≤ 1000
+Nd − Nt ≤ −1
+Nd, Nt ∈ Z≥0
+
+5) Feasibility note
+Because Nd ≤ Nt − 1, at least one truck trip is required (Nt ≥ 1). If MaxBudget < TruckCost (i.e., budget < 100 here), the integer model is infeasible (no pair of nonnegative integers satisfies both the budget and Nd < Nt). If you want to allow the degenerate all-zero solution, change the ordering constraint to Nd ≤ Nt (non-strict).
+
+6) Analytical insight / optimal integer solution (concrete data)
+- Fish-per-cost: dog = 100/50 = 2 fish/$; truck = 300/100 = 3 fish/$. Trucks are strictly more cost-effective.
+- Given this, the MILP will favor trucks. Under the budget, the maximum number of trucks is 10 (cost 1000). With Nd = 0 and Nt = 10:
+  - Budget: 50·0 + 100·10 = 1000 ≤ 1000 (OK)
+  - Ordering: 0 ≤ 10 − 1 → 0 ≤ 9 (OK)
+  - Total fish = 100·0 + 300·10 = 3000 fish
+
+Therefore the optimal integer solution is Nd = 0, Nt = 10, total fish = 3000.
+
+7) Solver recommendations / Python libraries
+- MILP modeling libraries: PuLP, Pyomo, OR-Tools (CP-SAT), CVXPY (with integer solver back-end), or direct commercial solvers (Gurobi, CPLEX) via their Python APIs.
+- Free/open-source solvers: CBC (default for PuLP), GLPK (via Pyomo or PuLP), or the OR-Tools CP-SAT solver (very fast for integer problems).
+- If you must relax integrality: use scipy.optimize.linprog or a continuous LP solver, but be aware you may need to round and re-check feasibility (suboptimal).
+
+8) Short PuLP implementation (concept)
+(Conceptual code structure — adapt to your environment)
+
+- Install PuLP (pip install pulp)
+- Create integer variables Nd, Nt
+- Add objective: 100*Nd + 300*Nt
+- Add constraints: 50*Nd + 100*Nt <= 1000 ; Nd <= Nt - 1
+- Solve with default CBC or specify another solver
+- Read Nd.value(), Nt.value()
+
+9) Additional modelling remarks
+- If you need to enforce Nd < Nt but allow Nd = Nt = 0, replace Nd ≤ Nt − 1 with a logic that allows zero-zero (e.g., add a binary variable to control whether any trips are made). Example: introduce y ∈ {0,1} meaning “we operate at least one truck”; then Nd ≤ Nt − y and ensure y = 0 is only allowed when Nt = 0, etc. (This complicates the model; only needed if business rules differ.)
+- If trucks are unavailable or there's a minimum number of dog trips, adapt constraints accordingly.
+
+If you want, I can:
+- provide the complete PuLP or OR-Tools script,
+- run the model for variants (e.g., different budgets or a non-strict Nd < Nt relaxed to Nd ≤ Nt),
+- or show how to model the “allow zero-zero” alternative using a binary variable.
+
+---
+
+[CODER]:
+# Self-contained script to solve the MILP by direct enumeration (no external solvers required)
+
+# Parameters
+DogCapability = 100
+TruckCapability = 300
+DogCost = 50
+TruckCost = 100
+MaxBudget = 1000
+
+# Implicit bounds
+Nd_max = MaxBudget // DogCost  # 20
+Nt_max = MaxBudget // TruckCost  # 10
+
+best_obj = None
+best_Nd = None
+best_Nt = None
+
+for Nt in range(0, Nt_max + 1):
+    for Nd in range(0, Nd_max + 1):
+        # Constraints
+        if 50 * Nd + 100 * Nt > MaxBudget:
+            continue
+        if Nd > Nt - 1:
+            continue
+        # Objective
+        obj = DogCapability * Nd + TruckCapability * Nt
+        if (best_obj is None) or (obj > best_obj):
+            best_obj = obj
+            best_Nd = Nd
+            best_Nt = Nt
+
+# If no feasible solution found, set objective to 0
+if best_obj is None:
+    best_obj = 0
+
+print(f"FINAL_OBJ: {int(best_obj)}")

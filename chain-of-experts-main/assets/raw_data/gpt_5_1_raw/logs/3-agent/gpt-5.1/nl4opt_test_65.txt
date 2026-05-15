@@ -1,0 +1,168 @@
+[MODELER]:
+Let’s translate the problem into a mathematical optimization model.
+
+## 1. Decision variables
+
+Let  
+- \(x\) = square feet of laminate planks produced per week  
+- \(y\) = square feet of carpets produced per week  
+
+Both must be nonnegative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+## 2. Objective function
+
+Profit per square foot:
+- Laminate planks: \$2.1
+- Carpets: \$3.3
+
+Total weekly profit:
+\[
+\text{Maximize } Z = 2.1x + 3.3y
+\]
+
+## 3. Constraints
+
+### Demand constraints
+At least the expected demand must be met:
+\[
+x \ge 15000
+\]
+\[
+y \ge 5000
+\]
+
+### Shipping contract
+Total square footage shipped must be at least 50,000:
+\[
+x + y \ge 50000
+\]
+
+### Production capacity (raw material limits)
+\[
+x \le 40000
+\]
+\[
+y \le 20000
+\]
+
+## 4. Complete linear program
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 2.1x + 3.3y \\
+\text{subject to} \quad
+& x \ge 15000 \\
+& y \ge 5000 \\
+& x + y \ge 50000 \\
+& x \le 40000 \\
+& y \le 20000 \\
+& x \ge 0,\; y \ge 0
+\end{aligned}
+\]
+
+## 5. Solve analytically (brief)
+
+Because carpets are more profitable than laminate (\$3.3 > \$2.1), to maximize profit we should:
+- Use as much carpet capacity as possible, subject to constraints.
+- Then use laminate to satisfy total volume and laminate constraints.
+
+Maximize \(y\) first: \(y \le 20000\) and \(y \ge 5000\), so best is \(y = 20000\).
+
+Then use \(x\) to meet total requirement \(x + y \ge 50000\):
+\[
+x + 20000 \ge 50000 \Rightarrow x \ge 30000
+\]
+Also must have \(x \le 40000\) and \(x \ge 15000\). So feasible best is \(x = 30000\) (smallest \(x\) that meets total; smaller \(x\) gives more weight to high-profit \(y\), but \(y\) is already at its maximum).
+
+Thus optimal solution:
+- \(x^* = 30000\) sq ft of laminate  
+- \(y^* = 20000\) sq ft of carpet  
+
+Profit:
+\[
+Z^* = 2.1(30000) + 3.3(20000)
+= 63000 + 66000
+= \$129{,}000
+\]
+
+## 6. Suitable Python libraries
+
+This is a standard linear programming (LP) problem. Good Python libraries:
+
+- **PuLP** (`pulp`): Simple, pure Python LP modeling library; ideal for teaching and small/medium problems.
+- **OR-Tools Linear Solver** (`ortools.linear_solver`): Industrial-strength solver interface from Google; supports multiple LP/MIP solvers.
+- **SciPy** (`scipy.optimize.linprog`): Can solve LPs but with a lower-level matrix-based interface.
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Flooring_Production", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('laminate_sqft', lowBound=0)
+y = pl.LpVariable('carpet_sqft', lowBound=0)
+
+# Objective function
+prob += 2.1 * x + 3.3 * y, "Total_Profit"
+
+# Constraints
+prob += x >= 15000, "Laminate_min_demand"
+prob += y >= 5000,  "Carpet_min_demand"
+prob += x + y >= 50000, "Total_min_shipping"
+prob += x <= 40000, "Laminate_capacity"
+prob += y <= 20000, "Carpet_capacity"
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal laminate (sq ft):", x.value())
+print("Optimal carpet (sq ft):", y.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This model will return:
+- Laminate: 30000  
+- Carpet: 20000  
+- Profit: 129000
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Flooring_Production", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('laminate_sqft', lowBound=0)
+    y = pl.LpVariable('carpet_sqft', lowBound=0)
+
+    # Objective function
+    prob += 2.1 * x + 3.3 * y, "Total_Profit"
+
+    # Constraints
+    prob += x >= 15000, "Laminate_min_demand"
+    prob += y >= 5000,  "Carpet_min_demand"
+    prob += x + y >= 50000, "Total_min_shipping"
+    prob += x <= 40000, "Laminate_capacity"
+    prob += y <= 20000, "Carpet_capacity"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(prob.objective)
+
+    # Final required print
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

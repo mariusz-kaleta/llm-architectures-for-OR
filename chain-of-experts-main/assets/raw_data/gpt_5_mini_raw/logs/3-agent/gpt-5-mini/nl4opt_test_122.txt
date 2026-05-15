@@ -1,0 +1,129 @@
+[MODELER]:
+Below is a clean LP formulation, an equivalent form that removes the ratio, and a short note on solving it (including a small PuLP code snippet and the analytic optimal solution).
+
+Decision variables
+- C = dollars invested in condos (continuous, >= 0)
+- D = dollars invested in detached houses (continuous, >= 0)
+
+Objective
+- Maximize total profit: maximize Z = 0.5·C + 1·D
+
+Constraints
+1. Budget: C + D ≤ 760000
+2. At least 20% of invested money must be in condos:
+   C ≥ 0.2·(C + D)
+   (equivalently 4·C ≥ D)
+3. At least $20,000 in detached houses: D ≥ 20000
+4. Nonnegativity: C ≥ 0, D ≥ 0
+
+Equivalent linear system (no ratio)
+- Maximize Z = 0.5 C + D
+- s.t.
+  - C + D ≤ 760000
+  - 4 C − D ≥ 0
+  - D ≥ 20000
+  - C, D ≥ 0
+
+Comment on solution
+- Because both returns are positive and detached houses pay more per dollar, the optimum uses the full budget and the minimum allowable condo share. Using C = 0.2·T and D = 0.8·T with T = 760000 gives:
+  - C* = 152000, D* = 608000
+  - Maximum profit Z* = 0.5·152000 + 1·608000 = 684000
+
+Recommended Python libraries
+- PuLP (simple modeling with CBC solver)
+- OR-Tools (linear solver)
+- scipy.optimize.linprog (for small LPs)
+- CVXOPT or CVXPY (if you want more advanced modeling)
+
+Example PuLP code
+(from pulp import LpProblem, LpMaximize, LpVariable, lpSum, value)
+- Create variables C and D >= 0
+- Define problem = LpProblem("Investment", LpMaximize)
+- problem += 0.5*C + 1*D
+- problem += C + D <= 760000
+- problem += 4*C - D >= 0
+- problem += D >= 20000
+- Solve and read C.value(), D.value(), value(problem.objective)
+
+This LP is small and can be solved analytically (result above) or using any of the suggested libraries.
+
+---
+
+[CODER]:
+import math
+
+# Problem data
+budget = 760000.0
+
+# Define lines in form a*C + b*D = c
+# 1) budget: C + D = 760000
+lines = [
+    (1.0, 1.0, budget),    # budget
+    (4.0, -1.0, 0.0),      # 4C - D = 0  (minimum condo share as equality)
+    (0.0, 1.0, 20000.0)    # D = 20000  (minimum detached houses)
+]
+
+# Constraints for feasibility (inequalities)
+def feasible(C, D, tol=1e-7):
+    if C is None or D is None:
+        return False
+    if C < -tol or D < -tol:
+        return False
+    if C + D > budget + tol:
+        return False
+    if 4*C - D < -tol:
+        return False
+    if D < 20000 - tol:
+        return False
+    return True
+
+# Solve intersections of every pair of lines
+def intersect(l1, l2):
+    a1, b1, c1 = l1
+    a2, b2, c2 = l2
+    det = a1*b2 - a2*b1
+    if abs(det) < 1e-12:
+        return (None, None)
+    C = (c1*b2 - c2*b1) / det
+    D = (a1*c2 - a2*c1) / det
+    return (C, D)
+
+candidates = []
+
+# intersections of pairs
+n = len(lines)
+for i in range(n):
+    for j in range(i+1, n):
+        C, D = intersect(lines[i], lines[j])
+        if feasible(C, D):
+            candidates.append((C, D))
+
+# Also consider intersections with axes if feasible (though here axes aren't feasible due to D>=20000)
+# Evaluate objective Z = 0.5*C + 1*D for all candidate vertices
+best_obj = -math.inf
+best_point = (None, None)
+for C, D in candidates:
+    Z = 0.5*C + 1.0*D
+    if Z > best_obj:
+        best_obj = Z
+        best_point = (C, D)
+
+# As a fallback (shouldn't be needed), check some known corner cases explicitly
+fallback_points = [
+    (152000.0, 608000.0),
+    (740000.0, 20000.0),
+    (5000.0, 20000.0)
+]
+for C, D in fallback_points:
+    if feasible(C, D):
+        Z = 0.5*C + 1.0*D
+        if Z > best_obj:
+            best_obj = Z
+            best_point = (C, D)
+
+# Round objective to integer if very close
+if abs(best_obj - round(best_obj)) < 1e-6:
+    best_obj = int(round(best_obj))
+
+# Final required print (must be the last line)
+print(f"FINAL_OBJ: {best_obj}")

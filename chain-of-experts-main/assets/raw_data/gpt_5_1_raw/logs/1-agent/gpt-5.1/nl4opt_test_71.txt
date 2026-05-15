@@ -1,0 +1,43 @@
+[MONOLITH]:
+import pulp as pl
+
+# Initialize the problem: maximize number of people treated
+prob = pl.LpProblem("Diabetes_Medicine_Production", pl.LpMaximize)
+
+# Decision variables: doses of medicine A and B (non-negative, integer)
+A = pl.LpVariable('A', lowBound=0, cat='Integer')
+B = pl.LpVariable('B', lowBound=0, cat='Integer')
+
+# Objective function: maximize people treated
+# 1 dose of A treats 12 people, 1 dose of B treats 8 people
+prob += 12 * A + 8 * B, "Total_People_Treated"
+
+# Constraints:
+# Imported material: 30A + 40B <= 300
+prob += 30 * A + 40 * B <= 300, "Imported_Material"
+
+# mRNA: 50A + 30B <= 400
+prob += 50 * A + 30 * B <= 400, "mRNA"
+
+# At most 5 doses of medicine A
+prob += A <= 5, "Max_A"
+
+# Number of doses of B must be larger than number of doses of A: B > A
+# For integer variables, B >= A + 1 ensures B > A
+prob += B >= A + 1, "B_greater_than_A"
+
+# Solve the problem
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Extract results
+A_opt = pl.value(A)
+B_opt = pl.value(B)
+obj_value = pl.value(prob.objective)
+
+# Print detailed solution (optional, but allowed)
+print(f"Optimal doses of medicine A: {A_opt}")
+print(f"Optimal doses of medicine B: {B_opt}")
+print(f"Maximum number of people treated: {obj_value}")
+
+# Required final line
+print(f"FINAL_OBJ: {obj_value}")

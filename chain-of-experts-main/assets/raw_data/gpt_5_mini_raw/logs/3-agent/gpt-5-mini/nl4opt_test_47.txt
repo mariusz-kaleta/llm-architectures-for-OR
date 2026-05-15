@@ -1,0 +1,149 @@
+[MODELER]:
+Model
+
+Decision variables
+- x = number of LED fixtures (integer, >= 0)
+- y = number of fluorescence fixtures (integer, >= 0)
+
+Objective
+- Minimize the total number of lamp changes per decade:
+  minimize Z = 3x + 4y
+  (LEDs need 3 changes/decade, fluorescents need 4 changes/decade)
+
+Constraints
+1. Customer requires at least 300 fixtures:
+   x + y >= 300
+
+2. Electricity available (assumed per hour) at most 2000 units:
+   5x + 8y <= 2000
+
+3. At least 30% of implemented lights must be fluorescence:
+   y >= 0.3 (x + y)
+   which is equivalent to 0.7 y >= 0.3 x or y >= (3/7) x
+
+4. Integrality and nonnegativity:
+   x, y integers ≥ 0
+
+Solution (analysis)
+This is a small integer linear program. The continuous LP relaxation has corner solutions; checking the relevant corner points yields the minimum at
+x = 210 (LED), y = 90 (fluorescent).
+
+Check:
+- x + y = 300 (meets minimum fixtures)
+- Electricity: 5·210 + 8·90 = 1050 + 720 = 1770 ≤ 2000
+- Fluorescent fraction: 90 = 0.30·300 (exactly 30%)
+- Objective (total changes/decade): Z = 3·210 + 4·90 = 630 + 360 = 990
+
+So install 210 LED fixtures and 90 fluorescent fixtures to minimize total lamp changes (990 changes per decade).
+
+Recommended solvers / Python libraries
+- pulp (pure-Python modeling with CBC as a free solver)
+- ortools (Google OR-Tools, fast MILP solver)
+- cvxpy (with an MILP-capable solver) or gurobipy/CBC if commercial/other solvers are available
+- scipy.optimize.linprog can solve the LP relaxation but not integer constraints
+
+Small example using pulp
+(you can run this in Python)
+from pulp import LpProblem, LpMinimize, LpVariable, LpInteger, lpSum, PULP_CBC_CMD
+
+prob = LpProblem('lights', LpMinimize)
+x = LpVariable('LED', lowBound=0, cat=LpInteger)
+y = LpVariable('Fluor', lowBound=0, cat=LpInteger)
+
+prob += 3*x + 4*y                     # objective
+prob += x + y >= 300                  # fixtures
+prob += 5*x + 8*y <= 2000             # electricity
+prob += y >= 0.3*(x + y)              # at least 30% fluorescents
+
+prob.solve(PULP_CBC_CMD(msg=0))
+print(x.value(), y.value(), 3*x.value() + 4*y.value())
+
+This will return x=210, y=90, objective=990.
+
+---
+
+[CODER]:
+import math
+
+# Problem data (initialized directly)
+# Objective: minimize Z = 3*x + 4*y
+# Constraints:
+# 1) x + y >= 300
+# 2) 5*x + 8*y <= 2000
+# 3) y >= (3/7) * x
+# x, y integers >= 0
+
+best_solution = None  # tuple (x, y, obj)
+
+# Try to solve with PuLP if available
+try:
+    from pulp import LpProblem, LpMinimize, LpVariable, LpInteger, PULP_CBC_CMD, LpStatus
+
+    prob = LpProblem("lights", LpMinimize)
+    x = LpVariable("x_LED", lowBound=0, cat=LpInteger)
+    y = LpVariable("y_Fluor", lowBound=0, cat=LpInteger)
+
+    # objective
+    prob += 3 * x + 4 * y
+
+    # constraints
+    prob += x + y >= 300
+    prob += 5 * x + 8 * y <= 2000
+    prob += y >= (3.0 / 7.0) * x
+
+    # solve quietly
+    prob.solve(PULP_CBC_CMD(msg=0))
+
+    status = LpStatus.get(prob.status, None)
+    x_val = x.value()
+    y_val = y.value()
+
+    if status == "Optimal" and x_val is not None and y_val is not None:
+        x_int = int(round(x_val))
+        y_int = int(round(y_val))
+        obj = 3 * x_int + 4 * y_int
+        best_solution = (x_int, y_int, obj)
+except Exception:
+    # If PuLP is not available or solver fails, we'll fallback to enumeration below
+    pass
+
+# Fallback brute-force enumeration to guarantee a correct integer solution
+if best_solution is None:
+    # Determine reasonable bounds from constraints
+    # From electricity: 5x + 8y <= 2000 implies x <= 400, y <= 250
+    max_x = 400
+    max_y = 400  # safe upper bound
+    best_obj = None
+    best_xy = (0, 0)
+    for x in range(0, max_x + 1):
+        # from y >= (3/7)x we can set lower bound for y
+        y_min_from_ratio = math.ceil((3.0 / 7.0) * x)
+        # from fixtures: x + y >= 300 => y >= 300 - x
+        y_min_from_fixtures = max(0, 300 - x)
+        y_min = max(y_min_from_ratio, y_min_from_fixtures)
+        # from electricity: 5x + 8y <= 2000 => y <= floor((2000 - 5x)/8)
+        y_max_from_elec = (2000 - 5 * x) // 8
+        y_max = min(max_y, y_max_from_elec)
+        if y_min > y_max:
+            continue
+        for y in range(y_min, y_max + 1):
+            # All constraints already enforced via bounds, but double-check
+            if x + y < 300:
+                continue
+            if 5 * x + 8 * y > 2000:
+                continue
+            if y * 7 < 3 * x:  # y < (3/7)x
+                continue
+            obj = 3 * x + 4 * y
+            if (best_obj is None) or (obj < best_obj):
+                best_obj = obj
+                best_xy = (x, y)
+    if best_obj is None:
+        raise RuntimeError("No feasible solution found by brute-force fallback.")
+    best_solution = (best_xy[0], best_xy[1], best_obj)
+
+# Unpack and output final objective as required
+x_opt, y_opt, obj_opt = best_solution
+
+# Final required print (only this line must contain this exact format)
+print(f"FINAL_OBJ: {obj_opt}")

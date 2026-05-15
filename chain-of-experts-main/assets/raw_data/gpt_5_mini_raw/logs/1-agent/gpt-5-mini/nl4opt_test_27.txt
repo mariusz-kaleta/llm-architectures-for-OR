@@ -1,0 +1,51 @@
+[MONOLITH]:
+import pulp
+
+# Data (from problem statement)
+cooling_low = 12       # housing units cooled by low-powered AC
+cooling_high = 17      # housing units cooled by high-powered AC
+elec_low = 150         # electricity units per day for low-powered AC
+elec_high = 250        # electricity units per day for high-powered AC
+
+required_cooling = 250
+available_electricity = 3400
+
+# Interpretation: "limit the number of low-powered models to only 30%"
+# is taken here as requiring low-powered units to be at least 30% of total units.
+# This yields the linear integer constraint: 7*L >= 3*H  (i.e., L >= 0.3*(L+H))
+# If a different interpretation (at most 30%) is desired, change the inequality accordingly.
+min_high_required = 7
+
+# Define problem
+prob = pulp.LpProblem("AC_purchase_min_count", pulp.LpMinimize)
+
+# Decision variables: number of low-powered (L) and high-powered (H) units (integers)
+L = pulp.LpVariable('L_low_powered', lowBound=0, cat='Integer')
+H = pulp.LpVariable('H_high_powered', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of air conditioners
+prob += L + H, "Total_number_of_ACs"
+
+# Constraints
+prob += cooling_low * L + cooling_high * H >= required_cooling, "Cooling_requirement"
+prob += elec_low * L + elec_high * H <= available_electricity, "Electricity_limit"
+# 30% constraint interpreted as at least 30% low-powered: 7*L >= 3*H
+prob += 7 * L >= 3 * H, "Low_powered_at_least_30_percent_of_total"
+prob += H >= min_high_required, "Minimum_high_powered_required"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=0))
+
+# Extract results
+L_val = int(pulp.value(L))
+H_val = int(pulp.value(H))
+obj_val = int(pulp.value(prob.objective))
+
+# Print solution details
+print(f"Low-powered units (L): {L_val}")
+print(f"High-powered units (H): {H_val}")
+print(f"Total cooling provided: {cooling_low * L_val + cooling_high * H_val}")
+print(f"Total electricity used: {elec_low * L_val + elec_high * H_val}")
+
+# Final required print format
+print(f"FINAL_OBJ: {obj_val}")

@@ -1,0 +1,165 @@
+[MODELER]:
+Here is a clean mathematical formulation of the problem and how you could model/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \( x \): number of large cruise ship trips  
+- \( y \): number of small cruise ship trips  
+
+Both are nonnegative integers:
+- \( x \ge 0,\; x \in \mathbb{Z} \)
+- \( y \ge 0,\; y \in \mathbb{Z} \)
+
+---
+
+## 2. Objective function
+
+Each large trip produces 20 units of pollution, each small trip 15 units.
+
+Minimize total pollution:
+\[
+\min Z = 20x + 15y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Capacity (customer demand)
+
+Each large trip carries 2000 customers, each small trip 800 customers. We must transport at least 20 000 customers:
+\[
+2000x + 800y \;\ge\; 20000
+\]
+
+### b) Maximum number of large trips
+
+There can be at most 7 large cruise ship trips:
+\[
+x \;\le\; 7
+\]
+
+### c) Proportion of small trips
+
+At least 40% of the total trips must be made by small cruise ships:
+
+\[
+y \;\ge\; 0.4(x + y)
+\]
+
+Rewriting:
+\[
+y \;\ge\; 0.4x + 0.4y
+\]
+\[
+y - 0.4y \;\ge\; 0.4x
+\]
+\[
+0.6y \;\ge\; 0.4x
+\]
+\[
+3y \;\ge\; 2x
+\]
+
+So:
+\[
+3y - 2x \;\ge\; 0
+\]
+
+---
+
+## 4. Full mathematical model
+
+\[
+\begin{aligned}
+\min\quad & 20x + 15y \\
+\text{s.t.}\quad 
+& 2000x + 800y \ge 20000 \\
+& x \le 7 \\
+& 3y - 2x \ge 0 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+This is a small integer linear program (ILP). Suitable libraries:
+
+- `PuLP` (simple, pure Python, good for teaching and small models)
+- `ortools.linear_solver` (Google OR-Tools; powerful and fast)
+- `pyomo` (more general algebraic modeling framework)
+- `scipy.optimize` is not ideal here because it does not handle integer constraints natively.
+
+For a problem of this size, `PuLP` or OR-Tools are ideal.
+
+---
+
+## 6. Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Cruise_Pollution_Minimization", pl.LpMinimize)
+
+# Decision variables (nonnegative integers)
+x = pl.LpVariable('x_large_trips', lowBound=0, cat='Integer')
+y = pl.LpVariable('y_small_trips', lowBound=0, cat='Integer')
+
+# Objective function
+prob += 20 * x + 15 * y, "Total_Pollution"
+
+# Constraints
+prob += 2000 * x + 800 * y >= 20000, "Customer_Demand"
+prob += x <= 7, "Max_Large_Trips"
+prob += 3 * y - 2 * x >= 0, "Min_40pct_Small"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Results
+print("Status:", pl.LpStatus[prob.status])
+print("Large trips (x):", pl.value(x))
+print("Small trips (y):", pl.value(y))
+print("Total pollution:", pl.value(prob.objective))
+```
+
+This code builds exactly the model above and finds the optimal numbers of large and small trips that minimize total pollution under the stated constraints.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Cruise_Pollution_Minimization", pl.LpMinimize)
+
+    # Decision variables: nonnegative integers
+    x = pl.LpVariable('x_large_trips', lowBound=0, cat='Integer')
+    y = pl.LpVariable('y_small_trips', lowBound=0, cat='Integer')
+
+    # Objective function: minimize total pollution
+    prob += 20 * x + 15 * y, "Total_Pollution"
+
+    # Constraints
+    prob += 2000 * x + 800 * y >= 20000, "Customer_Demand"
+    prob += x <= 7, "Max_Large_Trips"
+    prob += 3 * y - 2 * x >= 0, "Min_40pct_Small"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

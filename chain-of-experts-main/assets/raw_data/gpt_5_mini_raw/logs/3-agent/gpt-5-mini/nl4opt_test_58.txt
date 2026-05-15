@@ -1,0 +1,93 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- C ∈ Z≥0 : number of calcium pills.
+- V ∈ Z≥0 : number of vitamin D pills.
+
+Parameters
+- t_C = 5 (minutes per calcium pill)
+- t_V = 6 (minutes per vitamin D pill)
+- P_min = 130 (minimum total pills)
+- V_min = 40 (minimum vitamin D pills)
+
+Objective
+Minimize total effective time
+minimize T = 5 C + 6 V
+
+Constraints
+1. Total pills at least P_min:
+   C + V ≥ 130
+2. At least V_min vitamin D pills:
+   V ≥ 40
+3. More calcium than vitamin D (strict):
+   C > V
+   For integer variables enforce as
+   C ≥ V + 1
+4. Integrality:
+   C, V ∈ Z≥0
+
+Analytic solution (simple reasoning)
+- Because time per pill is positive, you never want more than the minimum required total pills, so take C + V = 130.
+- Substitute C = 130 − V into the objective:
+  T(V) = 5(130 − V) + 6V = 650 + V.
+  T is increasing in V, so minimize V subject to constraints.
+- Feasible V must satisfy V ≥ 40 and C = 130 − V ≥ V + 1 ⇒ V ≤ 64.
+- The smallest feasible V is V = 40, giving C = 130 − 40 = 90.
+
+Optimal solution
+- Calcium pills: C = 90
+- Vitamin D pills: V = 40
+- Minimum total time: T = 5·90 + 6·40 = 450 + 240 = 690 minutes (11.5 hours).
+
+Suggested Python libraries to solve this
+- pulp (simple linear/integer programming with CBC solver)
+- ortools (CP-SAT for integer/CP solving)
+- pyomo (modeling + industrial solvers if available)
+- gurobi or cplex (commercial solvers, if available)
+
+Example (pulp) — outline
+- Define integer variables C, V.
+- Add constraints C + V >= 130, V >= 40, C >= V + 1.
+- Minimize 5*C + 6*V and solve with default CBC solver.
+
+This problem is a small integer linear program; the analytic reasoning above yields the optimal integers directly: (C, V) = (90, 40).
+
+---
+
+[CODER]:
+import sys
+
+# Parameters
+t_C = 5
+t_V = 6
+P_min = 130
+V_min = 40
+
+# Search bounds (reasonable)
+MAX_PILLS = 500
+
+best_obj = None
+best_solution = None
+
+for C in range(0, MAX_PILLS + 1):
+    for V in range(0, MAX_PILLS + 1):
+        # Constraints
+        if C + V < P_min:
+            continue
+        if V < V_min:
+            continue
+        if C < V + 1:
+            continue
+        # Objective
+        obj = t_C * C + t_V * V
+        if (best_obj is None) or (obj < best_obj):
+            best_obj = obj
+            best_solution = (C, V)
+
+# Sanity check: should find the analytic solution (90, 40) with obj 690
+if best_solution is None:
+    raise RuntimeError("No feasible solution found")
+
+# Print final objective as required
+print(f"FINAL_OBJ: {best_obj}")

@@ -1,0 +1,86 @@
+[MODELER]:
+Formal model
+
+Variables
+- x ∈ Z, x ≥ 0: number of motion-activated machines.
+- y ∈ Z, y ≥ 0: number of manual machines.
+
+Objective
+- Minimize total machines: minimize Z = x + y.
+
+Constraints
+1. Delivery capacity: 50 x + 75 y ≥ 1000.
+2. Energy limit: 30 x + 20 y ≤ 500.
+3. At most 40% manual: y ≤ 0.4 (x + y). This is linearized as 0.6 y ≤ 0.4 x → 3 y ≤ 2 x.
+4. Minimum motion-activated: x ≥ 3.
+5. Integrality: x, y are integers.
+
+So the Integer Linear Program (ILP) is:
+minimize x + y
+subject to
+- 50 x + 75 y ≥ 1000
+- 30 x + 20 y ≤ 500
+- 3 y ≤ 2 x
+- x ≥ 3, x, y ∈ Z≥0
+
+Recommended solvers / Python libraries
+- pulp (simple, pure-Python interface to CBC or other solvers)
+- OR-Tools (Google CP-SAT solver for integer problems)
+- mip (python-mip with CBC/Gurobi)
+- pyomo (modeling, needs a solver backend)
+
+Quick solution reasoning (analytic)
+- To minimize number of machines you want as many higher-throughput machines as allowed; manuals (75 drops) are better than motion (50 drops), so set manual share at the 40% cap.
+- If 40% are manual, average drops per machine = 0.6·50 + 0.4·75 = 60 drops/machine → need at least ceil(1000/60)=17 machines.
+- For n = 17, y = floor(0.4·17) = 6 manuals, x = 11 motion.
+- Check constraints: 50·11 + 75·6 = 1000 (meets delivery), 30·11 + 20·6 = 450 ≤ 500 (energy), 3·6 = 18 ≤ 2·11 = 22 (manual fraction), x ≥ 3 holds.
+
+Optimal solution
+- Buy 11 motion-activated machines and 6 manual machines (total 17 machines).
+
+Optional: small pulp example
+- Use pulp or OR-Tools if you want to compute/verify numerically.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained solver (brute-force) for the ILP described.
+# Variables:
+#  x >= 0 integer (motion-activated)
+#  y >= 0 integer (manual)
+# Minimize Z = x + y
+# Constraints:
+#  50 x + 75 y >= 1000
+#  30 x + 20 y <= 500
+#  3 y <= 2 x
+#  x >= 3
+
+import math
+
+best_obj = None
+best_xy = None
+
+# Reasonable search bounds:
+# From energy constraint: 30x + 20y <= 500 -> x <= 500/30 ~16.66, y <= 25
+# But use slightly larger bounds to be safe
+for x in range(3, 101):
+    for y in range(0, 101):
+        if 50 * x + 75 * y < 1000:
+            continue
+        if 30 * x + 20 * y > 500:
+            continue
+        if 3 * y > 2 * x:
+            continue
+        obj = x + y
+        if best_obj is None or obj < best_obj or (obj == best_obj and (x < best_xy[0] or (x == best_xy[0] and y < best_xy[1]))):
+            best_obj = obj
+            best_xy = (x, y)
+
+# If no feasible solution found, set best_obj to a large number (but there is a known feasible solution)
+if best_obj is None:
+    best_obj = float('inf')
+
+# Print only the required final objective line exactly as requested
+print(f"FINAL_OBJ: {best_obj}")
+```

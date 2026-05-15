@@ -1,0 +1,119 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Maximise the total number of letters delivered.
+
+2) Suggested model type
+- Model: Integer Linear Program (ILP). Continuous relaxation may be used to get bounds/intuition, but decision variables must be integer (counts of birds).
+
+3) Main decision variables
+- Number of carrier pigeons (non‑negative integer).
+- Number of owls (non‑negative integer).
+
+(For reporting, also compute derived quantity: total letters = 2 × (number of pigeons) + 5 × (number of owls).)
+
+4) Key constraints to include (described in words)
+- Treats budget: total treats consumed by all birds cannot exceed 1000 (pigeons consume 3 treats each, owls consume 5 treats each).
+- Owl fraction limit: at most 40% of the total birds can be owls (the number of owls must be no more than 40% of the sum of pigeons and owls).
+- Minimum pigeons: at least 20 carrier pigeons must be used.
+- Integrality and nonnegativity: both bird counts must be integer and non‑negative.
+- Feasibility check: ensure the minimum pigeons requirement itself does not violate the treats budget; if it does, report infeasibility.
+
+Additional modelling notes and solver guidance
+- Because owls deliver more letters per treat than pigeons (owls are more treat‑efficient), expect the optimal solution to push the owl fraction constraint to its limit and then use remaining treats subject to integer rounding. Use an ILP solver (branch‑and‑bound, CP‑SAT) or simple enumeration over feasible small integer ranges.
+- For quick bounds: compute continuous relaxation to get an upper bound on letters, then search nearby integer solutions.
+- Report the optimal counts of pigeons and owls and the resulting total letters and treats used. Also report whether the owl fraction and treats budget are tight at optimum (useful for sensitivity).
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- P ∈ Z, P ≥ 20 : number of carrier pigeons.
+- O ∈ Z, O ≥ 0  : number of owls.
+
+Objective
+- Maximise total letters L = 2P + 5O.
+
+Constraints
+1. Treats budget: 3P + 5O ≤ 1000.
+2. Owl-fraction (at most 40% of total birds are owls):
+   O ≤ 0.4 (P + O).  
+   This is linearised into an equivalent integer-linear form:
+   3O ≤ 2P.  (Multiply both sides by 10 → 10O ≤ 4P + 4O → 6O ≤ 4P → 3O ≤ 2P.)
+3. Integrality & bounds: integers P, O and P ≥ 20, O ≥ 0.
+
+Feasibility quick check
+- Minimum pigeons P = 20 consume 3×20 = 60 treats ≤ 1000, so the P≥20 requirement is feasible (no immediate infeasibility).
+
+Remarks about structure / continuous relaxation
+- Letters per treat: pigeon = 2/3 ≈ 0.667 letters/treat; owl = 5/5 = 1 letter/treat. Owls are more treat‑efficient, so the optimizer will push toward as many owls as allowed by the owl-fraction constraint and the treats budget.
+- Continuous relaxation (P,O real) gives an upper bound and intuition; final solution must be integral.
+
+Recommended solving approaches / libraries
+- For ILP: pulp (CBC), OR-Tools CP-SAT, or commercial solvers (Gurobi, CPLEX) if available.
+- For small integer ranges a direct enumeration over P (20..333) with O = min(floor(2/3 P), floor((1000-3P)/5)) is fast and simple in pure Python.
+- For LP relaxation: scipy.optimize.linprog or pulp (continuous mode).
+
+Example solving strategy (concept)
+- Option A (ILP solver): encode objective and constraints and solve with pulp or OR-Tools.
+- Option B (fast brute force): for P from 20 to floor(1000/3) = 333:
+    O_max_fraction = floor(2/3 * P)
+    O_max_budget   = floor((1000 - 3P) / 5)
+    O = min(O_max_fraction, O_max_budget)
+    compute L = 2P + 5O and track maximum.
+
+Optimal integer solution (computed)
+- Optimal counts: P = 158 pigeons, O = 105 owls.
+- Total letters = 2·158 + 5·105 = 316 + 525 = 841 letters.
+- Treats used = 3·158 + 5·105 = 474 + 525 = 999 treats (1 treat slack).
+- Owl fraction = 105 / (158 + 105) ≈ 0.39924 (just below 0.40).
+- Which constraints are tight: the treats budget is nearly tight (1 treat unused) and the owl-fraction constraint is essentially binding (integrality prevents exactly 0.40).
+
+Short sample solver code (outline using pulp)
+- Define integer variables P, O
+- Add constraints: 3*P + 5*O <= 1000; 3*O <= 2*P; P >= 20; P,O integer >=0
+- Maximise 2*P + 5*O
+- Solve and report P, O, letters, treats used, and which constraints are tight.
+
+If you want, I can provide a ready-to-run Python snippet (pulp or OR-Tools) that implements the ILP and prints the reported outputs.
+
+---
+
+[CODER]:
+import sys
+
+# Brute-force enumeration as recommended in the problem statement.
+
+best_L = None
+best_P = None
+best_O = None
+
+# P ranges from 20 to floor(1000/3) = 333
+for P in range(20, 1000 // 3 + 1):
+    # Owl fraction constraint: 3O <= 2P  => O <= floor(2P/3)
+    O_max_fraction = (2 * P) // 3
+    # Treats budget: 3P + 5O <= 1000 => O <= floor((1000 - 3P)/5)
+    remaining_treats = 1000 - 3 * P
+    if remaining_treats < 0:
+        continue
+    O_max_budget = remaining_treats // 5
+    O_max = min(O_max_fraction, O_max_budget)
+    if O_max < 0:
+        continue
+    # Since objective increases with O, choose O = O_max for this P
+    O = O_max
+    L = 2 * P + 5 * O
+    if best_L is None or L > best_L:
+        best_L = L
+        best_P = P
+        best_O = O
+
+# As a precaution, ensure we found a feasible solution
+if best_L is None:
+    # Should not happen given problem feasibility check, but handle anyway
+    print("No feasible solution found.", file=sys.stderr)
+    best_L = 0
+
+# Final required print (must be the very last printed line in this exact format)
+print(f"FINAL_OBJ: {best_L}")

@@ -1,0 +1,220 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximise the total number of sports balls produced (basketballs + footballs), subject to material, labor, and product-mix constraints.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with two decision variables.  
+   - If integer solutions are desired (since balls are discrete), it can be treated as an Integer Linear Programming (ILP) problem, but the structure is simple enough that checking integrality after solving the LP may suffice.
+
+3. Main decision variables  
+   - Let:
+     - Variable 1: Number of basketballs to produce.  
+     - Variable 2: Number of footballs to produce.  
+   - Both variables are nonnegative and (in practice) integer-valued.
+
+4. Key constraints to consider  
+
+   a) Material (resource) constraint  
+   - Each basketball consumes 5 units of material.  
+   - Each football consumes 3 units of material.  
+   - Total material used by both products cannot exceed 1500 units.
+
+   b) Labor (time) constraint  
+   - Each basketball requires 1 labor hour.  
+   - Each football requires 2 labor hours.  
+   - Total labor hours used cannot exceed 750 hours.
+
+   c) Product-mix / market preference constraints  
+   - Demand preference: The number of basketballs must be at least three times the number of footballs (basketballs ≥ 3 × footballs).  
+   - Minimum production of footballs: At least 50 footballs must be produced.
+
+   d) Nonnegativity and integrality  
+   - Both decision variables must be ≥ 0.  
+   - If the modeller wants a fully realistic formulation, restrict them to integer values (no fractional balls).  
+
+5. Objective function structure  
+   - Objective: Maximise (number of basketballs + number of footballs).  
+   - No revenue or profit weighting; all units are valued equally in the objective.  
+
+6. Modelling / solution strategy notes  
+   - This is a small 2-variable LP; it can be solved graphically or with any LP solver.  
+   - Because it is 2D, checking the solution at the relevant corner points (intersections of constraints) will identify the optimum.  
+   - After solving the continuous LP, verify that the optimal solution already yields integer values; if not, check nearby integer points while maintaining feasibility.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, plus how you would implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x_B \ge 0\): number of basketballs to produce  
+- \(x_F \ge 0\): number of footballs to produce  
+
+In a more realistic model, both should be integers:
+
+- \(x_B, x_F \in \mathbb{Z}_{\ge 0}\)
+
+---
+
+## 2. Objective function
+
+Maximize the total number of sports balls produced:
+
+\[
+\text{Maximize } Z = x_B + x_F
+\]
+
+---
+
+## 3. Constraints
+
+### a) Material constraint
+
+- Each basketball uses 5 units of material.  
+- Each football uses 3 units of material.  
+- At most 1500 units of material available.
+
+\[
+5x_B + 3x_F \le 1500
+\]
+
+### b) Labor (time) constraint
+
+- Each basketball requires 1 hour of labor.  
+- Each football requires 2 hours of labor.  
+- At most 750 labor hours available.
+
+\[
+1x_B + 2x_F \le 750
+\]
+
+### c) Product-mix / market constraints
+
+1. Basketballs must be at least three times footballs:
+
+\[
+x_B \ge 3x_F
+\]
+
+2. At least 50 footballs must be produced:
+
+\[
+x_F \ge 50
+\]
+
+### d) Nonnegativity (and integrality if enforced)
+
+\[
+x_B \ge 0,\quad x_F \ge 0
+\]
+
+Optionally:
+
+\[
+x_B, x_F \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full optimization model
+
+\[
+\begin{aligned}
+\text{Maximize }  & Z = x_B + x_F \\[4pt]
+\text{subject to } 
+& 5x_B + 3x_F \le 1500 & \text{(materials)} \\
+& x_B + 2x_F \le 750   & \text{(labor)} \\
+& x_B - 3x_F \ge 0     & \text{(basketballs ≥ 3× footballs)} \\
+& x_F \ge 50           & \text{(min footballs)} \\
+& x_B \ge 0,\ x_F \ge 0 & \text{(nonnegativity)} \\
+& x_B, x_F \in \mathbb{Z} & \text{(integrality, optional)} 
+\end{aligned}
+\]
+
+This is a small Linear Programming (LP) model; with integrality, it becomes a 2-variable Integer Linear Program (ILP).
+
+---
+
+## 5. Suitable Python libraries
+
+All of the following can model and solve this problem easily:
+
+- **PuLP** (`pulp`)  
+  - Simple syntax for LP/ILP. Works with CBC (bundled), GLPK, CPLEX, Gurobi, etc.
+- **Pyomo**  
+  - More general modelling framework; great if you expect larger/weirder models later.
+- **OR-Tools** (`ortools.linear_solver`)  
+  - Google’s optimization suite; good LP/MIP solvers with a Python API.
+- **SciPy** (`scipy.optimize.linprog`)  
+  - Can solve LP relaxations but does *not* handle integrality, so only use if fractional solutions are acceptable.
+
+For this problem, **PuLP** or **OR-Tools** are ideal.
+
+---
+
+## 6. Example PuLP formulation (ILP)
+
+```python
+import pulp as pl
+
+# Create problem: maximize
+prob = pl.LpProblem("Sports_Balls_Production", pl.LpMaximize)
+
+# Decision variables (integer, nonnegative)
+x_B = pl.LpVariable("Basketballs", lowBound=0, cat="Integer")
+x_F = pl.LpVariable("Footballs",  lowBound=0, cat="Integer")
+
+# Objective: maximize total number of balls
+prob += x_B + x_F, "Total_balls"
+
+# Constraints
+prob += 5 * x_B + 3 * x_F <= 1500, "Material"
+prob += x_B + 2 * x_F <= 750,      "Labor"
+prob += x_B >= 3 * x_F,            "Basketball_at_least_3x_Football"
+prob += x_F >= 50,                 "Min_footballs"
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Basketballs:", pl.value(x_B))
+print("Footballs:", pl.value(x_F))
+print("Max total balls:", pl.value(prob.objective))
+```
+
+You can switch `cat="Integer"` to `cat="Continuous"` if you just want the LP relaxation and then check whether the solution is integral.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create problem: maximize
+    prob = pl.LpProblem("Sports_Balls_Production", pl.LpMaximize)
+
+    # Decision variables (integer, nonnegative)
+    x_B = pl.LpVariable("Basketballs", lowBound=0, cat="Integer")
+    x_F = pl.LpVariable("Footballs",  lowBound=0, cat="Integer")
+
+    # Objective: maximize total number of balls
+    prob += x_B + x_F, "Total_balls"
+
+    # Constraints
+    prob += 5 * x_B + 3 * x_F <= 1500, "Material"
+    prob += x_B + 2 * x_F <= 750,      "Labor"
+    prob += x_B >= 3 * x_F,            "Basketball_at_least_3x_Football"
+    prob += x_F >= 50,                 "Min_footballs"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    obj_val = pl.value(prob.objective)
+    print(f"FINAL_OBJ: {obj_val}")
+
+if __name__ == "__main__":
+    main()

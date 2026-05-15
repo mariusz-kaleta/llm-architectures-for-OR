@@ -1,0 +1,90 @@
+[MODELER]:
+Formulation as an optimization model:
+
+**Decision variables**
+
+Let  
+- \(x\) = number of trains (integer, \(x \ge 0\))  
+- \(y\) = number of trams (integer, \(y \ge 0\))
+
+**Objective**
+
+Minimize the total number of transportation units (trains + trams):
+
+\[
+\min \; x + y
+\]
+
+**Constraints**
+
+1. **Capacity (demand) constraint**: At least 600 people per hour must be transported.  
+   Each train carries 120 people/hour, each tram 30 people/hour:
+
+   \[
+   120x + 30y \;\ge\; 600
+   \]
+
+2. **Tram-to-train ratio constraint**: Number of trams must be at least twice the number of trains:
+
+   \[
+   y \;\ge\; 2x
+   \]
+
+3. **Non-negativity and integrality**:
+
+   \[
+   x \in \mathbb{Z}_{\ge 0},\quad y \in \mathbb{Z}_{\ge 0}
+   \]
+
+---
+
+### Suitable Python libraries
+
+This is a small **integer linear programming (ILP)** problem. Appropriate libraries include:
+
+- **PuLP** (`pulp`): Simple interface for linear and integer programming.
+- **OR-Tools** (`ortools.linear_solver.pywraplp`): Very capable for ILP, from Google.
+- **SciPy** (`scipy.optimize.linprog`): Can solve the LP relaxation; integrality would need manual handling or another library.
+
+For exact integer solutions, **PuLP** or **OR-Tools** are the most suitable.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp
+
+def main():
+    # Create the problem
+    prob = pulp.LpProblem("Transport_Optimization", pulp.LpMinimize)
+
+    # Decision variables
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # number of trains
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # number of trams
+
+    # Objective function: Minimize total number of units
+    prob += x + y, "Total_Units"
+
+    # Constraints
+    # Capacity: 120x + 30y >= 600
+    prob += 120 * x + 30 * y >= 600, "Capacity"
+
+    # Tram-to-train ratio: y >= 2x
+    prob += y >= 2 * x, "Tram_Train_Ratio"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    x_val = int(pulp.value(x))
+    y_val = int(pulp.value(y))
+    obj_val = int(pulp.value(prob.objective))
+
+    # For completeness, but only final line must match required format
+    # print(f"Optimal number of trains (x): {x_val}")
+    # print(f"Optimal number of trams (y): {y_val}")
+    # print(f"Minimum total units: {obj_val}")
+
+    print(f"FINAL_OBJ: {obj_val}")
+
+if __name__ == "__main__":
+    main()

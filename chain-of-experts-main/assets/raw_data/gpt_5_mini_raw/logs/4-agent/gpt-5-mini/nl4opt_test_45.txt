@@ -1,0 +1,193 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Maximise total profit from producing two oil products (Oil Max and Oil Max Pro).
+
+2) Suggested model type
+- Model: Linear Programming. Because production decisions are counts of containers and profit and resource consumption are linear, formulate as an LP. If integer container counts are required, use an Integer Linear Program (ILP) or solve the LP and round/verify integrality (with only two variables a graphical or ILP solver is trivial).
+
+3) Main decision variables (describe in words)
+- Number of containers of Oil Max to produce.
+- Number of containers of Oil Max Pro to produce.
+
+(These variables should be constrained to be non‑negative; require integer values if containers must be whole.)
+
+4) Key constraints to consider (describe each in words)
+- Substance A availability: Total grams of substance A used by all produced Oil Max containers plus grams of A used by all produced Oil Max Pro containers must not exceed the 1345 grams available.
+- Substance B availability: Total grams of substance B used by all produced Oil Max containers plus grams of B used by all produced Oil Max Pro containers must not exceed the 346 grams available.
+- Substance C availability: Total grams of substance C used by all produced Oil Max containers plus grams of C used by all produced Oil Max Pro containers must not exceed the 1643 grams available.
+- Non-negativity: Production quantities cannot be negative.
+- Integrality (optional): If containers must be whole, enforce integer values for production quantities.
+
+5) Additional modelling / solution notes for the modeller
+- Profit contribution: Each Oil Max container contributes $10; each Oil Max Pro container contributes $15 to total profit. Use this in the objective.
+- Because there are only two decision variables, the modeller can solve graphically or use the simplex method (or any LP solver). If integrality is enforced, use an ILP solver—this is small and trivial to solve.
+- After finding the optimal (continuous) solution, check which resource constraints are binding and perform a quick sensitivity check (e.g., how much profit would change if one resource were increased).
+- Report optimal production quantities, total profit, and which resources are fully used (binding).
+
+---
+
+[MODELER]:
+Below I (1) give a formal optimisation model (variables, objective, constraints), (2) solve it (continuous LP and integer/realistic solution), and (3) recommend solver libraries and a short code sketch you can run.
+
+1) Decision variables
+- x = number of Oil Max containers produced (>= 0).
+- y = number of Oil Max Pro containers produced (>= 0).
+If containers must be whole, x and y are integers.
+
+2) Objective
+Maximise total profit:
+max Z = 10 x + 15 y
+
+3) Constraints (resource limits)
+- Substance A: 46 x + 13 y <= 1345
+- Substance B: 43 x + 4  y <= 346
+- Substance C: 56 x + 45 y <= 1643
+- Nonnegativity: x >= 0, y >= 0
+- Integrality (optional): x, y integer
+
+4) Continuous LP solution (relax integrality)
+Evaluate corner points (or use an LP solver). The continuous LP optimum occurs at x = 0, y = 1345/45 ≈ 36.511 (C constraint binding), giving Z ≈ 547.67.
+
+5) Integer (practical) solution
+Containers must be whole, so y must be integer ≤ 36. The best integer solution is:
+- x = 0, y = 36
+Total profit Z = 15 * 36 = $540.
+
+Check: with (0,36) resource use is
+A: 13*36 = 468 ≤ 1345
+B: 4*36  = 144 ≤ 346
+C: 45*36 = 1620 ≤ 1643
+No other integer combination yields profit > 540 (e.g., (5,30) gives $500, (1,35) gives $535).
+
+6) Binding resources
+- Continuous LP optimum: constraint for C (56x + 45y ≤ 1643) is binding.
+- Integer optimum (x=0,y=36): no resource is exactly fully used (C uses 1620/1643, others are well under limits).
+
+7) Solver recommendations
+- For continuous LP: scipy.optimize.linprog, PuLP, or OR-Tools linear solver.
+- For integer linear program (ILP): PuLP (with CBC), OR-Tools CP-SAT, or commercial solvers (Gurobi, CPLEX) if available.
+- For quick inspection with two variables, you can also solve graphically.
+
+8) Minimal Python (PuLP) example to solve the ILP
+(you can paste this into a .py file)
+
+from pulp import LpProblem, LpMaximize, LpVariable, LpInteger, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("Oil_production", LpMaximize)
+x = LpVariable('x', lowBound=0, cat=LpInteger)   # Oil Max
+y = LpVariable('y', lowBound=0, cat=LpInteger)   # Oil Max Pro
+
+prob += 10*x + 15*y
+prob += 46*x + 13*y <= 1345   # A
+prob += 43*x + 4*y  <= 346    # B
+prob += 56*x + 45*y <= 1643   # C
+
+prob.solve(PULP_CBC_CMD(msg=False))
+print("x =", int(x.value()), "y =", int(y.value()), "Profit =", 10*int(x.value()) + 15*int(y.value()))
+
+This returns x = 0, y = 36, Profit = 540.
+
+If you want, I can (a) run sensitivity/dual analysis (how much an extra gram of a substance increases profit), (b) show the continuous feasible region graphically, or (c) produce code for OR-Tools or scipy. Which would you like?
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Coefficients and RHS for constraints
+# Variables: x (Oil Max), y (Oil Max Pro)
+profit_x = 10
+profit_y = 15
+
+# Constraints:
+# 46 x + 13 y <= 1345   (A)
+# 43 x + 4  y <= 346    (B)
+# 56 x + 45 y <= 1643   (C)
+A = (46.0, 13.0, 1345.0)
+B = (43.0, 4.0, 346.0)
+C = (56.0, 45.0, 1643.0)
+
+constraints = {
+    'A': A,
+    'B': B,
+    'C': C,
+    'X0': (1.0, 0.0, 0.0),  # x = 0
+    'Y0': (0.0, 1.0, 0.0),  # y = 0
+}
+
+def intersect(line1, line2):
+    # Each line is (a, b, r) representing a*x + b*y = r
+    a1, b1, r1 = line1
+    a2, b2, r2 = line2
+    det = a1 * b2 - a2 * b1
+    tol = 1e-9
+    if abs(det) < tol:
+        return None  # parallel or coincident
+    x = (r1 * b2 - r2 * b1) / det
+    y = (a1 * r2 - a2 * r1) / det
+    return (x, y)
+
+# Generate all intersection points of pairs of boundary lines
+points = set()
+keys = list(constraints.keys())
+for i in range(len(keys)):
+    for j in range(i+1, len(keys)):
+        k1 = keys[i]; k2 = keys[j]
+        p = intersect(constraints[k1], constraints[k2])
+        if p is not None:
+            # round a bit to avoid floating point duplicates
+            x, y = p
+            xr = round(x, 10)
+            yr = round(y, 10)
+            points.add((xr, yr))
+
+# Also include the origin explicitly
+points.add((0.0, 0.0))
+
+# Feasibility check and evaluation
+def feasible(x, y, tol=1e-8):
+    if x < -tol or y < -tol:
+        return False
+    if 46.0*x + 13.0*y > 1345.0 + tol:
+        return False
+    if 43.0*x + 4.0*y  > 346.0  + tol:
+        return False
+    if 56.0*x + 45.0*y > 1643.0 + tol:
+        return False
+    return True
+
+best_cont = {'x': 0.0, 'y': 0.0, 'Z': 0.0}
+for (x, y) in points:
+    if feasible(x, y):
+        Z = profit_x * x + profit_y * y
+        if Z > best_cont['Z'] + 1e-9:
+            best_cont = {'x': x, 'y': y, 'Z': Z}
+
+# As a safeguard, also check some boundary points along each constraint where it meets axes
+# (these are already included via intersections, but keep for robustness)
+# Now solve the integer problem by enumeration within sensible bounds
+# Compute upper bounds for enumeration from each constraint
+max_x = int(math.floor(min(1345.0/46.0, 346.0/43.0, 1643.0/56.0))) + 1
+max_y = int(math.floor(min(1345.0/13.0, 346.0/4.0, 1643.0/45.0))) + 1
+
+# Ensure bounds are non-negative and not too large
+max_x = max(0, max_x)
+max_y = max(0, max_y)
+
+best_int = {'x': 0, 'y': 0, 'Z': 0}
+for xi in range(0, max_x + 1):
+    for yi in range(0, max_y + 1):
+        if feasible(xi, yi):
+            Z = profit_x * xi + profit_y * yi
+            if Z > best_int['Z']:
+                best_int = {'x': xi, 'y': yi, 'Z': Z}
+
+# Print results (informational)
+print(f"Continuous LP optimum (relax integrality): x = {best_cont['x']}, y = {best_cont['y']}, Z = {best_cont['Z']}")
+print(f"Integer (ILP) optimum found by enumeration: x = {best_int['x']}, y = {best_int['y']}, Z = {best_int['Z']}")
+
+# Final required single-line output (must be the last printed line)
+print(f"FINAL_OBJ: {best_int['Z']}")
+```

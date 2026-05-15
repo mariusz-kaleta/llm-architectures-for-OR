@@ -1,0 +1,139 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x = number of circular tables (integer, x >= 0)
+- y = number of rectangular tables (integer, y >= 0)
+
+Parameters (from the problem)
+- circular table: 5 participants, 4 poster boards, caters 8 guests, uses 15 space units
+- rectangular table: 4 participants, 4 poster boards, caters 12 guests, uses 20 space units
+- required: at least 500 participants and 300 poster boards
+- available space: 1900 units
+
+Constraints
+1. Participants requirement: 5x + 4y >= 500
+2. Poster boards requirement: 4x + 4y >= 300  (equivalently x + y >= 75)
+3. Space availability: 15x + 20y <= 1900
+4. Integrality and nonnegativity: x, y are nonnegative integers
+
+Objective
+Maximize total catered guests:
+maximize Z = 8x + 12y
+
+Solving / remarks
+Solve the integer linear program:
+ maximize 8x + 12y
+ subject to
+   5x + 4y >= 500
+   4x + 4y >= 300
+   15x + 20y <= 1900
+   x, y ∈ Z_{\ge 0}
+
+The continuous relaxation optimum occurs at the intersection of the space and participant constraints:
+ 15x + 20y = 1900
+ 5x  + 4y  = 500
+Solving gives x = 60, y = 50. These are integers and satisfy all constraints:
+ - participants: 5(60) + 4(50) = 300 + 200 = 500
+ - poster boards: 4(60) + 4(50) = 440 ≥ 300
+ - space: 15(60) + 20(50) = 900 + 1000 = 1900
+
+Objective value (catered guests): 8·60 + 12·50 = 480 + 600 = 1080 guests.
+
+Therefore the optimal setup is:
+- 60 circular tables
+- 50 rectangular tables
+This maximizes the number of catered guests (1080) while meeting participant, poster-board, and space constraints.
+
+Recommended Python libraries
+- pulp (for integer linear programming) — simple syntax and CBC solver
+- OR-Tools (CP-SAT) — powerful and fast for integer programs
+- mip (python-mip) — high-performance MIP solver interface
+(You can also use scipy.optimize.linprog for LP relaxations, but integer constraints require a MIP solver.)
+
+Example (PuLP) outline
+- Define x and y as LpInteger variables
+- Add the three constraints above
+- Set objective 8*x + 12*y to maximize
+- Solve and read x.value(), y.value()
+
+If you want, I can provide the exact PuLP or OR-Tools code to solve this model.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the integer program by exhaustive search (no external libraries)
+
+# Problem data (from specification)
+# Decision variables:
+#   x = number of circular tables (integer, x >= 0)
+#   y = number of rectangular tables (integer, y >= 0)
+#
+# Parameters:
+participants_per_circular = 5
+posterboards_per_circular = 4
+guests_per_circular = 8
+space_per_circular = 15
+
+participants_per_rect = 4
+posterboards_per_rect = 4
+guests_per_rect = 12
+space_per_rect = 20
+
+required_participants = 500
+required_posterboards = 300
+available_space = 1900
+
+# Bounds for brute-force search
+max_x = available_space // space_per_circular  # maximum possible circular tables given space
+max_y = available_space // space_per_rect      # maximum possible rectangular tables given space
+
+best_obj = None
+best_x = None
+best_y = None
+
+# Exhaustive integer search within feasible ranges
+for x in range(max_x + 1):
+    # compute remaining space and max y for this x
+    remaining_space = available_space - space_per_circular * x
+    if remaining_space < 0:
+        break
+    y_max_for_space = remaining_space // space_per_rect
+    # iterate y from 0..y_max_for_space
+    for y in range(y_max_for_space + 1):
+        # check constraints
+        participants = participants_per_circular * x + participants_per_rect * y
+        posterboards = posterboards_per_circular * x + posterboards_per_rect * y
+        space_used = space_per_circular * x + space_per_rect * y
+
+        if participants < required_participants:
+            continue
+        if posterboards < required_posterboards:
+            continue
+        if space_used > available_space:
+            continue
+
+        # objective: maximize guests catered
+        obj = guests_per_circular * x + guests_per_rect * y
+
+        if (best_obj is None) or (obj > best_obj):
+            best_obj = obj
+            best_x = x
+            best_y = y
+        # tie-breaker: keep the first found (no change)
+
+# Output results
+if best_obj is None:
+    print("No feasible solution found.")
+else:
+    print(f"Best solution found: x (circular) = {best_x}, y (rectangular) = {best_y}")
+    print(f"Participants provided: {participants_per_circular*best_x + participants_per_rect*best_y}")
+    print(f"Poster boards provided: {posterboards_per_circular*best_x + posterboards_per_rect*best_y}")
+    print(f"Space used: {space_per_circular*best_x + space_per_rect*best_y} / {available_space}")
+    print(f"Guests catered (objective): {best_obj}")
+
+# Final required output line (must be last and exactly in this format)
+print(f"FINAL_OBJ: {best_obj}")
+```

@@ -1,0 +1,168 @@
+[MODELER]:
+Let’s turn this into a mathematical optimization model.
+
+### 1. Decision variables
+
+Let  
+- \(x\) = number of truck trips  
+- \(y\) = number of car trips  
+
+We will assume \(x, y\) are **nonnegative integers**, since you can’t make a fractional trip.
+
+### 2. Objective function
+
+Minimize total gas consumption.
+
+- Each truck trip uses 20 liters → total truck gas = \(20x\)  
+- Each car trip uses 15 liters → total car gas = \(15y\)
+
+**Objective:**
+\[
+\min Z = 20x + 15y
+\]
+
+### 3. Constraints
+
+#### (a) Package transport requirement
+
+- Each truck trip carries 50 packages  
+- Each car trip carries 30 packages  
+- Need to transport at least 500 packages:
+
+\[
+50x + 30y \ge 500
+\]
+
+#### (b) Maximum truck trips
+
+At most 5 truck trips:
+
+\[
+x \le 5
+\]
+
+#### (c) At least 30% of trips by car
+
+Total trips = \(x + y\).  
+Car trips must be at least 30% of all trips:
+
+\[
+y \ge 0.3(x + y)
+\]
+
+Rearrange:
+\[
+y \ge 0.3x + 0.3y
+\]
+\[
+0.7y \ge 0.3x
+\]
+\[
+7y \ge 3x
+\]
+
+So the constraint is:
+\[
+7y \ge 3x
+\]
+
+#### (d) Nonnegativity and integrality
+
+\[
+x \ge 0,\quad y \ge 0,\quad x, y \in \mathbb{Z}
+\]
+
+---
+
+### 4. Model summary
+
+\[
+\begin{aligned}
+\text{Minimize} \quad & Z = 20x + 15y \\
+\text{subject to} \quad
+& 50x + 30y \ge 500 \\
+& x \le 5 \\
+& 7y \ge 3x \\
+& x, y \ge 0,\ x, y \in \mathbb{Z}
+\end{aligned}
+\]
+
+This is a **mixed-integer linear program (MILP)** (here just an ILP because both variables are integer).
+
+---
+
+### 5. Suitable Python libraries
+
+Any MILP solver or linear programming toolkit with integer support will work:
+
+- **PuLP** (pure Python, easy to use, can use CBC solver by default)
+- **OR-Tools** (Google’s optimization suite; `ortools.linear_solver` for MILP)
+- **Pyomo** (general algebraic modeling language, supports many solvers)
+- **MIP / Python-MIP** (wrapper around CBC/GRB/CPLEX, good for MILP)
+
+For a simple problem like this, **PuLP** or **OR-Tools** is very convenient.
+
+---
+
+### 6. Example with PuLP (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Shipping_Trips", pl.LpMinimize)
+
+# Variables
+x = pl.LpVariable("truck_trips", lowBound=0, cat="Integer")
+y = pl.LpVariable("car_trips",   lowBound=0, cat="Integer")
+
+# Objective
+prob += 20*x + 15*y
+
+# Constraints
+prob += 50*x + 30*y >= 500      # packages
+prob += x <= 5                  # max truck trips
+prob += 7*y >= 3*x              # at least 30% trips by car
+
+# Solve
+prob.solve()
+
+print("Truck trips:", x.value())
+print("Car trips:", y.value())
+print("Min gas:", pl.value(prob.objective))
+```
+
+Running this will give the optimal number of truck and car trips that minimize gas consumption under the given constraints.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Shipping_Trips", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable("truck_trips", lowBound=0, cat="Integer")
+    y = pl.LpVariable("car_trips", lowBound=0, cat="Integer")
+
+    # Objective function: Minimize total gas consumption
+    prob += 20 * x + 15 * y
+
+    # Constraints
+    prob += 50 * x + 30 * y >= 500      # Package transport requirement
+    prob += x <= 5                      # Maximum truck trips
+    prob += 7 * y >= 3 * x              # At least 30% of trips by car
+
+    # Solve the model
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract the final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print only the final objective value in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

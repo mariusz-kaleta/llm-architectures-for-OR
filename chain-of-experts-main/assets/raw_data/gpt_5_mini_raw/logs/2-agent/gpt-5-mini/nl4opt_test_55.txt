@@ -1,0 +1,134 @@
+[MODELER]:
+Variables
+- x_B = acres planted to blueberries (acres)
+- x_R = acres planted to raspberries (acres)
+
+Objective
+- Maximise total profit: maximize Z = 56 x_B + 75 x_R
+
+Constraints
+1. Land: x_B + x_R ≤ 300
+2. Labor (days): 6 x_B + 3 x_R ≤ 575
+3. Watering cost ($): 22 x_B + 25 x_R ≤ 10000
+4. Nonnegativity: x_B ≥ 0, x_R ≥ 0
+
+Full LP formulation
+- Maximise Z = 56 x_B + 75 x_R
+- Subject to
+  - x_B + x_R ≤ 300
+  - 6 x_B + 3 x_R ≤ 575
+  - 22 x_B + 25 x_R ≤ 10000
+  - x_B, x_R ≥ 0
+
+Notes
+- If acres must be integer, add integrality constraints x_B, x_R ∈ Z≥0 (this makes it an MILP).
+- Otherwise, treat x_B and x_R as continuous (fractional acres allowed).
+
+Suggested Python libraries to solve
+- pulp (easy to use for LP/MILP)
+- OR-Tools (CP-SAT / linear solver)
+- scipy.optimize.linprog (for continuous LPs)
+- cvxpy (convex optimization interface)
+
+Example (PuLP) — quick starter
+from pulp import LpProblem, LpMaximize, LpVariable, lpSum, value
+
+prob = LpProblem("BerryFarm", LpMaximize)
+xB = LpVariable("xB", lowBound=0)
+xR = LpVariable("xR", lowBound=0)
+
+prob += 56*xB + 75*xR                      # objective
+prob += xB + xR <= 300                     # land
+prob += 6*xB + 3*xR <= 575                 # labor
+prob += 22*xB + 25*xR <= 10000             # watering
+
+prob.solve()
+print(value(xB), value(xR), value(prob.objective))
+
+You can replace PuLP with scipy.optimize.linprog or OR-Tools if you prefer those solvers.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+import itertools
+import math
+
+# Problem data (initialized directly)
+# Variables: x_B (x), x_R (y)
+# Objective: maximize 56*x + 75*y
+# Constraints (as inequalities):
+# 1) x + y <= 300
+# 2) 6x + 3y <= 575
+# 3) 22x + 25y <= 10000
+# 4) x >= 0, y >= 0
+
+# Represent lines as (a, b, c) for a*x + b*y = c
+lines = {
+    "L1": (1.0, 1.0, 300.0),       # x + y = 300
+    "L2": (6.0, 3.0, 575.0),       # 6x + 3y = 575
+    "L3": (22.0, 25.0, 10000.0),   # 22x + 25y = 10000
+    "X0": (1.0, 0.0, 0.0),         # x = 0
+    "Y0": (0.0, 1.0, 0.0),         # y = 0
+}
+
+def intersect(line1, line2, eps=1e-12):
+    a1, b1, c1 = line1
+    a2, b2, c2 = line2
+    det = a1*b2 - a2*b1
+    if abs(det) < eps:
+        return None
+    x = (c1*b2 - c2*b1) / det
+    y = (a1*c2 - a2*c1) / det
+    return (x, y)
+
+# Generate all intersection points of pairs of lines
+pts = set()
+keys = list(lines.keys())
+for k1, k2 in itertools.combinations(keys, 2):
+    p = intersect(lines[k1], lines[k2])
+    if p is not None:
+        # round small numerical noise
+        x, y = p
+        pts.add((round(x,12), round(y,12)))
+
+# Also include origin explicitly (should be included by X0 & Y0)
+pts.add((0.0, 0.0))
+
+# Constraint check function
+def feasible(x, y, tol=1e-8):
+    if x < -tol or y < -tol:
+        return False
+    if x + y > 300.0 + tol:
+        return False
+    if 6.0*x + 3.0*y > 575.0 + tol:
+        return False
+    if 22.0*x + 25.0*y > 10000.0 + tol:
+        return False
+    return True
+
+# Objective function
+def obj(x, y):
+    return 56.0*x + 75.0*y
+
+# Evaluate feasible points and also consider corner points along constraints intersections with axes
+feasible_points = []
+for (x, y) in pts:
+    if feasible(x, y):
+        feasible_points.append((x, y, obj(x,y)))
+
+# Also check boundary extreme points by projecting along constraints where needed:
+# (not necessary for 2D but safe) include intersections with axes already done.
+
+# Find max
+if not feasible_points:
+    max_obj = 0.0
+else:
+    best = max(feasible_points, key=lambda t: t[2])
+    max_obj = best[2]
+    best_x, best_y = best[0], best[1]
+
+# Print final objective in required format
+print(f"FINAL_OBJ: {max_obj}")
+```

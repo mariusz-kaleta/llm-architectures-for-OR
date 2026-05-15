@@ -1,0 +1,237 @@
+[MODELER]:
+Here is a linear optimization model and its solution.
+
+---
+
+## 1. Define decision variables
+
+Let:
+
+- \(x\) = gallons of chocolate ice cream produced in a week  
+- \(y\) = gallons of vanilla ice cream produced in a week  
+
+Both are continuous and nonnegative:
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+## 2. Objective function (maximize profit)
+
+Profit per gallon:
+
+- Chocolate: \$200 per gallon → \(200x\)  
+- Vanilla: \$300 per gallon → \(300y\)
+
+Maximize total weekly profit:
+
+\[
+\max \; Z = 200x + 300y
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Production limits (minimum and maximum)
+
+- At least 5 gallons and at most 10 gallons of chocolate:
+
+\[
+5 \le x \le 10
+\]
+
+- At least 5 gallons and at most 8 gallons of vanilla:
+
+\[
+5 \le y \le 8
+\]
+
+Equivalently in standard LP form:
+
+\[
+x \ge 5,\quad x \le 10,\quad y \ge 5,\quad y \le 8
+\]
+
+---
+
+### 3.2 Time (hour) capacity
+
+- Chocolate: 1 hour per gallon → total time \(= 1x\)
+- Vanilla: 2 hours per gallon → total time \(= 2y\)
+
+Available production time per week: 30 hours:
+
+\[
+1x + 2y \le 30
+\]
+
+---
+
+### 3.3 Worker requirement
+
+The text here is ambiguous in typical LP terms. A natural interpretation consistent with linear modeling is:
+
+> At any time (i.e., per unit of production) chocolate requires 1 worker, vanilla requires 2 workers, and at least 6 workers must be available to cover those needs.
+
+Using that interpretation, a per-gallon “worker requirement” would be:
+
+- Chocolate: 1 worker per unit → contributes \(1x\)
+- Vanilla: 2 workers per unit → contributes \(2y\)
+
+At least 6 workers must be used:
+
+\[
+x + 2y \ge 6
+\]
+
+Given the other bounds (\(x \ge 5, y \ge 5\)), this constraint is automatically satisfied and is not binding, but formally it is:
+
+\[
+x + 2y \ge 6
+\]
+
+---
+
+## 4. Complete mathematical model
+
+\[
+\begin{aligned}
+\max\quad & Z = 200x + 300y \\
+\text{s.t.}\quad 
+& 5 \le x \le 10 \\
+& 5 \le y \le 8 \\
+& x + 2y \le 30 \\
+& x + 2y \ge 6 \\
+& x, y \ge 0
+\end{aligned}
+\]
+
+(The last two nonnegativity constraints are redundant because of \(x,y \ge 5\), but are standard.)
+
+---
+
+## 5. Solve analytically
+
+The constraints:
+
+1. \(x \in [5, 10]\)  
+2. \(y \in [5, 8]\)  
+3. \(x + 2y \le 30\)
+
+Check corner points of the feasible region:
+
+- (5, 5):  
+  - Time: \(5 + 2\cdot 5 = 15 \le 30\) (feasible)  
+  - Profit: \(200\cdot 5 + 300\cdot 5 = 1000 + 1500 = 2500\)
+
+- (10, 5):  
+  - Time: \(10 + 2\cdot 5 = 20 \le 30\) (feasible)  
+  - Profit: \(200\cdot 10 + 300\cdot 5 = 2000 + 1500 = 3500\)
+
+- (5, 8):  
+  - Time: \(5 + 2\cdot 8 = 21 \le 30\) (feasible)  
+  - Profit: \(200\cdot 5 + 300\cdot 8 = 1000 + 2400 = 3400\)
+
+- (10, 8):  
+  - Time: \(10 + 2\cdot 8 = 26 \le 30\) (feasible)  
+  - Profit: \(200\cdot 10 + 300\cdot 8 = 2000 + 2400 = 4400\)
+
+The time constraint \(x + 2y \le 30\) does not bind at (10, 8), so it is still feasible.
+
+Among all these feasible corner points, profit is maximized at:
+
+- \(x = 10\) (chocolate gallons)  
+- \(y = 8\) (vanilla gallons)  
+- Maximum profit \(Z = \$4{,}400\)
+
+Thus, to maximize profit:
+
+- Produce 10 gallons of chocolate ice cream.  
+- Produce 8 gallons of vanilla ice cream.
+
+---
+
+## 6. Suitable Python libraries
+
+This is a small linear program; any LP-capable library will work:
+
+- `PuLP` – very easy syntax for defining LPs, works with CBC or other solvers.
+- `scipy.optimize.linprog` – basic LP solver in SciPy.
+- `ortools.linear_solver` (Google OR-Tools) – industrial-strength solver, good for scaling and more complex models.
+
+### Example using PuLP
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("IceCreamProduction", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable("chocolate_gallons", lowBound=0)
+y = pl.LpVariable("vanilla_gallons", lowBound=0)
+
+# Objective
+prob += 200 * x + 300 * y
+
+# Constraints
+prob += x >= 5
+prob += x <= 10
+prob += y >= 5
+prob += y <= 8
+prob += x + 2 * y <= 30
+prob += x + 2 * y >= 6  # worker requirement as modeled above
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal x (chocolate):", x.value())
+print("Optimal y (vanilla):", y.value())
+print("Max profit:", pl.value(prob.objective))
+```
+
+This will return approximately:
+
+- `x = 10.0`
+- `y = 8.0`
+- `Max profit = 4400.0`
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("IceCreamProduction", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable("chocolate_gallons", lowBound=0)
+    y = pl.LpVariable("vanilla_gallons", lowBound=0)
+
+    # Objective function: Maximize 200x + 300y
+    prob += 200 * x + 300 * y
+
+    # Constraints
+    prob += x >= 5          # minimum chocolate
+    prob += x <= 10         # maximum chocolate
+    prob += y >= 5          # minimum vanilla
+    prob += y <= 8          # maximum vanilla
+    prob += x + 2 * y <= 30 # time capacity
+    prob += x + 2 * y >= 6  # worker requirement
+
+    # Solve the problem
+    prob.solve()
+
+    # Get the objective value
+    obj_value = pl.value(prob.objective)
+
+    # Final required output
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

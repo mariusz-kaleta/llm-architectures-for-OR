@@ -1,0 +1,145 @@
+[MODELER]:
+Let’s turn this into an optimization model.
+
+### 1. Decision variables
+
+Let  
+- \(x\) = number of small bouquets transported  
+- \(y\) = number of large bouquets transported  
+
+Both are nonnegative and integral:
+- \(x \ge 0,\; y \ge 0\)
+- \(x, y \in \mathbb{Z}\)
+
+### 2. Objective function
+
+Each small bouquet has 5 flowers, each large bouquet has 10 flowers.  
+We want to maximize the total number of flowers:
+
+\[
+\max Z = 5x + 10y
+\]
+
+### 3. Constraints
+
+From the problem:
+
+1. **Capacity for small bouquets**:  
+   At most 80 small bouquets:
+   \[
+   x \le 80
+   \]
+
+2. **Capacity for large bouquets**:  
+   At most 50 large bouquets:
+   \[
+   y \le 50
+   \]
+
+3. **Total bouquet capacity**:  
+   At most 70 bouquets in total:
+   \[
+   x + y \le 70
+   \]
+
+4. **Minimum number of large bouquets**:  
+   At least 20 large bouquets:
+   \[
+   y \ge 20
+   \]
+
+5. **Popularity constraint** (small at least twice large):  
+   \[
+   x \ge 2y
+   \]
+
+6. **Nonnegativity and integrality** (as above):
+   \[
+   x \ge 0,\; y \ge 0,\; x,y \in \mathbb{Z}
+   \]
+
+This is a **(small) integer linear programming (ILP)** problem.
+
+### 4. Solving the model analytically (outline)
+
+The constraints are:
+
+- \(x \le 80\)
+- \(y \le 50\)
+- \(x + y \le 70\)
+- \(y \ge 20\)
+- \(x \ge 2y\)
+
+Note that \(x + y \le 70\) and \(x \ge 2y\) together imply:
+- \(2y + y \le 70 \Rightarrow 3y \le 70 \Rightarrow y \le \frac{70}{3} \approx 23.33\)
+
+So \(y\) must satisfy:
+- \(20 \le y \le 23\)
+
+For each integer \(y\) in \(\{20,21,22,23\}\), the minimum feasible \(x\) is \(2y\). Also must satisfy \(x + y \le 70\):
+
+- For \(y = 20\): \(x \ge 40\), and \(x + 20 \le 70 \Rightarrow x \le 50\) → best is \(x = 50\), total flowers \(5·50 + 10·20 = 450\)
+- For \(y = 21\): \(x \ge 42\), \(x + 21 \le 70 \Rightarrow x \le 49\) → best is \(x = 49\), total \(5·49 + 10·21 = 455\)
+- For \(y = 22\): \(x \ge 44\), \(x + 22 \le 70 \Rightarrow x \le 48\) → best is \(x = 48\), total \(5·48 + 10·22 = 460\)
+- For \(y = 23\): \(x \ge 46\), \(x + 23 \le 70 \Rightarrow x \le 47\) → best is \(x = 47\), total \(5·47 + 10·23 = 465\)
+
+The maximum total flowers is **465**, attained at:
+- \(x = 47\) small bouquets  
+- \(y = 23\) large bouquets
+
+### 5. Final answer
+
+He should transport:
+- **47 small bouquets**
+- **23 large bouquets**
+
+to maximize the total number of flowers (465 flowers).
+
+### 6. Suitable Python libraries
+
+To model and solve this ILP in Python, you can use:
+
+- **PuLP** (`pulp`): simple syntax, good for teaching and small LP/ILP problems.
+- **OR-Tools** (`ortools.linear_solver`): powerful, from Google, supports integer and linear programming.
+- **Pyomo**: more general modeling framework, good for larger or more complex models.
+
+For this problem, **PuLP** or **OR-Tools** would be ideal and straightforward.
+
+---
+
+[CODER]:
+import pulp
+
+def solve_bouquet_problem():
+    # Create the problem
+    model = pulp.LpProblem("Bouquet_Transport_Problem", pulp.LpMaximize)
+
+    # Decision variables: integers, nonnegative
+    x = pulp.LpVariable('x', lowBound=0, cat=pulp.LpInteger)  # small bouquets
+    y = pulp.LpVariable('y', lowBound=0, cat=pulp.LpInteger)  # large bouquets
+
+    # Objective function: maximize total flowers 5x + 10y
+    model += 5 * x + 10 * y
+
+    # Constraints
+    model += x <= 80                 # Capacity for small bouquets
+    model += y <= 50                 # Capacity for large bouquets
+    model += x + y <= 70             # Total bouquet capacity
+    model += y >= 20                 # Minimum number of large bouquets
+    model += x >= 2 * y              # Popularity constraint
+
+    # Solve the model
+    model.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pulp.value(model.objective)
+
+    # Optionally, you could also access the values of x and y if needed:
+    # x_val = x.value()
+    # y_val = y.value()
+
+    return final_obj
+
+if __name__ == "__main__":
+    value = solve_bouquet_problem()
+    print(f"FINAL_OBJ: {value}")

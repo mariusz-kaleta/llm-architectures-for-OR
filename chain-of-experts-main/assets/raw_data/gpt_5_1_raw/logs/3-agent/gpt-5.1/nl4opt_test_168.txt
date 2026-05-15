@@ -1,0 +1,202 @@
+[MODELER]:
+Formulate this as a linear programming (LP) problem.
+
+### Decision variables
+
+Let  
+- \(x\) = number of basketballs produced  
+- \(y\) = number of footballs produced  
+
+Both must be non‑negative:
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+### Objective
+
+Maximize the total number of items produced:
+\[
+\text{Maximize } Z = x + y
+\]
+
+### Constraints
+
+1. **Material constraint**
+
+Each basketball uses 5 units; each football uses 3 units. Total materials ≤ 1500:
+\[
+5x + 3y \le 1500
+\]
+
+2. **Labor (time) constraint**
+
+Each basketball takes 1 hour; each football takes 2 hours. Total hours ≤ 750:
+\[
+x + 2y \le 750
+\]
+
+3. **Sales ratio constraint**
+
+At least three times as many basketballs as footballs:
+\[
+x \ge 3y
+\]
+
+4. **Minimum footballs constraint**
+
+At least 50 footballs:
+\[
+y \ge 50
+\]
+
+5. **(Implied non-negativity)**
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+This is a complete LP model.
+
+---
+
+### Solving the LP analytically (optional reasoning to find the answer)
+
+To maximize \(x + y\), you will be on the boundary of some constraints.
+
+Use the binding ratio for basketballs vs. footballs: \(x = 3y\) (because making more basketballs is “preferred” from a feasibility standpoint when maximizing quantity and this ratio is a strict lower bound).
+
+Substitute \(x = 3y\) into the resource constraints:
+
+- Material:  
+  \(5(3y) + 3y = 15y + 3y = 18y \le 1500 \Rightarrow y \le \frac{1500}{18} \approx 83.33\)
+
+- Labor:  
+  \(3y + 2y = 5y \le 750 \Rightarrow y \le 150\)
+
+Also remember \(y \ge 50\). So feasible \(y\) in this line segment is:
+\[
+50 \le y \le 83.\overline{3}
+\]
+To maximize \(x + y = 3y + y = 4y\), choose the largest feasible \(y\):
+\[
+y = \frac{1500}{18} = 83.\overline{3}, \quad x = 3y = 250
+\]
+Since they must produce whole units, check integer combinations near this point:
+
+Try \(y = 83\):
+- Then \(x \ge 249\) by \(x \ge 3y\).  
+Check resources with \(x=249, y=83\):
+
+Material:  
+\(5\cdot 249 + 3\cdot 83 = 1245 + 249 = 1494 \le 1500\)
+
+Labor:  
+\(249 + 2\cdot 83 = 249 + 166 = 415 \le 750\)
+
+Total produced: \(249 + 83 = 332\).
+
+Try \(x=250, y=83\) (still satisfies \(x \ge 3y\) because \(250 \ge 249\)):
+
+Material:  
+\(5\cdot 250 + 3\cdot 83 = 1250 + 249 = 1499 \le 1500\)
+
+Labor:  
+\(250 + 2\cdot 83 = 250 + 166 = 416 \le 750\)
+
+Total produced: \(250 + 83 = 333\) (better).
+
+Try increasing \(y\) to 84 is infeasible by material:  
+\(5x + 3\cdot 84 \le 1500\) with \(x \ge 3\cdot 84 = 252\):  
+material used at \(x=252\) would be \(5\cdot 252 + 3\cdot 84 = 1260 + 252 = 1512 > 1500\).
+
+So the best integer solution is:
+- Basketballs: \(x = 250\)  
+- Footballs: \(y = 83\)  
+Total equipment: \(333\).
+
+(If fractional production were allowed, the continuous optimum would be \(x = 250,\; y = 83.\overline{3}\) with total \(333.\overline{3}\).)
+
+---
+
+### Suitable Python libraries
+
+To solve this LP (or its integer version) in Python, you can use:
+
+- `PuLP` (simple and readable LP / MILP modeling)
+- `ortools.linear_solver` from Google OR‑Tools (very efficient for LP/MIP)
+- `scipy.optimize.linprog` (for continuous LP only; not integer)
+
+Example (using PuLP, integer decision variables):
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Sports_Equipment_Production", pl.LpMaximize)
+
+# Decision variables (integers)
+x = pl.LpVariable("basketballs", lowBound=0, cat="Integer")
+y = pl.LpVariable("footballs", lowBound=0, cat="Integer")
+
+# Objective
+prob += x + y, "Total_Equipment"
+
+# Constraints
+prob += 5*x + 3*y <= 1500, "Material"
+prob += x + 2*y <= 750, "Labor"
+prob += x >= 3*y, "Sales_Ratio"
+prob += y >= 50, "Min_Footballs"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Basketballs:", x.value())
+print("Footballs:", y.value())
+print("Total produced:", x.value() + y.value())
+```
+
+This will return:
+- Basketballs = 250  
+- Footballs = 83  
+- Total produced = 333
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem: Maximize total number of items
+    prob = pl.LpProblem("Sports_Equipment_Production", pl.LpMaximize)
+
+    # Decision variables: number of basketballs (x) and footballs (y), continuous (LP)
+    x = pl.LpVariable("basketballs", lowBound=0, cat="Continuous")
+    y = pl.LpVariable("footballs", lowBound=0, cat="Continuous")
+
+    # Objective function: Maximize x + y
+    prob += x + y, "Total_Items"
+
+    # Constraints
+    # 1. Material: 5x + 3y <= 1500
+    prob += 5 * x + 3 * y <= 1500, "Material"
+
+    # 2. Labor: x + 2y <= 750
+    prob += x + 2 * y <= 750, "Labor"
+
+    # 3. Sales ratio: x >= 3y
+    prob += x >= 3 * y, "Sales_Ratio"
+
+    # 4. Minimum footballs: y >= 50
+    prob += y >= 50, "Min_Footballs"
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,255 @@
+[PLANNER]:
+1. **Key optimisation goal**
+
+- **Goal:** Maximize total tips earned from all monthly shifts.
+
+2. **Suggested model type**
+
+- **Model:** Linear Programming (LP) model.  
+  - Objective and all constraints are linear in the number of bike and scooter shifts.
+  - If needed, you can treat the number of shifts as integer variables, but solving the LP relaxation and then checking integer feasibility is straightforward because there are only two variables.
+
+3. **Main decision variables**
+
+Define two primary decision variables:
+
+- \( x_B \): Number of **bike shifts** scheduled in the month.
+- \( x_S \): Number of **scooter shifts** scheduled in the month.
+
+Both should be constrained to be nonnegative, and in an applied implementation, integer.
+
+4. **Objective function structure**
+
+- Tips per bike shift: **\$50**  
+- Tips per scooter shift: **\$43**
+
+Objective:  
+- Maximize total tips = \( 50 \cdot x_B + 43 \cdot x_S \).
+
+5. **Key constraints to consider**
+
+a) **Total shifts limit**
+
+- The person has **40 shifts** available in the month.
+- Constraint: Total shifts used cannot exceed (and presumably will not need to be less than) this:
+  - \( x_B + x_S \le 40 \).
+
+b) **Energy capacity constraint**
+
+- Bike shift uses **5 units** of energy.
+- Scooter shift uses **6 units** of energy.
+- Total energy available: **230 units**.
+- Constraint on total energy consumption:
+  - \( 5 \cdot x_B + 6 \cdot x_S \le 230 \).
+
+c) **Minimum orders requirement**
+
+- Bike shift delivers **10 orders**.
+- Scooter shift delivers **7 orders**.
+- At least **320 orders** must be delivered.
+- Orders constraint:
+  - \( 10 \cdot x_B + 7 \cdot x_S \ge 320 \).
+
+d) **Minimum scooter shifts**
+
+- Must have at least **5 shifts on scooter**:
+  - \( x_S \ge 5 \).
+
+e) **Nonnegativity and integrality**
+
+- Nonnegativity:
+  - \( x_B \ge 0 \),
+  - \( x_S \ge 0 \).
+- In practice, shifts are discrete, so:
+  - \( x_B, x_S \) should be integers.
+
+6. **Modelling notes / strategy**
+
+- Start with a basic LP formulation using continuous variables to:
+  - Define the feasible region by intersecting:
+    - total shifts,
+    - energy constraint,
+    - orders minimum,
+    - scooter minimum,
+    - nonnegativity.
+- Because there are only two variables, you can:
+  - Solve graphically (plot constraints and find the feasible polygon and corner points), or
+  - Use a standard LP solver and then adjust to the nearest integer feasible solution if needed.
+- Compare the objective values at all **corner (extreme) points** of the feasible region; the best one gives the optimal mix of bike vs scooter shifts.
+- After obtaining the LP optimum:
+  - If results are non-integer, search nearby integer points that satisfy all constraints and select the one with maximum tips.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model of the problem, plus suggestions for how to implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_B \in \mathbb{Z}_{\ge 0}\): number of **bike shifts** in the month  
+- \(x_S \in \mathbb{Z}_{\ge 0}\): number of **scooter shifts** in the month  
+
+(If you want a pure LP relaxation, you can drop the integrality and keep them continuous.)
+
+---
+
+## 2. Objective function
+
+Each shift yields tips:
+
+- Bike shift: \$50  
+- Scooter shift: \$43  
+
+Maximize total tips:
+\[
+\max\ Z = 50\,x_B + 43\,x_S
+\]
+
+---
+
+## 3. Constraints
+
+### a) Total shifts limit
+
+At most 40 shifts in the month:
+\[
+x_B + x_S \le 40
+\]
+
+### b) Energy capacity
+
+Each shift consumes energy:
+
+- Bike: 5 units  
+- Scooter: 6 units  
+
+Total energy available is 230 units:
+\[
+5x_B + 6x_S \le 230
+\]
+
+### c) Minimum orders requirement
+
+Each shift delivers orders:
+
+- Bike: 10 orders  
+- Scooter: 7 orders  
+
+Must deliver **at least 320 orders**:
+\[
+10x_B + 7x_S \ge 320
+\]
+
+### d) Minimum scooter shifts
+
+At least 5 scooter shifts:
+\[
+x_S \ge 5
+\]
+
+### e) Nonnegativity and integrality
+
+\[
+x_B \ge 0,\quad x_S \ge 0,\quad x_B, x_S \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full model (MIP form)
+
+\[
+\begin{aligned}
+\max\quad & 50x_B + 43x_S \\
+\text{s.t.}\quad 
+& x_B + x_S \le 40, \\
+& 5x_B + 6x_S \le 230, \\
+& 10x_B + 7x_S \ge 320, \\
+& x_S \ge 5, \\
+& x_B \ge 0,\ x_S \ge 0, \\
+& x_B, x_S \in \mathbb{Z}.
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+Any linear / mixed-integer programming solver works well here:
+
+- **PuLP** (`pulp`) – simple interface, uses CBC by default, great for teaching/small problems.  
+- **OR-Tools Linear Solver** (`ortools.linear_solver.pywraplp`) – robust, good for MIPs.  
+- **SciPy** (`scipy.optimize.linprog`) – good for LP relaxation (continuous variables only); you’d need to handle integrality by rounding/search around the LP optimum.
+
+Because this is naturally an integer problem (numbers of shifts), I recommend:
+
+- **PuLP** or **OR-Tools** if you want exact integer solutions directly.
+
+---
+
+## 6. Example model in PuLP (sketch)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Delivery_Shift_Planning", pl.LpMaximize)
+
+# Variables (integer)
+x_B = pl.LpVariable("x_B", lowBound=0, cat="Integer")  # bike shifts
+x_S = pl.LpVariable("x_S", lowBound=5, cat="Integer")  # scooter shifts, min 5
+
+# Objective
+prob += 50 * x_B + 43 * x_S
+
+# Constraints
+prob += x_B + x_S <= 40                     # total shifts
+prob += 5 * x_B + 6 * x_S <= 230           # energy
+prob += 10 * x_B + 7 * x_S >= 320          # orders
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Bike shifts:", pl.value(x_B))
+print("Scooter shifts:", pl.value(x_S))
+print("Total tips:", pl.value(prob.objective))
+```
+
+This fully encodes the mathematical model described above and will return the optimal number of bike and scooter shifts to maximize tips under all constraints.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Delivery_Shift_Planning", pl.LpMaximize)
+
+    # Decision variables
+    x_B = pl.LpVariable("x_B", lowBound=0, cat="Integer")   # bike shifts
+    x_S = pl.LpVariable("x_S", lowBound=5, cat="Integer")   # scooter shifts, min 5
+
+    # Objective function: Maximize total tips
+    prob += 50 * x_B + 43 * x_S
+
+    # Constraints
+    prob += x_B + x_S <= 40                 # total shifts limit
+    prob += 5 * x_B + 6 * x_S <= 230        # energy capacity
+    prob += 10 * x_B + 7 * x_S >= 320       # minimum orders
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

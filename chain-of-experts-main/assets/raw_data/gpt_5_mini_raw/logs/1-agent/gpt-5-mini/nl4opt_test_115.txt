@@ -1,0 +1,46 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization (from problem statement)
+cost_f1 = 300  # cost per hour for factory 1
+cost_f2 = 600  # cost per hour for factory 2
+
+# Production per hour
+# factory 1: 5 black, 6 white, 3 brown
+b_f1 = 5
+w_f1 = 6
+br_f1 = 3
+
+# factory 2: 10 black, 10 white, 0 brown
+b_f2 = 10
+w_f2 = 10
+br_f2 = 0
+
+# Demand requirements (daily)
+demand_black = 20
+demand_white = 5
+demand_brown = 15
+
+# Define LP problem (minimization)
+prob = pulp.LpProblem("Teddy_Production_MinCost", pulp.LpMinimize)
+
+# Decision variables: hours to run each factory (continuous, >=0)
+h1 = pulp.LpVariable('h1_hours', lowBound=0, cat='Continuous')
+h2 = pulp.LpVariable('h2_hours', lowBound=0, cat='Continuous')
+
+# Objective: minimize total cost
+prob += cost_f1 * h1 + cost_f2 * h2
+
+# Constraints: meet demands
+prob += b_f1 * h1 + b_f2 * h2 >= demand_black, "BlackDemand"
+prob += w_f1 * h1 + w_f2 * h2 >= demand_white, "WhiteDemand"
+prob += br_f1 * h1 + br_f2 * h2 >= demand_brown, "BrownDemand"
+
+# Solve the problem
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Get final objective value
+final_obj = pulp.value(prob.objective)
+
+# Print final objective in required format
+print(f"FINAL_OBJ: {final_obj}")

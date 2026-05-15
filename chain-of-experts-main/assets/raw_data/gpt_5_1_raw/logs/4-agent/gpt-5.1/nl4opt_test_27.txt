@@ -1,0 +1,262 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total number of air conditioners purchased (low-power + high-power), while satisfying cooling demand, electricity limits, and composition requirements.
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP)  
+– Discrete decision: number of units of each type must be non-negative integers.  
+– Objective and constraints are linear in the decision variables.
+
+3. Main decision variables  
+Define two integer decision variables, for example:  
+- L = number of low-powered air conditioners to buy  
+- H = number of high-powered air conditioners to buy  
+
+4. Key constraints to consider  
+
+a) Cooling capacity requirement  
+- Each low-power unit cools 12 housing units.  
+- Each high-power unit cools 17 housing units.  
+- The total cooling capacity must cover at least 250 housing units.  
+→ Constraint: total cooled units from L and H ≥ 250.
+
+b) Electricity availability limit  
+- Each low-power unit uses 150 units of electricity per day.  
+- Each high-power unit uses 250 units of electricity per day.  
+- Total electricity used cannot exceed 3400 units.  
+→ Constraint: total electricity consumption by L and H ≤ 3400.
+
+c) Limit on low-powered models (aesthetic constraint)  
+- Low-powered units can be at most 30% of the total number of units purchased.  
+- That is, L ≤ 0.3 × (L + H).  
+→ Translate to a linear inequality relating L and H (no division in final linear form).
+
+d) Minimum requirement for high-powered models  
+- At least 7 high-powered units must be bought.  
+→ Constraint: H ≥ 7.
+
+e) Non-negativity and integrality  
+- L ≥ 0, H ≥ 0.  
+- L and H must be integers (cannot buy fractional units).
+
+5. Objective function structure  
+- Minimise total number of air conditioners: L + H.  
+- No cost coefficients needed here since all units are “equally weighted” in count; if later cost per unit differs, this can be changed to minimise total cost instead.
+
+6. Modelling notes / strategy  
+- First, express the 30% constraint in a purely linear (no fractions) inequality suitable for an ILP.  
+- Ensure integrality is enforced on L and H since a fractional solution would not be feasible in practice.  
+- Once the model is set, you can either:  
+  - Solve exactly using an ILP solver, or  
+  - For a small model like this, also verify solution logically by enumerating feasible integer pairs (L, H) near the boundary conditions to cross-check the solver.
+
+---
+
+[MODELER]:
+Here is a clear mathematical model of the problem as an Integer Linear Program (ILP), followed by notes on how to solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(L \in \mathbb{Z}_{\ge 0}\): number of low-powered air conditioners to buy  
+- \(H \in \mathbb{Z}_{\ge 0}\): number of high-powered air conditioners to buy  
+
+Both must be non-negative integers.
+
+---
+
+## 2. Objective function
+
+Minimise the total number of air conditioners purchased:
+
+\[
+\min \; Z = L + H
+\]
+
+---
+
+## 3. Constraints
+
+### a) Cooling capacity requirement
+
+Each low-power unit cools 12 housing units; each high-power unit cools 17.  
+Total cooling must satisfy at least 250 units:
+
+\[
+12L + 17H \;\ge\; 250
+\]
+
+---
+
+### b) Electricity availability limit
+
+Each low-power unit uses 150 units of electricity/day; each high-power unit uses 250.  
+Total electricity cannot exceed 3400 units:
+
+\[
+150L + 250H \;\le\; 3400
+\]
+
+---
+
+### c) Limit on low-powered models (at most 30% of all units)
+
+“Low-powered units can be at most 30% of the total number of units purchased”:
+
+\[
+L \;\le\; 0.3(L + H)
+\]
+
+Convert to a linear inequality without decimals/fractions:
+
+\[
+L \le 0.3L + 0.3H  
+\Rightarrow L - 0.3L \le 0.3H  
+\Rightarrow 0.7L \le 0.3H  
+\Rightarrow 7L \le 3H \quad (\text{multiply both sides by } 10)
+\]
+
+So the constraint in linear integer form is:
+
+\[
+7L \;\le\; 3H
+\]
+
+---
+
+### d) Minimum requirement for high-powered models
+
+“At least 7 high-powered units must be bought”:
+
+\[
+H \;\ge\; 7
+\]
+
+---
+
+### e) Non-negativity and integrality
+
+\[
+L \ge 0, \quad H \ge 0, \quad L, H \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete ILP model (compact form)
+
+\[
+\begin{aligned}
+\min \quad & Z = L + H \\
+\text{s.t.} \quad
+& 12L + 17H \;\ge\; 250 \\
+& 150L + 250H \;\le\; 3400 \\
+& 7L \;\le\; 3H \\
+& H \;\ge\; 7 \\
+& L, H \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+You can implement and solve this ILP using any of the following:
+
+- **PuLP**  
+  - Easy modeling syntax; interfaces with CBC (open source) and other solvers.  
+  - Good choice for teaching, prototyping, or small/medium problems.
+
+- **OR-Tools (from Google)**  
+  - `ortools.linear_solver` for MILP/ILP.  
+  - Fast and well-maintained; good for both small and large models.
+
+- **Pyomo**  
+  - More general algebraic modeling language; supports many back-end solvers (CBC, GLPK, Gurobi, CPLEX, etc.).  
+  - Good if you plan to build larger or more complex models later.
+
+For this small two-variable ILP, **PuLP** or **OR-Tools** are more than sufficient.
+
+---
+
+## 6. Example: PuLP formulation (code sketch)
+
+```python
+import pulp as pl
+
+# Problem
+model = pl.LpProblem("AC_purchase_problem", pl.LpMinimize)
+
+# Decision variables (non-negative integers)
+L = pl.LpVariable('L', lowBound=0, cat='Integer')
+H = pl.LpVariable('H', lowBound=0, cat='Integer')
+
+# Objective
+model += L + H, "Total_AC_units"
+
+# Constraints
+
+# Cooling capacity
+model += 12*L + 17*H >= 250, "Cooling_requirement"
+
+# Electricity limit
+model += 150*L + 250*H <= 3400, "Electricity_limit"
+
+# Composition: low-powered at most 30% of total
+model += 7*L <= 3*H, "Low_power_limit"
+
+# Minimum high-powered units
+model += H >= 7, "Min_high_power"
+
+# Solve
+model.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[model.status])
+print("L (low-power) =", pl.value(L))
+print("H (high-power) =", pl.value(H))
+print("Total units =", pl.value(L + H))
+```
+
+This code directly encodes the ILP model above and uses CBC via PuLP to find the optimal numbers \(L\) and \(H\).
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the model
+    model = pl.LpProblem("AC_purchase_problem", pl.LpMinimize)
+
+    # Decision variables (non-negative integers)
+    L = pl.LpVariable('L', lowBound=0, cat='Integer')
+    H = pl.LpVariable('H', lowBound=0, cat='Integer')
+
+    # Objective: Minimise total number of units
+    model += L + H, "Total_AC_units"
+
+    # Constraints
+    # Cooling capacity
+    model += 12 * L + 17 * H >= 250, "Cooling_requirement"
+
+    # Electricity limit
+    model += 150 * L + 250 * H <= 3400, "Electricity_limit"
+
+    # Low-powered at most 30% of total: 7L <= 3H
+    model += 7 * L <= 3 * H, "Low_power_limit"
+
+    # Minimum number of high-powered units
+    model += H >= 7, "Min_high_power"
+
+    # Solve the model
+    model.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(L + H)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

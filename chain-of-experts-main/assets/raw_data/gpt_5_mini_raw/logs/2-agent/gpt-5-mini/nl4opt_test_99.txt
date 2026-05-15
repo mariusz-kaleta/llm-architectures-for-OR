@@ -1,0 +1,93 @@
+[MODELER]:
+Problem formulation (decision variables, objective, constraints)
+
+- Decision variables
+  - s = number of small teams (integer, s >= 0)
+  - l = number of large teams (integer, l >= 0)
+
+- Objective
+  - Maximize total area mowed: maximize Z = 50 s + 80 l
+
+- Constraints
+  1. Employee limit: 3 s + 5 l <= 150
+  2. Small teams at least 3× large teams: s >= 3 l
+  3. Minimum teams: s >= 10, l >= 6
+  4. Integrality: s, l integer
+
+Solution (analysis)
+- Area per employee: small team = 50/3 ≈ 16.667 ft²/employee, large team = 80/5 = 16 ft²/employee. Small teams are more efficient, so use as many small teams as allowed by constraints.
+- Feasible minimum l is 6. With l = 6, s must be at least max(3·6, 10) = 18 and employee constraint gives s <= (150 - 5·6)/3 = 40. Choose s = 40 to maximize area.
+- Optimal solution: s = 40 small teams, l = 6 large teams.
+- Maximum area: 50·40 + 80·6 = 2,480 sq ft.
+
+Suggested solvers / Python libraries
+- pulp (easy-to-use linear/integer programming)
+- OR-Tools CP-SAT (scalable integer programming)
+- scipy.optimize is not ideal because this is an integer (MILP) problem
+- For this tiny problem, a simple brute-force enumeration is also trivial and reliable
+
+Example with PuLP (Python)
+- Install: pip install pulp
+- Sketch:
+  from pulp import LpProblem, LpVariable, LpMaximize, lpSum, LpInteger, PULP_CBC_CMD
+
+  prob = LpProblem("Mowing", LpMaximize)
+  s = LpVariable("s", lowBound=10, cat=LpInteger)   # small teams
+  l = LpVariable("l", lowBound=6,  cat=LpInteger)   # large teams
+
+  prob += 50*s + 80*l
+  prob += 3*s + 5*l <= 150
+  prob += s >= 3*l
+
+  prob.solve(PULP_CBC_CMD(msg=False))
+  print("s =", int(s.value()), "l =", int(l.value()), "area =", 50*int(s.value())+80*int(l.value()))
+
+This returns s = 40, l = 6, area = 2480.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained script to solve the integer optimization problem by enumeration
+
+# Problem data (initialized directly)
+EMP_LIMIT = 150
+AREA_S = 50   # area per small team
+AREA_L = 80   # area per large team
+EMP_S = 3     # employees per small team
+EMP_L = 5     # employees per large team
+MIN_S = 10
+MIN_L = 6
+
+best_obj = None
+best_s = None
+best_l = None
+
+# Enumerate feasible values of l (large teams)
+for l in range(MIN_L, EMP_LIMIT // EMP_L + 1):
+    # s must be at least 3*l and at least MIN_S
+    s_min = max(3 * l, MIN_S)
+    # employee constraint gives an upper bound on s
+    remaining_emp = EMP_LIMIT - EMP_L * l
+    if remaining_emp < 0:
+        continue
+    s_max = remaining_emp // EMP_S
+    if s_max < s_min:
+        continue
+    # Because small teams are more efficient per employee, pick the largest feasible s
+    s = s_max
+    obj = AREA_S * s + AREA_L * l
+    if (best_obj is None) or (obj > best_obj):
+        best_obj = obj
+        best_s = s
+        best_l = l
+
+# If no feasible solution found (shouldn't happen), set best_obj to 0
+if best_obj is None:
+    best_obj = 0
+    best_s = 0
+    best_l = 0
+
+# Final required output line
+print(f"FINAL_OBJ: {best_obj}")
+```

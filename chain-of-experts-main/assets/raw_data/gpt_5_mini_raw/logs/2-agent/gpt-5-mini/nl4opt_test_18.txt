@@ -1,0 +1,119 @@
+[MODELER]:
+Mathematical model (linear program)
+
+Variables
+- E ≥ 0: number of elephants produced (units).
+- T ≥ 0: number of tigers produced (units).
+(If production must be integral, add E, T ∈ Z≥0.)
+
+Objective
+- Maximize profit: maximize Z = 5E + 4T.
+
+Constraints
+- Wood limit: 50E + 40T ≤ 5000 (grams).
+- Plastic limit: 20E + 30T ≤ 4000 (grams).
+- Nonnegativity: E ≥ 0, T ≥ 0.
+(And integrality if required.)
+
+Analysis and solution
+- The plastic constraint is non‑binding given the wood limit: any (E,T) with 50E+40T ≤ 5000 automatically satisfies 20E+30T ≤ 4000 (the maximum plastic use on the wood boundary is 3750 g < 4000 g).
+- The profit per gram of wood is identical for both items: 5/50 = 4/40 = 0.1 $/gram. Hence any production plan that uses all the wood yields the same total profit.
+- If the wood is fully used (50E + 40T = 5000) the maximum profit is Z = 0.1 × 5000 = $500.
+
+Optimal solutions
+- There are infinitely many optimal (continuous) solutions: any (E,T) with 50E + 40T = 5000 and E,T ≥ 0 attains the maximum profit $500.
+- If E and T must be integers, integer solutions on that line exist. Writing 5E + 4T = 500 (divide wood equation by 10) gives T = (500 − 5E)/4. For integer T, E must be a multiple of 4, so set E = 4k, T = 125 − 5k for integer k with 0 ≤ k ≤ 25. Examples:
+  - 100 elephants, 0 tigers (E=100, T=0) → profit $500.
+  - 0 elephants, 125 tigers (E=0, T=125) → profit $500.
+  - 20 elephants, 100 tigers (E=20, T=100) → profit $500.
+  - 4 elephants, 120 tigers (E=4, T=120) → profit $500.
+
+Recommended Python solvers
+- For continuous LP: scipy.optimize.linprog, cvxpy.
+- For LP/ILP with integer variables: PuLP, OR-Tools (CP-SAT or linear solver), CBC/Gurobi (if available).
+- PuLP or OR-Tools are convenient for a quick integer-programming implementation; scipy.optimize.linprog is fine if integrality is not required.
+
+If you want, I can provide a short PuLP or scipy example showing how to solve this.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the LP described in the prompt.
+# Variables:
+#   E >= 0 (elephants)
+#   T >= 0 (tigers)
+# Maximize Z = 5E + 4T
+# s.t.  50E + 40T <= 5000  (wood)
+#       20E + 30T <= 4000  (plastic)
+
+# We solve analytically for the continuous LP and also enumerate integer feasible solutions
+# to confirm the integer-optimal value (if integrality is required).
+
+# Initialize data
+wood_limit = 5000.0   # grams
+plastic_limit = 4000.0  # grams
+profit_E = 5.0
+profit_T = 4.0
+
+# Continuous LP analysis:
+# Profit per gram of wood: 5/50 = 0.1, 4/40 = 0.1 -> same for both.
+# Hence any point that uses all wood (50E + 40T = 5000) gives the same profit:
+continuous_opt = 0.1 * wood_limit  # = 500
+
+# Confirm plastic constraint is non-binding on the wood boundary:
+# Max plastic usage on wood boundary occurs at E = 0 -> plastic = 30 * (5000/40) = 3750 < 4000
+max_plastic_on_wood_boundary = 3750.0
+plastic_non_binding = max_plastic_on_wood_boundary <= plastic_limit
+
+# Enumerate integer solutions (if integrality is required)
+int_best_value = None
+int_best_solutions = []  # list of (E,T) achieving best integer value
+
+# Bounds for enumeration
+max_E = int(wood_limit // 50)  # 100
+max_T = int(wood_limit // 40)  # 125 (loose upper bound)
+
+for E in range(0, max_E + 1):
+    # For each E, we can compute the maximum feasible T given both constraints to narrow loop
+    # From wood: 40T <= wood_limit - 50E -> T <= floor((wood_limit - 50E)/40)
+    remaining_wood = wood_limit - 50 * E
+    if remaining_wood < 0:
+        break
+    max_T_from_wood = int(remaining_wood // 40)
+    # From plastic: 30T <= plastic_limit - 20E -> T <= floor((plastic_limit - 20E)/30)
+    remaining_plastic = plastic_limit - 20 * E
+    if remaining_plastic < 0:
+        continue
+    max_T_from_plastic = int(remaining_plastic // 30)
+    max_T_feasible = min(max_T_from_wood, max_T_from_plastic, max_T)
+    for T in range(0, max_T_feasible + 1):
+        # Both constraints satisfied by construction, but double-check for safety
+        if 50 * E + 40 * T <= wood_limit + 1e-9 and 20 * E + 30 * T <= plastic_limit + 1e-9:
+            val = profit_E * E + profit_T * T
+            if (int_best_value is None) or (val > int_best_value + 1e-9):
+                int_best_value = val
+                int_best_solutions = [(E, T)]
+            elif abs(val - int_best_value) <= 1e-9:
+                int_best_solutions.append((E, T))
+
+# If no integer enumeration found any (should not happen), set to 0
+if int_best_value is None:
+    int_best_value = 0.0
+
+# Display results (informational)
+print("Continuous LP optimal profit (analytical):", continuous_opt)
+print("Plastic constraint non-binding on wood boundary?:", plastic_non_binding)
+print("Integer enumeration best profit:", int_best_value)
+# Show some integer optimal solutions (up to 10)
+display_solutions = int_best_solutions[:10]
+print("Some integer optimal (E, T) pairs (up to 10 shown):", display_solutions)
+if len(int_best_solutions) > 10:
+    print(f"... and {len(int_best_solutions) - 10} more integer-optimal solutions (on the wood boundary).")
+
+# Final objective value to be printed in the exact required format.
+# Both continuous and integer optimal values are 500 in this problem, so print that.
+final_value = continuous_opt
+print(f"FINAL_OBJ: {final_value}")
+```

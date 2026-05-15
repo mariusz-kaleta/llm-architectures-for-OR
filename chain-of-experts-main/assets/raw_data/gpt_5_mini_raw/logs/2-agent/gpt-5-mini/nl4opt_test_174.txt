@@ -1,0 +1,95 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - E ∈ Z_{\ge 0}: number of patients measured with the electronic thermometer.
+  - R ∈ Z_{\ge 0}: number of patients measured with the regular thermometer.
+
+- Objective
+  - Maximize total patients: maximize Z = E + R.
+
+- Constraints
+  1. Time budget: 3E + 2R ≤ 15000 (minutes).
+  2. Electronic at least twice regular: E ≥ 2R.
+  3. Minimum regulars due to cooldown: R ≥ 50.
+  4. Integrality: E, R integers ≥ 0.
+
+Analysis and closed-form solution
+
+Because E ≥ 2R, write E = 2R + k with k ≥ 0 integer. Substitute into the time constraint:
+3(2R + k) + 2R ≤ 15000 ⇒ 8R + 3k ≤ 15000.
+
+The objective becomes Z = E + R = 3R + k. For fixed time, increasing R yields 3 additional patients at cost of 8 minutes per R (patients/minute = 3/8 = 0.375), while increasing k yields 1 additional patient at cost of 3 minutes (patients/minute = 1/3 ≈ 0.3333). Thus it is always better (in terms of maximizing patients) to put remaining time into increasing R rather than k. So set k = 0 (i.e. E = 2R) and maximize R subject to 8R ≤ 15000 and R ≥ 50.
+
+Max R = floor(15000 / 8) = 1875 (this satisfies R ≥ 50). Then E = 2R = 3750. Total patients Z = E + R = 3750 + 1875 = 5625. Time used: 3·3750 + 2·1875 = 11250 + 3750 = 15000 (all time used).
+
+Answer: maximum number of patients = 5625, with E = 3750 electronic checks and R = 1875 regular checks.
+
+Solvers / libraries
+
+- pulp (linear/integer programming in Python)
+- ortools (CP-SAT or linear solver; good for integer problems)
+- mip or docplex (commercial/free solvers interfaces)
+- scipy.optimize is for continuous problems, not suitable for integrality (unless you relax integrality).
+
+Example (pulp) skeleton
+
+from pulp import LpProblem, LpMaximize, LpVariable, LpInteger, value
+
+prob = LpProblem("Thermometers", LpMaximize)
+E = LpVariable("E", lowBound=0, cat=LpInteger)
+R = LpVariable("R", lowBound=0, cat=LpInteger)
+
+prob += E + R
+prob += 3*E + 2*R <= 15000
+prob += E - 2*R >= 0
+prob += R >= 50
+
+prob.solve()
+print("E =", int(E.value()), "R =", int(R.value()), "Total =", int(value(prob.objective)))
+
+This will return E=3750, R=1875, Total=5625.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+#!/usr/bin/env python3
+
+# Self-contained solver for the thermometers integer optimization problem.
+# Decision variables:
+#   E >= 0 integer (electronic measurements)
+#   R >= 0 integer (regular measurements)
+# Objective: maximize Z = E + R
+# Constraints:
+#   3E + 2R <= 15000
+#   E >= 2R
+#   R >= 50
+
+total_time = 15000
+
+bestZ = -1
+bestE = 0
+bestR = 0
+
+# Iterate feasible R values (R >= 50). Upper bound when 2R > total_time -> infeasible for any E.
+for R in range(50, total_time + 1):
+    rem = total_time - 2 * R  # comes from 3E + 2R <= total_time => 3E <= total_time - 2R
+    if rem < 0:
+        break  # larger R will only make rem more negative
+    E_min = 2 * R
+    E_max = rem // 3
+    if E_max < E_min:
+        continue  # no feasible E for this R
+    # For fixed R, objective increases with E, so take E = E_max
+    E = E_max
+    Z = E + R
+    if Z > bestZ:
+        bestZ = Z
+        bestE = E
+        bestR = R
+
+# bestZ should be the optimal objective value
+value = bestZ
+
+# Final required output line
+print(f"FINAL_OBJ: {value}")

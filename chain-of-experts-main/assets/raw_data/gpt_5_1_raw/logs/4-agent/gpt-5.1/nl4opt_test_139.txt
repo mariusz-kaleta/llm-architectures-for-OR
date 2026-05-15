@@ -1,0 +1,183 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximize total profit from selling regular and special sandwiches.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with two decision variables and simple resource constraints.
+
+3. Main decision variables  
+   - Let:
+     - Variable 1: Number of regular sandwiches to make.  
+     - Variable 2: Number of special sandwiches to make.
+
+4. Objective function (conceptual)  
+   - Maximize profit:
+     - Profit contribution:
+       - Regular sandwich: $3 each.
+       - Special sandwich: $4 each.
+   - Objective: Maximize (3 × regular) + (4 × special).
+
+5. Key constraints to consider  
+
+   a) Egg availability  
+   - Each regular sandwich uses 2 eggs.  
+   - Each special sandwich uses 3 eggs.  
+   - Total eggs available: 40.  
+   - Constraint: Total eggs used by all sandwiches cannot exceed 40.
+
+   b) Bacon availability  
+   - Each regular sandwich uses 3 slices of bacon.  
+   - Each special sandwich uses 5 slices of bacon.  
+   - Total bacon slices available: 70.  
+   - Constraint: Total bacon used by all sandwiches cannot exceed 70.
+
+   c) Non-negativity  
+   - The number of regular and special sandwiches cannot be negative.
+
+   d) Integrality (if required)  
+   - Since sandwiches are discrete items, the decision variables should be integers.  
+   - If a continuous LP solution is requested first, integrality can be relaxed and then checked; if fractional, move to an Integer Programming (IP) formulation or justify rounding based on problem context.
+
+6. Modelling strategy  
+   - Formulate the LP using the above objective and constraints.  
+   - Solve graphically (since there are two variables) or with an LP solver.  
+   - Identify the feasible region defined by egg and bacon constraints.  
+   - Evaluate the objective at each corner point of the feasible region to find the optimal combination of regular and special sandwiches.  
+   - If integrality is enforced, ensure the chosen point has integer coordinates and still respects all constraints.
+
+---
+
+[MODELER]:
+Here is a clean mathematical/algorithmic model of the problem.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x\) = number of regular sandwiches to make  
+- \(y\) = number of special sandwiches to make  
+
+If sandwiches must be whole items:
+- \(x, y \in \mathbb{Z}_{\ge 0}\) (non‑negative integers)
+
+If you allow a continuous relaxation first:
+- \(x, y \ge 0\) (real numbers)
+
+---
+
+## 2. Objective function
+
+Profit contributions:  
+- Regular sandwich: \$3 each  
+- Special sandwich: \$4 each  
+
+Maximize total profit:
+\[
+\max \; Z = 3x + 4y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Egg availability
+
+Each regular uses 2 eggs, each special uses 3 eggs, and there are 40 eggs:
+
+\[
+2x + 3y \le 40
+\]
+
+### b) Bacon availability
+
+Each regular uses 3 slices of bacon, each special uses 5 slices, and there are 70 slices:
+
+\[
+3x + 5y \le 70
+\]
+
+### c) Non‑negativity
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+### d) Integrality (if enforced)
+
+\[
+x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full model summary
+
+Maximize:
+\[
+Z = 3x + 4y
+\]
+
+Subject to:
+\[
+\begin{aligned}
+2x + 3y &\le 40 &&\text{(egg constraint)}\\
+3x + 5y &\le 70 &&\text{(bacon constraint)}\\
+x &\ge 0 &&\text{(non‑negativity)}\\
+y &\ge 0 &&\text{(non‑negativity)}\\
+x, y &\in \mathbb{Z} &&\text{(optionally enforce integrality)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+To implement and solve this model in Python, the following libraries are well‑suited:
+
+- **PuLP**  
+  - Good for small linear and integer programming models.  
+  - Simple modeling syntax: `LpProblem`, `LpVariable`, etc.  
+  - Can use open-source solvers (CBC) included by default.
+
+- **OR-Tools (Google OR-Tools)**  
+  - Excellent for integer and mixed‑integer programming.  
+  - Use the `pywraplp.Solver` interface with `CBC_MIXED_INTEGER_PROGRAMMING` or `GLOP_LINEAR_PROGRAMMING` for pure LP.
+
+- **SciPy (`scipy.optimize.linprog`)**  
+  - Good for continuous LP (no integer requirements).  
+  - Not suitable if integrality is strictly required, unless you handle rounding heuristically or implement your own search.
+
+For this small two-variable problem, **PuLP** or **OR-Tools** is ideal, especially if you want to enforce that sandwich counts are integers.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the problem: maximization
+    prob = pulp.LpProblem("Sandwich_Production", pulp.LpMaximize)
+
+    # Decision variables: non-negative integers
+    x = pulp.LpVariable('x', lowBound=0, cat='Integer')  # regular sandwiches
+    y = pulp.LpVariable('y', lowBound=0, cat='Integer')  # special sandwiches
+
+    # Objective function: Maximize profit 3x + 4y
+    prob += 3 * x + 4 * y
+
+    # Constraints
+    prob += 2 * x + 3 * y <= 40  # egg constraint
+    prob += 3 * x + 5 * y <= 70  # bacon constraint
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get final objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print result in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,90 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x ∈ Z≥0 : number of motorcycles
+- y ∈ Z≥0 : number of sedans
+
+Objective
+Maximize total earnings per shift:
+maximize Z = 100x + 225y
+
+Constraints
+1. Transport demand (at least 1200 people):
+30x + 70y ≥ 1200
+
+2. Pollution cap (company committed to producing less than 200 units):
+4x + 15y ≤ 200
+(Note: the problem statement uses a strict “less than 200”. In a linear/integer program this is modeled as ≤200; if integer-only and strict inequality is required, use ≤199.)
+
+3. At most 25% of vehicles can be motorcycles:
+x ≤ 0.25(x + y)  ⟺  3x ≤ y
+(derived by x ≤ 0.25(x+y) → 4x ≤ x + y → 3x ≤ y)
+
+4. Integrality and nonnegativity:
+x, y ∈ Z≥0
+
+Summary model
+maximize     Z = 100x + 225y
+subject to   30x + 70y ≥ 1200
+             4x + 15y ≤ 200
+             3x ≤ y
+             x, y ∈ Z≥0
+
+Feasibility analysis / solution
+- Try to satisfy the capacity and the 25% motorcycle cap simultaneously. Because motorcycles are limited (x ≤ 0.25(x+y) ⇒ y ≥ 3x), the smallest y relative to x is y = 3x.
+- With y = 3x the capacity constraint becomes 30x + 70(3x) = 240x ≥ 1200 ⇒ x ≥ 5 (so the smallest integer x that meets capacity under the 25% cap is x = 5, with y = 15).
+- For x = 5, y = 15 the pollution is 4·5 + 15·15 = 20 + 225 = 245 units of pollution.
+
+Because motorcycles are the lower-polluting vehicle, choosing fewer motorcycles (larger y relative to x) only increases total pollution. Therefore the minimum total pollution achievable while meeting the transport requirement and the 25% motorcycle cap is 245 units. That exceeds the pollution commitment of 200 units. Consequently the system of constraints is infeasible: there is no integer (or real) pair (x,y) satisfying all constraints simultaneously.
+
+Practical implications and alternatives
+- No feasible solution exists under the given constraints. The company must relax at least one constraint to make the problem feasible. Examples:
+  - Allow a higher pollution cap (at least 245 units), or
+  - Allow motorcycles to exceed 25% of the fleet, or
+  - Reduce the transport demand below 1200 per shift.
+- For reference, the vehicle combination that meets the capacity with the minimum pollution subject to the 25% motorcycle cap is x = 5 motorcycles and y = 15 sedans (capacity = 1200, pollution = 245, revenue = 100·5 + 225·15 = $3,875 per shift).
+
+Recommended solvers / Python libraries
+- For an integer linear program (recommended): pulp (with CBC), OR-Tools (CP-SAT / linear solver), or gurobi/cplex if available.
+- For a continuous LP relaxation: scipy.optimize.linprog.
+- Implementation note: use integer (LpInteger) variables in pulp or CP-SAT in OR-Tools to enforce integer vehicle counts.
+
+If you want, I can:
+- produce a short Python (pulp or OR-Tools) script that solves the model and demonstrates infeasibility, or
+- show the optimal solution after relaxing one of the constraints (e.g., if pollution cap raised to 245).
+
+---
+
+[CODER]:
+# Brute-force integer search for the given ILP model
+# Decision variables: x (motorcycles), y (sedans) - nonnegative integers
+# Maximize Z = 100x + 225y
+# Subject to:
+#   30x + 70y >= 1200
+#   4x + 15y <= 200
+#   3x <= y
+
+# We'll search over safe finite bounds derived from the pollution constraint:
+# y <= floor(200/15) and x <= floor(200/4). These are small, so brute-force is trivial.
+
+max_y = 200 // 15  # 13
+max_x = 200 // 4   # 50
+
+best_obj = None
+best_sol = None
+
+for x in range(max_x + 1):
+    for y in range(max_y + 1):
+        if 30 * x + 70 * y >= 1200 and 4 * x + 15 * y <= 200 and 3 * x <= y:
+            obj = 100 * x + 225 * y
+            if (best_obj is None) or (obj > best_obj):
+                best_obj = obj
+                best_sol = (x, y)
+
+if best_obj is None:
+    result_value = "INFEASIBLE"
+else:
+    result_value = best_obj
+
+print(f"FINAL_OBJ: {result_value}")

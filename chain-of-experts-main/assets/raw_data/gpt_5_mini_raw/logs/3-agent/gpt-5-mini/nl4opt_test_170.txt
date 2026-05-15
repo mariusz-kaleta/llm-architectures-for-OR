@@ -1,0 +1,85 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- s ∈ Z≥0 : number of small bottles used
+- l ∈ Z≥0 : number of large bottles used
+
+Objective
+Maximize total honey transported:
+maximize H = 5 s + 20 l
+
+Constraints
+- small bottles available: s ≤ 300
+- large bottles available: l ≤ 100
+- at least twice as many small as large: s ≥ 2 l
+- total bottles limit: s + l ≤ 200
+- at least 50 large bottles: l ≥ 50
+- integrality: s, l integers
+
+Mathematically:
+maximize 5s + 20l
+subject to
+s ≤ 300
+l ≤ 100
+s ≥ 2l
+s + l ≤ 200
+l ≥ 50
+s, l ∈ Z≥0
+
+Solve/analysis (simple algebraic reduction)
+Since 5s + 20l = 5(s + 4l) and small bottles give positive contribution, for any feasible l the objective is maximized by taking s as large as allowed (s ≤ 200 − l). Feasibility also requires s ≥ 2l, so for l we must have 2l ≤ 200 − l ⇒ 3l ≤ 200 ⇒ l ≤ 66. Thus l must be an integer in [50,66].
+
+For s = 200 − l the objective becomes H(l) = 5(200 − l) + 20l = 1000 + 15l, which increases with l, so choose the largest feasible l = 66. Then s = 200 − 66 = 134.
+
+Optimal solution
+- small bottles s* = 134
+- large bottles l* = 66
+- maximum honey H* = 5·134 + 20·66 = 1990 units
+
+Suggested Python libraries for solving
+- pulp (LP/MIP with CBC solver) — simple high-level modeling
+- OR-Tools (CP-SAT or linear solver) — fast integer solvers
+- mip (python-mip) — interfaces to CBC/Gurobi
+(Scipy.optimize is for continuous problems; use an integer MIP solver above.)
+
+Example (pulp) sketch
+- Define integer LpVariable s, l
+- Add constraints as above
+- Set objective 5*s + 20*l and solve with CBC
+- Read s.value(), l.value()
+
+This ILP is small and can also be solved by simple enumeration over l ∈ {50,...,66} or by the algebraic reduction shown above.
+
+---
+
+[CODER]:
+import sys
+
+# Problem data
+small_capacity = 300  # s <= 300
+large_capacity = 100  # l <= 100
+total_bottles = 200   # s + l <= 200
+min_large = 50        # l >= 50
+
+best_obj = None
+best_s = None
+best_l = None
+
+# Enumerate integer large bottle choices
+for l in range(min_large, large_capacity + 1):
+    # s must satisfy s >= 2l and s <= min(small_capacity, total_bottles - l)
+    low_s = 2 * l
+    high_s = min(small_capacity, total_bottles - l)
+    if low_s <= high_s:
+        # choose s to maximize objective 5*s + 20*l -> choose largest feasible s
+        s = high_s
+        H = 5 * s + 20 * l
+        if (best_obj is None) or (H > best_obj):
+            best_obj = H
+            best_s = s
+            best_l = l
+
+# Final objective value
+value = int(best_obj) if best_obj is not None else 0
+print(f"FINAL_OBJ: {value}")

@@ -1,0 +1,132 @@
+[MODELER]:
+**Decision variables**
+
+Let  
+- \(x_s \ge 0\): number of senior accountants (integer, but can be treated as continuous in a basic LP).  
+- \(x_j \ge 0\): number of junior accountants (integer, but can be treated as continuous in a basic LP).
+
+---
+
+**Objective**
+
+Minimize the total weekly wage bill:
+
+\[
+\min \; Z = 3000 x_s + 1000 x_j
+\]
+
+---
+
+**Constraints**
+
+1. **Minimum total number of accountants**
+
+At least 100 accountants in total:
+
+\[
+x_s + x_j \;\ge\; 100
+\]
+
+2. **Minimum number of senior accountants**
+
+At least 5 senior accountants:
+
+\[
+x_s \;\ge\; 5
+\]
+
+3. **Experience (senior-to-junior ratio) requirement**
+
+The number of senior accountants should be at least one-third of the number of juniors:
+
+\[
+x_s \;\ge\; \frac{1}{3} x_j
+\]
+
+Equivalently (if you prefer to avoid fractions):
+
+\[
+3 x_s \;\ge\; x_j
+\]
+
+4. **Weekly wage budget limit**
+
+Total wage bill must not exceed \$150,000:
+
+\[
+3000 x_s + 1000 x_j \;\le\; 150000
+\]
+
+5. **Non-negativity**
+
+\[
+x_s \;\ge\; 0,\quad x_j \;\ge\; 0
+\]
+
+If you want to enforce integer numbers of accountants explicitly, add:
+
+\[
+x_s, x_j \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+**Summary of the LP**
+
+\[
+\begin{aligned}
+\min \quad & 3000 x_s + 1000 x_j \\
+\text{s.t.} \quad
+& x_s + x_j \ge 100 \\
+& x_s \ge 5 \\
+& 3x_s \ge x_j \\
+& 3000 x_s + 1000 x_j \le 150000 \\
+& x_s, x_j \ge 0 \quad (\text{and integer, if required})
+\end{aligned}
+\]
+
+---
+
+**Suggested Python libraries**
+
+To model and solve this LP in Python, suitable choices include:
+
+- **PuLP** (`pulp`): simple, intuitive LP/MIP modeling.
+- **OR-Tools** (`ortools.linear_solver`): powerful Google optimization suite.
+- **Pyomo**: more general algebraic modeling language for optimization.
+
+For a straightforward LP like this, **PuLP** or **OR-Tools** would be ideal.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the LP problem: minimization
+    prob = pulp.LpProblem("Accountant_Staffing", pulp.LpMinimize)
+
+    # Decision variables (can be made Integer if needed)
+    x_s = pulp.LpVariable('x_s', lowBound=0, cat='Continuous')
+    x_j = pulp.LpVariable('x_j', lowBound=0, cat='Continuous')
+
+    # Objective function
+    prob += 3000 * x_s + 1000 * x_j
+
+    # Constraints
+    prob += x_s + x_j >= 100, "Min_total_accountants"
+    prob += x_s >= 5, "Min_seniors"
+    prob += 3 * x_s >= x_j, "Experience_ratio"
+    prob += 3000 * x_s + 1000 * x_j <= 150000, "Budget_limit"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Compute objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print FINAL_OBJ as required
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

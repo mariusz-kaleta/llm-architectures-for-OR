@@ -1,0 +1,180 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x = number of Oil Max containers produced (≥ 0)
+- y = number of Oil Max Pro containers produced (≥ 0)
+
+(If containers must be whole, add integrality: x, y ∈ Z≥0. Otherwise treat x,y as continuous nonnegative.)
+
+Objective
+Maximize total profit:
+Maximize Z = 10 x + 15 y
+
+Resource constraints (supplies of substances A, B, C)
+- Substance A: 46 x + 13 y ≤ 1345
+- Substance B: 43 x + 4  y ≤ 346
+- Substance C: 56 x + 45 y ≤ 1643
+
+Nonnegativity (and optionally integrality)
+- x ≥ 0, y ≥ 0  (and optionally x,y integers)
+
+Solving and numeric result
+- Continuous LP optimum: produce only Oil Max Pro until C is exhausted:
+  y* = 1643 / 45 ≈ 36.5111, x* = 0, maximum profit ≈ 547.67 dollars.
+- If containers must be integer (x,y integers): the best integer solution is
+  x = 0, y = 36 (since 45·36 = 1620 ≤ 1643 but 45·37 > 1643),
+  profit = 36·15 = $540.
+
+Remarks
+- Oil Max Pro gives higher profit per unit of the scarce resources (especially per unit of C), so the optimal plan uses only Oil Max Pro.
+- If you need exact integer optimization, use an integer solver; otherwise a linear programming solver gives the continuous optimum above.
+
+Recommended Python libraries
+- For continuous LP: scipy.optimize.linprog (simple, bundled with SciPy).
+- For LP/ILP with easy modeling: PuLP (uses CBC by default; can use Gurobi/CPLEX if available).
+- For integer/mixed-integer: OR-Tools (CP-SAT) or PuLP with an integer solver, or commercial solvers (Gurobi, CPLEX).
+- If you need many scenarios or more complex constraints, consider Pyomo (with CBC/Gurobi/CPLEX).
+
+Example (PuLP) — integer version
+- Define variables as LpInteger, add the three constraints and objective, and solve with the default CBC solver; you will get x=0, y=36.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained solver for the Oil Max / Oil Max Pro optimization problem.
+# Solves both the continuous LP and the integer (ILP) versions.
+# At the very end prints the final objective value in the exact required format.
+
+from math import floor, isfinite
+
+# Problem data
+# Variables: x = Oil Max, y = Oil Max Pro
+c_x = 10.0
+c_y = 15.0
+
+# Constraints: a1 x + b1 y <= rhs1, etc.
+A = [46.0, 43.0, 56.0]
+B = [13.0, 4.0, 45.0]
+RHS = [1345.0, 346.0, 1643.0]
+
+# Try to use PuLP if available for exact modeling; otherwise fallback to direct computations.
+use_pulp = True
+try:
+    import pulp
+except Exception:
+    use_pulp = False
+
+def solve_with_pulp():
+    # Continuous LP
+    prob_lp = pulp.LpProblem("OilMix_Continuous", pulp.LpMaximize)
+    x = pulp.LpVariable("x", lowBound=0, cat='Continuous')
+    y = pulp.LpVariable("y", lowBound=0, cat='Continuous')
+    prob_lp += c_x * x + c_y * y
+    prob_lp += A[0]*x + B[0]*y <= RHS[0]
+    prob_lp += A[1]*x + B[1]*y <= RHS[1]
+    prob_lp += A[2]*x + B[2]*y <= RHS[2]
+    prob_lp.solve(pulp.PULP_CBC_CMD(msg=False))
+    x_cont = x.varValue if x.varValue is not None else 0.0
+    y_cont = y.varValue if y.varValue is not None else 0.0
+    obj_cont = pulp.value(prob_lp.objective)
+
+    # Integer ILP
+    prob_ilp = pulp.LpProblem("OilMix_Integer", pulp.LpMaximize)
+    xi = pulp.LpVariable("xi", lowBound=0, cat='Integer')
+    yi = pulp.LpVariable("yi", lowBound=0, cat='Integer')
+    prob_ilp += c_x * xi + c_y * yi
+    prob_ilp += A[0]*xi + B[0]*yi <= RHS[0]
+    prob_ilp += A[1]*xi + B[1]*yi <= RHS[1]
+    prob_ilp += A[2]*xi + B[2]*yi <= RHS[2]
+    prob_ilp.solve(pulp.PULP_CBC_CMD(msg=False))
+    x_int = xi.varValue if xi.varValue is not None else 0
+    y_int = yi.varValue if yi.varValue is not None else 0
+    obj_int = pulp.value(prob_ilp.objective)
+
+    return (x_cont, y_cont, float(obj_cont)), (int(x_int), int(y_int), float(obj_int))
+
+def solve_fallback():
+    # Fallback: enumerate LP corner points (intersections of pairs of constraints and axes)
+    # and integer grid search for ILP.
+    import itertools
+
+    # Helper to check feasibility
+    def feasible(x, y):
+        if x < -1e-9 or y < -1e-9:
+            return False
+        for a, b, rhs in zip(A, B, RHS):
+            if a*x + b*y > rhs + 1e-9:
+                return False
+        return True
+
+    candidates = []
+    # Add origin
+    candidates.append((0.0, 0.0))
+    # Intersections with axes
+    # x = 0 -> y = min(rhs/b)
+    y_on_x0 = min((rhs / b) for b, rhs in zip(B, RHS))
+    candidates.append((0.0, y_on_x0))
+    # y = 0 -> x = min(rhs/a)
+    x_on_y0 = min((rhs / a) for a, rhs in zip(A, RHS))
+    candidates.append((x_on_y0, 0.0))
+    # Intersections of each pair of constraints (solve 2x2)
+    pairs = [(0,1), (0,2), (1,2)]
+    for i, j in pairs:
+        a1, b1, r1 = A[i], B[i], RHS[i]
+        a2, b2, r2 = A[j], B[j], RHS[j]
+        det = a1*b2 - a2*b1
+        if abs(det) < 1e-12:
+            continue
+        x = (r1*b2 - r2*b1) / det
+        y = (a1*r2 - a2*r1) / det
+        candidates.append((x, y))
+
+    # Evaluate candidates for LP continuous
+    best_obj = -1e100
+    best_point = (0.0, 0.0)
+    for x, y in candidates:
+        if feasible(x, y):
+            obj = c_x*x + c_y*y
+            if obj > best_obj:
+                best_obj = obj
+                best_point = (x, y)
+
+    x_cont, y_cont, obj_cont = best_point[0], best_point[1], best_obj
+
+    # Integer brute force search within bounds
+    max_x = int(floor(min(RHS[i]/A[i] for i in range(len(A)))))
+    max_y = int(floor(min(RHS[i]/B[i] for i in range(len(B)))))
+    best_obj_i = -1e100
+    best_point_i = (0, 0)
+    for xi in range(0, max_x+1):
+        # For each xi, we can compute max feasible yi by scanning up to max_y
+        for yi in range(0, max_y+1):
+            if feasible(xi, yi):
+                obj = c_x*xi + c_y*yi
+                if obj > best_obj_i:
+                    best_obj_i = obj
+                    best_point_i = (xi, yi)
+
+    x_int, y_int, obj_int = best_point_i[0], best_point_i[1], best_obj_i
+
+    return (x_cont, y_cont, obj_cont), (x_int, y_int, obj_int)
+
+if use_pulp:
+    cont_sol, int_sol = solve_with_pulp()
+else:
+    cont_sol, int_sol = solve_fallback()
+
+x_cont, y_cont, obj_cont = cont_sol
+x_int, y_int, obj_int = int_sol
+
+# Print concise results (other prints are allowed; final line must be EXACT as specified)
+print(f"Continuous solution: x = {x_cont:.6f}, y = {y_cont:.6f}, objective = {obj_cont:.6f}")
+print(f"Integer solution: x = {x_int}, y = {y_int}, objective = {obj_int:.6f}")
+
+# Final required print line (must be the very last line of output).
+# Choose the integer solution objective as the final reported value (as per the integer/packaging interpretation).
+print(f"FINAL_OBJ: {obj_int}")
+```

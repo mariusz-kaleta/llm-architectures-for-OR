@@ -1,0 +1,44 @@
+[MONOLITH]:
+import pulp
+
+# Problem data
+total_land = 500  # acres
+water_minutes_available = 40000  # minutes
+pesticide_budget = 34000  # dollars
+
+# Per-acre requirements and revenues
+water_per_acre_turnips = 50   # minutes
+water_per_acre_pumpkins = 90  # minutes
+pest_per_acre_turnips = 80    # dollars
+pest_per_acre_pumpkins = 50   # dollars
+rev_per_acre_turnips = 300    # dollars
+rev_per_acre_pumpkins = 450   # dollars
+
+# Define LP: maximize revenue
+prob = pulp.LpProblem("Farm_Revenue_Max", pulp.LpMaximize)
+
+# Decision variables: acres of turnips (T) and pumpkins (P)
+T = pulp.LpVariable("Turnips_acres", lowBound=0)
+P = pulp.LpVariable("Pumpkins_acres", lowBound=0)
+
+# Objective
+prob += rev_per_acre_turnips * T + rev_per_acre_pumpkins * P, "Total_Revenue"
+
+# Constraints
+prob += T + P <= total_land, "Land_Limit"
+prob += water_per_acre_turnips * T + water_per_acre_pumpkins * P <= water_minutes_available, "Water_Limit"
+prob += pest_per_acre_turnips * T + pest_per_acre_pumpkins * P <= pesticide_budget, "Pesticide_Limit"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+turnips_acres = pulp.value(T)
+pumpkins_acres = pulp.value(P)
+final_obj = pulp.value(prob.objective)
+
+# Print results
+print(f"Optimal acres of turnips: {turnips_acres:.6f}")
+print(f"Optimal acres of pumpkins: {pumpkins_acres:.6f}")
+print(f"Total revenue: {final_obj:.2f}")
+print(f"FINAL_OBJ: {final_obj}")

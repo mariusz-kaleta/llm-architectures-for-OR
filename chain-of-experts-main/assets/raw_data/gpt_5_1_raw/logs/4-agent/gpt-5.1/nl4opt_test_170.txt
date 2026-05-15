@@ -1,0 +1,309 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximize the total units of honey transported in bottles.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with integer decision variables (Integer LP).  
+   - The structure is simple enough that it can later be solved graphically or by enumeration, but it should be formulated as an ILP for clarity.
+
+3. Main decision variables  
+   - Let:
+     - `S` = number of small bottles used  
+     - `L` = number of large bottles used  
+
+4. Objective function (conceptual)  
+   - Each small bottle carries 5 units of honey.  
+   - Each large bottle carries 20 units of honey.  
+   - Objective: Maximize total honey = `5*S + 20*L`.
+
+5. Key constraints to consider  
+
+   a) Capacity limits on bottle availability  
+   - Small bottles available: at most 300  
+     - Constraint: `S ≤ 300`  
+   - Large bottles available: at most 100  
+     - Constraint: `L ≤ 100`
+
+   b) Relative usage of small vs large bottles  
+   - At least twice as many small bottles as large bottles  
+     - Constraint: `S ≥ 2*L`
+
+   c) Total number of bottles that can be transported  
+   - At most 200 bottles in total  
+     - Constraint: `S + L ≤ 200`
+
+   d) Minimum number of large bottles used  
+   - At least 50 large bottles  
+     - Constraint: `L ≥ 50`
+
+   e) Non-negativity and integrality  
+   - Both `S` and `L` must be non-negative integers  
+     - Constraints: `S ≥ 0`, `L ≥ 0`, and both integer.
+
+6. Modelling / solving strategy advice for the Modeller  
+
+   - Start from the LP formulation described above with integer constraints on `S` and `L`.  
+   - Since there are only two variables and the constraints are linear, you can:
+     - Either solve via standard ILP solver, or  
+     - Use a geometric/graphical method:
+       - Plot all linear constraints in the `S-L` plane.
+       - Determine the feasible polygon (region) satisfying all inequalities.
+       - Identify the corner points (vertices) of this feasible region.
+       - Evaluate the objective `5*S + 20*L` at each vertex to find the maximum.
+   - Pay particular attention to the interaction between:
+     - The “at least twice as many small as large” constraint (`S ≥ 2L`) and  
+     - The total bottles constraint (`S + L ≤ 200`) and  
+     - The minimum large bottles (`L ≥ 50`), which pushes the solution away from trivial extremes.
+   - Ensure the chosen optimal point respects all bounds (especially `S ≤ 300`, `L ≤ 100`; note that some of these may be non-binding but must still be checked).
+
+The Modeller’s next step is to take this structure, write the explicit inequalities and objective, then solve the small 2-variable ILP (or continuous LP then verify integrality) and report the optimal `(S, L)` and corresponding maximum honey transported.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model and how you’d solve it.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(S \in \mathbb{Z}_+\): number of small bottles used  
+- \(L \in \mathbb{Z}_+\): number of large bottles used  
+
+(“\(\mathbb{Z}_+\)” means non‑negative integers.)
+
+---
+
+## 2. Objective function
+
+Each small bottle carries 5 units of honey; each large bottle carries 20 units.
+
+Maximize total honey transported:
+\[
+\max \; Z = 5S + 20L
+\]
+
+---
+
+## 3. Constraints
+
+1. **Availability of bottles**
+   - At most 300 small bottles:
+     \[
+     S \le 300
+     \]
+   - At most 100 large bottles:
+     \[
+     L \le 100
+     \]
+
+2. **Relative usage: small vs large**
+   - At least twice as many small bottles as large bottles:
+     \[
+     S \ge 2L
+     \]
+
+3. **Total number of bottles transportable**
+   - At most 200 bottles in total:
+     \[
+     S + L \le 200
+     \]
+
+4. **Minimum number of large bottles**
+   - At least 50 large bottles:
+     \[
+     L \ge 50
+     \]
+
+5. **Non‑negativity and integrality**
+   \[
+   S \ge 0,\quad L \ge 0,\quad S, L \in \mathbb{Z}
+   \]
+
+---
+
+## 4. Complete ILP model
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 5S + 20L \\
+\text{subject to} \quad 
+& S \le 300 \\
+& L \le 100 \\
+& S \ge 2L \\
+& S + L \le 200 \\
+& L \ge 50 \\
+& S \ge 0,\; L \ge 0 \\
+& S, L \in \mathbb{Z}
+\end{aligned}
+\]
+
+Because there are only two variables and all constraints are linear, this is a very small integer linear program.
+
+---
+
+## 5. Solving and optimal solution (by reasoning)
+
+The objective \(5S + 20L\) can be rewritten as:
+\[
+Z = 5S + 20L = 5(S + 4L)
+\]
+For fixed \(S + L\), increasing \(L\) increases \(S + 4L\); hence we generally want as many large bottles as possible, subject to constraints.
+
+From the key constraints:
+
+- \(L \ge 50\)
+- \(L \le 100\)
+- \(S \ge 2L\)
+- \(S + L \le 200\)
+
+Use \(S \ge 2L\) and \(S + L \le 200\):
+
+\[
+2L + L \le 200 \;\Rightarrow\; 3L \le 200 \;\Rightarrow\; L \le \frac{200}{3} \approx 66.67
+\]
+
+So feasible \(L\) must satisfy:
+\[
+50 \le L \le 66
+\]
+
+To maximize honey, we take the largest feasible \(L\), i.e. \(L = 66\):
+
+- Then \(S \ge 2L = 132\).
+- Total bottles constraint: \(S + L \le 200 \Rightarrow S + 66 \le 200 \Rightarrow S \le 134\).
+
+So feasible \(S\) for \(L=66\): \(132 \le S \le 134\).
+All also respect \(S \le 300\).
+
+Compute honey for the extreme feasible points:
+
+- \(L = 66, S = 132\):
+  \[
+  Z = 5\cdot132 + 20\cdot66 = 660 + 1320 = 1980
+  \]
+- \(L = 66, S = 133\):
+  \[
+  Z = 5\cdot133 + 20\cdot66 = 665 + 1320 = 1985
+  \]
+- \(L = 66, S = 134\):
+  \[
+  Z = 5\cdot134 + 20\cdot66 = 670 + 1320 = 1990
+  \]
+
+No higher \(L\) is feasible; lower \(L\) will reduce \(20L\) significantly. So the best is:
+
+- **Optimal solution:**  
+  - Small bottles: \(S^* = 134\)  
+  - Large bottles: \(L^* = 66\)
+
+- **Maximum honey transported:**
+  \[
+  Z^* = 1990 \text{ units of honey}
+  \]
+
+---
+
+## 6. Suitable Python libraries and approach
+
+You can model and solve this ILP in several ways:
+
+1. **PuLP** (simple, pure Python, good for teaching/small problems):
+   ```python
+   import pulp as pl
+
+   # Define the problem
+   prob = pl.LpProblem("Honey_Transport", pl.LpMaximize)
+
+   # Decision variables
+   S = pl.LpVariable("S", lowBound=0, cat="Integer")
+   L = pl.LpVariable("L", lowBound=0, cat="Integer")
+
+   # Objective
+   prob += 5*S + 20*L
+
+   # Constraints
+   prob += S <= 300
+   prob += L <= 100
+   prob += S >= 2*L
+   prob += S + L <= 200
+   prob += L >= 50
+
+   # Solve
+   prob.solve()
+
+   print("Status:", pl.LpStatus[prob.status])
+   print("Optimal S:", S.value())
+   print("Optimal L:", L.value())
+   print("Max honey:", pl.value(5*S + 20*L))
+   ```
+
+2. **OR-Tools (MIP solver from Google, efficient and robust):**
+   ```python
+   from ortools.linear_solver import pywraplp
+
+   solver = pywraplp.Solver.CreateSolver("CBC")
+
+   S = solver.IntVar(0, solver.infinity(), "S")
+   L = solver.IntVar(0, solver.infinity(), "L")
+
+   # Constraints
+   solver.Add(S <= 300)
+   solver.Add(L <= 100)
+   solver.Add(S >= 2 * L)
+   solver.Add(S + L <= 200)
+   solver.Add(L >= 50)
+
+   # Objective
+   objective = solver.Objective()
+   objective.SetCoefficient(S, 5)
+   objective.SetCoefficient(L, 20)
+   objective.SetMaximization()
+
+   status = solver.Solve()
+
+   if status == pywraplp.Solver.OPTIMAL:
+       print("Optimal S:", S.solution_value())
+       print("Optimal L:", L.solution_value())
+       print("Max honey:", objective.Value())
+   ```
+
+3. **scipy.optimize** is more for continuous LP / nonlinear problems; you’d need to drop integrality or use an external MIP solver. For a clear integer model like this, PuLP or OR-Tools are better choices.
+
+For this particular 2-variable problem, a graphical or manual enumeration (as above) is also perfectly viable, but the ILP formulation scales to larger versions.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Honey_Transport", pl.LpMaximize)
+
+    # Decision variables
+    S = pl.LpVariable("S", lowBound=0, cat="Integer")
+    L = pl.LpVariable("L", lowBound=0, cat="Integer")
+
+    # Objective function: Maximize 5S + 20L
+    prob += 5 * S + 20 * L
+
+    # Constraints
+    prob += S <= 300          # At most 300 small bottles
+    prob += L <= 100          # At most 100 large bottles
+    prob += S >= 2 * L        # At least twice as many small as large
+    prob += S + L <= 200      # Total bottles at most 200
+    prob += L >= 50           # At least 50 large bottles
+
+    # Solve the problem
+    prob.solve()
+
+    # Retrieve optimal objective value
+    final_obj = pl.value(5 * S + 20 * L)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

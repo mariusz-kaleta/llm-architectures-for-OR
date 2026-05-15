@@ -1,0 +1,38 @@
+[MONOLITH]:
+import pulp
+
+# Data (from problem statement)
+vintage_volume = 500      # ml per vintage bottle
+regular_volume = 750      # ml per regular bottle
+total_volume_available = 100000  # ml
+min_vintage = 10
+ratio_regular_to_vintage = 4  # regular bottles must be at least 4 times vintage
+
+# Define the problem
+prob = pulp.LpProblem("Maximize_Number_of_Bottles", pulp.LpMaximize)
+
+# Decision variables: number of vintage (x) and regular (y) bottles (integer)
+x = pulp.LpVariable("vintage_bottles", lowBound=0, cat="Integer")
+y = pulp.LpVariable("regular_bottles", lowBound=0, cat="Integer")
+
+# Objective: maximize total number of bottles
+prob += x + y, "Total_Bottles"
+
+# Constraints
+prob += vintage_volume * x + regular_volume * y <= total_volume_available, "Volume_Constraint"
+prob += y >= ratio_regular_to_vintage * x, "Ratio_Constraint"
+prob += x >= min_vintage, "Min_Vintage_Constraint"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Retrieve results
+x_opt = int(pulp.value(x))
+y_opt = int(pulp.value(y))
+obj_val = int(pulp.value(prob.objective))
+
+# Output results
+print(f"Vintage bottles: {x_opt}")
+print(f"Regular bottles: {y_opt}")
+print(f"Total bottles: {obj_val}")
+print(f"FINAL_OBJ: {obj_val}")

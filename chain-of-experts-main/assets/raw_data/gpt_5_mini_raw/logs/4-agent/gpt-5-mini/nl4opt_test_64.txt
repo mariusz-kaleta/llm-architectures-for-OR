@@ -1,0 +1,100 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Minimise the total pollution produced while satisfying the shipment requirement.
+
+2) Suggested model type
+- Model: Integer Linear Programming (ILP). Both decision variables are counts of vehicles so they must be non‑negative integers. (A simple IP solver or exhaustive/greedy enumeration will suffice because the problem size is tiny.)
+
+3) Main decision variables (describe, not formal symbols)
+- Number of old vans to use (integer, >= 0).
+- Number of new vans to use (integer, >= 0).
+
+4) Objective (description)
+- Minimise total pollution, i.e. pollution contributed by each old van plus pollution contributed by each new van.
+
+5) Key constraints to include (verbal)
+- Capacity constraint: the total carrying capacity provided by all vans must be at least 5,000 bottles (each old van contributes 100 bottle capacity; each new van contributes 80).
+- New-van availability: no more than 30 new vans can be used.
+- Integrality and non‑negativity: both counts must be whole numbers and cannot be negative.
+- (Optional secondary constraint/objective) If you want to prefer fewer vehicles when pollution ties occur, add a tie‑breaker that minimises total number of vans.
+
+6) Implementation/solution hints for the modeller
+- The objective and constraints are linear in the decision variables, so use an ILP solver (e.g., CBC, Gurobi, CPLEX, or any open‑source IP routine).
+- Because there are only two integer variables, a trivial enumeration or a greedy logic works quickly: compare pollution per bottle for each van type to decide priority, then respect the max‑30 new vans cap and fill remaining demand with old vans.
+- Verify feasibility (ensure enough old vans can be used to meet demand if new vans are capped).
+
+Deliverable expected from modeller
+- A solved integer solution: the integer counts of old and new vans that meet the constraints and achieve minimum total pollution, plus the computed total pollution and total capacity.
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- x ∈ Z≥0 : number of old vans used.
+- y ∈ Z≥0 : number of new vans used (and y ≤ 30).
+
+Objective
+- Minimise total pollution: minimize Z = 50x + 30y.
+
+Constraints
+1. Capacity: 100x + 80y ≥ 5000.
+2. New-van availability: 0 ≤ y ≤ 30 and integer.
+3. Integrality & non-negativity: x ∈ Z≥0.
+
+Mathematical formulation
+Minimize Z = 50x + 30y
+subject to
+100x + 80y ≥ 5000
+0 ≤ y ≤ 30, y ∈ Z
+x ≥ 0, x ∈ Z
+
+Optimal solution (analytic)
+Pollution per bottle: old van = 50/100 = 0.50, new van = 30/80 = 0.375. New vans are more pollution‑efficient, so use the maximum allowed new vans, y = 30. Capacity from new vans = 80·30 = 2400 bottles. Remaining bottles = 5000 − 2400 = 2600 → need x = ceil(2600/100) = 26 old vans.
+
+Solution:
+- Old vans x = 26
+- New vans y = 30
+Total capacity = 26·100 + 30·80 = 5000 (meets requirement exactly).
+Total pollution = 26·50 + 30·30 = 1300 + 900 = 2200 units.
+
+Correctness note
+Because new vans have strictly lower pollution per bottle, the optimal policy is to use as many new vans as allowed and fill the remainder with old vans. The integer cap y ≤ 30 makes y = 30 optimal.
+
+Recommended solvers/libraries
+- Python: pulp (CBC), OR-Tools CP-SAT, or mip (with CBC). For commercial solvers: Gurobi or CPLEX.
+- For this tiny 2-variable ILP a simple enumeration or a small integer search loop is trivial and fast.
+
+---
+
+[CODER]:
+import math
+
+# Problem data
+capacity_required = 5000
+pollution_old = 50
+pollution_new = 30
+cap_old = 100
+cap_new = 80
+max_new = 30
+
+best_obj = None
+best_x = None
+best_y = None
+
+for y in range(0, max_new + 1):
+    remaining = capacity_required - cap_new * y
+    if remaining <= 0:
+        x = 0
+    else:
+        x = math.ceil(remaining / cap_old)
+    obj = pollution_old * x + pollution_new * y
+    if best_obj is None or obj < best_obj:
+        best_obj = obj
+        best_x = x
+        best_y = y
+
+# Final objective value
+final_obj = int(best_obj)
+print(f"FINAL_OBJ: {final_obj}")

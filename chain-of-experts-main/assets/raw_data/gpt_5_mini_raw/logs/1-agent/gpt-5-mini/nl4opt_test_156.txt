@@ -1,0 +1,52 @@
+[MONOLITH]:
+import pulp
+
+# Data (from the problem statement)
+total_images_required = 10000
+rate_specialized = 60.0   # images per hour
+rate_common = 40.0        # images per hour
+cost_per_hour_specialized = 100.0
+cost_per_hour_common = 72.0
+
+# Derived costs per image
+cost_per_image_specialized = cost_per_hour_specialized / rate_specialized
+cost_per_image_common = cost_per_hour_common / rate_common
+
+# Define LP
+prob = pulp.LpProblem("Annotation_Distribution", pulp.LpMinimize)
+
+# Decision variables: number of images assigned to each company (continuous)
+x = pulp.LpVariable("images_specialized", lowBound=0, cat='Continuous')  # specialized
+y = pulp.LpVariable("images_common", lowBound=0, cat='Continuous')       # common
+
+# Objective: minimize total cost
+prob += cost_per_image_specialized * x + cost_per_image_common * y
+
+# Constraints
+prob += x + y >= total_images_required, "Total_images_requirement"
+# At least a third of work must be allocated to specialized:
+# x >= (x + y) / 3  ->  3x >= x + y  ->  2x - y >= 0
+prob += 2 * x - y >= 0, "At_least_one_third_specialized"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract solution
+images_specialized = pulp.value(x)
+images_common = pulp.value(y)
+hours_specialized = images_specialized / rate_specialized
+hours_common = images_common / rate_common
+cost_specialized = hours_specialized * cost_per_hour_specialized
+cost_common = hours_common * cost_per_hour_common
+total_cost = pulp.value(prob.objective)
+
+# Optional prints (not required), final required print must be last and in exact format
+print(f"Images assigned to specialized company: {images_specialized}")
+print(f"Images assigned to common company: {images_common}")
+print(f"Hours for specialized company: {hours_specialized}")
+print(f"Hours for common company: {hours_common}")
+print(f"Cost for specialized company: ${cost_specialized}")
+print(f"Cost for common company: ${cost_common}")
+
+value = total_cost
+print(f"FINAL_OBJ: {value}")

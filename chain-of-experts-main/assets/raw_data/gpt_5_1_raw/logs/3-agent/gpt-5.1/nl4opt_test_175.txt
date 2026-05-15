@@ -1,0 +1,151 @@
+[MODELER]:
+Here is a precise mathematical model of the problem.
+
+### 1. Decision variables
+
+Let
+
+- \(x \in \mathbb{Z}_{\ge 0}\): number of van trips  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of truck trips  
+
+(Both must be non‑negative integers.)
+
+### 2. Objective
+
+Minimize the total number of trips:
+
+\[
+\min\; T = x + y
+\]
+
+### 3. Constraints
+
+1. **Capacity / demand constraint**  
+   Each van trip carries 50 boxes; each truck trip carries 80 boxes.  
+   Need at least 1500 boxes transported:
+
+   \[
+   50x + 80y \;\ge\; 1500
+   \]
+
+2. **Budget constraint**  
+   Each van trip costs \$30; each truck trip costs \$50.  
+   Total cost cannot exceed \$1000:
+
+   \[
+   30x + 50y \;\le\; 1000
+   \]
+
+3. **Advertising requirement**  
+   Number of van trips must be strictly larger than number of truck trips:
+
+   \[
+   x \;>\; y
+   \]
+
+   In integer form for a solver, this is usually written as:
+
+   \[
+   x \;\ge\; y + 1
+   \]
+
+4. **Integrality and nonnegativity**
+
+   \[
+   x, y \in \mathbb{Z},\quad x \ge 0,\; y \ge 0
+   \]
+
+### 4. Problem type
+
+This is an **integer linear programming (ILP)** problem:
+
+- Objective function is linear: \(x + y\)
+- All constraints are linear
+- Variables are integers
+
+### 5. Suitable Python libraries
+
+To solve this integer linear program in Python, good options are:
+
+- **PuLP** (`pulp`)  
+  - Simple modeling syntax  
+  - Can use CBC (bundled), GLPK, or commercial solvers
+
+- **OR-Tools** (`ortools.linear_solver` or `ortools.sat.python.cp_model`)  
+  - Very efficient, good for integer/constraint programming  
+  - CP-SAT (`cp_model`) is often fastest for integer problems
+
+- **Pyomo** (`pyomo.environ`)  
+  - More general algebraic modeling language  
+  - Works with many external solvers
+
+For a compact model like this, **PuLP** or **OR-Tools CP-SAT** is ideal.
+
+### 6. Sketch of a PuLP formulation
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Chocolate_Transport", pl.LpMinimize)
+
+# Variables (non-negative integers)
+x = pl.LpVariable("van_trips", lowBound=0, cat="Integer")
+y = pl.LpVariable("truck_trips", lowBound=0, cat="Integer")
+
+# Objective: minimize total trips
+prob += x + y, "Total_Trips"
+
+# Constraints
+prob += 50*x + 80*y >= 1500, "Demand"
+prob += 30*x + 50*y <= 1000, "Budget"
+prob += x >= y + 1,          "More_Vans_Than_Trucks"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Van trips:", x.value())
+print("Truck trips:", y.value())
+print("Total trips:", x.value() + y.value())
+```
+
+This implementation directly matches the mathematical model above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Transport_Optimization", pl.LpMinimize)
+
+    # Decision variables: non-negative integers
+    x = pl.LpVariable("van_trips", lowBound=0, cat="Integer")
+    y = pl.LpVariable("truck_trips", lowBound=0, cat="Integer")
+
+    # Objective: minimize total trips
+    prob += x + y, "Total_Trips"
+
+    # Constraints
+    # Capacity / demand constraint
+    prob += 50 * x + 80 * y >= 1500, "Demand"
+
+    # Budget constraint
+    prob += 30 * x + 50 * y <= 1000, "Budget"
+
+    # Advertising requirement: x > y  -> x >= y + 1
+    prob += x >= y + 1, "More_Vans_Than_Trucks"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Compute final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

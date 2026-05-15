@@ -1,0 +1,90 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x ∈ Z≥0 = number of sedans to buy
+  - y ∈ Z≥0 = number of buses to buy
+
+- Objective
+  - Minimise total number of vehicles: minimize Z = x + y
+
+- Constraints
+  - Capacity: 50x + 250y ≥ 4600 (at least 4600 tourists/day)
+  - Pollution: 10x + 40y ≤ 800 (at most 800 pollution units/day)
+  - x, y integers and ≥ 0
+
+Simplified (divide constraints):
+  - x + 5y ≥ 92
+  - x + 4y ≤ 80
+
+Analytical solution
+
+From the two linear inequalities:
+  - Subtracting: (x+5y) − (x+4y) ≥ 92 − 80 ⇒ y ≥ 12
+  - From x + 4y ≤ 80 and x ≥ 0 ⇒ y ≤ 20
+
+So y ∈ {12,13,…,20}. For each integer y the smallest feasible x is x = max(0, 92 − 5y), but x also must satisfy x ≤ 80 − 4y. Evaluating:
+
+- y = 12 ⇒ x = 32 ⇒ total = 44
+- y = 13 ⇒ x = 27 ⇒ total = 40
+- y = 14 ⇒ x = 22 ⇒ total = 36
+- y = 15 ⇒ x = 17 ⇒ total = 32
+- y = 16 ⇒ x = 12 ⇒ total = 28
+- y = 17 ⇒ x = 7  ⇒ total = 24
+- y = 18 ⇒ x = 2  ⇒ total = 20
+- y = 19 ⇒ x = 0  ⇒ total = 19  ← minimum
+- y = 20 ⇒ x = 0  ⇒ total = 20
+
+Optimal solution: x = 0 sedans and y = 19 buses, giving 19 vehicles total. This satisfies:
+  - Capacity: 250·19 = 4750 ≥ 4600
+  - Pollution: 40·19 = 760 ≤ 800
+
+Solver suggestions
+
+- For small integer LPs you can solve analytically or by simple enumeration.
+- Python libraries:
+  - pulp (open-source MILP with CBC) — easy to use for integer linear programs
+  - OR-Tools (CP-SAT) — very fast for integer problems
+  - mip (Python-MIP) or gurobipy (if you have Gurobi) — for larger/industrial problems
+  - scipy.optimize is not suitable for integer programming (continuous only)
+
+Example (PuLP)
+  - Set up variables x,y as LpInteger, objective minimize x+y, add constraints 50*x+250*y >= 4600 and 10*x+40*y <= 800, solve. The solver will return x=0, y=19.
+
+If you want, I can provide a ready-to-run Python snippet (PuLP or OR-Tools) that implements this model.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+import math
+
+# Data
+cap_per_sedan = 50
+cap_per_bus = 250
+poll_per_sedan = 10
+poll_per_bus = 40
+required_capacity = 4600
+max_pollution = 800
+
+# Brute-force search over reasonable ranges
+# Upper bounds: buses alone can cover capacity -> ceil(4600/250)=19, but allow some slack
+max_search = 200
+
+best_obj = None
+best_x = None
+best_y = None
+
+for x in range(0, max_search + 1):
+    for y in range(0, max_search + 1):
+        if (cap_per_sedan * x + cap_per_bus * y) >= required_capacity and (poll_per_sedan * x + poll_per_bus * y) <= max_pollution:
+            obj = x + y
+            if best_obj is None or obj < best_obj:
+                best_obj = obj
+                best_x = x
+                best_y = y
+
+# Print final objective value in required format
+print(f"FINAL_OBJ: {best_obj}")
+```

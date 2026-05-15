@@ -1,0 +1,73 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of sedans (integer, x >= 0)
+  - y = number of buses (integer, y >= 0)
+
+- Objective
+  - Minimize total vehicles: minimize Z = x + y
+
+- Constraints
+  - Capacity: 50x + 250y >= 4600  (must serve at least 4,600 customers)
+  - Pollution: 10x + 40y <= 800   (city pollution limit)
+  - Integrality: x, y integer and nonnegative
+
+You can simplify the constraints by dividing:
+- Capacity: x + 5y >= 92
+- Pollution: x + 4y <= 80
+
+Feasibility and optimal solution (analytic)
+- From x + 5y >= 92 and x + 4y <= 80, subtracting gives y >= 12. Also x <= 80 - 4y, so y <= 20 (to keep x >= 0).
+- Evaluate integer y = 12..20 and choose x = max(0, 92 - 5y) (smallest feasible x for given y). The objective x + y is minimized at:
+  - y = 19, x = 0 total vehicles = 19.
+- Check: capacity = 19*250 = 4,750 >= 4,600; pollution = 19*40 = 760 <= 800. Feasible.
+
+Therefore the company should buy 19 buses and 0 sedans to minimize the total number of vehicles (19 vehicles).
+
+Recommended solvers / Python libraries
+- For integer linear programming: PuLP (with CBC), OR-Tools (CBC/GLOP/SCIP backends), or scipy (not recommended for integer problems).
+- Example: pulp or ortools.linear_solver for an easy exact integer solution.
+
+Optional short PuLP example (conceptual)
+- Define LpProblem, LpVariable x,y as LpInteger >=0, add constraints 50*x+250*y>=4600, 10*x+40*y<=800, objective x+y minimize, then solve. (Both PuLP and OR-Tools will return x=0, y=19.)
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+```python
+# Self-contained script to solve the integer optimization described.
+# Decision variables:
+#   x = number of sedans (integer, x >= 0)
+#   y = number of buses  (integer, y >= 0)
+# Objective: minimize Z = x + y
+# Constraints:
+#   Capacity: 50x + 250y >= 4600  ->  x + 5y >= 92
+#   Pollution: 10x + 40y <= 800   ->  x + 4y <= 80
+
+# We'll search the feasible integer space (y from 0..20) and pick the minimal x+y.
+
+def find_optimal():
+    best = None  # tuple (obj, x, y)
+    for y in range(0, 21):  # y <= 20 from pollution constraint (4y <= 80)
+        x_min = max(0, 92 - 5 * y)          # from capacity x + 5y >= 92
+        x_max = 80 - 4 * y                  # from pollution x + 4y <= 80
+        if x_min <= x_max:
+            x = x_min                       # smallest feasible x for this y
+            obj = x + y
+            # Verify original constraints (just to be safe)
+            if 50 * x + 250 * y >= 4600 and 10 * x + 40 * y <= 800:
+                if best is None or obj < best[0]:
+                    best = (obj, x, y)
+    return best
+
+result = find_optimal()
+if result is None:
+    # No feasible integer solution found
+    value = None
+else:
+    value, x_opt, y_opt = result
+    # (We only need to print the final objective value in the required format.)
+    
+print(f"FINAL_OBJ: {value}")
+```

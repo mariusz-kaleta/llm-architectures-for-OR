@@ -1,0 +1,182 @@
+[MODELER]:
+Let’s turn this into a formal optimization model and then solve it.
+
+### 1. Define decision variables
+
+Let  
+- \(x\) = number of units of fertilizer  
+- \(y\) = number of units of seeds  
+
+We assume \(x, y \ge 0\) and can be real (continuous) unless the context requires whole units (integer).
+
+### 2. Objective function
+
+Each unit of fertilizer takes 0.5 minutes, each unit of seeds takes 1.5 minutes.  
+Total “time to be effective” is:
+
+\[
+\text{Minimize } T = 0.5x + 1.5y
+\]
+
+### 3. Constraints
+
+From the problem:
+
+1. **Total units constraint**  
+   At most 300 units combined:
+   \[
+   x + y \le 300
+   \]
+
+2. **Minimum fertilizer**  
+   At least 50 units of fertilizer:
+   \[
+   x \ge 50
+   \]
+
+3. **Fertilizer at most twice seeds**  
+   “At most twice the amount of fertilizer as seeds” means:
+   \[
+   x \le 2y
+   \]
+
+4. **Non-negativity**  
+   \[
+   x \ge 0,\quad y \ge 0
+   \]
+
+### 4. Solve analytically (brief)
+
+Because fertilizer is faster (0.5 min) than seeds (1.5 min), to minimize time we’d like as **much fertilizer as possible** relative to seeds, subject to constraints.
+
+Key constraints are:
+- \(x + y \le 300\)
+- \(x \le 2y\)
+- \(x \ge 50\)
+
+At optimum, we expect to use the full capacity \(x + y = 300\) (since adding more of the “cheaper per-minute” fertilizer helps as long as ratio constraints allow).
+
+Also push to the upper bound of fertilizer:  
+Use \(x = 2y\) to maximize fertilizer (since any higher would violate \(x \le 2y\)).
+
+Substitute into total:
+
+\[
+x + y = 300 \Rightarrow 2y + y = 300 \Rightarrow 3y = 300 \Rightarrow y = 100
+\]
+\[
+x = 2y = 200
+\]
+
+Check feasibility:
+- \(x + y = 200 + 100 = 300 \le 300\) ✓
+- \(x = 200 \ge 50\) ✓
+- \(x = 200 \le 2 \cdot 100 = 200\) ✓
+
+Objective value:
+\[
+T = 0.5(200) + 1.5(100) = 100 + 150 = 250 \text{ minutes}
+\]
+
+So the optimal solution (continuous model) is:
+- Fertilizer: \(x = 200\) units  
+- Seeds: \(y = 100\) units  
+
+If units must be integers, this is already integer, so it’s also the optimal integer solution.
+
+### 5. Model summary (linear program)
+
+**Decision variables**  
+\[
+x, y \in \mathbb{R}_{\ge 0}
+\]
+
+**Objective**  
+\[
+\min\ 0.5x + 1.5y
+\]
+
+**Constraints**  
+\[
+\begin{aligned}
+x + y &\le 300, \\
+x &\ge 50, \\
+x &\le 2y, \\
+x, y &\ge 0.
+\end{aligned}
+\]
+
+### 6. Suitable Python libraries
+
+To solve this linear program, you can use:
+
+- **PuLP** (`pulp`): Very straightforward for LP and ILP.
+- **OR-Tools** (`ortools.linear_solver`): Google’s optimization suite, powerful for LP/MIP.
+- **SciPy** (`scipy.optimize.linprog`): Good for continuous linear programs.
+
+Example with PuLP (sketch):
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Lawn_Optimization", pl.LpMinimize)
+
+# Variables
+x = pl.LpVariable('fertilizer', lowBound=0)
+y = pl.LpVariable('seeds', lowBound=0)
+
+# Objective
+prob += 0.5 * x + 1.5 * y
+
+# Constraints
+prob += x + y <= 300
+prob += x >= 50
+prob += x <= 2 * y
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Fertilizer:", x.value())
+print("Seeds:", y.value())
+print("Total time:", pl.value(prob.objective))
+```
+
+Optimal result: 200 units of fertilizer and 100 units of seeds.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Lawn_Optimization", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('fertilizer', lowBound=0)
+y = pl.LpVariable('seeds', lowBound=0)
+
+# Objective function: minimize total time
+prob += 0.5 * x + 1.5 * y
+
+# Constraints
+prob += x + y <= 300          # Total units constraint
+prob += x >= 50               # Minimum fertilizer
+prob += x <= 2 * y            # Fertilizer at most twice seeds
+
+# Solve the problem
+prob.solve()
+
+# Extract results
+fertilizer = x.value()
+seeds = y.value()
+objective_value = pl.value(prob.objective)
+
+# Print detailed solution (not required by spec, but useful)
+print("Fertilizer (x):", fertilizer)
+print("Seeds (y):", seeds)
+print("Total time (objective):", objective_value)
+
+# Final required output
+print(f"FINAL_OBJ: {objective_value}")

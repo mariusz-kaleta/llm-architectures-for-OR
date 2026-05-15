@@ -1,0 +1,321 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximise total expected audience reach (total viewers across all three platforms) subject to budget and mix constraints.
+
+2. Suggested model type  
+   - Model: Integer Linear Programming (ILP)  
+     - Decision variables represent numbers of commercials, which must be non‑negative integers.  
+     - Objective (viewers) and constraints (budget, caps, proportions) are all linear in these variables.
+
+3. Main decision variables  
+   Define one variable per platform, all integer and ≥ 0:
+   - x₁ = number of commercials on Pi TV  
+   - x₂ = number of commercials on Beta Video  
+   - x₃ = number of commercials on Gamma Live  
+
+4. Objective function (conceptual)  
+   - Maximise total audience:  
+     - Pi TV gives 2,000 viewers per commercial  
+     - Beta Video gives 5,000 viewers per commercial  
+     - Gamma Live gives 9,000 viewers per commercial  
+   - Objective: maximise 2,000·x₁ + 5,000·x₂ + 9,000·x₃  
+
+5. Key constraints to consider  
+
+   a) Budget constraint  
+   - Weekly budget: $20,000  
+   - Costs:  
+     - Pi TV: $1,200 per commercial  
+     - Beta Video: $2,000 per commercial  
+     - Gamma Live: $4,000 per commercial  
+   - Total spend must not exceed budget:  
+     - 1,200·x₁ + 2,000·x₂ + 4,000·x₃ ≤ 20,000  
+
+   b) Platform limit (Beta Video)  
+   - Beta Video allows at most 8 commercials from a single company:  
+     - x₂ ≤ 8  
+
+   c) Proportion of commercials on Gamma Live (at most one-third)  
+   - “At most a third of all commercials should occur on Gamma Live”  
+   - Let total commercials T = x₁ + x₂ + x₃  
+   - Constraint: x₃ ≤ (1/3)·T  
+   - This can be written linearly in terms of x’s (without introducing T):  
+     - enforce relationship between x₃ and sum of all x’s (the modeller should implement the inequality that bounds x₃’s share of T).
+
+   d) Proportion of commercials on Pi TV (at least 20%)  
+   - “A minimum of 20% should occur on Pi TV”  
+   - Using same T: x₁ ≥ 0.2·T  
+   - Again, translate this into a linear inequality relating x₁ and the sum of all x’s.
+
+   e) Non-negativity and integrality  
+   - x₁, x₂, x₃ ≥ 0  
+   - x₁, x₂, x₃ are integers (since we can’t run fractional commercials).
+
+6. Modelling strategy / implementation notes for the modeller  
+
+   - Express the share constraints (c and d) without an explicit T variable if desired, by substituting T = x₁ + x₂ + x₃ and rearranging inequalities into standard linear form.
+   - Check that the budget and share constraints are simultaneously feasible, given the Beta Video cap.  
+   - Because the coefficient sizes are small and the number of variables is only three, a standard ILP solver will handle this instantly; it is also easy to verify the optimal solution by enumeration or by inspecting marginal audience-per-dollar trade-offs once constraints are applied.
+
+---
+
+[MODELER]:
+Below is a complete mathematical model of the problem, plus guidance on how to implement and solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_1 \in \mathbb{Z}_{\ge 0}\): number of commercials on **Pi TV**  
+- \(x_2 \in \mathbb{Z}_{\ge 0}\): number of commercials on **Beta Video**  
+- \(x_3 \in \mathbb{Z}_{\ge 0}\): number of commercials on **Gamma Live**
+
+All \(x_i\) must be non‑negative integers (you cannot run a fractional commercial).
+
+---
+
+## 2. Objective function
+
+Maximise total expected audience reach:
+
+- Pi TV: 2,000 viewers per commercial  
+- Beta Video: 5,000 viewers per commercial  
+- Gamma Live: 9,000 viewers per commercial  
+
+\[
+\max\; Z \;=\; 2000 x_1 + 5000 x_2 + 9000 x_3
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1 Budget constraint
+
+Weekly budget is \$20,000. Costs are:
+
+- Pi TV: \$1,200 per commercial  
+- Beta Video: \$2,000 per commercial  
+- Gamma Live: \$4,000 per commercial  
+
+Total spend must not exceed budget:
+
+\[
+1200 x_1 + 2000 x_2 + 4000 x_3 \;\le\; 20000
+\]
+
+---
+
+### 3.2 Beta Video limit
+
+Beta Video allows at most 8 commercials from one company:
+
+\[
+x_2 \;\le\; 8
+\]
+
+---
+
+### 3.3 Share constraint: Gamma Live at most one‑third
+
+“At most a third of all commercials should occur on Gamma Live.”
+
+Let total number of commercials be
+\[
+T = x_1 + x_2 + x_3
+\]
+Constraint:
+\[
+x_3 \;\le\; \frac{1}{3} T
+\]
+
+Substitute \(T\) and rearrange to obtain a linear inequality in \(x_1, x_2, x_3\):
+
+\[
+x_3 \le \frac{1}{3}(x_1 + x_2 + x_3)
+\]
+
+Multiply both sides by 3:
+
+\[
+3x_3 \le x_1 + x_2 + x_3
+\]
+
+Rearrange:
+
+\[
+3x_3 - x_1 - x_2 - x_3 \le 0
+\]
+\[
+2x_3 - x_1 - x_2 \le 0
+\]
+
+So the linear constraint is:
+
+\[
+2x_3 - x_1 - x_2 \;\le\; 0
+\]
+
+---
+
+### 3.4 Share constraint: Pi TV at least 20%
+
+“A minimum of 20% should occur on Pi TV.”
+
+Again using \(T = x_1 + x_2 + x_3\):
+
+\[
+x_1 \;\ge\; 0.2 T
+\]
+
+Substitute \(T\):
+
+\[
+x_1 \ge 0.2(x_1 + x_2 + x_3)
+\]
+
+Multiply both sides by 10 to clear decimals (or by 5):
+
+\[
+10x_1 \ge 2(x_1 + x_2 + x_3)
+\]
+\[
+10x_1 \ge 2x_1 + 2x_2 + 2x_3
+\]
+\[
+10x_1 - 2x_1 - 2x_2 - 2x_3 \ge 0
+\]
+\[
+8x_1 - 2x_2 - 2x_3 \ge 0
+\]
+
+We can divide by 2:
+
+\[
+4x_1 - x_2 - x_3 \ge 0
+\]
+
+So the linear constraint is:
+
+\[
+4x_1 - x_2 - x_3 \;\ge\; 0
+\]
+
+---
+
+### 3.5 Non‑negativity and integrality
+
+\[
+x_1, x_2, x_3 \;\ge\; 0,\quad x_1, x_2, x_3 \in \mathbb{Z}
+\]
+
+---
+
+## 4. Complete ILP model
+
+\[
+\begin{aligned}
+\max\;\; & 2000 x_1 + 5000 x_2 + 9000 x_3 \\[4pt]
+\text{s.t.}\;\;
+& 1200 x_1 + 2000 x_2 + 4000 x_3 \le 20000 &\text{(budget)}\\
+& x_2 \le 8 &\text{(Beta cap)}\\
+& 2x_3 - x_1 - x_2 \le 0 &\text{(Gamma ≤ 1/3 of total)}\\
+& 4x_1 - x_2 - x_3 \ge 0 &\text{(Pi ≥ 20% of total)}\\
+& x_1, x_2, x_3 \ge 0,\; x_1, x_2, x_3 \in \mathbb{Z} &\text{(integrality)}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+You can model and solve this ILP easily with any of:
+
+- `PuLP` (pure Python, easy syntax, can use CBC or other solvers)
+- `Pyomo` (more general algebraic modeling, supports many solvers)
+- `ortools.linear_solver` (Google OR‑Tools; efficient and straightforward)
+- `mip` (Python-MIP; interface to CBC/GRB etc.)
+
+For a problem this small, `PuLP` or OR‑Tools are very convenient.
+
+---
+
+## 6. Example PuLP implementation
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Ad_Allocation", pl.LpMaximize)
+
+# Decision variables (non-negative integers)
+x1 = pl.LpVariable('x1_PiTV', lowBound=0, cat='Integer')
+x2 = pl.LpVariable('x2_BetaVideo', lowBound=0, cat='Integer')
+x3 = pl.LpVariable('x3_GammaLive', lowBound=0, cat='Integer')
+
+# Objective: maximize total viewers
+prob += 2000 * x1 + 5000 * x2 + 9000 * x3
+
+# Budget constraint
+prob += 1200 * x1 + 2000 * x2 + 4000 * x3 <= 20000
+
+# Beta cap
+prob += x2 <= 8
+
+# Gamma share <= 1/3 of total : 2 x3 - x1 - x2 <= 0
+prob += 2 * x3 - x1 - x2 <= 0
+
+# Pi share >= 20% of total : 4 x1 - x2 - x3 >= 0
+prob += 4 * x1 - x2 - x3 >= 0
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("x1 (Pi TV)      =", pl.value(x1))
+print("x2 (Beta Video) =", pl.value(x2))
+print("x3 (Gamma Live) =", pl.value(x3))
+print("Total viewers   =", pl.value(prob.objective))
+```
+
+You can swap PuLP for OR‑Tools if you prefer that API; the mathematical model remains identical.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create problem
+    prob = pl.LpProblem("Ad_Allocation", pl.LpMaximize)
+
+    # Decision variables (non-negative integers)
+    x1 = pl.LpVariable('x1_PiTV', lowBound=0, cat='Integer')
+    x2 = pl.LpVariable('x2_BetaVideo', lowBound=0, cat='Integer')
+    x3 = pl.LpVariable('x3_GammaLive', lowBound=0, cat='Integer')
+
+    # Objective: maximize total viewers
+    prob += 2000 * x1 + 5000 * x2 + 9000 * x3
+
+    # Budget constraint
+    prob += 1200 * x1 + 2000 * x2 + 4000 * x3 <= 20000
+
+    # Beta cap
+    prob += x2 <= 8
+
+    # Gamma share <= 1/3 of total : 2 x3 - x1 - x2 <= 0
+    prob += 2 * x3 - x1 - x2 <= 0
+
+    # Pi share >= 20% of total : 4 x1 - x2 - x3 >= 0
+    prob += 4 * x1 - x2 - x3 >= 0
+
+    # Solve with CBC
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    final_obj = pl.value(prob.objective)
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

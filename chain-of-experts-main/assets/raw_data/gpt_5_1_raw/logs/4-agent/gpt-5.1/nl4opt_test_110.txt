@@ -1,0 +1,199 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximize the total number of patients vaccinated within the available clinic time.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with integer (in fact, nonnegative integer) decision variables.  
+   - If needed, it can be treated as an Integer Linear Program (ILP) to enforce integrality explicitly, though the structure here is simple.
+
+3. Main decision variables  
+   Define decision variables representing how many of each type of vaccine are administered:
+   - Variable 1: Number of pill vaccines administered.  
+   - Variable 2: Number of shot vaccines administered.
+
+4. Key constraints to consider  
+
+   a) Time/Capacity constraint  
+   - Each pill takes 10 minutes.  
+   - Each shot takes 20 minutes.  
+   - Total administration time (pill time + shot time) must not exceed 10,000 minutes.  
+   - This is the main resource/capacity constraint.
+
+   b) Relative quantity (policy/medical) constraint  
+   - The number of shots must be at least 3 times the number of pills (shots ≥ 3 × pills).  
+   - This captures the requirement that the better-studied shot must dominate in quantity.
+
+   c) Minimum pill requirement  
+   - At least 30 pill vaccines must be administered (pills ≥ 30).  
+   - This enforces a minimum level of pill usage.
+
+   d) Non-negativity and integrality  
+   - Both decision variables must be non-negative.  
+   - Both should be integer-valued (you cannot administer a fraction of a vaccine).
+
+5. Objective function structure (conceptual)  
+   - Maximize: (number of pill vaccines) + (number of shot vaccines).  
+   - This directly reflects maximizing total patients served.
+
+6. Modelling notes / simplifications  
+   - No explicit upper bounds on pills or shots other than those implied by the time and policy constraints.  
+   - The model is small and can be solved analytically or with any LP/ILP solver.  
+   - Tightness of constraints: expect the time constraint and shots ≥ 3×pills to be binding at optimum.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model of the problem, followed by notes on how to implement and solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_p \in \mathbb{Z}_{\ge 0}\): number of pill vaccines administered  
+- \(x_s \in \mathbb{Z}_{\ge 0}\): number of shot vaccines administered  
+
+Both must be integers because you cannot administer fractional vaccines.
+
+---
+
+## 2. Objective function
+
+Maximize the total number of patients vaccinated:
+
+\[
+\max \; Z = x_p + x_s
+\]
+
+---
+
+## 3. Constraints
+
+1. **Time (capacity) constraint**  
+   Each pill takes 10 minutes, each shot takes 20 minutes, and the clinic has 10,000 minutes total:
+
+   \[
+   10x_p + 20x_s \le 10000
+   \]
+
+2. **Shot dominance constraint (policy/medical)**  
+   The number of shots must be at least 3 times the number of pills:
+
+   \[
+   x_s \;\ge\; 3x_p
+   \]
+
+3. **Minimum pill requirement**
+
+   \[
+   x_p \;\ge\; 30
+   \]
+
+4. **Non-negativity and integrality**
+
+   \[
+   x_p, x_s \in \mathbb{Z}_{\ge 0}
+   \]
+
+This is a (small) Integer Linear Programming (ILP) model; the constraint matrix is fully linear.
+
+---
+
+## 4. Model summary
+
+**Model type**: Integer Linear Program (ILP), though its LP relaxation is already integer in practice for such small scale.
+
+- Variables: \(x_p, x_s\) (non-negative integers)  
+- Objective: \(\max x_p + x_s\)  
+- Constraints:
+  - \(10x_p + 20x_s \le 10000\)
+  - \(x_s - 3x_p \ge 0\)
+  - \(x_p \ge 30\)
+  - \(x_p, x_s \in \mathbb{Z}_{\ge 0}\)
+
+---
+
+## 5. Suitable Python libraries
+
+You can model and solve this easily with any standard MILP/LP library:
+
+- **PuLP**  
+  - Pure Python, simple syntax, works with CBC (default), GLPK, etc.
+  - Good for teaching and small problems like this.
+- **OR-Tools (Google OR-Tools)**  
+  - Very powerful for MILP and constraint programming.
+  - `ortools.linear_solver.pywraplp.Solver` or `ortools.linear_solver.pywraplp.MPSolver` for linear/integer programs.
+- **Pyomo**  
+  - More general algebraic modeling language in Python.
+  - Can interface with CBC, GLPK, Gurobi, CPLEX, etc.
+- **SciPy’s `scipy.optimize.linprog`**  
+  - Only supports continuous LP, so you would drop integrality (here that will still work due to structure, but conceptually it’s less correct than an ILP solver).
+
+For this specific assignment-style problem, **PuLP** or **OR-Tools** is most straightforward.
+
+---
+
+## 6. Example in PuLP (outline)
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Vaccine_Allocation", pl.LpMaximize)
+
+# Decision variables
+x_p = pl.LpVariable("pills", lowBound=0, cat='Integer')
+x_s = pl.LpVariable("shots", lowBound=0, cat='Integer')
+
+# Objective
+prob += x_p + x_s
+
+# Constraints
+prob += 10 * x_p + 20 * x_s <= 10000       # time
+prob += x_s >= 3 * x_p                     # shot dominance
+prob += x_p >= 30                          # minimum pills
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal pills:", pl.value(x_p))
+print("Optimal shots:", pl.value(x_s))
+print("Max patients:", pl.value(x_p + x_s))
+```
+
+This code directly encodes the mathematical model above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define problem
+    prob = pl.LpProblem("Vaccine_Allocation", pl.LpMaximize)
+
+    # Decision variables (integer, non-negative)
+    x_p = pl.LpVariable("pills", lowBound=0, cat='Integer')
+    x_s = pl.LpVariable("shots", lowBound=0, cat='Integer')
+
+    # Objective: maximize total patients vaccinated
+    prob += x_p + x_s
+
+    # Constraints
+    prob += 10 * x_p + 20 * x_s <= 10000       # Time capacity
+    prob += x_s >= 3 * x_p                     # Shot dominance
+    prob += x_p >= 30                          # Minimum pills
+
+    # Solve problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    obj_value = pl.value(x_p + x_s)
+
+    # Final required print
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,45 @@
+[MONOLITH]:
+import pulp
+
+# Data (initialized directly)
+total_antibiotics = 35000  # units available
+antibiotics_first = 30     # antibiotics per first-dose
+antibiotics_second = 65    # antibiotics per second-dose
+
+gelatine_first = 20  # mg gelatine per first-dose
+gelatine_second = 60 # mg gelatine per second-dose
+
+min_second = 40  # at least this many second-dose vaccines
+
+# Define problem: minimize gelatine usage
+prob = pulp.LpProblem("Minimize_Gelatine", pulp.LpMinimize)
+
+# Decision variables: number of vaccines (integers, non-negative)
+x = pulp.LpVariable("first_dose", lowBound=0, cat='Integer')   # first-dose count
+y = pulp.LpVariable("second_dose", lowBound=0, cat='Integer')  # second-dose count
+
+# Objective: minimize total gelatine (mg)
+prob += gelatine_first * x + gelatine_second * y, "Total_Gelatine"
+
+# Constraints
+prob += antibiotics_first * x + antibiotics_second * y <= total_antibiotics, "Antibiotics_Limit"
+prob += x >= y + 1, "First_more_than_second"
+prob += y >= min_second, "Min_second_doses"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract results
+first_opt = int(pulp.value(x))
+second_opt = int(pulp.value(y))
+total_gelatine = pulp.value(prob.objective)
+total_antibiotics_used = antibiotics_first * first_opt + antibiotics_second * second_opt
+
+# Output results
+print(f"Optimal first-dose count: {first_opt}")
+print(f"Optimal second-dose count: {second_opt}")
+print(f"Total gelatine used (mg): {total_gelatine}")
+print(f"Total antibiotics used (units): {total_antibiotics_used}")
+
+# Final required line
+print(f"FINAL_OBJ: {total_gelatine}")

@@ -1,0 +1,44 @@
+[MONOLITH]:
+```python
+# Clinic swab scheduling optimization (integer linear program)
+import pulp
+
+# Data (from problem statement)
+throat_time = 5   # minutes per throat swab
+nasal_time = 3    # minutes per nasal swab
+min_nasal = 30
+total_minutes = 20000
+
+# Define the problem
+prob = pulp.LpProblem("Clinic_Swabs_Maximize_Patients", pulp.LpMaximize)
+
+# Decision variables: number of throat (T) and nasal (N) swabs (integers)
+T = pulp.LpVariable("Throat", lowBound=0, cat="Integer")
+N = pulp.LpVariable("Nasal", lowBound=0, cat="Integer")
+
+# Objective: maximize total patients = T + N
+prob += T + N, "Total_Patients"
+
+# Constraints
+prob += throat_time * T + nasal_time * N <= total_minutes, "Time_Limit"
+prob += N >= min_nasal, "Min_Nasal"
+prob += T >= 4 * N, "Throat_at_least_4_times_Nasal"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Gather results
+T_val = int(pulp.value(T))
+N_val = int(pulp.value(N))
+obj_val = int(pulp.value(prob.objective))
+
+# Output solution
+print(f"Throat swabs (T): {T_val}")
+print(f"Nasal swabs  (N): {N_val}")
+print(f"Total time used: {throat_time * T_val + nasal_time * N_val} minutes")
+print(f"Total patients : {obj_val}")
+
+# Final required output line (must be the very last print)
+print(f"FINAL_OBJ: {obj_val}")
+```

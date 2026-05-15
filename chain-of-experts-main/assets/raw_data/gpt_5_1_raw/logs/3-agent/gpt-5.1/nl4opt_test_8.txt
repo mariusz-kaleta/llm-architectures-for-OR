@@ -1,0 +1,186 @@
+[MODELER]:
+Here is a formal optimization model for this problem.
+
+### 1. Decision variables
+
+Let  
+- \(x\) = number of scooters produced per month  
+- \(y\) = number of bikes produced per month  
+
+Both must be non‑negative:
+- \(x \ge 0\)  
+- \(y \ge 0\)
+
+(If you want integer solutions: \(x, y \in \mathbb{Z}_{\ge 0}\).)
+
+---
+
+### 2. Objective function (maximize profit)
+
+Profit per scooter = \$200  
+Profit per bike = \$300  
+
+Maximize total monthly profit:
+\[
+\max\; Z = 200x + 300y
+\]
+
+---
+
+### 3. Constraints
+
+**Design team hours**  
+Each scooter uses 2 design hours, each bike uses 4 design hours. Total design hours ≤ 5000:
+\[
+2x + 4y \le 5000
+\]
+
+**Engineering team hours**  
+Each scooter uses 3 engineering hours, each bike uses 5 engineering hours. Total engineering hours ≤ 6000:
+\[
+3x + 5y \le 6000
+\]
+
+**Non‑negativity**  
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+### 4. Solving analytically (outline)
+
+This is a linear program in two variables, so the optimum lies at a corner (intersection of constraints):
+
+Solve the system:
+\[
+\begin{cases}
+2x + 4y = 5000 \\
+3x + 5y = 6000
+\end{cases}
+\]
+
+From the first: \(x = 2500 - 2y\).  
+Substitute into the second:
+\[
+3(2500 - 2y) + 5y = 6000 \\
+7500 - 6y + 5y = 6000 \\
+7500 - y = 6000 \\
+y = 1500
+\]
+Then
+\[
+x = 2500 - 2(1500) = 2500 - 3000 = -500
+\]
+
+This is infeasible (\(x \ge 0\)), so that intersection is outside the feasible region.  
+We check the boundary points where constraints meet axes:
+
+1. Design constraint with \(y=0\):  
+   \(2x \le 5000 \Rightarrow x \le 2500\) → candidate: \((x,y) = (2500, 0)\)
+
+2. Engineering constraint with \(y=0\):  
+   \(3x \le 6000 \Rightarrow x \le 2000\) → feasible bound is tighter → candidate: \((2000, 0)\)
+
+3. Design constraint with \(x=0\):  
+   \(4y \le 5000 \Rightarrow y \le 1250\) → candidate: \((0, 1250)\)
+
+4. Engineering constraint with \(x=0\):  
+   \(5y \le 6000 \Rightarrow y \le 1200\) → feasible bound is tighter → candidate: \((0, 1200)\)
+
+Feasible extreme points are:
+- \((0,0)\)
+- \((2000,0)\)
+- \((0,1200)\)
+
+Evaluate profit:
+
+- \((0,0)\): \(Z = 200(0) + 300(0) = 0\)
+- \((2000,0)\): \(Z = 200(2000) + 300(0) = 400{,}000\)
+- \((0,1200)\): \(Z = 200(0) + 300(1200) = 360{,}000\)
+
+Maximum profit is at \((x,y) = (2000, 0)\).
+
+**Optimal plan:**
+- Produce 2000 scooters per month
+- Produce 0 bikes per month
+- Maximum profit: \$400,000 per month
+
+(If bikes must be produced for strategic reasons, this becomes a multi-objective or constrained variant.)
+
+---
+
+### 5. Suitable Python libraries
+
+To solve this in Python, these linear programming libraries are appropriate:
+
+- `PuLP` – simple modeling, pure Python, interfaces to many solvers.
+- `scipy.optimize.linprog` – for continuous linear programs.
+- `ortools.linear_solver` (Google OR-Tools) – powerful and supports integer programming.
+
+---
+
+### 6. Example model in Python with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Scooters_and_Bikes", pl.LpMaximize)
+
+# Variables
+x = pl.LpVariable('scooters', lowBound=0)  # continuous; use cat='Integer' for integer
+y = pl.LpVariable('bikes', lowBound=0)
+
+# Objective
+prob += 200 * x + 300 * y
+
+# Constraints
+prob += 2 * x + 4 * y <= 5000  # design hours
+prob += 3 * x + 5 * y <= 6000  # engineering hours
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("Scooters:", x.value())
+print("Bikes:", y.value())
+print("Max Profit:", pl.value(prob.objective))
+```
+
+This will return:
+- Scooters ≈ 2000  
+- Bikes ≈ 0  
+- Max Profit ≈ 400000
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the LP maximization problem
+    prob = pl.LpProblem("Scooters_and_Bikes", pl.LpMaximize)
+
+    # Decision variables: non-negative, continuous
+    x = pl.LpVariable('scooters', lowBound=0)
+    y = pl.LpVariable('bikes', lowBound=0)
+
+    # Objective function: Maximize profit
+    prob += 200 * x + 300 * y
+
+    # Constraints
+    prob += 2 * x + 4 * y <= 5000   # Design hours
+    prob += 3 * x + 5 * y <= 6000   # Engineering hours
+
+    # Solve the problem
+    prob.solve()
+
+    # Extract the objective value
+    final_obj = pl.value(prob.objective)
+
+    # Final required print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

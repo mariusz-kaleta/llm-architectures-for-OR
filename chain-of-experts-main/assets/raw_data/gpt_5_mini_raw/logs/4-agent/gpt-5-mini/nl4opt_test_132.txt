@@ -1,0 +1,187 @@
+[PLANNER]:
+1. Key optimisation goal
+- Goal: Maximise total profit from producing desks and drawers.
+
+2. Suggested model type
+- Model: Linear Programming (continuous LP). (If integrality is required for items, use Integer LP / Mixed-Integer LP; for typical manufacturing with many units, continuous LP is fine.)
+
+3. Main decision variables (describe purpose, not algebraic equations)
+- Number of desks to produce (nonnegative).
+- Number of drawers to produce (nonnegative).
+
+4. Key constraints to include and details
+- Assembly time capacity: total assembly minutes used by desks and drawers cannot exceed 4,000 minutes. (Use per-unit assembly times: desk = 40 min, drawer = 30 min.)
+- Sanding time capacity: total sanding minutes used by desks and drawers cannot exceed 3,500 minutes. (Per-unit sanding times: desk = 20 min, drawer = 10 min.)
+- Nonnegativity: production quantities cannot be negative.
+- Optional/consider: integrality constraint if you must produce whole units (integer variables).
+- Optional/consider: market/demand limits (if any external limit exists on how many desks or drawers can be sold) — include if applicable.
+
+5. Objective function description
+- Maximise total profit equal to profit per desk plus profit per drawer. (Profit per desk = $100, profit per drawer = $90.)
+
+6. Modelling and solution recommendations
+- Use a standard LP solver (simplex or interior-point). The optimal solution will occur at a corner (binding) of the feasible region defined by the two resource constraints.
+- Check both resource constraints for binding/slack at optimality; try the corner solutions formed by full use of one or both resources.
+- If integers required, solve as an integer program or round the continuous solution and verify feasibility.
+- Provide sensitivity information: shadow prices for assembly and sanding (value of additional minute) and reduced costs for non-produced items.
+
+7. Units and bookkeeping
+- Ensure all time units are minutes.
+- Profit units are dollars.
+
+Deliverable expected from modeller
+- Values for the number of desks and drawers to produce (and total profit), solver status, which constraints are binding, and optional sensitivity (shadow prices).
+
+---
+
+[MODELER]:
+Formal model
+
+Decision variables
+- x = number of desks to produce (>= 0)
+- y = number of drawers to produce (>= 0)
+(If integer units required: x,y ∈ Z_{\ge 0}.)
+
+Objective
+- Maximise total profit: maximize Z = 100 x + 90 y
+
+Constraints (all times in minutes)
+1. Assembly capacity: 40 x + 30 y ≤ 4000
+2. Sanding capacity: 20 x + 10 y ≤ 3500
+3. Nonnegativity: x ≥ 0, y ≥ 0
+
+(Optionally add integrality or market/demand upper bounds if relevant.)
+
+Solve and analytic solution (continuous LP)
+- Examine corners of feasible region. The sanding constraint is redundant given the assembly constraint and nonnegativity (every (x,y) satisfying 40x+30y ≤ 4000 also satisfies 20x+10y ≤ 3500).
+- The feasible corner points are: (0,0), (100,0) (assembly fully used for desks), and (0,400/3) ≈ (0,133.333) (assembly fully used for drawers).
+- Objective values:
+  - (0,0): Z = 0
+  - (100,0): Z = 100·100 = 10,000
+  - (0,400/3): Z = 90·(400/3) = 12,000
+- Optimal continuous solution: x* = 0 desks, y* = 400/3 ≈ 133.333 drawers, Z* = $12,000.
+
+If integer solution required
+- Nearest feasible integer is x = 0, y = 133 (since y = 134 uses 3·134 = 402 assembly tens → 4020 minutes > 4000).
+- Integer optimal (given only integrality) is x = 0, y = 133, Z = 90·133 = $11,970.
+
+Sensitivity (dual / shadow prices and reduced costs)
+- Dual variables (dollars per minute): u1 (assembly) = $3/min, u2 (sanding) = $0/min.
+  - Interpretation: one extra assembly minute increases maximum profit by $3; extra sanding minutes have no value at the optimum (sanding is nonbinding).
+- Reduced costs:
+  - Desk: reduced cost = 100 − (40·3 + 20·0) = 100 − 120 = −20 → producing desks at the current optimum would reduce profit (hence x* = 0).
+  - Drawer: reduced cost = 90 − (30·3 + 10·0) = 90 − 90 = 0 → y is a basic variable.
+
+Recommendations for solving computationally
+- For continuous LP: use scipy.optimize.linprog, pulp (CBC), OR-Tools (linear solver), CVXOPT, or commercial solvers (Gurobi, CPLEX).
+- For integer solution: use pulp with integer variables, OR-Tools CP-SAT, or any MILP solver (Gurobi, CPLEX).
+- If you want sensitivity output (dual values), use solvers that report dual variables (e.g., CBC via PuLP gives limited dual info; commercial solvers provide full duals — or use cvxopt).
+
+Example (PuLP) — outline
+- Define variables, objective 100*x + 90*y, add constraints 40*x + 30*y <= 4000 and 20*x + 10*y <= 3500, solve. For integers add cat='Integer' when creating variables.
+
+Deliverable summary
+- Continuous-optimal production: 0 desks, 133.333 drawers, profit $12,000.
+- Integer-feasible production (units must be whole): 0 desks, 133 drawers, profit $11,970.
+- Binding constraint: assembly (40x+30y = 4000). Sanding is slack.
+- Shadow prices: assembly = $3/min, sanding = $0/min.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the desk/drawer production LP (continuous and integer)
+
+import math
+
+# Problem data
+profit_x = 100.0  # profit per desk
+profit_y = 90.0   # profit per drawer
+
+# Constraints (minutes)
+# 40 x + 30 y <= 4000  (assembly)
+# 20 x + 10 y <= 3500  (sanding)
+A1_x, A1_y, A1_rhs = 40.0, 30.0, 4000.0
+A2_x, A2_y, A2_rhs = 20.0, 10.0, 3500.0
+
+# Evaluate corner points for the continuous LP
+corners = []
+
+# (0,0)
+corners.append((0.0, 0.0))
+
+# assembly intercepts:
+# x-axis intercept (y=0): 40 x = 4000 -> x = 100
+corners.append((A1_rhs / A1_x, 0.0))
+
+# y-axis intercept (x=0): 30 y = 4000 -> y = 4000/30 = 400/3
+corners.append((0.0, A1_rhs / A1_y))
+
+# intersection of both constraints (if feasible)
+# Solve:
+# 40x + 30y = 4000
+# 20x + 10y = 3500
+# Solve linear system:
+det = A1_x * A2_y - A1_y * A2_x
+if abs(det) > 1e-12:
+    ix = (A1_rhs * A2_y - A1_y * A2_rhs) / det
+    iy = (A1_x * A2_rhs - A1_rhs * A2_x) / det
+    # include only if nonnegative and satisfies both constraints (within tolerance)
+    if ix >= -1e-9 and iy >= -1e-9 and A1_x * ix + A1_y * iy <= A1_rhs + 1e-6 and A2_x * ix + A2_y * iy <= A2_rhs + 1e-6:
+        corners.append((ix, iy))
+
+# Evaluate objective at corners
+best_cont = None
+best_cont_val = -float('inf')
+for (x, y) in corners:
+    val = profit_x * x + profit_y * y
+    if val > best_cont_val + 1e-9:
+        best_cont_val = val
+        best_cont = (x, y)
+
+# Round small near-zero values to zero
+best_cont = (0.0 if abs(best_cont[0]) < 1e-12 else best_cont[0],
+             0.0 if abs(best_cont[1]) < 1e-12 else best_cont[1])
+
+# Integer (MILP) search: brute force over reasonable bounds
+max_x_int = int(math.floor(A1_rhs / A1_x))  # cannot exceed assembly intercept
+max_y_int = int(math.floor(A1_rhs / A1_y))
+best_int = None
+best_int_val = -float('inf')
+for xi in range(0, max_x_int + 1):
+    # For each xi, find max yi such that constraints hold
+    # Bound yi by assembly and sanding
+    rem_assembly = A1_rhs - A1_x * xi
+    if rem_assembly < 0:
+        continue
+    bound_y_assembly = int(math.floor(rem_assembly / A1_y))
+    rem_sanding = A2_rhs - A2_x * xi
+    if rem_sanding < 0:
+        continue
+    bound_y_sanding = int(math.floor(rem_sanding / A2_y))
+    y_upper = min(bound_y_assembly, bound_y_sanding, max_y_int)
+    for yi in range(0, y_upper + 1):
+        val = profit_x * xi + profit_y * yi
+        if val > best_int_val + 1e-9:
+            best_int_val = val
+            best_int = (xi, yi)
+
+# Compute reported shadow prices analytically (for the continuous optimal corner)
+# Since the sanding constraint is non-binding at the optimum found, shadow price for sanding is 0.
+# For assembly, compute marginal value: at optimum (x=0, y=400/3), objective increases by 3 per extra minute.
+# We'll report these computed values.
+shadow_assembly = 3.0
+shadow_sanding = 0.0
+
+# Display results (these prints are informational; final required print is below)
+print("Continuous LP optimal (analytic corners):")
+print(f"  x* = {best_cont[0]:.6f}, y* = {best_cont[1]:.6f}, objective = {best_cont_val:.6f}")
+print("Integer optimal (brute force):")
+print(f"  x = {best_int[0]}, y = {best_int[1]}, objective = {best_int_val:.6f}")
+print("Shadow prices (assembly, sanding):", (shadow_assembly, shadow_sanding))
+
+# Final required print line (must be the very last output)
+final_value = int(round(best_cont_val)) if abs(best_cont_val - round(best_cont_val)) < 1e-9 else best_cont_val
+print(f"FINAL_OBJ: {final_value}")
+```

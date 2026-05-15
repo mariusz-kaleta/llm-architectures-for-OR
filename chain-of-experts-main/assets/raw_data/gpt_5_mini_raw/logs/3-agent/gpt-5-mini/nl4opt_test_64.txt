@@ -1,0 +1,65 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of old vans (integer, x ≥ 0)
+  - y = number of new vans (integer, 0 ≤ y ≤ 30)
+
+- Objective
+  - Minimize total pollution: minimize P = 50x + 30y
+
+- Constraints
+  - Capacity requirement: 100x + 80y ≥ 5000
+  - New van limit: y ≤ 30
+  - Integrality: x, y ∈ Z≥0
+
+Analytic solution
+
+- Pollution per bottle: old = 50/100 = 0.50, new = 30/80 = 0.375. New vans are more pollution-efficient, so use as many new vans as allowed (y = 30).
+- With y = 30 capacity provided = 80·30 = 2400, remaining needed = 5000 − 2400 = 2600 → x = ceil(2600/100) = 26.
+- Solution: x = 26 old vans, y = 30 new vans.
+- Total capacity = 100·26 + 80·30 = 5000 (meets requirement).
+- Total pollution = 50·26 + 30·30 = 1300 + 900 = 2200 units (minimum).
+
+Suggested Python solvers
+- For an exact integer solution: PuLP (python), OR-Tools CP-SAT.
+- For continuous relaxation: scipy.optimize could be used but integer solvers above are recommended.
+
+Example (PuLP)
+- Use LpVariable(..., cat='Integer'), set objective 50*x + 30*y, add constraints 100*x + 80*y >= 5000 and y <= 30, solve. This will return x=26, y=30.
+
+---
+
+[CODER]:
+import math
+
+# Problem data
+capacity_requirement = 5000
+cap_old = 100
+cap_new = 80
+pollution_old = 50
+pollution_new = 30
+max_new = 30
+
+best = None  # will store tuple (objective, x, y)
+
+for y in range(0, max_new + 1):
+    remaining = max(0, capacity_requirement - cap_new * y)
+    x = math.ceil(remaining / cap_old) if remaining > 0 else 0
+    # Ensure non-negative integer
+    if x < 0:
+        x = 0
+    total_pollution = pollution_old * x + pollution_new * y
+    if (best is None) or (total_pollution < best[0]) or (total_pollution == best[0] and x < best[1]):
+        best = (total_pollution, x, y)
+
+obj, x_opt, y_opt = best
+
+# Print solution details (optional)
+print(f"Optimal old vans x = {x_opt}")
+print(f"Optimal new vans y = {y_opt}")
+print(f"Total capacity = {cap_old * x_opt + cap_new * y_opt}")
+print(f"Total pollution = {obj}")
+
+# Final required line
+print(f"FINAL_OBJ: {obj}")

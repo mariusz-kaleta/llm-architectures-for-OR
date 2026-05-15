@@ -1,0 +1,136 @@
+[MODELER]:
+Model this as a linear program.
+
+**Decision variables**
+
+Let  
+- \(x_1 \ge 0\): hours factory 1 is run  
+- \(x_2 \ge 0\): hours factory 2 is run  
+
+**Production rates**
+
+- Factory 1:  
+  - 20 allergy pills/hour  
+  - 15 fever pills/hour  
+  - 20 units of rare compound/hour  
+
+- Factory 2:  
+  - 10 allergy pills/hour  
+  - 30 fever pills/hour  
+  - 30 units of rare compound/hour  
+
+**Constraints**
+
+1. **Allergy pill requirement** (at least 700):
+\[
+20x_1 + 10x_2 \;\ge\; 700
+\]
+
+2. **Fever pill requirement** (at least 600):
+\[
+15x_1 + 30x_2 \;\ge\; 600
+\]
+
+3. **Rare compound availability** (at most 1000 units):
+\[
+20x_1 + 30x_2 \;\le\; 1000
+\]
+
+4. **Nonnegativity**:
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+**Objective**
+
+Minimize total hours run:
+\[
+\min \; Z = x_1 + x_2
+\]
+
+So the full linear program is:
+
+\[
+\begin{aligned}
+\min \quad & x_1 + x_2 \\
+\text{s.t.} \quad 
+& 20x_1 + 10x_2 \ge 700 \\
+& 15x_1 + 30x_2 \ge 600 \\
+& 20x_1 + 30x_2 \le 1000 \\
+& x_1, x_2 \ge 0
+\end{aligned}
+\]
+
+---
+
+### Solving (brief outline)
+
+You can solve this with linear programming libraries such as:
+
+- `PuLP` (very simple LP modeling)
+- `scipy.optimize.linprog`
+- Google `ortools.linear_solver`
+
+**Example with PuLP (Python)**
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Pill_Production", pl.LpMinimize)
+
+# Variables
+x1 = pl.LpVariable('x1', lowBound=0)  # hours factory 1
+x2 = pl.LpVariable('x2', lowBound=0)  # hours factory 2
+
+# Objective
+prob += x1 + x2
+
+# Constraints
+prob += 20*x1 + 10*x2 >= 700    # allergy pills
+prob += 15*x1 + 30*x2 >= 600    # fever pills
+prob += 20*x1 + 30*x2 <= 1000   # rare compound
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("x1 (hours factory 1):", x1.value())
+print("x2 (hours factory 2):", x2.value())
+print("Minimum total time (hours):", pl.value(prob.objective))
+```
+
+This code directly implements the mathematical model above.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Pill_Production", pl.LpMinimize)
+
+    # Decision variables
+    x1 = pl.LpVariable('x1', lowBound=0)  # hours factory 1
+    x2 = pl.LpVariable('x2', lowBound=0)  # hours factory 2
+
+    # Objective function: minimize total hours
+    prob += x1 + x2
+
+    # Constraints
+    prob += 20 * x1 + 10 * x2 >= 700    # Allergy pill requirement
+    prob += 15 * x1 + 30 * x2 >= 600    # Fever pill requirement
+    prob += 20 * x1 + 30 * x2 <= 1000   # Rare compound availability
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Retrieve objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

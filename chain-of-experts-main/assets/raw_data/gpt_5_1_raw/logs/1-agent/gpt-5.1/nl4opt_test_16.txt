@@ -1,0 +1,184 @@
+[MONOLITH]:
+import itertools
+
+def total_ready_time(c, w, order):
+    # order: 'C_first' or 'W_first'
+    # chlorine: 1 min/unit, water softener: 2 min/unit
+    if order == 'C_first':
+        # Add all chlorine, then all softener
+        # Chlorine addition time: c*1, effective as each unit is added
+        # Last chlorine effective at t = c
+        # Then add softener for w units, 2 min/unit
+        # Last softener added at t = c + 2w, effective immediately
+        return c + 2*w
+    else:
+        # Add all softener, then all chlorine
+        # Softener done at t = 2w
+        # Chlorine done at t = 2w + c
+        return 2*w + c
+
+best_time = None
+best_solution = None
+
+# Constraints:
+# c + w = 500
+# c >= 200
+# c <= 0.5 w  =>  2c <= w
+# c, w are continuous (can be fractional) units
+
+# Since it's a small continuous LP with simple equations, solve analytically:
+# From c + w = 500 => w = 500 - c
+# Constraint 2c <= w => 2c <= 500 - c => 3c <= 500 => c <= 500/3
+# Also c >= 200
+# So c in [200, 500/3]
+
+# Evaluate objective for both orders:
+import numpy as np
+
+c_vals = np.linspace(200, 500/3, 1001)
+for c in c_vals:
+    w = 500 - c
+    # Check constraints (tolerance for float)
+    if c >= 200 - 1e-6 and 2*c <= w + 1e-6:
+        for order in ['C_first', 'W_first']:
+            t = total_ready_time(c, w, order)
+            if best_time is None or t < best_time - 1e-9:
+                best_time = t
+                best_solution = (c, w, order)
+
+c_opt, w_opt, order_opt = best_solution
+
+print("Optimal solution:")
+print(f"Chlorine units: {c_opt}")
+print(f"Water softener units: {w_opt}")
+print(f"Order: {order_opt}")
+print(f"Minimum total time: {best_time}")
+
+print(f"FINAL_OBJ: {best_time}")
+
+---
+
+[MONOLITH]:
+import numpy as np
+
+def total_ready_time(c, w, order):
+    # Total time until last-added chemical becomes effective
+    # Chlorine: 1 min/unit, Softener: 2 min/unit
+    if order == 'C_first':
+        # Add all chlorine, then all softener
+        return c + 2 * w
+    else:
+        # Add all softener, then all chlorine
+        return 2 * w + c
+
+# Constraints:
+# c + w = 500
+# c >= 200
+# c <= 0.5 w  =>  2c <= w
+#
+# From c + w = 500 => w = 500 - c
+# 2c <= w => 2c <= 500 - c => 3c <= 500 => c <= 500/3
+# So feasible c in [200, 500/3]
+
+best_time = None
+best_solution = None
+
+c_vals = np.linspace(200, 500/3, 1001)
+for c in c_vals:
+    w = 500 - c
+    if c >= 200 - 1e-6 and 2 * c <= w + 1e-6:
+        for order in ['C_first', 'W_first']:
+            t = total_ready_time(c, w, order)
+            if best_time is None or t < best_time - 1e-9:
+                best_time = t
+                best_solution = (c, w, order)
+
+if best_solution is None:
+    raise RuntimeError("No feasible solution found under the given constraints.")
+
+c_opt, w_opt, order_opt = best_solution
+
+print("Optimal solution:")
+print(f"Chlorine units: {c_opt}")
+print(f"Water softener units: {w_opt}")
+print(f"Order: {order_opt}")
+print(f"Minimum total time: {best_time}")
+
+print(f"FINAL_OBJ: {best_time}")
+
+---
+
+[MONOLITH]:
+import numpy as np
+
+def total_ready_time(c, w, order):
+    """
+    Total time until the last-added chemical becomes effective.
+    Chlorine: 1 min/unit, Softener: 2 min/unit.
+
+    If order == 'C_first':
+        Add all chlorine (takes c minutes), then all softener (takes 2w minutes).
+        Pool is ready when the last-added batch (softener) finishes: c + 2w.
+    If order == 'W_first':
+        Add all softener first (2w), then all chlorine (c).
+        Pool is ready when the last-added batch (chlorine) finishes: 2w + c.
+    """
+    if order == 'C_first':
+        return c + 2 * w
+    else:
+        return 2 * w + c
+
+# Problem data:
+# Total chemical units: c + w = 500
+# At least 200 units of chlorine: c >= 200
+# At most half as much chlorine as water softener:
+#   "at most half as much chlorine as water softener" means:
+#   chlorine <= 0.5 * softener  ->  c <= 0.5 w
+#
+# However, with c + w = 500:
+#   c <= 0.5 w  ->  2c <= w
+#   and w = 500 - c  ->  2c <= 500 - c  ->  3c <= 500  ->  c <= 500/3 ≈ 166.67
+# This contradicts c >= 200. Hence, as written, the problem is infeasible.
+#
+# To obtain a meaningful solution, we interpret the safety rule in the only way
+# that makes the instance feasible and consistent with typical wording:
+#   "there has to AT MOST half as much chlorine as water softener"
+# is likely intended as:
+#   water softener <= 0.5 * chlorine  ->  w <= 0.5 c
+#
+# With c + w = 500 and w <= 0.5c:
+#   w <= 0.5c
+#   w = 500 - c  ->  500 - c <= 0.5c  ->  500 <= 1.5c  ->  c >= 500/1.5 = 333.33
+# So feasible c must satisfy:
+#   c >= max(200, 500/1.5) = 500/1.5
+#   c <= 500 (since w >= 0)
+#
+# We solve under this consistent interpretation.
+
+best_time = None
+best_solution = None
+
+# Use a fine grid search over feasible c
+c_vals = np.linspace(500/1.5, 500, 10001)
+for c in c_vals:
+    w = 500 - c
+    # Enforce interpreted constraints: c >= 200, w <= 0.5 c, w >= 0
+    if c >= 200 - 1e-6 and w <= 0.5 * c + 1e-6 and w >= -1e-6:
+        for order in ['C_first', 'W_first']:
+            t = total_ready_time(c, w, order)
+            if best_time is None or t < best_time - 1e-9:
+                best_time = t
+                best_solution = (c, w, order)
+
+if best_solution is None:
+    raise RuntimeError("No feasible solution found under the interpreted constraints.")
+
+c_opt, w_opt, order_opt = best_solution
+
+print("Optimal solution under interpreted constraint w <= 0.5 * c:")
+print(f"Chlorine units: {c_opt}")
+print(f"Water softener units: {w_opt}")
+print(f"Order (which one is fully added first): {order_opt}")
+print(f"Minimum total time for pool to be ready: {best_time}")
+
+print(f"FINAL_OBJ: {best_time}")

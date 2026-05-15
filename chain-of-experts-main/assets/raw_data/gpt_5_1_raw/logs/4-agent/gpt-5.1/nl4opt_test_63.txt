@@ -1,0 +1,201 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Maximise total annual profit from producing loaves of bread and batches of cookies, subject to the annual capacity limits of the stand mixer and the oven.
+
+2. Suggested model type  
+Model: Linear Programming (LP), deterministic, single-period (one-year horizon), continuous (assuming fractional batches/loaves are allowed; if not, the modeller can use an Integer Linear Program but the structure is the same).
+
+3. Main decision variables  
+Define two non-negative decision variables:
+
+- Number of loaves of bread produced per year.  
+- Number of batches of cookies produced per year.
+
+(If needed, the modeller can specify them as continuous non-negative variables; they represent production quantities.)
+
+4. Key constraints to consider  
+
+   a) Stand mixer capacity  
+   - Each loaf of bread uses 1 hour in the stand mixer.  
+   - Each batch of cookies uses 0.5 hours in the stand mixer.  
+   - Total mixer time used by bread and cookies cannot exceed 3000 hours per year.  
+
+   b) Oven capacity  
+   - Each loaf of bread uses 3 hours in the oven.  
+   - Each batch of cookies uses 1 hour in the oven.  
+   - Total oven time used by bread and cookies cannot exceed 3000 hours per year.  
+
+   c) Non-negativity  
+   - Bread quantity ≥ 0.  
+   - Cookie quantity ≥ 0.  
+
+5. Objective function components  
+
+   - Profit from bread: $5 per loaf × (number of loaves).  
+   - Profit from cookies: $3 per batch × (number of batches).  
+   - Objective: Maximise total profit = 5 × (loaves) + 3 × (batches).  
+
+6. Modelling / solution strategy hints for the Modeller  
+
+   - This is a standard two-variable LP with two binding resource constraints; can be solved graphically or via any LP solver.  
+   - Determine which resource (mixer or oven) is likely to be the bottleneck by comparing the profit contribution per hour of each product on each machine.  
+   - Evaluate corner points of the feasible region (e.g., “all bread”, “all cookies”, and the intersection where both machines are fully utilised) to find the optimal production mix.  
+   - Check whether both machine constraints are active at optimum or just one (this helps interpret the shadow prices if needed).
+
+---
+
+[MODELER]:
+Below is a compact mathematical model of the bakery problem, followed by suggestions for solving it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x \ge 0\): number of loaves of bread produced per year  
+- \(y \ge 0\): number of batches of cookies produced per year  
+
+(Continuous LP; if only integer numbers of loaves/batches are allowed, use integer variables.)
+
+---
+
+## 2. Objective function
+
+Maximise total annual profit:
+
+\[
+\max\; Z = 5x + 3y
+\]
+
+where:
+
+- \(5\): profit (in dollars) per loaf of bread  
+- \(3\): profit (in dollars) per batch of cookies  
+
+---
+
+## 3. Constraints
+
+### a) Stand mixer capacity
+
+- Bread uses 1 hour of mixer time per loaf  
+- Cookies use 0.5 hour of mixer time per batch  
+- Annual mixer availability: 3000 hours
+
+\[
+1x + 0.5y \le 3000
+\]
+
+### b) Oven capacity
+
+- Bread uses 3 hours of oven time per loaf  
+- Cookies use 1 hour of oven time per batch  
+- Annual oven availability: 3000 hours
+
+\[
+3x + 1y \le 3000
+\]
+
+### c) Non-negativity
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+
+---
+
+## 4. Full LP model (compact form)
+
+\[
+\begin{aligned}
+\max\quad & 5x + 3y \\
+\text{s.t.}\quad 
+& x + 0.5y \le 3000 \quad &\text{(mixer capacity)} \\
+& 3x + y \le 3000 \quad &\text{(oven capacity)} \\
+& x \ge 0,\; y \ge 0 &\text{(non-negativity)}
+\end{aligned}
+\]
+
+This can be trivially adapted to an Integer Linear Program by declaring \(x, y \in \mathbb{Z}_{\ge 0}\).
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard LP/ILP solver can handle this model:
+
+- `PuLP` (pure Python, easy syntax, good for teaching and small problems)
+- `scipy.optimize.linprog` (for simple LPs, continuous variables only)
+- `OR-Tools` (`ortools.linear_solver` for LP/MIP; `CBC` or `SCIP` backends)
+- `Pyomo` (more general algebraic modeling language, works with many solvers)
+
+Example with PuLP (continuous LP):
+
+```python
+import pulp as pl
+
+# Create model
+model = pl.LpProblem("Bakery_Profit_Maximisation", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable('bread_loaves', lowBound=0)  # continuous >= 0
+y = pl.LpVariable('cookie_batches', lowBound=0)
+
+# Objective
+model += 5 * x + 3 * y
+
+# Constraints
+model += x + 0.5 * y <= 3000, "Mixer_capacity"
+model += 3 * x + y <= 3000, "Oven_capacity"
+
+# Solve
+model.solve()
+
+print("Status:", pl.LpStatus[model.status])
+print("Optimal bread loaves:", pl.value(x))
+print("Optimal cookie batches:", pl.value(y))
+print("Maximum profit:", pl.value(model.objective))
+```
+
+If you want integer solutions, change the variables to:
+
+```python
+x = pl.LpVariable('bread_loaves', lowBound=0, cat='Integer')
+y = pl.LpVariable('cookie_batches', lowBound=0, cat='Integer')
+```
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create model
+    model = pl.LpProblem("Bakery_Profit_Maximisation", pl.LpMaximize)
+
+    # Decision variables: continuous, non-negative
+    x = pl.LpVariable('bread_loaves', lowBound=0)  # number of loaves
+    y = pl.LpVariable('cookie_batches', lowBound=0)  # number of cookie batches
+
+    # Objective function: Maximize profit 5x + 3y
+    model += 5 * x + 3 * y
+
+    # Constraints
+    # Mixer capacity: x + 0.5y <= 3000
+    model += x + 0.5 * y <= 3000, "Mixer_capacity"
+
+    # Oven capacity: 3x + y <= 3000
+    model += 3 * x + y <= 3000, "Oven_capacity"
+
+    # Solve the model
+    model.solve()
+
+    # Get optimal objective value
+    optimal_profit = pl.value(model.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {optimal_profit}")
+
+if __name__ == "__main__":
+    main()

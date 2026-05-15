@@ -1,0 +1,200 @@
+[MODELER]:
+Here is a clean mathematical model of the problem, plus how you could solve it with Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x\) = number of dual-model stamping machines (integer, \(x \ge 0\))
+- \(y\) = number of single-model stamping machines (integer, \(y \ge 0\))
+
+Both must be nonnegative integers.
+
+---
+
+## 2. Objective
+
+Minimize the total number of machines:
+
+\[
+\min \; Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1. Stamping capacity (letters per minute)
+
+Each dual machine stamps 50 letters per minute, each single machine 30. The post office needs at least 300 letters per minute:
+
+\[
+50x + 30y \;\ge\; 300
+\]
+
+### 3.2. Glue usage (units per minute)
+
+Each dual machine uses 20 units of glue per minute, each single uses 15. They can use at most 135 units per minute:
+
+\[
+20x + 15y \;\le\; 135
+\]
+
+### 3.3. Quietness requirement
+
+The number of single machines must be more than the number of dual machines:
+
+\[
+y \;\ge\; x + 1
+\]
+
+### 3.4. Nonnegativity and integrality
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete optimization model
+
+\[
+\begin{aligned}
+\min \quad & Z = x + y \\
+\text{s.t.} \quad
+& 50x + 30y \;\ge\; 300 \quad &&\text{(capacity)} \\
+& 20x + 15y \;\le\; 135 \quad &&\text{(glue)} \\
+& y \;\ge\; x + 1 \quad &&\text{(quietness)} \\
+& x, y \in \mathbb{Z}_{\ge 0} \quad &&\text{(integrality)}
+\end{aligned}
+\]
+
+---
+
+## 5. Solution of the model (by inspection)
+
+We can look for small integer pairs \((x, y)\) satisfying the constraints and minimizing \(x + y\).
+
+From glue:  
+\(20x + 15y \le 135 \Rightarrow 4x + 3y \le 27\)
+
+From capacity:  
+\(50x + 30y \ge 300 \Rightarrow 5x + 3y \ge 30\)
+
+Subtracting:
+
+\[
+(5x + 3y) - (4x + 3y) \ge 30 - 27 \Rightarrow x \ge 3
+\]
+
+Quietness: \(y \ge x + 1\), so with \(x \ge 3\), the minimum \(y\) is \(4\).
+
+Check \((x,y) = (3,4)\):
+
+- Capacity: \(50\cdot3 + 30\cdot4 = 150 + 120 = 270 < 300\) → fails.
+- So need larger \(y\).
+
+Keep \(x = 3\), increase \(y\) as long as glue allows:  
+Glue: \(20\cdot3 + 15y \le 135 \Rightarrow 60 + 15y \le 135 \Rightarrow 15y \le 75 \Rightarrow y \le 5\).
+
+So possible \(y\) for \(x = 3\): \(4, 5\).
+
+We saw \(y = 4\) fails capacity.  
+Try \((3, 5)\):
+
+- Capacity: \(50\cdot3 + 30\cdot5 = 150 + 150 = 300 \ge 300\) ✓
+- Glue: \(20\cdot3 + 15\cdot5 = 60 + 75 = 135 \le 135\) ✓
+- Quietness: \(5 > 3\) ✓
+
+Objective: \(x + y = 3 + 5 = 8\).
+
+Try \(x = 4\): then \(y \ge 5\) (quietness).  
+Glue: \(20\cdot4 + 15\cdot5 = 80 + 75 = 155 > 135\) already fails, so any larger \(y\) also fails. So no feasible solutions with \(x \ge 4\).
+
+Thus \((x,y) = (3,5)\) is the optimal solution.
+
+**Answer in words:**  
+They should buy 3 dual-model stamping machines and 5 single-model stamping machines, for a total of 8 machines.
+
+---
+
+## 6. How to solve it in Python
+
+This is a small integer linear program. Suitable libraries:
+
+- `PuLP` (simple modeling, open source)
+- `ortools.linear_solver` (Google OR-Tools)
+- `Pyomo` (more general modeling)
+- `scipy.optimize` is less suitable here because it doesn’t handle integer variables natively.
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("StampingMachines", pl.LpMinimize)
+
+# Variables (integers)
+x = pl.LpVariable("dual_machines", lowBound=0, cat="Integer")
+y = pl.LpVariable("single_machines", lowBound=0, cat="Integer")
+
+# Objective
+prob += x + y, "TotalMachines"
+
+# Constraints
+prob += 50*x + 30*y >= 300, "Capacity"
+prob += 20*x + 15*y <= 135, "Glue"
+prob += y >= x + 1, "Quietness"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Dual machines (x):", x.value())
+print("Single machines (y):", y.value())
+print("Total machines:", x.value() + y.value())
+```
+
+This will output:
+
+- Dual machines: 3
+- Single machines: 5
+- Total machines: 8
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("StampingMachines", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable("dual_machines", lowBound=0, cat="Integer")
+    y = pl.LpVariable("single_machines", lowBound=0, cat="Integer")
+
+    # Objective: minimize total number of machines
+    prob += x + y, "TotalMachines"
+
+    # Constraints
+    prob += 50 * x + 30 * y >= 300, "Capacity"
+    prob += 20 * x + 15 * y <= 135, "Glue"
+    prob += y >= x + 1, "Quietness"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract solution
+    x_val = int(pl.value(x))
+    y_val = int(pl.value(y))
+    obj_val = x_val + y_val
+
+    # Print final objective in required format
+    print(f"FINAL_OBJ: {obj_val}")
+
+if __name__ == "__main__":
+    main()

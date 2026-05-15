@@ -1,0 +1,150 @@
+[MODELER]:
+Here is a clean mathematical model of the problem and how to solve it as an optimization problem.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x_1 \ge 0\): number of doses of pain killer 1  
+- \(x_2 \ge 0\): number of doses of pain killer 2  
+
+We assume fractional doses are allowed unless the medical context explicitly requires integers.
+
+---
+
+## 2. Constraints
+
+### a) Sleep medicine constraint (at most 8 units)
+
+- Pain killer 1 gives 0.3 units of sleep medicine per dose.  
+- Pain killer 2 gives 0.6 units of sleep medicine per dose.  
+
+Total sleep medicine must not exceed 8 units:
+
+\[
+0.3 x_1 + 0.6 x_2 \le 8
+\]
+
+### b) Legs medicine constraint (at least 4 units)
+
+- Pain killer 1 gives 0.5 units to the legs per dose.  
+- Pain killer 2 gives 0.7 units to the legs per dose.  
+
+Total medicine to the legs must be at least 4 units:
+
+\[
+0.5 x_1 + 0.7 x_2 \ge 4
+\]
+
+### c) Nonnegativity
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+---
+
+## 3. Objective function
+
+We want to maximize medicine delivered to the back.
+
+- Pain killer 1 gives 0.8 units to the back per dose.  
+- Pain killer 2 gives 0.4 units to the back per dose.  
+
+So the objective is:
+
+\[
+\text{Maximize } Z = 0.8 x_1 + 0.4 x_2
+\]
+
+---
+
+## 4. Complete linear program
+
+\[
+\begin{aligned}
+\max_{x_1, x_2} \quad & 0.8 x_1 + 0.4 x_2 \\
+\text{s.t.} \quad
+& 0.3 x_1 + 0.6 x_2 \le 8 \quad &&\text{(sleep medicine)} \\
+& 0.5 x_1 + 0.7 x_2 \ge 4 \quad &&\text{(legs medicine)} \\
+& x_1 \ge 0,\; x_2 \ge 0 \quad &&\text{(nonnegativity)}
+\end{aligned}
+\]
+
+This is a standard linear programming (LP) problem.
+
+---
+
+## 5. Suitable Python libraries
+
+You can solve this LP with any of the following:
+
+- `PuLP` (very user-friendly for LP/MIP, pure Python)
+- `scipy.optimize.linprog` (in SciPy; good for continuous LP)
+- `ortools.linear_solver` (Google OR-Tools; powerful and fast)
+
+For this problem, `PuLP` or `scipy.optimize.linprog` are ideal.
+
+---
+
+## 6. Example solution in Python (using PuLP)
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Painkiller_Back_Maximization", pl.LpMaximize)
+
+# Decision variables (nonnegative)
+x1 = pl.LpVariable('x1', lowBound=0)  # doses of pain killer 1
+x2 = pl.LpVariable('x2', lowBound=0)  # doses of pain killer 2
+
+# Objective: maximize medicine to the back
+prob += 0.8 * x1 + 0.4 * x2, "Back_Medicine"
+
+# Constraints
+prob += 0.3 * x1 + 0.6 * x2 <= 8, "Sleep_Upper"
+prob += 0.5 * x1 + 0.7 * x2 >= 4, "Legs_Lower"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Results
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal x1 (doses of pain killer 1):", x1.value())
+print("Optimal x2 (doses of pain killer 2):", x2.value())
+print("Max back medicine:", pl.value(prob.objective))
+```
+
+This code directly implements the mathematical model above and returns the optimal number of doses for each pain killer to maximize back pain relief under the given constraints.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the optimization problem
+    prob = pl.LpProblem("Painkiller_Back_Maximization", pl.LpMaximize)
+
+    # Decision variables
+    x1 = pl.LpVariable('x1', lowBound=0)  # doses of pain killer 1
+    x2 = pl.LpVariable('x2', lowBound=0)  # doses of pain killer 2
+
+    # Objective: maximize medicine to the back
+    prob += 0.8 * x1 + 0.4 * x2, "Back_Medicine"
+
+    # Constraints
+    prob += 0.3 * x1 + 0.6 * x2 <= 8, "Sleep_Upper"
+    prob += 0.5 * x1 + 0.7 * x2 >= 4, "Legs_Lower"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the final objective value
+    final_obj = pl.value(prob.objective)
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

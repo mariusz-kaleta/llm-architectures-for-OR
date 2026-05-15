@@ -1,0 +1,117 @@
+[MODELER]:
+Formal model (linear program)
+
+Decision variables
+- x1 ≥ 0 : number of strawberry cookies to make.
+- x2 ≥ 0 : number of sugar cookies to make.
+
+Objective
+- Maximize total profit P = 5.5 x1 + 12 x2.
+
+Constraints
+1. Demand limits:
+   - x1 ≤ 100 (at most 100 strawberry cookies demanded)
+   - x2 ≤ 80  (at most 80 sugar cookies demanded)
+2. Production capacity (short-staffed):
+   - x1 + x2 ≤ 100 (at most 100 cookies total per day)
+
+Mathematical formulation
+Maximize 5.5 x1 + 12 x2
+subject to
+  x1 ≤ 100
+  x2 ≤ 80
+  x1 + x2 ≤ 100
+  x1, x2 ≥ 0
+
+Solution (analysis)
+Profit per cookie: sugar = $12, strawberry = $5.50. Sugar cookies are more profitable, so produce as many sugar cookies as feasible (bounded by demand x2 ≤ 80 and total capacity). Set x2 = 80. Remaining capacity is 100 − 80 = 20, so set x1 = 20 (≤ 100 demand). This is feasible and optimal (LP optimum occurs at a vertex).
+
+Optimal production and profit
+- x1 = 20 strawberry cookies
+- x2 = 80 sugar cookies
+- Maximum profit = 5.5·20 + 12·80 = 110 + 960 = $1,070
+
+Notes
+- If cookies must be integer, this solution is integer; otherwise the LP relaxation gives the same result.
+- If any problem data changes (prices, demands, capacity), the same LP model applies.
+
+Recommended Python libraries to solve this
+- PuLP (easy modelling and CBC solver): pulp
+- OR-Tools (Google): ortools.linear_solver
+- SciPy (simple LP): scipy.optimize.linprog
+- CVXPY or Pyomo (more advanced modelling)
+
+Example (PuLP) — minimal code
+from pulp import LpProblem, LpMaximize, LpVariable, lpSum, value
+prob = LpProblem("Bakery", LpMaximize)
+x1 = LpVariable('x1', lowBound=0)
+x2 = LpVariable('x2', lowBound=0)
+prob += 5.5*x1 + 12*x2
+prob += x1 <= 100
+prob += x2 <= 80
+prob += x1 + x2 <= 100
+prob.solve()
+print(value(x1), value(x2), value(prob.objective))
+
+This will return x1=20, x2=80, objective=1070.
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the LP described in the prompt.
+# It first attempts to use PuLP if available; if not, it falls back to a simple greedy analytic solver
+# (which is exact for this kind of single-resource, linear profit-per-unit allocation problem).
+
+from math import isclose
+
+# Problem data (initialized directly)
+profits = [5.5, 12.0]   # profit per unit for x1 (strawberry), x2 (sugar)
+demands = [100.0, 80.0] # demand limits for x1, x2
+capacity = 100.0        # total production capacity (x1 + x2 <= capacity)
+
+x_vals = [0.0, 0.0]
+final_obj = None
+
+# Try to solve using PuLP if available
+try:
+    import pulp
+    # Define LP
+    prob = pulp.LpProblem("Cookie_Production", pulp.LpMaximize)
+    x1 = pulp.LpVariable("x1", lowBound=0)
+    x2 = pulp.LpVariable("x2", lowBound=0)
+    prob += profits[0]*x1 + profits[1]*x2
+    prob += x1 <= demands[0]
+    prob += x2 <= demands[1]
+    prob += x1 + x2 <= capacity
+    # Solve silently if possible
+    try:
+        solver = pulp.PULP_CBC_CMD(msg=False)
+        prob.solve(solver)
+    except Exception:
+        prob.solve()
+    # Retrieve solution
+    x_vals[0] = float(pulp.value(x1))
+    x_vals[1] = float(pulp.value(x2))
+    final_obj = float(pulp.value(prob.objective))
+except Exception:
+    # Fallback analytic greedy solver (optimal for this problem)
+    remaining = capacity
+    order = sorted(range(len(profits)), key=lambda i: profits[i], reverse=True)
+    for i in order:
+        take = min(demands[i], remaining)
+        x_vals[i] = take
+        remaining -= take
+    final_obj = sum(profits[i]*x_vals[i] for i in range(len(profits)))
+
+# Normalize final_obj to int if it's effectively integer
+if isclose(final_obj, round(final_obj), rel_tol=1e-9, abs_tol=1e-9):
+    final_obj = int(round(final_obj))
+else:
+    # keep as float with reasonable precision
+    final_obj = float(final_obj)
+
+# Final required output line (only this line must contain the FINAL_OBJ print)
+print(f"FINAL_OBJ: {final_obj}")
+```

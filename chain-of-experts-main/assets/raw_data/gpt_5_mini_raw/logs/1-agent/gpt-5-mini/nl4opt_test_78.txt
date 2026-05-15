@@ -1,0 +1,67 @@
+[MONOLITH]:
+```python
+# Optimization of number of large and tiny rice bags to maximize total grain weight
+# Assumption: "there must be twice as many large bags as tiny bags" in the user's text
+# appears inconsistent with the energy and minimum-tiny constraints (it would be infeasible).
+# A common intended reading is: there must be twice as many tiny bags as large bags.
+# Thus we implement T = 2 * L and T >= 20.
+#
+# Decision variables:
+#  L = number of large bags (25 kg, 4 energy each)
+#  T = number of tiny bags  (6 kg, 1.5 energy each)
+#
+# Maximize: 25*L + 6*T
+# s.t.
+#  4*L + 1.5*T <= 110 (energy limit)
+#  T - 2*L == 0   (twice as many tiny bags as large bags)
+#  T >= 20
+#  L, T integer >= 0
+
+from pulp import LpProblem, LpMaximize, LpVariable, lpSum, value, LpStatus
+
+# Define the problem
+prob = LpProblem("Maximize_Grain_Transport", LpMaximize)
+
+# Decision variables (integers)
+L = LpVariable("LargeBags", lowBound=0, cat="Integer")
+T = LpVariable("TinyBags", lowBound=0, cat="Integer")
+
+# Parameters
+weight_large = 25.0  # kg per large bag
+weight_tiny = 6.0    # kg per tiny bag
+energy_large = 4.0   # energy per large bag
+energy_tiny = 1.5    # energy per tiny bag
+energy_available = 110.0
+min_tiny = 20
+
+# Objective: maximize total weight
+prob += weight_large * L + weight_tiny * T, "Total_Weight"
+
+# Constraints
+prob += energy_large * L + energy_tiny * T <= energy_available, "EnergyLimit"
+prob += T - 2 * L == 0, "TinyTwiceLarge"
+prob += T >= min_tiny, "MinTinyBags"
+
+# Solve
+prob.solve()
+
+# Fetch results
+status = LpStatus[prob.status]
+obj_val = value(prob.objective)
+L_val = int(L.value()) if L.value() is not None else None
+T_val = int(T.value()) if T.value() is not None else None
+energy_used = None
+if L_val is not None and T_val is not None:
+    energy_used = energy_large * L_val + energy_tiny * T_val
+
+# Print results
+print(f"Status: {status}")
+print(f"Large bags (L): {L_val}")
+print(f"Tiny bags  (T): {T_val}")
+if energy_used is not None:
+    print(f"Energy used: {energy_used} / {energy_available}")
+print(f"Total weight (kg): {obj_val}")
+
+# Final required line (exact format)
+print(f"FINAL_OBJ: {obj_val}")
+```

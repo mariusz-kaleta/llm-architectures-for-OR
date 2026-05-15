@@ -1,0 +1,197 @@
+[MODELER]:
+Here is a formal optimization model for Ayse’s problem.
+
+## 1. Decision variables
+
+Let  
+- \(x_C \ge 0\): kilograms of fertilizer C in the mixture  
+- \(x_Y \ge 0\): kilograms of fertilizer Y in the mixture  
+
+## 2. Objective
+
+Minimize the total cost of the compound:
+
+\[
+\min \; Z = 2x_C + 3x_Y
+\]
+
+where \$2/kg is the cost of C and \$3/kg is the cost of Y.
+
+## 3. Constraints
+
+### Nitrous oxide requirement
+
+Each kg of C provides 1.5 units of nitrous oxide; each kg of Y provides 5 units.  
+The mixture must have at least 5 units of nitrous oxide:
+
+\[
+1.5x_C + 5x_Y \;\ge\; 5
+\]
+
+### Vitamin mix requirement
+
+Each kg of C provides 3 units of vitamin mix; each kg of Y provides 1 unit.  
+The mixture must have at least 8 units of vitamin mix:
+
+\[
+3x_C + x_Y \;\ge\; 8
+\]
+
+### Non-negativity
+
+\[
+x_C \ge 0,\quad x_Y \ge 0
+\]
+
+This is a linear programming (LP) problem.
+
+---
+
+## 4. Solving the model analytically
+
+We expect the optimal solution to lie at an intersection of constraints.
+
+Solve the system where both requirements are exactly met:
+
+\[
+\begin{cases}
+1.5x_C + 5x_Y = 5 \\
+3x_C + x_Y = 8
+\end{cases}
+\]
+
+From the second equation:  
+\[
+x_Y = 8 - 3x_C
+\]
+
+Substitute into the first:
+
+\[
+1.5x_C + 5(8 - 3x_C) = 5
+\]
+\[
+1.5x_C + 40 - 15x_C = 5
+\]
+\[
+-13.5x_C = -35
+\]
+\[
+x_C = \dfrac{35}{13.5} = \dfrac{70}{27} \approx 2.5926
+\]
+
+Then
+
+\[
+x_Y = 8 - 3x_C = 8 - 3 \cdot \dfrac{70}{27}
+= 8 - \dfrac{210}{27}
+= \dfrac{216 - 210}{27}
+= \dfrac{6}{27}
+= \dfrac{2}{9} \approx 0.2222
+\]
+
+Check non-negativity: both are ≥ 0, so this is feasible.
+
+Cost at this point:
+
+\[
+Z = 2x_C + 3x_Y = 2\cdot \dfrac{70}{27} + 3\cdot \dfrac{2}{9}
+= \dfrac{140}{27} + \dfrac{6}{9}
+= \dfrac{140}{27} + \dfrac{18}{27}
+= \dfrac{158}{27} \approx 5.852
+\]
+
+Check if lower-cost corner points (axes intersections) are feasible:
+
+- If \(x_C = 0\):  
+  - Nitrous: \(5x_Y \ge 5 \Rightarrow x_Y \ge 1\)  
+  - Vitamins: \(x_Y \ge 8\)  
+  ⇒ Need \(x_Y \ge 8\), cost = \(3 \cdot 8 = 24\) (feasible but more expensive).
+
+- If \(x_Y = 0\):  
+  - Nitrous: \(1.5x_C \ge 5 \Rightarrow x_C \ge \dfrac{10}{3} \approx 3.333\)  
+  - Vitamins: \(3x_C \ge 8 \Rightarrow x_C \ge \dfrac{8}{3} \approx 2.667\)  
+  ⇒ Need \(x_C \ge 10/3\), cost = \(2 \cdot 10/3 = 20/3 \approx 6.667\) (feasible, but more expensive than 5.852).
+
+Thus the intersection point is optimal.
+
+**Optimal mixture**:  
+- \(x_C^* = \dfrac{70}{27} \approx 2.59\) kg  
+- \(x_Y^* = \dfrac{2}{9} \approx 0.22\) kg  
+
+**Minimum cost**:  
+\[
+Z^* = \dfrac{158}{27} \approx \$5.85
+\]
+
+---
+
+## 5. Suitable Python libraries and basic formulation
+
+This is a standard linear program suitable for:
+
+- `PuLP` (`pulp`) – very straightforward for teaching/modeling LPs.
+- `scipy.optimize.linprog` – for continuous linear problems.
+- `ortools.linear_solver` – Google OR-Tools linear solver interface.
+- `cvxpy` – for more general convex optimization, supports LP easily.
+
+Example in `PuLP`:
+
+```python
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("FertilizerMix", pl.LpMinimize)
+
+# Decision variables
+xC = pl.LpVariable('xC', lowBound=0)
+xY = pl.LpVariable('xY', lowBound=0)
+
+# Objective
+prob += 2 * xC + 3 * xY
+
+# Constraints
+prob += 1.5 * xC + 5 * xY >= 5      # Nitrous oxide
+prob += 3 * xC + 1 * xY >= 8        # Vitamin mix
+
+# Solve
+prob.solve()
+
+print("Status:", pl.LpStatus[prob.status])
+print("xC =", pl.value(xC))
+print("xY =", pl.value(xY))
+print("Min cost =", pl.value(prob.objective))
+```
+
+This would return the optimal quantities and the minimum cost consistent with the analytical solution above.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def solve_fertilizer_mix():
+    # Define the LP problem
+    prob = pl.LpProblem("FertilizerMix", pl.LpMinimize)
+
+    # Decision variables (non-negative)
+    xC = pl.LpVariable('xC', lowBound=0)
+    xY = pl.LpVariable('xY', lowBound=0)
+
+    # Objective: Minimize total cost
+    prob += 2 * xC + 3 * xY
+
+    # Constraints
+    prob += 1.5 * xC + 5 * xY >= 5     # Nitrous oxide requirement
+    prob += 3 * xC + xY >= 8           # Vitamin mix requirement
+
+    # Solve the LP
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract optimal objective value
+    optimal_value = pl.value(prob.objective)
+    return optimal_value
+
+if __name__ == "__main__":
+    value = solve_fertilizer_mix()
+    print(f"FINAL_OBJ: {value}")

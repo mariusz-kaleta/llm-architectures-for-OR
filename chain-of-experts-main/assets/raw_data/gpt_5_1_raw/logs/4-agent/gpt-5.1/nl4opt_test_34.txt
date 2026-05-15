@@ -1,0 +1,254 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise the total number of workers required while achieving the required transport rate and satisfying usage limits on trolleys.
+
+2. Suggested model type  
+Model: Linear Programming (LP) with integer decision variables (small-scale Integer Linear Program).  
+- The structure is linear; decision variables represent counts of carts and trolleys.
+
+3. Main decision variables  
+Define integer decision variables such as:
+- C = number of carts used.
+- T = number of trolleys used.
+
+(If needed, you can later relax integrality to check the LP solution, then enforce integer restrictions.)
+
+4. Objective function (conceptual)  
+- Minimise total workers:
+  - Each cart uses 2 workers → contributes 2C workers.
+  - Each trolley uses 4 workers → contributes 4T workers.  
+→ Objective: Minimise 2C + 4T.
+
+5. Key constraints to include  
+
+a) Transport capacity requirement  
+- Carts transport 5 kg/min each → 5C kg/min.
+- Trolleys transport 7 kg/min each → 7T kg/min.
+- Required overall rate: at least 100 kg/min.  
+→ Capacity constraint: 5C + 7T ≥ 100.
+
+b) Minimum number of trolleys  
+- At least 12 trolleys must be used:  
+→ T ≥ 12.
+
+c) Maximum share of transport done by trolleys  
+- At most 40% of the total transported amount (per minute) can be done by trolleys.  
+- Transported by trolleys: 7T.  
+- Total transported: 5C + 7T.  
+- Requirement: 7T ≤ 0.4 × (5C + 7T).  
+This is a linear inequality and can be rearranged to a standard linear form before implementation.
+
+d) Non-negativity and integrality  
+- C ≥ 0, T ≥ 0.
+- C and T should be integers (counts of vehicles).
+
+6. Modelling / solution strategy notes for the Modeller  
+
+- First, model and solve the LP relaxation (C, T continuous) to understand the structure and check feasibility bounds.
+- Then enforce integrality on C and T to obtain a practical solution.
+- Verify that the optimal solution:
+  - Meets the 100 kg/min requirement (capacity constraint).
+  - Uses at least 12 trolleys.
+  - Respects the 40% trolleys’ share constraint.
+- If multiple integer solutions yield the same minimum number of workers, you may optionally explore:
+  - Minimising total number of vehicles (C + T) as a secondary objective, or
+  - Preferring solutions closer to the minimum capacity that still meets 100 kg/min.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model of the problem, followed by suggestions for Python libraries and an implementation sketch.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(C \in \mathbb{Z}_{\ge 0}\): number of carts used  
+- \(T \in \mathbb{Z}_{\ge 0}\): number of trolleys used  
+
+These must be integers because they represent counts of vehicles.
+
+---
+
+## 2. Objective function
+
+Each cart requires 2 workers, each trolley requires 4 workers.  
+We want to minimize the total number of workers.
+
+\[
+\min\; Z = 2C + 4T
+\]
+
+---
+
+## 3. Constraints
+
+### a) Capacity (transport rate) requirement
+
+Each cart can transport 5 kg/min; each trolley 7 kg/min. We must transport at least 100 kg/min.
+
+\[
+5C + 7T \;\ge\; 100
+\]
+
+### b) Minimum number of trolleys
+
+At least 12 trolleys must be used:
+
+\[
+T \;\ge\; 12
+\]
+
+### c) Maximum 40% of transport by trolleys
+
+At most 40% of the total transported amount per minute can be done by trolleys.
+
+- Transport by trolleys per minute: \(7T\)
+- Total transport per minute: \(5C + 7T\)
+- Requirement:  
+  \[
+  \frac{7T}{5C + 7T} \;\le\; 0.4
+  \]
+
+Multiply both sides by \(5C + 7T\) (positive since a positive rate is needed):
+
+\[
+7T \;\le\; 0.4(5C + 7T)
+\]
+
+Rearrange to a standard linear form:
+
+\[
+7T \;\le\; 2C + 2.8T
+\]
+\[
+7T - 2.8T \;\le\; 2C
+\]
+\[
+4.2T \;\le\; 2C
+\]
+
+Or, multiplying by 10 to clear decimals:
+
+\[
+42T \;\le\; 20C
+\]
+
+Equivalently:
+
+\[
+20C - 42T \;\ge\; 0
+\]
+
+This is a linear constraint.
+
+### d) Non-negativity and integrality
+
+\[
+C \ge 0,\quad T \ge 0,\quad C, T \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full optimization model
+
+\[
+\begin{aligned}
+\min\quad & Z = 2C + 4T \\
+\text{s.t.}\quad
+& 5C + 7T \;\ge\; 100 \quad &\text{(capacity)} \\
+& T \;\ge\; 12 \quad &\text{(min trolleys)} \\
+& 42T \;\le\; 20C \quad &\text{(≤ 40% by trolleys)} \\
+& C, T \in \mathbb{Z}_{\ge 0} \quad &\text{(integrality, nonnegativity)}
+\end{aligned}
+\]
+
+Optionally, after solving, you can add a secondary objective (e.g. minimize \(C+T\)) as a tie-breaker if multiple solutions have the same minimum worker count.
+
+---
+
+## 5. Suitable Python libraries
+
+This is a small integer linear program (ILP). Suitable libraries:
+
+- **PuLP**  
+  - Easy modeling syntax, open-source.  
+  - Can use CBC (default) or other solvers.
+- **OR-Tools (Google OR-Tools)**  
+  - Very efficient MIP solver, good for integer problems.  
+  - Use `pywraplp.Solver` (CBC or SCIP, depending on installation).
+- **Pyomo**  
+  - More general algebraic modeling language; good if you want a scalable framework.  
+- **SciPy** (`scipy.optimize.linprog`)  
+  - Only solves continuous LPs directly. You could use it for the LP relaxation (ignore integrality), but not for the exact integer solution.
+
+For this problem, **PuLP** or **OR-Tools** are the most straightforward choices.
+
+---
+
+## 6. Example PuLP implementation sketch
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Transport_Workers_Minimization", pl.LpMinimize)
+
+# Decision variables: integer, non-negative
+C = pl.LpVariable('C', lowBound=0, cat=pl.LpInteger)
+T = pl.LpVariable('T', lowBound=0, cat=pl.LpInteger)
+
+# Objective: minimize total workers
+prob += 2*C + 4*T
+
+# Constraints
+prob += 5*C + 7*T >= 100, "Capacity"
+prob += T >= 12, "Min_Trolleys"
+prob += 42*T <= 20*C, "Max_40pct_Trolleys"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Carts (C)   =", pl.value(C))
+print("Trolleys (T) =", pl.value(T))
+print("Total workers =", 2*pl.value(C) + 4*pl.value(T))
+print("Transport rate =", 5*pl.value(C) + 7*pl.value(T), "kg/min")
+```
+
+You can similarly implement this with OR-Tools’ `pywraplp.Solver` using integer variables and linear constraints.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Transport_Workers_Minimization", pl.LpMinimize)
+
+    # Decision variables: integer, non-negative
+    C = pl.LpVariable('C', lowBound=0, cat=pl.LpInteger)
+    T = pl.LpVariable('T', lowBound=0, cat=pl.LpInteger)
+
+    # Objective: minimize total workers
+    prob += 2 * C + 4 * T
+
+    # Constraints
+    prob += 5 * C + 7 * T >= 100, "Capacity"
+    prob += T >= 12, "Min_Trolleys"
+    prob += 42 * T <= 20 * C, "Max_40pct_Trolleys"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    obj_value = pl.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

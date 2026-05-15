@@ -1,0 +1,101 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x = number of palladium-heavy catalysts produced (units)
+  - y = number of platinum-heavy catalysts produced (units)
+
+- Objective
+  - Maximize the conversion rate to CO2 (units per second):
+    maximize Z = 5x + 4y
+
+- Constraints
+  - Platinum availability: 15x + 20y ≤ 450
+  - Palladium availability: 25x + 14y ≤ 390
+  - Nonnegativity: x ≥ 0, y ≥ 0
+  - (Optional) Integrality: x, y ∈ Z≥0 if catalysts must be whole units
+
+Continuous LP solution (allowing fractional catalysts)
+- Solve the two equality constraints simultaneously:
+  15x + 20y = 450
+  25x + 14y = 390
+  ⇒ x = 150/29 ≈ 5.1724, y = 540/29 ≈ 18.6207
+
+- Objective value at this point:
+  Z = 5(150/29) + 4(540/29) = 100.3448276 units/sec
+
+Integer solution (if x,y must be integers)
+- Check nearby integer feasible points. The best integer feasible solution is:
+  x = 5 (palladium-heavy), y = 18 (platinum-heavy)
+  which uses 15·5 + 20·18 = 435 units Pt and 25·5 + 14·18 = 377 units Pd,
+  and yields Z = 5·5 + 4·18 = 97 units/sec.
+
+Recommended solvers / Python libraries
+- Continuous LP: scipy.optimize.linprog, PuLP (with CBC), OR-Tools linear solver
+- Integer LP / MILP: PuLP (with CBC/Gurobi/CPLEX), OR-Tools CP-SAT solver
+- For small problems you can solve analytically (intersection of lines) as above; for larger/more constraints use the libraries above.
+
+Summary / final answers
+- If fractional catalysts allowed: x ≈ 5.1724 palladium-heavy and y ≈ 18.6207 platinum-heavy, conversion ≈ 100.345 units/sec.
+- If catalysts must be whole units: use x = 5 palladium-heavy and y = 18 platinum-heavy, conversion = 97 units/sec.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import numpy as np
+
+# Problem data
+# Maximize Z = 5x + 4y
+c = np.array([5.0, 4.0])
+
+# Constraints:
+# 15x + 20y <= 450
+# 25x + 14y <= 390
+A = np.array([[15.0, 20.0],
+              [25.0, 14.0]])
+b = np.array([450.0, 390.0])
+
+# Solve continuous LP analytically by solving the two-equality system (intersection)
+try:
+    sol = np.linalg.solve(A, b)
+    x_cont, y_cont = sol[0], sol[1]
+except np.linalg.LinAlgError:
+    x_cont, y_cont = None, None
+
+def is_feasible(x, y, A, b, tol=1e-9):
+    vec = A.dot(np.array([x, y]))
+    return (x >= -tol) and (y >= -tol) and np.all(vec <= b + tol)
+
+if x_cont is not None and is_feasible(x_cont, y_cont, A, b):
+    Z_cont = c.dot(np.array([x_cont, y_cont]))
+else:
+    # If intersection is not feasible (unlikely here), fallback to checking corners
+    Z_cont = -np.inf
+    x_cont = y_cont = None
+
+# Compute best integer solution by brute force (small search space)
+# Determine reasonable bounds for integer search
+x_max = int(min(b[0] // A[0,0], b[1] // A[1,0])) + 2  # add small margin
+y_max = int(min(b[0] // A[0,1], b[1] // A[1,1])) + 2
+
+best_int_Z = -np.inf
+best_int_xy = (0, 0)
+for xi in range(0, max(0, x_max) + 1):
+    for yi in range(0, max(0, y_max) + 1):
+        if is_feasible(xi, yi, A, b):
+            Zi = c.dot(np.array([xi, yi]))
+            if Zi > best_int_Z:
+                best_int_Z = Zi
+                best_int_xy = (xi, yi)
+
+# Print intermediate results (allowed). Final line must be the EXACT required format.
+print(f"Continuous solution (allowing fractional catalysts): x = {x_cont:.10f}, y = {y_cont:.10f}, Z = {Z_cont:.10f}")
+print(f"Best integer solution (whole units): x = {best_int_xy[0]}, y = {best_int_xy[1]}, Z = {best_int_Z}")
+
+# Choose which objective to present as FINAL_OBJ.
+# Set integrality_required = True if integer solution is required; False for continuous.
+integrality_required = False
+
+final_value = best_int_Z if integrality_required else Z_cont
+
+print(f"FINAL_OBJ: {final_value}")

@@ -1,0 +1,210 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximise total profit from selling crepe cakes, sponge cakes, and birthday cakes, subject to batter and milk availability.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with non‑negative integer decision variables (an Integer LP, though the structure is simple).
+
+3. Main decision variables  
+   Define one variable per cake type, representing the number of cakes to make:
+   - Variable 1: Number of crepe cakes to produce.  
+   - Variable 2: Number of sponge cakes to produce.  
+   - Variable 3: Number of birthday cakes to produce.
+
+4. Objective function structure  
+   - Each cake has an associated profit:
+     - Crepe cake: 12 dollars per unit.
+     - Sponge cake: 10 dollars per unit.
+     - Birthday cake: 15 dollars per unit.
+   - Construct the objective as the sum of: (profit per unit) × (number of units of that cake).
+
+5. Key constraints to consider  
+
+   a) Batter availability  
+   - Total batter used by all cakes cannot exceed 20,000 grams.  
+   - Batter usage per unit:
+     - Crepe cake: 400 g
+     - Sponge cake: 500 g
+     - Birthday cake: 450 g  
+   - Sum of (batter per cake × number of that cake) ≤ 20,000.
+
+   b) Milk availability  
+   - Total milk used by all cakes cannot exceed 14,000 grams.  
+   - Milk usage per unit:
+     - Crepe cake: 200 g
+     - Sponge cake: 300 g
+     - Birthday cake: 350 g  
+   - Sum of (milk per cake × number of that cake) ≤ 14,000.
+
+   c) Non‑negativity  
+   - All decision variables must be ≥ 0.
+
+   d) Integrality  
+   - Number of cakes must be integers (no fractional cakes).  
+   - So each decision variable should be integer‑constrained.
+
+6. Optional checks / structure  
+   - Check if the solution from the LP relaxation (ignoring integrality) is integral; if so, it directly solves the ILP.  
+   - If not integral, use an integer programming method (branch‑and‑bound, etc.) to identify the best integer combination.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model and how to implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+- \(x_1\) = number of crepe cakes to produce  
+- \(x_2\) = number of sponge cakes to produce  
+- \(x_3\) = number of birthday cakes to produce  
+
+All variables represent counts of cakes, so they must be non‑negative integers:
+\[
+x_1, x_2, x_3 \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 2. Objective function
+
+Profit per cake:
+- Crepe cake: 12 dollars
+- Sponge cake: 10 dollars
+- Birthday cake: 15 dollars
+
+Maximize total profit:
+\[
+\max \; Z = 12x_1 + 10x_2 + 15x_3
+\]
+
+---
+
+## 3. Constraints
+
+### a) Batter constraint (≤ 20,000 g)
+
+Batter usage:
+- Crepe: 400 g
+- Sponge: 500 g
+- Birthday: 450 g
+
+\[
+400x_1 + 500x_2 + 450x_3 \le 20000
+\]
+
+### b) Milk constraint (≤ 14,000 g)
+
+Milk usage:
+- Crepe: 200 g
+- Sponge: 300 g
+- Birthday: 350 g
+
+\[
+200x_1 + 300x_2 + 350x_3 \le 14000
+\]
+
+### c) Non‑negativity and integrality
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0,\quad x_3 \ge 0,\quad x_1,x_2,x_3 \in \mathbb{Z}
+\]
+
+---
+
+## 4. Model summary (Integer Linear Program)
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 12x_1 + 10x_2 + 15x_3 \\
+\text{subject to} \quad 
+& 400x_1 + 500x_2 + 450x_3 \le 20000 \quad \text{(batter)} \\
+& 200x_1 + 300x_2 + 350x_3 \le 14000 \quad \text{(milk)} \\
+& x_1,x_2,x_3 \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a small Integer Linear Programming (ILP) problem. The LP relaxation (dropping integrality) may already yield integer values; if not, a standard ILP solver will handle it easily.
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard LP/ILP solver can handle this:
+
+- `PuLP` (pure Python, easy to use, ships with CBC solver)
+- `ortools.linear_solver` (Google OR‑Tools; very fast, good for ILPs)
+- `Pyomo` (more general modeling framework)
+- `scipy.optimize.linprog` (for LP relaxation only, no integrality)
+
+For this problem, `PuLP` or OR‑Tools are ideal.
+
+---
+
+## 6. Example: solving with PuLP
+
+```python
+import pulp as pl
+
+# 1. Define the problem (maximization)
+prob = pl.LpProblem("Bakery_Production", pl.LpMaximize)
+
+# 2. Decision variables (non-negative integers)
+x1 = pl.LpVariable("crepe_cakes", lowBound=0, cat="Integer")
+x2 = pl.LpVariable("sponge_cakes", lowBound=0, cat="Integer")
+x3 = pl.LpVariable("birthday_cakes", lowBound=0, cat="Integer")
+
+# 3. Objective function
+prob += 12 * x1 + 10 * x2 + 15 * x3, "Total_Profit"
+
+# 4. Constraints
+prob += 400 * x1 + 500 * x2 + 450 * x3 <= 20000, "Batter"
+prob += 200 * x1 + 300 * x2 + 350 * x3 <= 14000, "Milk"
+
+# 5. Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# 6. Results
+print("Status:", pl.LpStatus[prob.status])
+print("Crepe cakes   (x1):", x1.value())
+print("Sponge cakes  (x2):", x2.value())
+print("Birthday cakes(x3):", x3.value())
+print("Maximum profit: $", pl.value(prob.objective))
+```
+
+You can substitute OR‑Tools in a similar way if you prefer.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Bakery_Production", pl.LpMaximize)
+
+    # Decision variables (non-negative integers)
+    x1 = pl.LpVariable("crepe_cakes", lowBound=0, cat="Integer")
+    x2 = pl.LpVariable("sponge_cakes", lowBound=0, cat="Integer")
+    x3 = pl.LpVariable("birthday_cakes", lowBound=0, cat="Integer")
+
+    # Objective function: Maximize profit
+    prob += 12 * x1 + 10 * x2 + 15 * x3, "Total_Profit"
+
+    # Constraints
+    prob += 400 * x1 + 500 * x2 + 450 * x3 <= 20000, "Batter"
+    prob += 200 * x1 + 300 * x2 + 350 * x3 <= 14000, "Milk"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective as required
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,75 @@
+[MODELER]:
+Formal model
+
+Variables
+- x = number of small bins (integer, x ≥ 0)
+- y = number of large bins (integer, y ≥ 0)
+
+Objective
+- Maximize total capacity: maximize Z = 25x + 60y
+
+Constraints
+1. Labor limit: 2x + 5y ≤ 100
+2. Relationship between bin counts: x = 3y (the problem statement: "the number of small bins must be three times the number of large bins")
+3. Minimum counts: x ≥ 10, y ≥ 4
+4. Integrality: x, y ∈ Z
+
+Solve analytically
+From x = 3y substitute into labor: 2(3y) + 5y ≤ 100 → 11y ≤ 100 → y ≤ 9.090...
+With y integer and y ≥ 4, feasible y ∈ {4,5,6,7,8,9}. Objective becomes Z = 25(3y) + 60y = 135y, increasing in y, so choose largest y = 9.
+Thus x = 3·9 = 27.
+
+Optimal solution (with x = 3y equality):
+- Small bins x = 27
+- Large bins y = 9
+- Total capacity = 25·27 + 60·9 = 1215 units
+- Labor used = 2·27 + 5·9 = 99 workers (≤ 100)
+
+Note on alternative interpretation
+If the intent was "the number of small bins must be at least three times the number of large bins" (x ≥ 3y), the optimal integer solution is different: maximize 25x + 60y subject to 2x+5y≤100, x≥3y, x≥10, y≥4. Because small bins give slightly more capacity per worker (25/2 =12.5 vs 60/5 =12), the optimum is to minimize y and maximize x under labor: y = 4, x = floor((100 − 5·4)/2) = 40, yielding capacity 1240 units.
+
+Suggested solvers / Python libraries
+- PuLP (with CBC solver) — easy for small MILPs
+- OR-Tools CP-SAT — robust for integer/CP problems
+- Pyomo + CBC/GLPK/Gurobi — for larger/industrial models
+- scipy.optimize — only for continuous LPs (not for integer variables)
+
+If you want, I can provide a short PuLP or OR-Tools script that sets up and solves the integer model.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data and constraints:
+# Variables: x (small bins), y (large bins), integers >= 0
+# Objective: Maximize Z = 25x + 60y
+# Constraints:
+#   1) 2x + 5y <= 100
+#   2) x = 3y
+#   3) x >= 10, y >= 4
+# Integrality: x,y integers
+
+# From x = 3y, substitute into constraints.
+# Compute feasible integer y values given constraints.
+y_min_from_x10 = math.ceil(10 / 3)  # ensures x = 3y >= 10
+y_min = max(4, y_min_from_x10)
+y_max = 100 // 11  # from 11y <= 100
+
+# Enumerate feasible y and pick the one maximizing the objective.
+best_obj = None
+best_x = None
+best_y = None
+
+for y in range(y_min, y_max + 1):
+    x = 3 * y
+    if 2 * x + 5 * y <= 100 and x >= 10 and y >= 4:
+        obj = 25 * x + 60 * y
+        if best_obj is None or obj > best_obj:
+            best_obj = obj
+            best_x = x
+            best_y = y
+
+# best_obj should be found; per analytical solution, it is 1215 with x=27, y=9
+value = best_obj
+print(f"FINAL_OBJ: {value}")

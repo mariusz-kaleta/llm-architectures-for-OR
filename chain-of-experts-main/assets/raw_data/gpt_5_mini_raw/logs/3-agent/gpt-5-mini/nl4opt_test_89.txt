@@ -1,0 +1,119 @@
+[MODELER]:
+Formal model
+
+Decision variables
+- x = number of packs of blueberries (packs, x ≥ 0)
+- y = number of packs of strawberries (packs, y ≥ 0)
+
+(If packs must be whole: x,y ∈ Z≥0. If fractional packs are allowed, x,y ∈ R≥0.)
+
+Objective
+Minimize total sugar:
+minimize S = 5x + 7y  (grams)
+
+Constraints
+1. Anti-oxidants: 3x + 1y ≥ 90
+2. Minerals: 5x + 7y ≥ 100
+3. Seasonality: y ≥ 3x
+4. Nonnegativity: x ≥ 0, y ≥ 0
+(plus integrality x,y integer if required)
+
+Analysis and solution
+- The feasible y at a given x must satisfy y ≥ max(3x, 90 − 3x) and also the mineral constraint, but with the large antioxidant requirement the mineral constraint is redundant in the feasible region.
+- Minimizing S with y chosen at its minimum feasible value gives a piecewise linear objective:
+  - For x ≤ 15: y = 90 − 3x → S = 630 − 16x (decreasing in x)
+  - For x ≥ 15: y = 3x → S = 26x (increasing in x)
+- The minimum occurs at x = 15, y = 45 with S = 5·15 + 7·45 = 390 grams of sugar.
+
+Thus the dietician should recommend 15 packs of blueberries and 45 packs of strawberries (390 g sugar). This satisfies:
+- 3·15 + 1·45 = 90 (anti-oxidants)
+- 5·15 + 7·45 = 380 ≥ 100 (minerals)
+- 45 = 3·15 (seasonality)
+
+Recommended solvers / libraries
+- For continuous LP: scipy.optimize.linprog, cvxopt, or PuLP (CBC) are suitable.
+- For integer (MILP) version: PuLP (uses CBC by default), OR-Tools (CP-SAT), or commercial solvers (Gurobi, CPLEX) if available.
+
+Example (PuLP) — MILP (gives the integer solution shown)
+- Use pulp.LpProblem, pulp.LpVariable(..., cat='Integer') for x and y, add constraints as above, set objective 5*x+7*y, and call prob.solve().
+
+---
+
+[CODER]:
+```python
+#!/usr/bin/env python3
+# Self-contained script to solve the given MILP (integer) problem.
+# Decision variables:
+#  x = number of packs of blueberries (integer, >=0)
+#  y = number of packs of strawberries (integer, >=0)
+# Objective: minimize S = 5x + 7y
+# Constraints:
+#  3x + 1y >= 90
+#  5x + 7y >= 100
+#  y >= 3x
+
+import math
+
+FINAL_VALUE = None
+
+try:
+    import pulp
+
+    # Define problem
+    prob = pulp.LpProblem("Minimize_Sugar", pulp.LpMinimize)
+
+    # Variables (integers)
+    x = pulp.LpVariable("x", lowBound=0, cat="Integer")
+    y = pulp.LpVariable("y", lowBound=0, cat="Integer")
+
+    # Objective
+    prob += 5 * x + 7 * y
+
+    # Constraints
+    prob += 3 * x + 1 * y >= 90
+    prob += 5 * x + 7 * y >= 100
+    prob += y >= 3 * x
+
+    # Solve with default CBC solver, suppress output if possible
+    try:
+        solver = pulp.PULP_CBC_CMD(msg=False)
+        prob.solve(solver)
+    except Exception:
+        prob.solve()
+
+    obj_val = pulp.value(prob.objective)
+    # Clean up rounding if it's essentially integer
+    if obj_val is None:
+        raise RuntimeError("Solver failed to produce a solution.")
+    if abs(obj_val - round(obj_val)) < 1e-6:
+        obj_val = int(round(obj_val))
+    FINAL_VALUE = obj_val
+
+except Exception:
+    # Fallback if pulp not available or failed: brute-force search over reasonable integer range
+    best_obj = None
+    best_x = None
+    best_y = None
+    # Search x from 0 to 1000 (safe upper bound)
+    for xi in range(0, 1001):
+        # y must satisfy three constraints: >= 3x, >= 90 - 3x, >= ceil((100 - 5x)/7)
+        y1 = 3 * xi
+        y2 = 90 - 3 * xi
+        # mineral constraint
+        if 5 * xi >= 100:
+            y3 = 0
+        else:
+            y3 = math.ceil((100 - 5 * xi) / 7)
+        y_min = max(0, y1, y2, y3)
+        # Ensure integer y_min
+        yi = int(math.ceil(y_min))
+        obj = 5 * xi + 7 * yi
+        if (best_obj is None) or (obj < best_obj):
+            best_obj = obj
+            best_x = xi
+            best_y = yi
+    FINAL_VALUE = best_obj
+
+# Final required print line (no other text)
+print(f"FINAL_OBJ: {FINAL_VALUE}")
+```

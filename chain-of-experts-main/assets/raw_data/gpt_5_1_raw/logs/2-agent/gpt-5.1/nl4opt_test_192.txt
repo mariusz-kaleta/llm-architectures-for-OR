@@ -1,0 +1,212 @@
+[MODELER]:
+Below is one natural way to cast this as an optimization model and how to solve it in Python.
+
+---
+
+## 1. Clarify the interpretation
+
+We have:
+
+- Total budget: 100,000 dollars.
+- Three betting options:
+  - Basketball (index 1)
+  - Horse race (index 2)
+  - Soccer game (index 3)
+
+Given data:
+
+- Probability of *losing the money* on each bet:
+  - Basketball: \(p_1 = 0.50\)
+  - Horse race: \(p_2 = 0.25\)
+  - Soccer: \(p_3 = 0.10\)
+
+- Payout (return per dollar bet):
+  - Basketball: \(r_1 = 1.2\)
+  - Horse race: \(r_2 = 0.5\)
+  - Soccer: \(r_3 = 0.1\)
+
+The phrase “average chance of losing her money should be at most 30%” is a bit ambiguous. A straightforward and common interpretation is the **weighted-average loss probability across the money allocated**:
+
+\[
+\frac{p_1 x_1 + p_2 x_2 + p_3 x_3}{x_1 + x_2 + x_3} \leq 0.30
+\]
+
+where \(x_i\) are the dollar amounts placed on each bet.
+
+Since she must invest all 100,000:
+\[
+x_1 + x_2 + x_3 = 100{,}000
+\]
+
+this simplifies to a linear constraint on the \(x_i\):
+
+\[
+p_1 x_1 + p_2 x_2 + p_3 x_3 \;\le\; 0.30 \cdot 100{,}000
+\]
+
+---
+
+## 2. Decision variables
+
+Let:
+
+- \(x_1 \ge 0\): money bet on basketball.
+- \(x_2 \ge 0\): money bet on the horse race.
+- \(x_3 \ge 0\): money bet on the soccer game.
+
+---
+
+## 3. Objective function
+
+We want to **maximize the expected payout** (or just “average payout,” since the budget is fixed):
+
+Payout per dollar:
+- Basketball: 1.2
+- Horse: 0.5
+- Soccer: 0.1
+
+Thus total payout is:
+
+\[
+\text{Payout} = 1.2\,x_1 + 0.5\,x_2 + 0.1\,x_3
+\]
+
+So the objective:
+
+\[
+\max\; Z = 1.2\,x_1 + 0.5\,x_2 + 0.1\,x_3
+\]
+
+---
+
+## 4. Constraints
+
+1. **Budget constraint** (use all her money):
+
+\[
+x_1 + x_2 + x_3 = 100{,}000
+\]
+
+2. **Average loss-probability constraint**:
+
+\[
+\frac{0.5\,x_1 + 0.25\,x_2 + 0.10\,x_3}{x_1 + x_2 + x_3} \le 0.30
+\]
+
+Substitute \(x_1 + x_2 + x_3 = 100{,}000\):
+
+\[
+0.5\,x_1 + 0.25\,x_2 + 0.10\,x_3 \le 0.30 \cdot 100{,}000 = 30{,}000
+\]
+
+3. **Nonnegativity**:
+
+\[
+x_1, x_2, x_3 \ge 0
+\]
+
+This is a **linear program (LP)**: linear objective, linear constraints.
+
+---
+
+## 5. Complete mathematical model
+
+\[
+\begin{aligned}
+\max\quad & 1.2\,x_1 + 0.5\,x_2 + 0.1\,x_3 \\
+\text{s.t.}\quad
+& x_1 + x_2 + x_3 = 100{,}000, \\
+& 0.5\,x_1 + 0.25\,x_2 + 0.10\,x_3 \le 30{,}000, \\
+& x_1, x_2, x_3 \ge 0.
+\end{aligned}
+\]
+
+---
+
+## 6. Solving the model in Python
+
+This is a standard LP; good libraries:
+
+- `PuLP` (simple, pure Python interface to several solvers)
+- `ortools.linear_solver` (Google OR-Tools)
+- `scipy.optimize.linprog` (SciPy, but less modeling-friendly)
+
+`PuLP` is very suitable here.
+
+### Example with PuLP
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("Bet_Allocation", pl.LpMaximize)
+
+# Decision variables
+x1 = pl.LpVariable('basketball', lowBound=0)
+x2 = pl.LpVariable('horse', lowBound=0)
+x3 = pl.LpVariable('soccer', lowBound=0)
+
+# Objective: maximize payout
+prob += 1.2 * x1 + 0.5 * x2 + 0.1 * x3
+
+# Constraints
+prob += x1 + x2 + x3 == 100000, "Budget"
+prob += 0.5 * x1 + 0.25 * x2 + 0.10 * x3 <= 30000, "Avg_Loss_Probability"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Results
+print("Status:", pl.LpStatus[prob.status])
+print("basketball:", x1.value())
+print("horse     :", x2.value())
+print("soccer    :", x3.value())
+print("Total payout:", pl.value(prob.objective))
+```
+
+This will give you the optimal dollar amounts for each bet that:
+
+- Use the full 100,000,
+- Keep the weighted-average loss probability at or below 30%,
+- Maximize the total payout given the payouts per dollar.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Parameters
+    budget = 100000
+    loss_probs = [0.5, 0.25, 0.10]
+    payouts = [1.2, 0.5, 0.1]
+    max_avg_loss = 0.30
+
+    # Create problem
+    prob = pl.LpProblem("Bet_Allocation", pl.LpMaximize)
+
+    # Decision variables
+    x1 = pl.LpVariable('basketball', lowBound=0)
+    x2 = pl.LpVariable('horse', lowBound=0)
+    x3 = pl.LpVariable('soccer', lowBound=0)
+
+    # Objective: maximize payout
+    prob += payouts[0] * x1 + payouts[1] * x2 + payouts[2] * x3
+
+    # Constraints
+    prob += x1 + x2 + x3 == budget, "Budget"
+    prob += (loss_probs[0] * x1 +
+             loss_probs[1] * x2 +
+             loss_probs[2] * x3) <= max_avg_loss * budget, "Avg_Loss_Probability"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print final objective as required
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

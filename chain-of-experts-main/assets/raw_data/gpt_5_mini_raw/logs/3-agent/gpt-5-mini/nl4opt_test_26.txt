@@ -1,0 +1,88 @@
+[MODELER]:
+Problem formulation
+
+- Decision variables:
+  - x = number of math workbooks to produce (units)
+  - y = number of English workbooks to produce (units)
+  - Note: x,y are integers (workbooks), but the LP relaxation is integral at the optimum here.
+
+- Objective:
+  - Maximize profit P = 15x + 17y
+
+- Constraints:
+  - Demand minima: x ≥ 40, y ≥ 60
+  - Production maxima: x ≤ 140, y ≤ 170
+  - School contract (total): x + y ≥ 200
+  - Nonnegativity: x, y ≥ 0 (redundant given other bounds)
+
+Mathematical model
+Maximize: P = 15x + 17y
+subject to:
+  40 ≤ x ≤ 140
+  60 ≤ y ≤ 170
+  x + y ≥ 200
+  x, y integers (or real numbers if solving LP)
+
+Solution reasoning
+All objective coefficients are positive, so profit increases with x and with y. With no coupling resource that forces a tradeoff, the maximum occurs at the upper bounds allowed by the constraints:
+  x* = 140, y* = 170
+Profit at optimum: P* = 15(140) + 17(170) = 2100 + 2890 = $4,990.
+
+Recommended Python solvers
+- pulp (simple modeling + CBC solver) — easy to use for small LP/IPs
+- scipy.optimize.linprog (for LP relaxations)
+- ortools.linear_solver (Google OR-Tools, supports MIP)
+- cvxopt (for convex optimization)
+
+Example (PuLP) snippet
+from pulp import LpProblem, LpMaximize, LpVariable, lpSum, PULP_CBC_CMD
+
+prob = LpProblem("Workbooks", LpMaximize)
+x = LpVariable('x', lowBound=40, upBound=140, cat='Integer')
+y = LpVariable('y', lowBound=60, upBound=170, cat='Integer')
+prob += 15*x + 17*y
+prob += x + y >= 200
+prob.solve(PULP_CBC_CMD(msg=0))
+print(x.value(), y.value(), 15*x.value()+17*y.value())
+
+This will produce x=140, y=170, profit=4990.
+
+If you want, I can run the computation for you or show a short plot of the feasible region and level sets.
+
+---
+
+[CODER]:
+# Self-contained script to solve the workbook production problem by enumeration
+# Decision variables: x (math), y (english) integers
+# Objective: maximize 15*x + 17*y
+# Constraints:
+#   40 <= x <= 140
+#   60 <= y <= 170
+#   x + y >= 200
+
+def solve():
+    c_x = 15
+    c_y = 17
+    x_min, x_max = 40, 140
+    y_min, y_max = 60, 170
+
+    best_obj = None
+    best_x = None
+    best_y = None
+
+    for x in range(x_min, x_max + 1):
+        for y in range(y_min, y_max + 1):
+            if x + y < 200:
+                continue
+            obj = c_x * x + c_y * y
+            if (best_obj is None) or (obj > best_obj):
+                best_obj = obj
+                best_x = x
+                best_y = y
+
+    return best_x, best_y, best_obj
+
+if __name__ == "__main__":
+    x_opt, y_opt, obj_opt = solve()
+    # Final required output line (exact format)
+    print(f"FINAL_OBJ: {obj_opt}")

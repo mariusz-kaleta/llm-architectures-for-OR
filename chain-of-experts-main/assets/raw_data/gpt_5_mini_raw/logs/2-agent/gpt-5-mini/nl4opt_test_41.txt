@@ -1,0 +1,108 @@
+[MODELER]:
+Model
+
+- Decision variables
+  - x1 = number of crepe cakes (≥ 0, integer)
+  - x2 = number of sponge cakes (≥ 0, integer)
+  - x3 = number of birthday cakes (≥ 0, integer)
+
+- Objective
+  - Maximize profit: maximize Z = 12 x1 + 10 x2 + 15 x3
+
+- Resource constraints
+  - Batter: 400 x1 + 500 x2 + 450 x3 ≤ 20 000  (grams)
+  - Milk:    200 x1 + 300 x2 + 350 x3 ≤ 14 000  (grams)
+
+- Integrality / nonnegativity
+  - x1, x2, x3 ∈ Z≥0 (if you require whole cakes). If fractional cakes are allowed, relax integrality to x ≥ 0.
+
+Solution (linear program / integer program)
+- Solving the LP (or the integer program in this case) yields the optimal production plan:
+  - x1 = 14 crepe cakes
+  - x2 = 0 sponge cakes
+  - x3 = 32 birthday cakes
+- This uses all resources:
+  - Batter: 400·14 + 450·32 = 20 000 g
+  - Milk:   200·14 + 350·32 = 14 000 g
+- Maximum profit: Z = 12·14 + 10·0 + 15·32 = $648
+
+Recommended Python libraries for solving
+- pulp (open-source, easy-to-use for LP/MIP)
+- OR-Tools (Google, good MIP performance)
+- scipy.optimize.linprog (for continuous LP)
+- cvxpy (for higher-level convex optimization)
+- commercial solvers if available: Gurobi, CPLEX (for larger/more difficult MIPs)
+
+Example (pulp) code snippet
+- (Use this to reproduce the integer solution)
+  from pulp import LpProblem, LpMaximize, LpVariable, lpSum, PULP_CBC_CMD
+
+  prob = LpProblem("Cake_Production", LpMaximize)
+  x1 = LpVariable("crepe", lowBound=0, cat='Integer')
+  x2 = LpVariable("sponge", lowBound=0, cat='Integer')
+  x3 = LpVariable("birthday", lowBound=0, cat='Integer')
+
+  prob += 12*x1 + 10*x2 + 15*x3
+  prob += 400*x1 + 500*x2 + 450*x3 <= 20000
+  prob += 200*x1 + 300*x2 + 350*x3 <= 14000
+
+  prob.solve(PULP_CBC_CMD(msg=False))
+  print(x1.value(), x2.value(), x3.value(), "Profit =", prob.objective.value())
+
+If you want, I can provide the full solver output, a visualization of the feasible region, or run the model with continuous (non-integer) variables.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import sys
+
+# Problem data
+profit_coeffs = {'x1': 12, 'x2': 10, 'x3': 15}
+batter_coeffs = {'x1': 400, 'x2': 500, 'x3': 450}
+milk_coeffs = {'x1': 200, 'x2': 300, 'x3': 350}
+batter_limit = 20000
+milk_limit = 14000
+
+# Upper bounds derived from resource limits (conservative)
+max_x1 = batter_limit // batter_coeffs['x1']  # 20000/400 = 50
+max_x2 = batter_limit // batter_coeffs['x2']  # 20000/500 = 40
+max_x3 = batter_limit // batter_coeffs['x3']  # 20000/450 = 44
+
+best_profit = -1
+best_solution = (0, 0, 0)
+
+# Brute-force search over integer nonnegative variables within bounds
+for x1 in range(max_x1 + 1):
+    # Early prune using milk and batter remaining could be added but not necessary
+    for x2 in range(max_x2 + 1):
+        # Compute remaining capacity quickly to limit x3 loop
+        batter_used_12 = batter_coeffs['x1'] * x1 + batter_coeffs['x2'] * x2
+        milk_used_12 = milk_coeffs['x1'] * x1 + milk_coeffs['x2'] * x2
+
+        if batter_used_12 > batter_limit or milk_used_12 > milk_limit:
+            continue
+
+        # Max feasible x3 by remaining resources
+        max_x3_by_batter = (batter_limit - batter_used_12) // batter_coeffs['x3']
+        max_x3_by_milk = (milk_limit - milk_used_12) // milk_coeffs['x3']
+        max_x3_feasible = min(max_x3_by_batter, max_x3_by_milk, max_x3)
+
+        for x3 in range(max_x3_feasible + 1):
+            batter_used = batter_used_12 + batter_coeffs['x3'] * x3
+            milk_used = milk_used_12 + milk_coeffs['x3'] * x3
+
+            if batter_used <= batter_limit and milk_used <= milk_limit:
+                profit = profit_coeffs['x1'] * x1 + profit_coeffs['x2'] * x2 + profit_coeffs['x3'] * x3
+                if profit > best_profit:
+                    best_profit = profit
+                    best_solution = (x1, x2, x3)
+
+# Output solution details
+x1_opt, x2_opt, x3_opt = best_solution
+print(f"Optimal integer solution found: x1={x1_opt}, x2={x2_opt}, x3={x3_opt}")
+print(f"Resources used: Batter={batter_coeffs['x1']*x1_opt + batter_coeffs['x2']*x2_opt + batter_coeffs['x3']*x3_opt} g, "
+      f"Milk={milk_coeffs['x1']*x1_opt + milk_coeffs['x2']*x2_opt + milk_coeffs['x3']*x3_opt} g")
+print(f"Profit = {best_profit}")
+
+# Final required line (exact format)
+print(f"FINAL_OBJ: {best_profit}")

@@ -1,0 +1,42 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization based on problem statement
+total_time = 15000  # minutes
+time_electronic = 3  # minutes per electronic reading
+time_regular = 2     # minutes per regular reading
+
+# Create the problem: maximize number of patients (E + R)
+prob = pulp.LpProblem("Maximize_Patients", pulp.LpMaximize)
+
+# Decision variables: number of patients checked by electronic (E) and regular (R) thermometers
+# They must be non-negative integers
+E = pulp.LpVariable("E", lowBound=0, cat='Integer')
+R = pulp.LpVariable("R", lowBound=0, cat='Integer')
+
+# Objective: maximize total patients
+prob += E + R, "Total_Patients"
+
+# Constraints:
+prob += time_electronic * E + time_regular * R <= total_time, "Time_Limit"
+prob += E >= 2 * R, "Electronic_at_least_twice_regular"
+prob += R >= 50, "At_least_50_regular"
+
+# Solve
+prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+# Extract objective value
+obj_value = pulp.value(prob.objective)
+# Ensure integer formatting for final output
+obj_value_int = int(round(obj_value))
+
+# (Optional) retrieve decision variable values
+E_val = int(round(pulp.value(E)))
+R_val = int(round(pulp.value(R)))
+
+# Print solution details (optional) - these are not the required final output line
+print(f"Electronic (E) = {E_val}")
+print(f"Regular   (R) = {R_val}")
+
+# Required final output line in exact format
+print(f"FINAL_OBJ: {obj_value_int}")

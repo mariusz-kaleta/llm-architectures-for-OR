@@ -1,0 +1,168 @@
+[MODELER]:
+Let’s model this as an integer linear optimization problem.
+
+### 1. Decision variables
+
+Let  
+- \(x_s \in \mathbb{Z}_{\ge 0}\): number of small trucks  
+- \(x_l \in \mathbb{Z}_{\ge 0}\): number of large trucks  
+
+### 2. Objective
+
+Each small truck carries 30 units of snow, each large truck 50 units.  
+Maximize total snow transported:
+
+\[
+\max Z = 30x_s + 50x_l
+\]
+
+### 3. Constraints
+
+1. **Labor / people constraint**  
+   Each small truck uses 2 people; each large truck uses 4 people.  
+   At most 30 people:
+
+   \[
+   2x_s + 4x_l \le 30
+   \]
+
+2. **Minimum number of small trucks**
+
+   \[
+   x_s \ge 10
+   \]
+
+3. **Minimum number of large trucks**
+
+   \[
+   x_l \ge 3
+   \]
+
+4. **Relationship between small and large trucks**  
+   The number of small trucks is twice the number of large trucks:
+
+   \[
+   x_s = 2x_l
+   \]
+
+5. **Integrality**
+
+   \[
+   x_s, x_l \in \mathbb{Z}_{\ge 0}
+   \]
+
+### 4. Simplification
+
+Use the relationship \(x_s = 2x_l\).
+
+Substitute into people and minimum constraints:
+
+- People:
+
+  \[
+  2(2x_l) + 4x_l = 4x_l + 4x_l = 8x_l \le 30
+  \Rightarrow x_l \le \frac{30}{8} = 3.75
+  \]
+
+  Since \(x_l\) is integer: \(x_l \le 3\).
+
+- Minimum large trucks:
+
+  \[
+  x_l \ge 3
+  \Rightarrow x_l = 3
+  \]
+
+- Then \(x_s = 2x_l = 6\).
+
+Check small-truck minimum:
+
+\[
+x_s = 6 \not\ge 10
+\]
+
+This **violates** \(x_s \ge 10\).  
+Thus, there is **no feasible solution**: you cannot simultaneously satisfy
+
+- \(2x_s + 4x_l \le 30\),
+- \(x_s \ge 10\),
+- \(x_l \ge 3\),
+- \(x_s = 2x_l\)
+
+with nonnegative integers.
+
+So the mathematical model is consistent, but the **problem as stated is infeasible**; no combination of small and large trucks meets all conditions.
+
+---
+
+### 5. Python libraries to solve (and detect infeasibility)
+
+To implement and verify this model, you can use any MILP solver interface, e.g.:
+
+- `PuLP` (pure Python, easy to use)
+- `ortools.linear_solver` (Google OR-Tools)
+- `pymprog` or `mip`
+
+Example with **PuLP** outline:
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Snow_Removal", pl.LpMaximize)
+
+# Variables
+xs = pl.LpVariable('small_trucks', lowBound=0, cat='Integer')
+xl = pl.LpVariable('large_trucks', lowBound=0, cat='Integer')
+
+# Objective
+prob += 30*xs + 50*xl
+
+# Constraints
+prob += 2*xs + 4*xl <= 30
+prob += xs >= 10
+prob += xl >= 3
+prob += xs == 2*xl
+
+# Solve
+status = prob.solve()
+print(pl.LpStatus[status])  # This will print 'Infeasible'
+```
+
+The solver will report the model as **Infeasible**, confirming that no valid numbers of trucks exist under these constraints.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the problem
+    prob = pl.LpProblem("Snow_Removal", pl.LpMaximize)
+
+    # Decision variables
+    xs = pl.LpVariable('small_trucks', lowBound=0, cat='Integer')
+    xl = pl.LpVariable('large_trucks', lowBound=0, cat='Integer')
+
+    # Objective function
+    prob += 30 * xs + 50 * xl
+
+    # Constraints
+    prob += 2 * xs + 4 * xl <= 30       # People constraint
+    prob += xs >= 10                    # Minimum small trucks
+    prob += xl >= 3                     # Minimum large trucks
+    prob += xs == 2 * xl                # Relationship constraint
+
+    # Solve the problem
+    status = prob.solve()
+
+    # If infeasible, define the objective value accordingly (e.g., None or a flag)
+    if pl.LpStatus[status] != 'Optimal':
+        final_obj = None
+    else:
+        final_obj = pl.value(prob.objective)
+
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

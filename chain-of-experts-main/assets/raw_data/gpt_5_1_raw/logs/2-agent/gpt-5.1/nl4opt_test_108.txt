@@ -1,0 +1,155 @@
+[MODELER]:
+Here is a clean mathematical model of the problem and how to solve it.
+
+---
+
+## 1. Decision variables
+
+Let  
+
+- \(x\) = number of manual slicers (integer, \(x \ge 0\))  
+- \(y\) = number of automatic slicers (integer, \(y \ge 0\))
+
+---
+
+## 2. Objective
+
+Minimize the total number of slicers:
+
+\[
+\min \; Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Slice production requirement
+Each manual slicer cuts 5 slices/min, each automatic 8 slices/min.  
+Total slices per minute must be at least 50:
+
+\[
+5x + 8y \;\ge\; 50
+\]
+
+### b) Grease usage limit
+Each manual slicer uses 3 units of grease/min, each automatic 6 units/min.  
+Total grease usage per minute must be at most 35 units:
+
+\[
+3x + 6y \;\le\; 35
+\]
+
+### c) Relationship between slicer types
+The number of manual slicers must be less than the number of automatic slicers:
+
+\[
+x \;<\; y
+\]
+
+For an integer programming model, we typically write:
+
+\[
+x \le y - 1
+\]
+
+### d) Integrality and non-negativity
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Full mathematical model
+
+\[
+\begin{aligned}
+\min \quad & x + y \\
+\text{s.t.} \quad 
+& 5x + 8y \ge 50 \\
+& 3x + 6y \le 35 \\
+& x \le y - 1 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This is a small **integer linear programming (ILP)** problem.
+
+---
+
+## 5. Suitable Python libraries
+
+Any MILP-capable library is appropriate:
+
+- `PuLP` (pure Python, easy to use)
+- `ortools.linear_solver` from Google OR-Tools
+- `mip` (Python-MIP)
+- `pyomo` (more general algebraic modeling)
+
+For this size, `PuLP` or OR-Tools is more than sufficient.
+
+---
+
+## 6. Example implementation with PuLP
+
+```python
+import pulp as pl
+
+# Problem definition
+prob = pl.LpProblem("Butcher_Slicer_Problem", pl.LpMinimize)
+
+# Decision variables (non-negative integers)
+x = pl.LpVariable('manual_slicers', lowBound=0, cat='Integer')
+y = pl.LpVariable('automatic_slicers', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of slicers
+prob += x + y, "Total_Slicers"
+
+# Constraints
+prob += 5*x + 8*y >= 50, "Slice_Requirement"
+prob += 3*x + 6*y <= 35, "Grease_Limit"
+prob += x <= y - 1,       "Manual_Less_Than_Automatic"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal number of manual slicers (x):", x.value())
+print("Optimal number of automatic slicers (y):", y.value())
+print("Minimum total slicers:", (x.value() + y.value()))
+```
+
+You can plug this directly into Python to get the optimal numbers of manual and automatic slicers.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def solve_butcher_slicer_problem():
+    # Problem definition
+    prob = pl.LpProblem("Butcher_Slicer_Problem", pl.LpMinimize)
+
+    # Decision variables (non-negative integers)
+    x = pl.LpVariable('manual_slicers', lowBound=0, cat='Integer')
+    y = pl.LpVariable('automatic_slicers', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of slicers
+    prob += x + y, "Total_Slicers"
+
+    # Constraints
+    prob += 5 * x + 8 * y >= 50, "Slice_Requirement"
+    prob += 3 * x + 6 * y <= 35, "Grease_Limit"
+    prob += x <= y - 1, "Manual_Less_Than_Automatic"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value (total slicers)
+    total_slicers = x.value() + y.value()
+    return total_slicers
+
+if __name__ == "__main__":
+    obj_value = solve_butcher_slicer_problem()
+    print(f"FINAL_OBJ: {obj_value}")

@@ -1,0 +1,228 @@
+[PLANNER]:
+1. Key optimisation goal  
+Goal: Minimise total pollution produced by the vehicles used to transport all children to school.
+
+2. Suggested model type  
+Model: Integer Linear Programming (ILP), or pure Integer Programming, because we are deciding integer counts of vehicles with linear relationships.
+
+3. Main decision variables  
+Define integer (non‑negative) variables, for example:
+
+- \(x\): number of vans used  
+- \(y\): number of minibuses used  
+
+(Alternatively, different symbol names are fine, as long as each represents a vehicle count and is integer.)
+
+4. Objective function (conceptual)  
+Minimise total pollution:
+
+- Pollution from vans: 7 units each → total = 7·x  
+- Pollution from minibuses: 10 units each → total = 10·y  
+
+Objective: Minimise 7·x + 10·y.
+
+5. Key constraints to consider  
+
+a) Capacity / demand satisfaction  
+- Each van carries 6 kids.  
+- Each minibus carries 10 kids.  
+- At least 150 kids must be transported.  
+
+Constraint conceptually:  
+6·x + 10·y ≥ 150.
+
+b) Fleet availability / limit on minibuses  
+- At most 10 minibuses can be used.  
+
+Constraint:  
+y ≤ 10.
+
+c) Relationship between vans and minibuses  
+- The number of vans must exceed the number of minibuses.  
+
+Constraint:  
+x > y, implemented as x ≥ y + 1 in an ILP.
+
+d) Non-negativity and integrality  
+- You can’t use a negative number of vehicles, and you can’t use fractions.  
+
+Constraints:  
+x, y ≥ 0 and integer.
+
+6. Modelling strategy notes  
+
+- Start with a small integer search space: since y ≤ 10, you can even enumerate feasible y values and compute the minimum x satisfying capacity and x ≥ y + 1 for each y, then evaluate pollution 7x + 10y and choose the minimum.  
+- For a more general solver-based approach, implement the ILP with the above variables, linear objective, and constraints.  
+- Pay attention to the strict inequality “vans exceed minibuses”: ensure it’s encoded as x ≥ y + 1, not x ≥ y.
+
+---
+
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by suitable Python tools to solve it.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x \in \mathbb{Z}_{\ge 0}\): number of vans used  
+- \(y \in \mathbb{Z}_{\ge 0}\): number of minibuses used  
+
+Both must be integers and non‑negative.
+
+---
+
+## 2. Objective function
+
+Pollution:
+
+- Each van: 7 units  
+- Each minibus: 10 units  
+
+Total pollution:
+\[
+\text{Pollution} = 7x + 10y
+\]
+
+Objective:
+\[
+\min\ 7x + 10y
+\]
+
+---
+
+## 3. Constraints
+
+1. **Capacity constraint (at least 150 children transported)**  
+   - Each van carries 6 children  
+   - Each minibus carries 10 children  
+   - Need capacity for at least 150 children
+
+\[
+6x + 10y \;\ge\; 150
+\]
+
+2. **Minibus availability constraint (max 10 minibuses)**  
+
+\[
+y \;\le\; 10
+\]
+
+3. **Vans must exceed minibuses**  
+
+\[
+x \;>\; y
+\]
+
+In an ILP, strict inequalities are handled by converting to non‑strict:
+
+\[
+x \;\ge\; y + 1
+\]
+
+4. **Non‑negativity and integrality**
+
+\[
+x, y \;\in\; \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Complete ILP formulation
+
+\[
+\begin{aligned}
+\min\quad & 7x + 10y \\
+\text{s.t.}\quad
+& 6x + 10y \ge 150 \\
+& y \le 10 \\
+& x \ge y + 1 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+For this small Integer Linear Program, the following libraries are appropriate:
+
+- **PuLP**  
+  - Simple to use for teaching and prototyping ILPs.  
+  - Integrates with CBC (default open-source MILP solver).
+
+- **OR-Tools (Google OR-Tools)**  
+  - Very robust for integer programming and routing.  
+  - Use the `pywraplp.Solver` with the CBC or SCIP backend.
+
+- **Pyomo**  
+  - More general modeling framework for linear/nonlinear/integer problems.
+
+- **scipy.optimize** is *not* ideal here because it is geared to continuous optimization; it does not directly handle integer constraints.
+
+---
+
+## 6. Example in Python using PuLP
+
+```python
+import pulp as pl
+
+# Create problem
+prob = pl.LpProblem("School_Transport", pl.LpMinimize)
+
+# Decision variables
+x = pl.LpVariable('vans', lowBound=0, cat='Integer')
+y = pl.LpVariable('minibuses', lowBound=0, cat='Integer')
+
+# Objective
+prob += 7 * x + 10 * y
+
+# Constraints
+prob += 6 * x + 10 * y >= 150      # capacity
+prob += y <= 10                    # max minibuses
+prob += x >= y + 1                 # vans exceed minibuses
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("vans =", x.value())
+print("minibuses =", y.value())
+print("minimum pollution =", pl.value(prob.objective))
+```
+
+This code directly implements the formal model above and computes the optimal numbers of vans and minibuses.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create problem
+    prob = pl.LpProblem("School_Transport", pl.LpMinimize)
+
+    # Decision variables
+    x = pl.LpVariable('vans', lowBound=0, cat='Integer')
+    y = pl.LpVariable('minibuses', lowBound=0, cat='Integer')
+
+    # Objective function: minimize pollution
+    prob += 7 * x + 10 * y
+
+    # Constraints
+    prob += 6 * x + 10 * y >= 150      # capacity
+    prob += y <= 10                    # max minibuses
+    prob += x >= y + 1                 # vans exceed minibuses
+
+    # Solve problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

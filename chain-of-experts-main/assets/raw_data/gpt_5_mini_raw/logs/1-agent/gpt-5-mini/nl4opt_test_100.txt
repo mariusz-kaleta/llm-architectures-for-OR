@@ -1,0 +1,47 @@
+[MONOLITH]:
+import pulp
+
+# Data initialization based on the problem statement
+profit_train = 8
+profit_plane = 10
+
+wood_per_train = 3
+paint_per_train = 3
+
+wood_per_plane = 4
+paint_per_plane = 2
+
+available_wood = 120
+available_paint = 90
+
+# Define the problem
+prob = pulp.LpProblem("Model_Production", pulp.LpMaximize)
+
+# Decision variables: number of trains and planes (integer, non-negative)
+trains = pulp.LpVariable("trains", lowBound=0, cat='Integer')
+planes = pulp.LpVariable("planes", lowBound=0, cat='Integer')
+
+# Objective: maximize profit
+prob += profit_train * trains + profit_plane * planes, "Total_Profit"
+
+# Constraints
+prob += wood_per_train * trains + wood_per_plane * planes <= available_wood, "Wood_Constraint"
+prob += paint_per_train * trains + paint_per_plane * planes <= available_paint, "Paint_Constraint"
+
+# Solve
+prob.solve()
+
+# Retrieve results
+num_trains = int(pulp.value(trains))
+num_planes = int(pulp.value(planes))
+obj_val = pulp.value(prob.objective)
+
+# Print results (other info first, final objective printed last as required)
+print(f"Number of trains to produce: {num_trains}")
+print(f"Number of planes to produce: {num_planes}")
+
+# Ensure integer formatting for objective if it's effectively integral
+if abs(obj_val - round(obj_val)) < 1e-8:
+    obj_val = int(round(obj_val))
+
+print(f"FINAL_OBJ: {obj_val}")

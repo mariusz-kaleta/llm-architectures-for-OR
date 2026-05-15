@@ -1,0 +1,48 @@
+[MONOLITH]:
+```python
+# Daycare vehicle optimization
+# Minimize total number of vehicles (buses + cars)
+# Data:
+# - bus capacity = 9
+# - car capacity = 4
+# - need to pick up at least 100 children
+# - number of buses must be strictly greater than number of cars (b > c)
+# - at least 5 personal cars (c >= 5)
+
+import pulp
+
+# Define problem
+prob = pulp.LpProblem("Daycare_Vehicles_Minimize_Count", pulp.LpMinimize)
+
+# Decision variables: number of buses (b) and cars (c)
+b = pulp.LpVariable("buses", lowBound=0, cat="Integer")
+c = pulp.LpVariable("cars", lowBound=0, cat="Integer")
+
+# Objective: minimize total number of vehicles
+prob += b + c
+
+# Constraints
+prob += 9 * b + 4 * c >= 100         # capacity constraint
+prob += b - c >= 1                   # more buses than cars (strict)
+prob += c >= 5                       # at least 5 personal cars
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+result_status = prob.solve(solver)
+
+# Extract solution (handle cases where solution may be None/infeasible)
+status = pulp.LpStatus.get(prob.status, None)
+if status != "Optimal":
+    # Infeasible or no optimal solution found; print status and final obj as None
+    print(f"Status: {status}")
+    print(f"Number of buses: None")
+    print(f"Number of cars: None")
+    print(f"FINAL_OBJ: None")
+else:
+    b_val = int(pulp.value(b))
+    c_val = int(pulp.value(c))
+    obj_val = int(pulp.value(prob.objective))
+    print(f"Number of buses: {b_val}")
+    print(f"Number of cars: {c_val}")
+    print(f"FINAL_OBJ: {obj_val}")
+```

@@ -1,0 +1,110 @@
+[PLANNER]:
+1) Key optimisation goal
+- Goal: Maximise the company's daily profit from producing printers.
+
+2) Suggested model type
+- Model: Linear Programming (LP).  
+- Note: Because printers are discrete units, optionally treat it as an Integer LP (ILP); with only two variables a standard LP solution (graphical/simplex) will give an integer solution in this case, but specify integer variables if required by business rules.
+
+3) Main decision variables
+- Number of color printers produced per day (non‑negative integer).  
+- Number of black-and-white printers produced per day (non‑negative integer).
+
+4) Key constraints to include
+- Color-team production capacity: the number of color printers cannot exceed the color team's daily capacity (20).  
+- Black‑and‑white-team production capacity: the number of B&W printers cannot exceed the B&W team's daily capacity (30).  
+- Shared machine capacity: the total number of printers using the shared paper-tray installation machine (color + B&W) cannot exceed that machine's daily capacity (35).  
+- Non-negativity (and integrality if required): both decision variables must be >= 0 and integer.
+
+5) Parameters (for modeller reference)
+- Profit contribution per unit: color = $200 each, B&W = $70 each.  
+- Capacities: color team = 20/day, B&W team = 30/day, shared machine = 35/day.
+
+6) Recommended solution approach and deliverables
+- Solve the LP (graphical/simplex or any LP solver). Because there are only two variables, evaluate feasible corner points of the region defined by the constraints to find the maximum profit.  
+- Deliverables: optimal number of each printer, the maximum daily profit, and (optionally) sensitivity/dual information on the binding constraints.
+
+---
+
+[MODELER]:
+Below is a compact, formal model of the problem, the solved optimal solution, and solver recommendations.
+
+1) Decision variables
+- x = number of color printers produced per day (integer, x ≥ 0).
+- y = number of black-and-white printers produced per day (integer, y ≥ 0).
+
+2) Objective
+Maximise daily profit:
+Maximise Z = 200x + 70y
+
+3) Constraints
+- Color-team capacity: x ≤ 20
+- B&W-team capacity: y ≤ 30
+- Shared machine capacity: x + y ≤ 35
+- Integrality / nonnegativity: x, y ∈ Z≥0 (or x, y ≥ 0 if treating as continuous LP)
+
+4) Mathematical formulation
+Maximise Z = 200x + 70y
+subject to
+x ≤ 20
+y ≤ 30
+x + y ≤ 35
+x, y ≥ 0 (integer if required)
+
+5) Solving (analytic / corner-point evaluation)
+Feasible corner points and profits:
+- (0,0): Z = 0
+- (20,0): Z = 200·20 + 70·0 = 4,000
+- (0,30): Z = 70·30 = 2,100
+- (20,15) (intersection of x=20 and x+y=35): Z = 200·20 + 70·15 = 5,050
+- (5,30) (intersection y=30 and x+y=35): Z = 200·5 + 70·30 = 3,100
+
+Optimal solution: x = 20 color printers and y = 15 black-and-white printers, with maximum daily profit Z* = $5,050. (This solution is integer, so LP relaxation yields the same.)
+
+6) Dual / sensitivity insight (informal)
+At the optimum the color-team constraint (x ≤ 20) and the shared-machine constraint (x+y ≤ 35) are binding; the B&W-team constraint is non‑binding. The dual/shadow prices are:
+- value of an extra unit of color-team capacity ≈ $130
+- value of an extra unit of shared-machine capacity ≈ $70
+- value of an extra unit of B&W-team capacity = $0
+(These are the marginal increases in max profit per 1-unit increase in the corresponding RHS while the current basis remains optimal.)
+
+7) Recommended solver libraries
+- For LP/ILP: PuLP (with CBC or other solvers), OR-Tools (CP-SAT for integer), or Pyomo (with solvers like CBC, Gurobi, CPLEX).
+- For continuous LP only: scipy.optimize.linprog.
+Given the small size and desire for integrality, PuLP or OR-Tools CP-SAT are simplest.
+
+If you want, I can provide a short Python example (PuLP or OR-Tools) that formulates and solves this model and prints solution and duals.
+
+---
+
+[CODER]:
+```python
+# Self-contained solver by exhaustive search (no external solvers required)
+
+# Problem data
+profit_color = 200  # profit per color printer (x)
+profit_bw = 70      # profit per black-and-white printer (y)
+
+max_color_capacity = 20  # x <= 20
+max_bw_capacity = 30     # y <= 30
+max_shared = 35          # x + y <= 35
+
+# Search for integer optimal solution
+best_obj = None
+best_x = None
+best_y = None
+
+for x in range(0, max_color_capacity + 1):
+    for y in range(0, max_bw_capacity + 1):
+        if x + y <= max_shared:
+            z = profit_color * x + profit_bw * y
+            if (best_obj is None) or (z > best_obj):
+                best_obj = z
+                best_x = x
+                best_y = y
+
+# best_obj should be 5050 with best_x=20, best_y=15
+value = int(best_obj)  # ensure integer
+
+print(f"FINAL_OBJ: {value}")
+```

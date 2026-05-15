@@ -1,0 +1,80 @@
+[MODELER]:
+Model
+
+Variables
+- x = number of children's vaccines (≥ 0, integer)
+- y = number of adult vaccines (≥ 0, integer)
+
+Objective
+- Minimize total fever suppressant used: minimize F = 50 x + 75 y (mg)
+
+Constraints
+1. mRNA availability: 50 x + 75 y ≤ 20000 (mg)
+2. Adult proportion: y ≥ 0.7 (x + y)  ⇔  y ≥ (7/3) x
+3. Minimum children: x ≥ 50
+4. Integrality and nonnegativity: x, y ∈ Z≥0 (if vaccine counts must be whole doses)
+
+Comments on the adult-proportion constraint:
+y ≥ 0.7(x+y) simplifies to 0.3 y ≥ 0.7 x ⇒ y ≥ (7/3) x ≈ 2.3333 x.
+
+Solve by reasoning
+- Both coefficients in the objective are positive, so to minimize F you want the smallest feasible x and y.
+- x is bounded below by 50, so set x = 50.
+- From y ≥ (7/3)x, with x = 50 gives y ≥ (7/3)*50 = 350/3 ≈ 116.666...
+- Since y must be integer, choose the smallest integer y ≥ 116.666..., which is y = 117.
+- Check mRNA constraint: 50*50 + 75*117 = 2500 + 8775 = 11275 ≤ 20000, so feasible.
+
+Solution
+- Children's vaccines: x = 50
+- Adult vaccines: y = 117
+- Total fever suppressant used: F = 50*50 + 75*117 = 11,275 mg
+
+(If counts were allowed to be fractional, the LP relaxation has minimum at x = 50, y = 350/3 ≈ 116.666..., with F = 11,250 mg. Because doses must be whole, round up y to 117 giving F = 11,275 mg.)
+
+Recommended solvers / Python libraries
+- pulp (good for small integer linear programs; can call CBC solver)
+- ortools (CP-SAT solver, fast for integer programs)
+- mip or gurobi/cplex (for larger/more performance-sensitive IPs)
+- scipy.optimize.linprog or cvxpy (if continuous relaxation is acceptable)
+
+Example (pulp) snippet
+- Use pulp.LpVariable(..., cat='Integer') for x and y, set objective 50*x+75*y, add constraints above, and solve.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Problem data
+mRNA_limit = 20000  # mg
+coef_x = 50         # mg per children's vaccine
+coef_y = 75         # mg per adult vaccine
+min_x = 50          # minimum number of children's vaccines
+# adult proportion: y >= (7/3) * x
+ratio_num = 7
+ratio_den = 3
+
+best_obj = None
+best_x = None
+best_y = None
+
+# Upper bound for x: cannot exceed mRNA_limit / coef_x
+x_upper = mRNA_limit // coef_x
+
+for x in range(min_x, x_upper + 1):
+    # minimal integer y satisfying proportion constraint
+    y_min = math.ceil((ratio_num / ratio_den) * x)
+    # check mRNA constraint
+    total_mrna = coef_x * x + coef_y * y_min
+    if total_mrna <= mRNA_limit:
+        obj = coef_x * x + coef_y * y_min
+        if (best_obj is None) or (obj < best_obj):
+            best_obj = obj
+            best_x = x
+            best_y = y_min
+
+# As a fallback (should not be needed given problem), if no feasible found, set to None
+if best_obj is None:
+    best_obj = 0
+
+print(f"FINAL_OBJ: {best_obj}")

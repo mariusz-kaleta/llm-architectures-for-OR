@@ -1,0 +1,171 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Minimise Jordan’s total daily food cost while meeting minimum daily calorie and protein requirements.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP), standard cost-minimisation diet problem.
+
+3. Main decision variables  
+   Define decision variables as number of servings per day:
+   - Variable 1: Servings of Rice per day  
+     - Domain: Continuous, ≥ 0 (if servings can be fractional)  
+   - Variable 2: Servings of Kebab per day  
+     - Domain: Continuous, ≥ 0
+
+4. Objective function structure  
+   - Minimise total daily cost:
+     - Cost per serving: Rice = $3, Kebab = $2  
+     - Objective: 3 × (servings of Rice) + 2 × (servings of Kebab)
+
+5. Key constraints to consider  
+
+   a) Calorie requirement  
+   - Each serving of Rice: 300 calories  
+   - Each serving of Kebab: 200 calories  
+   - Total calories from both foods must be at least 2200 calories per day.  
+   - Constraint form:  
+     - 300 × (servings of Rice) + 200 × (servings of Kebab) ≥ 2200
+
+   b) Protein requirement  
+   - Each serving of Rice: 4.5 grams of protein  
+   - Each serving of Kebab: 4 grams of protein  
+   - Total protein from both foods must be at least 30 grams per day.  
+   - Constraint form:  
+     - 4.5 × (servings of Rice) + 4 × (servings of Kebab) ≥ 30
+
+   c) Non-negativity constraints  
+   - Servings cannot be negative:  
+     - Servings of Rice ≥ 0  
+     - Servings of Kebab ≥ 0
+
+6. Modelling notes for the Modeller  
+   - Treat servings as continuous unless the problem explicitly requires integer servings.  
+   - This is a small LP that can be solved analytically (e.g., by graphing) or via any LP solver.  
+   - Ensure units are consistent (calories in calories, protein in grams, costs in dollars).  
+   - The final model should clearly state objective function, decision variables, and all constraints using standard LP notation.
+
+---
+
+[MODELER]:
+Here is a clear linear programming (LP) formulation of Jordan’s diet problem.
+
+---
+
+## Decision variables
+
+Let
+
+- \(x_1\) = number of servings of Rice per day  
+- \(x_2\) = number of servings of Kebab per day  
+
+Both are continuous and nonnegative:
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+---
+
+## Objective function (minimise daily cost)
+
+Cost per serving: Rice = \$3, Kebab = \$2.  
+Minimise total daily cost:
+
+\[
+\min\; Z = 3x_1 + 2x_2
+\]
+
+---
+
+## Constraints
+
+### 1. Calorie requirement
+
+Each serving:  
+- Rice: 300 calories  
+- Kebab: 200 calories  
+
+Total calories must be at least 2200:
+
+\[
+300x_1 + 200x_2 \;\ge\; 2200
+\]
+
+### 2. Protein requirement
+
+Each serving:  
+- Rice: 4.5 grams of protein  
+- Kebab: 4 grams of protein  
+
+Total protein must be at least 30 grams:
+
+\[
+4.5x_1 + 4x_2 \;\ge\; 30
+\]
+
+### 3. Non-negativity
+
+\[
+x_1 \ge 0,\quad x_2 \ge 0
+\]
+
+---
+
+## Complete LP model
+
+\[
+\begin{aligned}
+\min\quad & Z = 3x_1 + 2x_2 \\
+\text{s.t.}\quad
+& 300x_1 + 200x_2 \ge 2200 \quad &\text{(calorie requirement)} \\
+& 4.5x_1 + 4x_2 \ge 30 \quad &\text{(protein requirement)} \\
+& x_1 \ge 0,\; x_2 \ge 0 \quad &\text{(non-negativity)}
+\end{aligned}
+\]
+
+---
+
+## Suitable Python libraries
+
+This is a standard small LP and can be solved with:
+
+- **PuLP** (`pulp`): very easy LP modeling and solving in Python.  
+- **SciPy** (`scipy.optimize.linprog`): direct LP solver for small/medium problems.  
+- **OR-Tools** (`ortools.linear_solver`): good for LP and MILP from Google.  
+
+Any of these will solve this model quickly.
+
+---
+
+[CODER]:
+import pulp
+
+def main():
+    # Create the LP problem: minimization
+    prob = pulp.LpProblem("Jordans_Diet_Problem", pulp.LpMinimize)
+
+    # Decision variables: number of servings of Rice (x1) and Kebab (x2)
+    x1 = pulp.LpVariable('x1', lowBound=0, cat='Continuous')  # Rice
+    x2 = pulp.LpVariable('x2', lowBound=0, cat='Continuous')  # Kebab
+
+    # Objective function: Minimize cost = 3*x1 + 2*x2
+    prob += 3 * x1 + 2 * x2, "Total_Cost"
+
+    # Constraints
+    # Calorie requirement: 300x1 + 200x2 >= 2200
+    prob += 300 * x1 + 200 * x2 >= 2200, "Calorie_Requirement"
+
+    # Protein requirement: 4.5x1 + 4x2 >= 30
+    prob += 4.5 * x1 + 4 * x2 >= 30, "Protein_Requirement"
+
+    # Solve the problem
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    # Get the objective value
+    final_obj = pulp.value(prob.objective)
+
+    # Print the final objective value in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

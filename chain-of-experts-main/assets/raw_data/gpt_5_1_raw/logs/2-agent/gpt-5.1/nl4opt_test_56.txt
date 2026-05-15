@@ -1,0 +1,219 @@
+[MODELER]:
+Here is a clean mathematical formulation of the problem and how you could solve it in Python.
+
+---
+
+## 1. Define decision variables
+
+Let:
+
+- \( x \) = number of high-volume pipes (integer, \( x \ge 0 \))
+- \( y \) = number of low-volume pipes (integer, \( y \ge 0 \))
+
+---
+
+## 2. Objective function
+
+We want to minimize the **total number of pipes**:
+
+\[
+\min \; Z = x + y
+\]
+
+---
+
+## 3. Constraints
+
+### 3.1. Daily gas volume requirement
+
+Each high-volume pipe: 10,000 gallons/day  
+Each low-volume pipe: 5,000 gallons/day  
+Need at least 150,000 gallons/day:
+
+\[
+10000x + 5000y \;\ge\; 150000
+\]
+
+Divide by 5000 (optional simplification):
+
+\[
+2x + y \;\ge\; 30
+\]
+
+---
+
+### 3.2. Technician availability
+
+Each high-volume pipe requires 12 technicians.  
+Each low-volume pipe requires 5 technicians.  
+Total technicians available: 160.
+
+\[
+12x + 5y \;\le\; 160
+\]
+
+---
+
+### 3.3. High-volume pipe proportion limit
+
+“At most 35% of the pipes can be high-volume ones” means:
+
+\[
+\frac{x}{x + y} \;\le\; 0.35
+\]
+
+Assuming \(x + y > 0\), multiply both sides by \(x + y\):
+
+\[
+x \;\le\; 0.35(x + y)
+\]
+
+\[
+x \;\le\; 0.35x + 0.35y
+\]
+
+\[
+0.65x \;\le\; 0.35y
+\]
+
+\[
+13x \;\le\; 7y
+\]
+
+So:
+
+\[
+13x - 7y \;\le\; 0
+\]
+
+---
+
+### 3.4. Minimum low-volume pipes
+
+There must be at least 8 low-volume pipes:
+
+\[
+y \;\ge\; 8
+\]
+
+---
+
+### 3.5. Integrality and nonnegativity
+
+\[
+x, y \in \mathbb{Z}, \quad x \ge 0, \; y \ge 0
+\]
+
+---
+
+## 4. Complete mathematical model
+
+\[
+\begin{align}
+\min \quad & x + y \\
+\text{s.t.} \quad
+& 10000x + 5000y \;\ge\; 150000 \\
+& 12x + 5y \;\le\; 160 \\
+& 13x - 7y \;\le\; 0 \\
+& y \;\ge\; 8 \\
+& x, y \in \mathbb{Z}_{\ge 0}
+\end{align}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+This is a small **integer linear program** (ILP). Suitable libraries:
+
+- `PuLP` – very simple for teaching and modeling linear/integer programs
+- `OR-Tools` (Google) – powerful CP-SAT solver for integer problems
+- `Pyomo` – more general modeling language for optimization
+- `scipy.optimize` – less suited here because it does not natively handle integer variables
+
+For this problem, **PuLP** or **OR-Tools** is ideal.
+
+---
+
+## 6. Example PuLP implementation
+
+```python
+import pulp as pl
+
+# Create the problem
+prob = pl.LpProblem("Pipe_Selection", pl.LpMinimize)
+
+# Decision variables (nonnegative integers)
+x = pl.LpVariable('x_high', lowBound=0, cat='Integer')
+y = pl.LpVariable('y_low', lowBound=0, cat='Integer')
+
+# Objective: minimize total number of pipes
+prob += x + y, "Total_Pipes"
+
+# Constraints
+
+# Gas demand: 10,000 x + 5,000 y >= 150,000
+prob += 10000 * x + 5000 * y >= 150000, "Demand"
+
+# Technicians: 12 x + 5 y <= 160
+prob += 12 * x + 5 * y <= 160, "Technicians"
+
+# High-volume proportion: 13 x <= 7 y
+prob += 13 * x - 7 * y <= 0, "Proportion"
+
+# Minimum low-volume pipes: y >= 8
+prob += y >= 8, "Min_Low_Volume"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Results
+print("Status:", pl.LpStatus[prob.status])
+print("High-volume pipes (x):", pl.value(x))
+print("Low-volume pipes (y):", pl.value(y))
+print("Total pipes:", pl.value(x + y))
+```
+
+This model precisely captures the story constraints and can be solved to get the optimal numbers of high- and low-volume pipes.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Pipe_Selection", pl.LpMinimize)
+
+    # Decision variables (nonnegative integers)
+    x = pl.LpVariable('x_high', lowBound=0, cat='Integer')
+    y = pl.LpVariable('y_low', lowBound=0, cat='Integer')
+
+    # Objective: minimize total number of pipes
+    prob += x + y, "Total_Pipes"
+
+    # Constraints
+
+    # Gas demand: 10,000 x + 5,000 y >= 150,000
+    prob += 10000 * x + 5000 * y >= 150000, "Demand"
+
+    # Technicians: 12 x + 5 y <= 160
+    prob += 12 * x + 5 * y <= 160, "Technicians"
+
+    # High-volume proportion: 13 x <= 7 y
+    prob += 13 * x - 7 * y <= 0, "Proportion"
+
+    # Minimum low-volume pipes: y >= 8
+    prob += y >= 8, "Min_Low_Volume"
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(x + y)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

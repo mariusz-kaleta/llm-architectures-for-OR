@@ -1,0 +1,136 @@
+[MODELER]:
+Here is a mathematical optimization model for the problem.
+
+## 1. Decision Variables
+
+Let  
+- \(x_1\) = number of crepe cakes to make  
+- \(x_2\) = number of sponge cakes to make  
+- \(x_3\) = number of birthday cakes to make  
+
+All variables are nonnegative and (in reality) should be integers:
+\[
+x_1, x_2, x_3 \ge 0,\quad x_1, x_2, x_3 \in \mathbb{Z}
+\]
+
+## 2. Objective Function
+
+Maximize total profit:
+
+- Profit per crepe cake: \$12  
+- Profit per sponge cake: \$10  
+- Profit per birthday cake: \$15  
+
+\[
+\text{Maximize } Z = 12x_1 + 10x_2 + 15x_3
+\]
+
+## 3. Constraints
+
+### Batter constraint (20,000 g available)
+
+- Crepe: 400 g
+- Sponge: 500 g
+- Birthday: 450 g  
+
+\[
+400x_1 + 500x_2 + 450x_3 \le 20000
+\]
+
+### Milk constraint (14,000 g available)
+
+- Crepe: 200 g
+- Sponge: 300 g
+- Birthday: 350 g  
+
+\[
+200x_1 + 300x_2 + 350x_3 \le 14000
+\]
+
+### Nonnegativity (and integrality, if enforced)
+
+\[
+x_1, x_2, x_3 \ge 0,\quad x_1, x_2, x_3 \in \mathbb{Z}
+\]
+
+This is a (small) integer linear programming (ILP) problem.
+
+---
+
+## 4. Suitable Python Libraries
+
+For this linear/integer optimization problem, these libraries are appropriate:
+
+- **PuLP** – Simple, pure-Python LP/MIP modeling library; works well for teaching and small problems.
+- **OR-Tools (Google OR-Tools)** – Powerful, very good MIP solver interface (`pywraplp` or `linear_solver`).
+- **SciPy (`scipy.optimize.linprog`)** – For linear programming (continuous variables only; it doesn’t handle integrality directly).
+- **Pyomo** – More general algebraic modeling language; good for larger or more complex models.
+
+For this problem, **PuLP** or **OR-Tools** is more than sufficient.
+
+---
+
+## 5. Example PuLP Formulation in Python
+
+```python
+import pulp as pl
+
+# Create the problem
+prob = pl.LpProblem("Bakery_Production", pl.LpMaximize)
+
+# Decision variables (integer)
+x1 = pl.LpVariable("crepe_cakes", lowBound=0, cat="Integer")
+x2 = pl.LpVariable("sponge_cakes", lowBound=0, cat="Integer")
+x3 = pl.LpVariable("birthday_cakes", lowBound=0, cat="Integer")
+
+# Objective function
+prob += 12 * x1 + 10 * x2 + 15 * x3, "Total_Profit"
+
+# Constraints
+prob += 400 * x1 + 500 * x2 + 450 * x3 <= 20000, "Batter_limit"
+prob += 200 * x1 + 300 * x2 + 350 * x3 <= 14000, "Milk_limit"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal number of crepe cakes   =", x1.value())
+print("Optimal number of sponge cakes  =", x2.value())
+print("Optimal number of birthday cakes=", x3.value())
+print("Maximum profit = $", pl.value(prob.objective))
+```
+
+This code directly implements the model above and will compute the optimal production quantities.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Bakery_Production", pl.LpMaximize)
+
+    # Decision variables (integer)
+    x1 = pl.LpVariable("crepe_cakes", lowBound=0, cat="Integer")
+    x2 = pl.LpVariable("sponge_cakes", lowBound=0, cat="Integer")
+    x3 = pl.LpVariable("birthday_cakes", lowBound=0, cat="Integer")
+
+    # Objective function: Maximize profit
+    prob += 12 * x1 + 10 * x2 + 15 * x3, "Total_Profit"
+
+    # Constraints
+    prob += 400 * x1 + 500 * x2 + 450 * x3 <= 20000, "Batter_limit"
+    prob += 200 * x1 + 300 * x2 + 350 * x3 <= 14000, "Milk_limit"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract the objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective value in required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

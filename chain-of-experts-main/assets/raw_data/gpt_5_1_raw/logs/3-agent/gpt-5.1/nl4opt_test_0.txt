@@ -1,0 +1,151 @@
+[MODELER]:
+Formulate this as an integer linear programming (ILP) problem.
+
+### Decision variables
+
+Let  
+- \(b \in \mathbb{Z}_{\ge 0}\): number of boat trips  
+- \(c \in \mathbb{Z}_{\ge 0}\): number of canoe trips  
+
+### Objective
+
+Each boat trip takes 20 minutes; each canoe trip takes 40 minutes.  
+Minimize total transport time:
+
+\[
+\min\; T = 20b + 40c
+\]
+
+### Constraints
+
+1. **Duck capacity constraint (at least 300 ducks moved):**  
+   Boat capacity: 10 ducks/trip  
+   Canoe capacity: 8 ducks/trip  
+
+   \[
+   10b + 8c \;\ge\; 300
+   \]
+
+2. **Maximum boat trips (environmental constraint):**
+
+   \[
+   b \;\le\; 12
+   \]
+
+3. **At least 60% of trips must be by canoe:**
+
+   Total trips = \(b + c\).  
+   Canoe trips must be at least 60% of total:
+
+   \[
+   c \;\ge\; 0.6(b + c)
+   \]
+
+   Rearranging:
+
+   \[
+   c \;\ge\; 0.6b + 0.6c \\
+   0.4c \;\ge\; 0.6b \\
+   c \;\ge\; 1.5b
+   \]
+
+4. **Integrality and nonnegativity:**
+
+   \[
+   b, c \in \mathbb{Z}_{\ge 0}
+   \]
+
+### Summary of full model
+
+\[
+\begin{aligned}
+\min\quad & 20b + 40c \\
+\text{s.t.}\quad 
+& 10b + 8c \;\ge\; 300 \\
+& b \;\le\; 12 \\
+& c \;\ge\; 1.5b \\
+& b, c \in \mathbb{Z}_{\ge 0}
+\end{aligned}
+\]
+
+This ILP directly encodes the problem of minimizing total time while satisfying duck transport needs and environmental/trip mix rules.
+
+### Suitable Python libraries
+
+You can implement and solve this model with several libraries:
+
+- **PuLP** (`pulp`): simple and good for teaching/medium problems.
+- **OR-Tools** (`ortools.linear_solver`): very efficient, Google’s optimization suite.
+- **Pyomo**: more general algebraic modeling, integrates with many solvers.
+- **SciPy** (`scipy.optimize.linprog`): for linear programs; you would need additional handling to enforce integrality (e.g., branch and bound), so it’s less direct for integer requirements.
+
+For this small ILP, **PuLP** or **OR-Tools** are ideal.
+
+### Example using PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Duck_Transport", pl.LpMinimize)
+
+# Variables
+b = pl.LpVariable("boat_trips", lowBound=0, cat="Integer")
+c = pl.LpVariable("canoe_trips", lowBound=0, cat="Integer")
+
+# Objective: minimize total time
+prob += 20 * b + 40 * c
+
+# Constraints
+prob += 10 * b + 8 * c >= 300          # duck requirement
+prob += b <= 12                        # max boat trips
+prob += c >= 1.5 * b                   # at least 60% trips by canoe
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Boat trips:", pl.value(b))
+print("Canoe trips:", pl.value(c))
+print("Total time (minutes):", pl.value(20*b + 40*c))
+```
+
+This code corresponds exactly to the mathematical model above and will give the optimal number of boat and canoe trips.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Duck_Transport", pl.LpMinimize)
+
+    # Decision variables: number of boat and canoe trips (nonnegative integers)
+    b = pl.LpVariable("boat_trips", lowBound=0, cat="Integer")
+    c = pl.LpVariable("canoe_trips", lowBound=0, cat="Integer")
+
+    # Objective: minimize total time
+    prob += 20 * b + 40 * c
+
+    # Constraints
+    # 1. Duck capacity: at least 300 ducks
+    prob += 10 * b + 8 * c >= 300
+
+    # 2. Max boat trips
+    prob += b <= 12
+
+    # 3. At least 60% of trips must be by canoe ⇒ c ≥ 1.5 b
+    prob += c >= 1.5 * b
+
+    # Solve
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get objective value
+    obj_value = pl.value(prob.objective)
+
+    # Print final objective value in required format
+    print(f"FINAL_OBJ: {obj_value}")
+
+if __name__ == "__main__":
+    main()

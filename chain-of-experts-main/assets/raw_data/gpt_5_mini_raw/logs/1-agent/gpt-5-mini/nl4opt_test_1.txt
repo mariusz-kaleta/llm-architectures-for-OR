@@ -1,0 +1,49 @@
+[MONOLITH]:
+```python
+import pulp
+
+# Define the problem
+prob = pulp.LpProblem("Minimize_Filler", pulp.LpMinimize)
+
+# Decision variables: number of large (L) and small (S) pills
+# They should be integers and non-negative
+L = pulp.LpVariable("Large_Pills", lowBound=0, cat=pulp.LpInteger)
+S = pulp.LpVariable("Small_Pills", lowBound=0, cat=pulp.LpInteger)
+
+# Data (from the problem statement)
+total_medicinal = 1000  # total medicinal ingredient units available
+medicinal_per_large = 3
+medicinal_per_small = 2
+filler_per_large = 2
+filler_per_small = 1
+min_large = 100  # at least 100 large pills
+# At least 60% of total pills must be small -> S >= 0.6*(L+S) -> S >= 1.5*L
+small_fraction_multiplier = 1.5
+
+# Objective: minimize total filler used
+prob += filler_per_large * L + filler_per_small * S, "Total_Filler"
+
+# Constraints
+prob += medicinal_per_large * L + medicinal_per_small * S <= total_medicinal, "Medicinal_Limit"
+prob += L >= min_large, "Min_Large"
+prob += S >= small_fraction_multiplier * L, "Small_Pills_Minimum_Fraction"
+
+# Solve
+solver = pulp.PULP_CBC_CMD(msg=False)
+prob.solve(solver)
+
+# Extract results
+L_val = int(pulp.value(L))
+S_val = int(pulp.value(S))
+total_filler = pulp.value(prob.objective)
+# Convert objective to int if it's effectively integer for clean output
+if abs(total_filler - round(total_filler)) < 1e-8:
+    total_filler = int(round(total_filler))
+
+# Print solution (variables) then final objective as required (final line)
+print(f"Large pills (L): {L_val}")
+print(f"Small pills (S): {S_val}")
+print(f"Total medicinal used: {medicinal_per_large * L_val + medicinal_per_small * S_val} of {total_medicinal}")
+print(f"Total filler used: {filler_per_large * L_val + filler_per_small * S_val}")
+print(f"FINAL_OBJ: {total_filler}")
+```

@@ -1,0 +1,287 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximize the total number of mail bags delivered.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP) with integer (or at least non-negative) decision variables.  
+   - If you want strictly whole “deliveries” and not fractional, treat it as an Integer Linear Program (ILP).
+
+3. Main decision variables  
+   Define decision variables representing how many delivery trips are made by each method:
+   - Variable R: number of runner deliveries (trips made by runners).  
+   - Variable C: number of canoe deliveries (trips made by canoers).
+
+   You may optionally add:
+   - Total mail delivered: a derived expression (not a primary decision variable) calculated from R and C.
+
+4. Objective function structure  
+   - Each runner trip delivers 3 bags.  
+   - Each canoe trip delivers 10 bags.  
+   - Objective: Maximize total mail bags = 3·R + 10·C.
+
+5. Key constraints to consider  
+
+   a) Time (hours) constraint  
+   - Each runner trip takes 4 hours.  
+   - Each canoe trip takes 2 hours.  
+   - Total available time is at most 200 hours.  
+   - Time constraint: combined runner and canoe hours must not exceed 200.
+
+   b) Minimum number of runner deliveries  
+   - At least 4 runner deliveries must be used.  
+   - Constraint: R must be greater than or equal to 4.
+
+   c) Canoe usage limit (33% cap)  
+   - “At most 33% of deliveries can be by canoe.”  
+   - Deliveries here are total trips R + C, so the proportion of canoe trips is C / (R + C).  
+   - This proportion must be ≤ 0.33 (or 1/3 if interpreted exactly).  
+   - Rearranged into a linear inequality: canoe trips C are limited relative to total trips R + C.
+
+   d) Non-negativity and integrality  
+   - R ≥ 0, C ≥ 0.  
+   - If trips must be whole numbers, enforce R and C as integers.
+
+6. Modelling notes / considerations  
+
+   - Treat 33% as 1/3 if you want an exact mathematical fraction; if it is a decimal approximation, you can use 0.33, noting that it is a slight relaxation.  
+   - The time constraint is likely binding at optimum because both activities “consume” time, and the objective rewards more trips.  
+   - Check whether integrality strongly matters: the optimal LP solution might already give integer values due to the structure, but if not, use ILP.
+
+Summary structure for the modeller:
+- Variables: R (runner trips), C (canoe trips).  
+- Objective: Maximize 3R + 10C.  
+- Constraints:  
+  - Total time usage from runners and canoers ≤ 200 hours.  
+  - R ≥ 4 (minimum runner trips).  
+  - C / (R + C) ≤ 0.33 (canoe fraction limit), expressed linearly.  
+  - R, C ≥ 0 and (optionally) integer.
+
+---
+
+[MODELER]:
+Below is a clean mathematical model and how you would implement/solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+
+- \(R \ge 0\): number of runner trips (deliveries by runners)  
+- \(C \ge 0\): number of canoe trips (deliveries by canoe)
+
+If deliveries must be whole trips:
+
+- \(R, C \in \mathbb{Z}_{\ge 0}\)
+
+---
+
+## 2. Objective function
+
+Each runner trip delivers 3 bags.  
+Each canoe trip delivers 10 bags.
+
+Maximize total bags of mail delivered:
+
+\[
+\max \; Z = 3R + 10C
+\]
+
+---
+
+## 3. Constraints
+
+### (a) Total time constraint
+
+Each runner trip: 4 hours  
+Each canoe trip: 2 hours  
+Total available: 200 hours
+
+\[
+4R + 2C \;\le\; 200
+\]
+
+---
+
+### (b) Minimum number of runner deliveries
+
+At least 4 runner deliveries must be used:
+
+\[
+R \;\ge\; 4
+\]
+
+---
+
+### (c) Canoe usage cap (at most 33% of deliveries)
+
+At most 33% of all trips (deliveries) can be by canoe.  
+Total trips = \(R + C\).  
+Fraction by canoe:
+
+\[
+\frac{C}{R + C} \;\le\; 0.33
+\]
+
+To model this linearly, rewrite it.
+
+Assume exact one-third cap (more standard mathematically):
+
+\[
+\frac{C}{R + C} \le \frac{1}{3}
+\]
+
+Multiply both sides by \(R + C > 0\):
+
+\[
+C \;\le\; \frac{1}{3}(R + C)
+\]
+
+\[
+3C \;\le\; R + C
+\]
+
+\[
+2C \;\le\; R
+\]
+
+So the canoe cap becomes:
+
+\[
+R \;\ge\; 2C
+\]
+
+If you insist on the numerical 0.33 instead of \(1/3\), then:
+
+\[
+C \le 0.33(R + C)
+\quad\Rightarrow\quad
+0.67C \le 0.33R
+\quad\Rightarrow\quad
+C \le \frac{0.33}{0.67} R \approx 0.49254 R
+\]
+
+which is also linear, but the exact \(1/3\) is cleaner.
+
+---
+
+### (d) Non-negativity and integrality
+
+\[
+R \ge 0,\quad C \ge 0
+\]
+
+Optionally (and realistically):
+
+\[
+R, C \in \mathbb{Z}
+\]
+
+---
+
+## 4. Full model summary (ILP form)
+
+**Variables**
+
+- \(R, C \in \mathbb{Z}_{\ge 0}\)
+
+**Objective**
+
+\[
+\max \; Z = 3R + 10C
+\]
+
+**Constraints**
+
+\[
+\begin{aligned}
+4R + 2C &\le 200 &\quad&\text{(total time)} \\
+R &\ge 4 &&\text{(minimum runners)} \\
+R &\ge 2C &&\text{(canoe ≤ 33% of trips, exact)} \\
+R, C &\ge 0 &&\text{(non-negativity)}
+\end{aligned}
+\]
+
+This is a small Integer Linear Program.
+
+---
+
+## 5. Suitable Python libraries
+
+Any mixed-integer linear programming (MILP) or LP library will work:
+
+- `PuLP` (pure Python, easy syntax, uses CBC solver by default)
+- `ortools.linear_solver` (Google OR-Tools; very capable MILP)
+- `Pyomo` (more general modeling framework, can use many solvers)
+- `scipy.optimize.linprog` (for continuous LP only; not ideal if you need integer trips)
+
+For this problem, I recommend:
+
+- **PuLP** for simplicity, or  
+- **OR-Tools** for robustness and performance.
+
+---
+
+## 6. Example in PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Mail_Delivery", pl.LpMaximize)
+
+# Decision variables (integer)
+R = pl.LpVariable('R', lowBound=0, cat='Integer')  # runner trips
+C = pl.LpVariable('C', lowBound=0, cat='Integer')  # canoe trips
+
+# Objective: maximize 3R + 10C
+prob += 3 * R + 10 * C, "Total_Mail_Bags"
+
+# Constraints
+prob += 4 * R + 2 * C <= 200, "TimeLimit"
+prob += R >= 4, "MinRunners"
+prob += R >= 2 * C, "CanoeFractionCap"  # canoe ≤ 33% of total trips
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal R (runner trips):", pl.value(R))
+print("Optimal C (canoe trips):", pl.value(C))
+print("Max mail bags:", pl.value(prob.objective))
+```
+
+You can translate the same model to OR-Tools’ `pywraplp.Solver` with very similar structure.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Define the MILP problem
+    prob = pl.LpProblem("Mail_Delivery", pl.LpMaximize)
+
+    # Decision variables: integer number of trips
+    R = pl.LpVariable('R', lowBound=0, cat='Integer')  # runner trips
+    C = pl.LpVariable('C', lowBound=0, cat='Integer')  # canoe trips
+
+    # Objective: maximize 3R + 10C (total mail bags)
+    prob += 3 * R + 10 * C, "Total_Mail_Bags"
+
+    # Constraints
+    prob += 4 * R + 2 * C <= 200, "TimeLimit"          # total time constraint
+    prob += R >= 4, "MinRunners"                       # minimum runner trips
+    prob += R >= 2 * C, "CanoeFractionCap"             # canoe ≤ 33% of total trips
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract the objective value
+    value = pl.value(prob.objective)
+
+    # Required final output
+    print(f"FINAL_OBJ: {value}")
+
+if __name__ == "__main__":
+    main()

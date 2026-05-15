@@ -1,0 +1,155 @@
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by how you could solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let  
+
+- \(x\) = number of radio ads (integer)  
+- \(y\) = number of social media ads (integer)
+
+---
+
+## 2. Objective function (maximize exposure)
+
+Exposure per ad:
+
+- Radio: 60,500 viewers per ad  
+- Social media: 50,000 viewers per ad  
+
+Total exposure:
+
+\[
+\text{Maximize } Z = 60{,}500x + 50{,}000y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Budget constraint
+
+- Radio ad cost: \$5,000 per ad  
+- Social media ad cost: \$9,150 per ad  
+- Total budget: \$250,000  
+
+\[
+5{,}000x + 9{,}150y \le 250{,}000
+\]
+
+### b) Radio ad bounds
+
+“At least 15 but no more than 40 radio ads”:
+
+\[
+15 \le x \le 40
+\]
+
+### c) Social media minimum
+
+“At least 35 social media ads”:
+
+\[
+y \ge 35
+\]
+
+### d) Integrality
+
+You cannot buy fractional ads:
+
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 4. Model summary (integer linear program)
+
+\[
+\begin{aligned}
+\text{Maximize} \quad & Z = 60{,}500x + 50{,}000y \\
+\text{subject to} \quad
+& 5{,}000x + 9{,}150y \le 250{,}000 \\
+& 15 \le x \le 40 \\
+& y \ge 35 \\
+& x, y \in \mathbb{Z}
+\end{aligned}
+\]
+
+This is a small integer linear programming (ILP) problem.
+
+---
+
+## 5. Suitable Python libraries
+
+You can solve this ILP using any of:
+
+- **PuLP** (`pulp`): Simple, pure-Python LP/ILP modeling library, very suitable for teaching and small problems.
+- **OR-Tools** (`ortools.linear_solver`): Powerful Google library for linear and integer programming.
+- **Pyomo**: More general modeling framework, good for larger or more complex optimization problems.
+
+For this size/problem, **PuLP** or **OR-Tools** is ideal.
+
+---
+
+## 6. Example in PuLP
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Ad_Exposure_Maximization", pl.LpMaximize)
+
+# Decision variables (integers)
+x = pl.LpVariable('radio_ads', lowBound=15, upBound=40, cat='Integer')
+y = pl.LpVariable('social_media_ads', lowBound=35, cat='Integer')
+
+# Objective function
+prob += 60500 * x + 50000 * y, "Total_Exposure"
+
+# Budget constraint
+prob += 5000 * x + 9150 * y <= 250000, "Budget"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Optimal number of radio ads:", x.value())
+print("Optimal number of social media ads:", y.value())
+print("Maximum exposure:", pl.value(prob.objective))
+```
+
+You can run this to obtain the exact optimal counts of each ad type.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem
+    prob = pl.LpProblem("Ad_Exposure_Maximization", pl.LpMaximize)
+
+    # Decision variables
+    x = pl.LpVariable('radio_ads', lowBound=15, upBound=40, cat='Integer')
+    y = pl.LpVariable('social_media_ads', lowBound=35, cat='Integer')
+
+    # Objective: Maximize exposure
+    prob += 60500 * x + 50000 * y, "Total_Exposure"
+
+    # Budget constraint
+    prob += 5000 * x + 9150 * y <= 250000, "Budget"
+
+    # Solve the problem
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Get the final objective value
+    final_obj = pl.value(prob.objective)
+
+    # Print the final objective in the required format
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()

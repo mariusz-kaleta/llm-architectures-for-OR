@@ -1,0 +1,187 @@
+[MODELER]:
+Here is a clean mathematical model of the problem, followed by suggestions on how to solve it in Python.
+
+---
+
+## 1. Define decision variables
+
+Let  
+- \( x \) = number of otters used in the show (nonnegative integer)  
+- \( y \) = number of dolphins used in the show (nonnegative integer)
+
+---
+
+## 2. Objective function
+
+Each otter does 3 tricks.  
+Each dolphin does 1 trick.
+
+Total number of tricks:
+
+\[
+\text{Tricks} = 3x + y
+\]
+
+We want to maximize:
+
+\[
+\max\; Z = 3x + y
+\]
+
+---
+
+## 3. Constraints
+
+### a) Treats (resource) constraint
+
+- Each otter requires 3 treats.  
+- Each dolphin requires 5 treats.  
+- Total treats available: 200.
+
+\[
+3x + 5y \le 200
+\]
+
+### b) Dolphin popularity constraint (minimum dolphins)
+
+At least 10 dolphins:
+
+\[
+y \ge 10
+\]
+
+### c) Otter proportion constraint (at most 30% otters)
+
+“At most 30% of the performers can be otters” means:
+
+\[
+\frac{x}{x + y} \le 0.3
+\]
+
+Assuming \(x + y > 0\) (we definitely have performers since \(y \ge 10\)), multiply both sides by \(x + y\):
+
+\[
+x \le 0.3(x + y)
+\]
+
+\[
+x \le 0.3x + 0.3y
+\]
+
+\[
+0.7x \le 0.3y
+\]
+
+\[
+7x \le 3y
+\]
+
+So the proportion constraint becomes the linear inequality:
+
+\[
+7x \le 3y
+\]
+
+### d) Nonnegativity and integrality
+
+Number of animals cannot be negative and should be integers:
+
+\[
+x \ge 0,\quad y \ge 0
+\]
+\[
+x, y \in \mathbb{Z}
+\]
+
+---
+
+## 4. Final mathematical model
+
+Maximize:
+\[
+\max Z = 3x + y
+\]
+
+Subject to:
+\[
+3x + 5y \le 200
+\]
+\[
+y \ge 10
+\]
+\[
+7x \le 3y
+\]
+\[
+x, y \in \mathbb{Z}_{\ge 0}
+\]
+
+---
+
+## 5. Suitable Python libraries
+
+This is a small integer linear programming (ILP) problem. Suitable libraries:
+
+- **PuLP** (`pulp`): Very straightforward for teaching and small ILPs.
+- **OR-Tools Linear Solver** (`ortools.linear_solver`): Industrial-strength, good performance.
+- **Pyomo**: More general algebraic modeling, good for larger or more complex models.
+
+---
+
+## 6. Example skeleton in Python (with PuLP)
+
+```python
+import pulp as pl
+
+# Define problem
+prob = pl.LpProblem("Aquarium_Show", pl.LpMaximize)
+
+# Variables
+x = pl.LpVariable("otters", lowBound=0, cat="Integer")
+y = pl.LpVariable("dolphins", lowBound=10, cat="Integer")  # min 10 dolphins
+
+# Objective
+prob += 3*x + y, "Total_Tricks"
+
+# Constraints
+prob += 3*x + 5*y <= 200, "Treats"
+prob += 7*x <= 3*y, "Otter_Proportion"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Otters:", x.value())
+print("Dolphins:", y.value())
+print("Max tricks:", pl.value(prob.objective))
+```
+
+You can adapt this to OR-Tools or Pyomo similarly if preferred.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import pulp as pl
+
+# Define the problem
+prob = pl.LpProblem("Aquarium_Show", pl.LpMaximize)
+
+# Decision variables
+x = pl.LpVariable("otters", lowBound=0, cat="Integer")
+y = pl.LpVariable("dolphins", lowBound=10, cat="Integer")  # y >= 10
+
+# Objective function: maximize total tricks
+prob += 3 * x + y, "Total_Tricks"
+
+# Constraints
+prob += 3 * x + 5 * y <= 200, "Treats_Constraint"
+prob += 7 * x <= 3 * y, "Otter_Proportion_Constraint"
+
+# Solve the problem
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+# Extract objective value
+objective_value = pl.value(prob.objective)
+
+# Print final objective in required format
+print(f"FINAL_OBJ: {objective_value}")

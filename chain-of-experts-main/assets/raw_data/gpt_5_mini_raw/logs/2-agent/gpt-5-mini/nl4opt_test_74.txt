@@ -1,0 +1,95 @@
+[MODELER]:
+Model
+
+Decision variables
+- x = number of painkiller pills (≥ 0; integer)
+- y = number of sleeping pills (≥ 0; integer)
+
+Objective
+- Minimize total digestive medicine used:
+  minimize D = 3x + 5y
+
+Constraints
+- Morphine limit: 10x + 6y ≤ 3000  (mg of morphine available)
+- Minimum painkillers: x ≥ 50
+- At least 70% of pills are sleeping pills:
+  y ≥ 0.7 (x + y)  which is linearized to 3y ≥ 7x
+- Integrality: x, y ∈ Z≥0 (if fractional pills are allowed you can relax integrality)
+
+Summary (linear program)
+minimize 3x + 5y
+subject to
+  10x + 6y ≤ 3000
+  3y ≥ 7x
+  x ≥ 50
+  x, y ≥ 0
+(and x,y integer if required)
+
+Solve analytically / reasoning
+- From 3y ≥ 7x we have y ≥ (7/3) x.
+- The digestive objective is increasing in both x and y, so to minimize it we should take x as small as allowed: x = 50.
+- Then minimal y = ceil((7/3)*50) if integers, or y = (7/3)*50 = 350/3 ≈ 116.667 if fractional allowed.
+- Check morphine use: 10*50 + 6*(350/3) = 500 + 700 = 1200 mg ≤ 3000, so morphine limit is not active.
+
+Optimal solutions
+- Continuous (fractional pills allowed): x = 50, y = 350/3 ≈ 116.667; total digestive = 3*50 + 5*(350/3) = 733.333... units.
+- Integer (pills must be whole): x = 50, y = 117 (smallest integer satisfying 3y ≥ 7x); total digestive = 3*50 + 5*117 = 735 units.
+
+Recommended Python tools
+- For continuous LP: scipy.optimize.linprog or pulp (LP mode).
+- For integer (MILP): pulp (CBC solver), OR-Tools CP-SAT, or commercial solvers (Gurobi, CPLEX) if available.
+
+Example (pulp, integer MILP)
+- Define IntVar x,y.
+- Set objective 3*x + 5*y minimize.
+- Add constraints: 10*x + 6*y <= 3000; 3*y >= 7*x; x >= 50; x,y >= 0; solve.
+
+If you want, I can provide the exact pulp or OR-Tools code to solve and verify the integer solution.
+
+---
+
+[PROGRAMMER-VALIDATOR]:
+import math
+
+# Model data
+# Decision variables: x (painkiller pills), y (sleeping pills)
+# Objective: minimize D = 3x + 5y
+# Constraints:
+#   10x + 6y <= 3000          (morphine limit)
+#   3y >= 7x                  (at least 70% sleeping pills)
+#   x >= 50
+#   x, y are integers >= 0
+
+# Continuous (relaxed) analytic solution based on reasoning:
+x_cont = 50
+y_cont = (7.0/3.0) * x_cont
+obj_cont = 3.0 * x_cont + 5.0 * y_cont
+
+# Brute-force integer search to find true integer optimum
+best_obj = None
+best_x = None
+best_y = None
+
+# Bound for x: from morphine constraint if y=0 -> 10x <= 3000 -> x <= 300.
+# But x must be >= 50, so search 50..300 inclusive.
+for x in range(50, 301):
+    # minimal y from 3y >= 7x
+    y_min = math.ceil((7 * x) / 3)
+    # maximal y from morphine constraint 10x + 6y <= 3000 -> y <= (3000 - 10x)/6
+    y_max = math.floor((3000 - 10 * x) / 6)
+    if y_min > y_max:
+        continue
+    # For fixed x, objective increases with y (coefficient 5 > 0), so choose y_min
+    y = y_min
+    obj = 3 * x + 5 * y
+    if (best_obj is None) or (obj < best_obj):
+        best_obj = obj
+        best_x = x
+        best_y = y
+
+# Print results (informational)
+print(f"Continuous solution (relaxed integrality): x={x_cont}, y={y_cont:.6f}, objective={obj_cont:.6f}")
+print(f"Integer optimal solution found by brute-force: x={best_x}, y={best_y}, objective={best_obj}")
+
+# Final output line required by the specification
+print(f"FINAL_OBJ: {best_obj}")

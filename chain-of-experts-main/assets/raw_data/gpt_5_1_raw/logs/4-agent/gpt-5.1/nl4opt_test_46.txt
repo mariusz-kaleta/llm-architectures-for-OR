@@ -1,0 +1,237 @@
+[PLANNER]:
+1. Key optimisation goal  
+   - Goal: Maximise total kilograms of tea leaves picked across all 500 acres.
+
+2. Suggested model type  
+   - Model: Linear Programming (LP), continuous decision variables (acres may be treated as continuous if fractional use is allowed; otherwise, integer programming if acre assignments must be integer).
+
+3. Main decision variables  
+   Define decision variables in terms of acres assigned to each machine type:
+   - Variable 1: Acres worked using the traditional machine.  
+   - Variable 2: Acres worked using the modern machine.
+
+   Objective expression (for the Modeller’s use, conceptually):
+   - Total tea leaves picked = (tea per acre with traditional) × (acres with traditional)  
+     + (tea per acre with modern) × (acres with modern).
+
+4. Key constraints to consider  
+
+   a) Land availability constraint  
+   - Total acres assigned to both machines cannot exceed available land:  
+     (acres traditional) + (acres modern) ≤ total land (500 acres).  
+   - Depending on the modelling choice, you may also explicitly include non-negativity:  
+     (acres traditional) ≥ 0, (acres modern) ≥ 0.
+
+   b) Fuel availability constraint  
+   - Each acre with a traditional machine uses 20 liters; each acre with a modern machine uses 15 liters.  
+   - Total fuel usage across all acres must not exceed 9000 liters:  
+     20 × (acres traditional) + 15 × (acres modern) ≤ 9000.
+
+   c) Waste handling capacity constraint  
+   - Each acre with a traditional machine produces 10 kg of waste; each acre with a modern machine produces 15 kg of waste.  
+   - Total waste produced must not exceed handling capacity of 6000 kg:  
+     10 × (acres traditional) + 15 × (acres modern) ≤ 6000.
+
+   d) Feasibility and logical constraints  
+   - Non-negativity of decision variables (no negative acres).  
+   - Optionally, an upper bound per variable can be added:  
+     (acres traditional) ≤ 500, (acres modern) ≤ 500, though the land constraint already limits the sum.  
+   - If the context requires assigning whole acres only, then impose integrality on both decision variables (Integer Programming).
+
+5. Modelling strategy notes for the Modeller  
+
+   - Express the objective as maximisation of total tea output using the given yields per acre.  
+   - Include all three main constraints: land, fuel, waste.  
+   - Solve the LP graphically (2-variable), or via simplex/solver, to find the optimal combination of acres under each machine type.  
+   - Check which constraints are binding at the optimum (fuel, waste, and/or land) to interpret the solution economically (e.g., determine whether fuel or waste is the limiting resource).  
+   - If the solution yields fractional acres and the problem demands whole acres, round and test nearby integer solutions to ensure the maximum is preserved under integrality.
+
+---
+
+[MODELER]:
+Below is a complete mathematical optimisation model of the tea estate problem, followed by guidance on how to solve it in Python.
+
+---
+
+## 1. Decision variables
+
+Let
+
+- \(x_T \ge 0\): acres worked using the **traditional** machine  
+- \(x_M \ge 0\): acres worked using the **modern** machine  
+
+(If acres must be whole numbers, then \(x_T, x_M\) are integers.)
+
+---
+
+## 2. Objective function
+
+Maximise total kilograms of tea leaves picked.
+
+- Traditional machine yield: 30 kg/acre  
+- Modern machine yield: 40 kg/acre  
+
+Objective:
+
+\[
+\max \; Z = 30 x_T + 40 x_M
+\]
+
+where \(Z\) is total kg of tea picked.
+
+---
+
+## 3. Constraints
+
+### a) Land availability
+
+Total worked acres cannot exceed 500 acres:
+
+\[
+x_T + x_M \le 500
+\]
+
+### b) Fuel availability
+
+- Traditional: 20 liters/acre  
+- Modern: 15 liters/acre  
+- Total available fuel: 9000 liters  
+
+\[
+20 x_T + 15 x_M \le 9000
+\]
+
+### c) Waste handling capacity
+
+- Traditional: 10 kg waste/acre  
+- Modern: 15 kg waste/acre  
+- Waste capacity: 6000 kg  
+
+\[
+10 x_T + 15 x_M \le 6000
+\]
+
+### d) Non-negativity (and optional bounds)
+
+\[
+x_T \ge 0, \quad x_M \ge 0
+\]
+
+Optionally, explicit upper bounds:
+
+\[
+x_T \le 500, \quad x_M \le 500
+\]
+
+(but they are implied by the land constraint if both are non-negative).
+
+### e) Integer (optional)
+
+If you must allocate whole acres:
+
+\[
+x_T, x_M \in \mathbb{Z}
+\]
+
+---
+
+## 4. Model type
+
+- This is a **Linear Programming (LP)** problem.  
+- If you add integrality constraints on \(x_T, x_M\), it becomes an **Integer Linear Programming (ILP)** problem.
+
+Given only 2 variables and linear constraints, it can also be solved graphically, but solvers are straightforward.
+
+---
+
+## 5. Suitable Python libraries
+
+Any standard LP/MIP solver can handle this:
+
+- **PuLP**: user-friendly, pure Python, interfaces to CBC (default) and others.
+- **OR-Tools** (Google): powerful MIP solver (`pywraplp.LinearSolver`).
+- **SciPy** (`scipy.optimize.linprog`): for continuous LP only (no integrality).
+- **Pyomo**: more general algebraic modelling language (LP/MIP/Nonlinear).
+
+For this problem:
+
+- If fractional acres are acceptable → **PuLP** or **SciPy linprog**.  
+- If acres must be integers → **PuLP** or **OR-Tools** (MIP).
+
+---
+
+## 6. Example PuLP formulation (continuous LP)
+
+```python
+import pulp as pl
+
+# Problem
+prob = pl.LpProblem("Tea_Estate_Optimization", pl.LpMaximize)
+
+# Decision variables (continuous >= 0)
+x_T = pl.LpVariable('x_T', lowBound=0)  # acres traditional
+x_M = pl.LpVariable('x_M', lowBound=0)  # acres modern
+
+# Objective: Maximize 30 x_T + 40 x_M
+prob += 30 * x_T + 40 * x_M, "Total_Tea_kg"
+
+# Constraints
+prob += x_T + x_M <= 500, "Land"
+prob += 20 * x_T + 15 * x_M <= 9000, "Fuel"
+prob += 10 * x_T + 15 * x_M <= 6000, "Waste"
+
+# Solve
+prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+print("Status:", pl.LpStatus[prob.status])
+print("Acres with traditional machine (x_T):", x_T.varValue)
+print("Acres with modern machine (x_M):", x_M.varValue)
+print("Maximum tea (kg):", pl.value(prob.objective))
+```
+
+To enforce whole acres, define the variables as `cat='Integer'`:
+
+```python
+x_T = pl.LpVariable('x_T', lowBound=0, cat='Integer')
+x_M = pl.LpVariable('x_M', lowBound=0, cat='Integer')
+```
+
+This fully specifies the optimisation model that matches your planning description and the original problem.
+
+---
+
+[CODER]:
+import pulp as pl
+
+def main():
+    # Create the problem: maximize total tea
+    prob = pl.LpProblem("Tea_Estate_Optimization", pl.LpMaximize)
+
+    # Decision variables: whole acres (integer, non-negative)
+    x_T = pl.LpVariable('x_T', lowBound=0, cat='Integer')  # acres with traditional machine
+    x_M = pl.LpVariable('x_M', lowBound=0, cat='Integer')  # acres with modern machine
+
+    # Objective: Maximize 30 x_T + 40 x_M (kg of tea)
+    prob += 30 * x_T + 40 * x_M, "Total_Tea_kg"
+
+    # Constraints
+    # Land availability
+    prob += x_T + x_M <= 500, "Land"
+
+    # Fuel availability
+    prob += 20 * x_T + 15 * x_M <= 9000, "Fuel"
+
+    # Waste handling capacity
+    prob += 10 * x_T + 15 * x_M <= 6000, "Waste"
+
+    # Solve using CBC solver (default in PuLP)
+    prob.solve(pl.PULP_CBC_CMD(msg=False))
+
+    # Extract objective value
+    final_obj = pl.value(prob.objective)
+
+    # Required final print
+    print(f"FINAL_OBJ: {final_obj}")
+
+if __name__ == "__main__":
+    main()
